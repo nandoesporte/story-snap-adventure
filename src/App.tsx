@@ -23,6 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/create-story" element={<CreateStory />} />
             <Route path="/view-story" element={<ViewStory />} />
+            <Route path="/view-story/:storyId" element={<ViewStory />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>

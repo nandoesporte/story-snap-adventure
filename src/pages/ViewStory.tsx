@@ -1,5 +1,6 @@
 
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import StoryViewer from "../components/StoryViewer";
 import { motion } from "framer-motion";
 
@@ -26,28 +27,7 @@ const ViewStory = () => {
           <StoryViewer />
         </div>
       </main>
-      
-      <footer className="py-8 px-4 border-t border-slate-200">
-        <div className="container mx-auto max-w-7xl">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-muted-foreground text-center md:text-left">
-              &copy; 2024 StorySnap. Todos os direitos reservados.
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-sm text-muted-foreground hover:text-storysnap-blue transition-colors">
-                Termos de Uso
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-storysnap-blue transition-colors">
-                Política de Privacidade
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-storysnap-blue transition-colors">
-                Contato
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
