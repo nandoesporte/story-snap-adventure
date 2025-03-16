@@ -18,43 +18,45 @@ export const useStoryBot = () => {
   ): Promise<string> => {
     try {
       // Prepare the prompt for the Gemini API
-      const systemPrompt = `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é **StoryBot**. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas. Siga estas diretrizes:
+      const systemInstructions = `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é StoryBot. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas. 
+      
+Cumprimente o usuário de forma amigável. Pergunte o nome da criança e o tema da história que desejam criar. Ofereça sugestões de temas, como 'aventura na floresta', 'viagem ao espaço', 'reino mágico', etc.
 
-1. **Interação Inicial:**
-   - Cumprimente o usuário de forma amigável.
-   - Pergunte o nome da criança e o tema da história que desejam criar.
-   - Ofereça sugestões de temas, como 'aventura na floresta', 'viagem ao espaço', 'reino mágico', etc.
+Pergunte sobre características da criança (ex: corajosa, curiosa, brincalhona). Pergunte se há algum elemento específico que deva ser incluído na história (ex: animais, magia, amigos). Pergunte se o usuário deseja que a história tenha uma moral ou lição específica.
 
-2. **Coleta de Detalhes:**
-   - Pergunte sobre características da criança (ex: corajosa, curiosa, brincalhona).
-   - Pergunte se há algum elemento específico que deva ser incluído na história (ex: animais, magia, amigos).
-   - Pergunte se o usuário deseja que a história tenha uma moral ou lição específica.
+Crie uma história curta, envolvente e adequada para crianças de 4 a 8 anos. Use o nome da criança como personagem principal. Inclua diálogos engraçados e cenas emocionantes. Adicione uma moral ou lição no final, se solicitado.
 
-3. **Geração da História:**
-   - Crie uma história curta, envolvente e adequada para crianças de 4 a 8 anos.
-   - Use o nome da criança como personagem principal.
-   - Inclua diálogos engraçados e cenas emocionantes.
-   - Adicione uma moral ou lição no final, se solicitado.
+Para cada parte da história, sugira uma descrição visual detalhada que possa ser transformada em uma ilustração.
 
-4. **Sugestões de Ilustrações:**
-   - Para cada parte da história, sugira uma descrição visual detalhada que possa ser transformada em uma ilustração.
+Pergunte se o usuário gostou da história e se deseja fazer alguma alteração. Ofereça opções para salvar a história, compartilhá-la ou criar uma nova.
 
-5. **Finalização:**
-   - Pergunte se o usuário gostou da história e se deseja fazer alguma alteração.
-   - Ofereça opções para salvar a história, compartilhá-la ou criar uma nova.
+Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e acessível para crianças.`;
 
-6. **Tom e Estilo:**
-   - Use um tom amigável, divertido e encorajador.
-   - Mantenha a linguagem simples e acessível para crianças.`;
-
-      // Convert our message history to Gemini's format
-      const formattedMessages = messageHistory.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
+      // Prepare history for Gemini
+      let messages = [];
+      
+      // Add a user message with system instructions first
+      messages.push({
+        role: "user",
+        parts: [{ text: systemInstructions }]
+      });
+      
+      // Add an assistant response confirming instructions
+      messages.push({
+        role: "assistant",
+        parts: [{ text: "Entendido, vou ajudar com histórias infantis!" }]
+      });
+      
+      // Add the conversation history
+      for (const msg of messageHistory) {
+        messages.push({
+          role: msg.role,
+          parts: [{ text: msg.content }]
+        });
+      }
       
       // Add current user input
-      formattedMessages.push({
+      messages.push({
         role: "user",
         parts: [{ text: userInput }]
       });
@@ -66,13 +68,7 @@ export const useStoryBot = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "system",
-              parts: [{ text: systemPrompt }]
-            },
-            ...formattedMessages
-          ],
+          contents: messages,
           generationConfig: {
             temperature: 0.7,
             topK: 40,
