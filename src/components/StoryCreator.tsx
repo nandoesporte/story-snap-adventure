@@ -107,7 +107,7 @@ const StoryCreator = () => {
         formData.setting === 'space' ? 'Espaço Sideral' : 
         formData.setting === 'underwater' ? 'Mundo Submarino' : 
         'Terra dos Dinossauros'
-      }. Crie uma história completa com início, meio e fim, dividida em 5 páginas incluindo uma moral. Use o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc.`;
+      }. Crie uma história completa com início, meio e fim, dividida em 10 páginas incluindo uma moral. Use o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc. até "PAGINA 10:". Cada página deve ter apenas um parágrafo curto.`;
       
       const finalResponse = await generateStoryBotResponse(messages, summaryPrompt);
       
@@ -157,30 +157,33 @@ const StoryCreator = () => {
   };
   
   const parseStoryContent = (response: string): { title: string; content: string[] } => {
-    const titleMatch = response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
+    let cleanedResponse = response.replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:/gi, '');
+    
+    const titleMatch = cleanedResponse.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
     const title = titleMatch ? titleMatch[1].trim() : `História de ${formData?.childName}`;
     
-    const pageMatches = response.match(/PAGINA\s*\d+:\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
+    const pageMatches = cleanedResponse.match(/PAGINA\s*\d+:\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
     
     let content: string[] = [];
     if (pageMatches && pageMatches.length > 0) {
       content = pageMatches.map(page => {
-        return page.replace(/PAGINA\s*\d+:\s*/i, '').trim();
+        return page.replace(/PAGINA\s*\d+:\s*/i, '')
+          .replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:/gi, '')
+          .trim();
       });
     } else {
-      const paragraphs = response.split('\n\n').filter(para => 
+      const paragraphs = cleanedResponse.split('\n\n').filter(para => 
         para.trim().length > 0 && !para.match(/TITULO:/i)
       );
       
-      const numPages = Math.min(5, paragraphs.length);
-      content = paragraphs.slice(0, numPages);
+      content = paragraphs;
     }
     
-    while (content.length < 5) {
-      content.push(`Continuação da história de ${formData?.childName}...`);
+    while (content.length < 10) {
+      content.push(`A aventura de ${formData?.childName} continua...`);
     }
     
-    return { title, content: content.slice(0, 5) };
+    return { title, content: content.slice(0, 10) };
   };
   
   return (
