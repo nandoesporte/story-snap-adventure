@@ -2,11 +2,18 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download, Home, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookOpen, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { toast } from "sonner";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 type StoryPage = {
   text: string;
@@ -24,27 +31,30 @@ type StoryData = {
   pages: StoryPage[];
 };
 
-// Function to get a random pastel color
-const getRandomPastelColor = () => {
-  const hue = Math.floor(Math.random() * 360);
-  return `hsl(${hue}, 100%, 90%)`;
+// Fontes infantis para o livro
+const BOOK_FONTS = {
+  title: "font-bubblegum",
+  text: "font-comic",
+  secondary: "font-patrick",
+  accent: "font-schoolbell"
 };
 
-// Function to get a vibrant color for children's book
+// Cores vibrantes infantis
+const VIBRANT_COLORS = [
+  '#FFB6C1', // pink
+  '#FFD700', // gold
+  '#98FB98', // palegreen
+  '#87CEFA', // lightskyblue
+  '#FFA07A', // lightsalmon
+  '#DDA0DD', // plum
+  '#FFFACD', // lemonchiffon
+  '#B0E0E6', // powderblue
+  '#FFDAB9', // peachpuff
+  '#E6E6FA', // lavender
+];
+
 const getVibrantColor = (index: number) => {
-  const colors = [
-    '#FF9AA2', // soft pink
-    '#FFB7B2', // light pink
-    '#FFDAC1', // peach
-    '#E2F0CB', // light green
-    '#B5EAD7', // mint
-    '#C7CEEA', // lavender
-    '#FBE7C6', // light yellow
-    '#F0E6EF', // light purple
-    '#A2D2FF', // light blue
-    '#FFCFD2', // blush
-  ];
-  return colors[index % colors.length];
+  return VIBRANT_COLORS[index % VIBRANT_COLORS.length];
 };
 
 const StoryViewer = () => {
@@ -53,7 +63,7 @@ const StoryViewer = () => {
   const [storyData, setStoryData] = useState<StoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
-  const [viewMode, setViewMode] = useState<"single" | "spread">("single");
+  const [viewMode, setViewMode] = useState<"single" | "spread" | "carousel">("single");
   const [pageColors, setPageColors] = useState<string[]>([]);
   
   // Load story data from session storage
@@ -64,7 +74,7 @@ const StoryViewer = () => {
         const parsedData = JSON.parse(data);
         setStoryData(parsedData);
         
-        // Generate a random pastel color for each page
+        // Generate a vibrant color for each page
         const colors = Array(parsedData.pages.length + 1)
           .fill(0)
           .map((_, i) => getVibrantColor(i));
@@ -79,7 +89,7 @@ const StoryViewer = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[500px]">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-storysnap-blue"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500"></div>
       </div>
     );
   }
@@ -117,16 +127,55 @@ const StoryViewer = () => {
     }
   };
   
-  // Enhanced PDF generation with children's book-like formatting
+  // PDF generation using pdf-lib
   const generatePDF = async () => {
     try {
       setIsPdfGenerating(true);
-      toast.info("Gerando PDF da história. Isso pode levar alguns instantes...");
+      toast.info("Gerando seu livro infantil. Isso pode levar alguns instantes...");
       
-      // Use A5 landscape format which is more like a typical children's book
-      const pdf = new jsPDF('l', 'mm', 'a5');
+      // Create a new PDF document
+      const pdfDoc = await PDFDocument.create();
+      
+      // Embed a standard font - we'll use this as fallback
+      const defaultFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
+      
+      // Function to add page with background color
+      const addColoredPage = (color: string) => {
+        const page = pdfDoc.addPage([600, 800]);
+        const { width, height } = page.getSize();
+        
+        // Convert hex to rgb for pdf-lib
+        const r = parseInt(color.slice(1, 3), 16) / 255;
+        const g = parseInt(color.slice(3, 5), 16) / 255;
+        const b = parseInt(color.slice(5, 7), 16) / 255;
+        
+        // Draw background
+        page.drawRectangle({
+          x: 0,
+          y: 0,
+          width: width,
+          height: height,
+          color: rgb(r, g, b),
+          opacity: 0.3,
+        });
+        
+        // Add decorative border
+        page.drawRectangle({
+          x: 20,
+          y: 20,
+          width: width - 40,
+          height: height - 40,
+          borderWidth: 2,
+          borderColor: rgb(0.3, 0.3, 0.9),
+          opacity: 0.8,
+          borderOpacity: 0.8,
+        });
+        
+        return page;
+      };
+      
+      // Capture the story container current state for each page
       const storyContainer = document.getElementById('story-container');
-      
       if (!storyContainer) {
         throw new Error("Elemento da história não encontrado");
       }
@@ -134,148 +183,176 @@ const StoryViewer = () => {
       // Save current page index
       const originalPage = currentPage;
       
-      // Generate a nicer title page first
-      const coverColor = getVibrantColor(0);
-      pdf.setFillColor(parseInt(coverColor.slice(1, 3), 16), parseInt(coverColor.slice(3, 5), 16), parseInt(coverColor.slice(5, 7), 16));
-      pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
-      
-      // Add cover image
+      // Add Cover Page
       setCurrentPage(0);
       await new Promise(resolve => setTimeout(resolve, 300)); // Wait for render
+      const coverPage = addColoredPage(pageColors[0]);
+      const { width: coverWidth, height: coverHeight } = coverPage.getSize();
       
-      let canvas = await html2canvas(storyContainer.querySelector('.story-page') as HTMLElement, {
+      // Add title
+      coverPage.drawText(storyData.title, {
+        x: 50,
+        y: coverHeight - 100,
+        size: 36,
+        font: defaultFont,
+        color: rgb(0.1, 0.1, 0.7),
+      });
+      
+      // Add subtitle
+      coverPage.drawText(`Uma história sobre ${storyData.childName}`, {
+        x: 50,
+        y: coverHeight - 150,
+        size: 24,
+        font: defaultFont,
+        color: rgb(0.3, 0.1, 0.5),
+      });
+      
+      // Capture cover image
+      const coverCanvas = await html2canvas(storyContainer, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
       });
+      const coverJpg = coverCanvas.toDataURL('image/jpeg', 0.95);
+      const coverImage = await pdfDoc.embedJpg(await (await fetch(coverJpg)).arrayBuffer());
       
-      const imgWidth = pdf.internal.pageSize.getWidth() - 20; // Leave margins
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // Calculate dimensions to center the image
+      const coverImgWidth = 400;
+      const coverImgHeight = (coverCanvas.height * coverImgWidth) / coverCanvas.width;
       
-      pdf.addImage(canvas.toDataURL('image/jpeg'), 'JPEG', 10, 10, imgWidth, Math.min(imgHeight, pdf.internal.pageSize.getHeight() - 20));
+      // Draw cover image
+      coverPage.drawImage(coverImage, {
+        x: (coverWidth - coverImgWidth) / 2,
+        y: (coverHeight - coverImgHeight) / 2,
+        width: coverImgWidth,
+        height: coverImgHeight,
+      });
       
-      // Add all other pages with decorative elements
+      // Add a footer with app name
+      coverPage.drawText('Criado com StorySnap ✨', {
+        x: 50,
+        y: 50,
+        size: 14,
+        font: defaultFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      
+      // Add Content Pages
       for (let i = 1; i < totalPages; i++) {
         setCurrentPage(i);
         await new Promise(resolve => setTimeout(resolve, 300)); // Wait for render
         
-        pdf.addPage();
-        
-        // Add a colorful background for each page
-        const pageColor = getVibrantColor(i);
-        pdf.setFillColor(parseInt(pageColor.slice(1, 3), 16), parseInt(pageColor.slice(3, 5), 16), parseInt(pageColor.slice(5, 7), 16));
-        pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
-        
-        // Add decorative border
-        pdf.setDrawColor(100, 100, 255);
-        pdf.setLineWidth(2);
-        pdf.roundedRect(5, 5, pdf.internal.pageSize.getWidth() - 10, pdf.internal.pageSize.getHeight() - 10, 5, 5, 'S');
-        
-        // Add a fun pattern along the top of the page
-        for (let j = 10; j < pdf.internal.pageSize.getWidth() - 10; j += 10) {
-          pdf.setFillColor(255, 255, 255);
-          pdf.circle(j, 10, 3, 'F');
-        }
+        const contentPage = addColoredPage(pageColors[i]);
+        const { width: pageWidth, height: pageHeight } = contentPage.getSize();
         
         // Add page number in a fun bubble
-        pdf.setFillColor(255, 255, 100);
-        pdf.circle(pdf.internal.pageSize.getWidth() - 15, pdf.internal.pageSize.getHeight() - 15, 10, 'F');
-        pdf.setTextColor(100, 60, 20);
-        pdf.setFontSize(12);
-        pdf.text(i.toString(), pdf.internal.pageSize.getWidth() - 15, pdf.internal.pageSize.getHeight() - 12, { align: 'center' });
+        contentPage.drawCircle({
+          x: pageWidth - 30,
+          y: 30,
+          size: 20,
+          color: rgb(1, 0.8, 0.2),
+        });
         
-        // Reset text color for main content
-        pdf.setTextColor(0, 0, 0);
+        contentPage.drawText(i.toString(), {
+          x: pageWidth - 34,
+          y: 24,
+          size: 16,
+          font: defaultFont,
+          color: rgb(0.2, 0.2, 0.2),
+        });
         
         // Capture the page content
-        canvas = await html2canvas(storyContainer.querySelector('.story-page') as HTMLElement, {
+        const pageCanvas = await html2canvas(storyContainer, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
         });
         
-        // Calculate dimensions to fit within the decorative border
-        const contentWidth = pdf.internal.pageSize.getWidth() - 20;
-        const contentHeight = (canvas.height * contentWidth) / canvas.width;
+        const pageJpg = pageCanvas.toDataURL('image/jpeg', 0.95);
+        const pageImage = await pdfDoc.embedJpg(await (await fetch(pageJpg)).arrayBuffer());
         
-        pdf.addImage(canvas.toDataURL('image/jpeg'), 'JPEG', 10, 10, contentWidth, Math.min(contentHeight, pdf.internal.pageSize.getHeight() - 20));
+        // Calculate dimensions to fit within the page with proper margins
+        const pageImgWidth = pageWidth - 100;
+        const pageImgHeight = (pageCanvas.height * pageImgWidth) / pageCanvas.width;
+        
+        // Draw page image
+        contentPage.drawImage(pageImage, {
+          x: 50,
+          y: pageHeight - 100 - pageImgHeight,
+          width: pageImgWidth,
+          height: pageImgHeight,
+        });
+        
+        // Draw the story text directly (as backup if image doesn't capture it well)
+        contentPage.drawText(storyData.pages[i-1].text, {
+          x: 50,
+          y: 150,
+          size: 14,
+          font: defaultFont,
+          color: rgb(0, 0, 0),
+          maxWidth: pageWidth - 100,
+          lineHeight: 18,
+        });
       }
       
-      // Add a final page with a "The End" message
-      pdf.addPage();
-      const endColor = getVibrantColor(totalPages);
-      pdf.setFillColor(parseInt(endColor.slice(1, 3), 16), parseInt(endColor.slice(3, 5), 16), parseInt(endColor.slice(5, 7), 16));
-      pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
+      // Add "The End" Page
+      const endPage = addColoredPage('#FFFACD'); // Lemon chiffon color
+      const { width: endWidth, height: endHeight } = endPage.getSize();
       
-      // Add decorative frame
-      pdf.setDrawColor(255, 100, 100);
-      pdf.setLineWidth(3);
-      pdf.roundedRect(10, 10, pdf.internal.pageSize.getWidth() - 20, pdf.internal.pageSize.getHeight() - 20, 10, 10, 'S');
+      // Add decorative elements
+      endPage.drawCircle({
+        x: 100,
+        y: endHeight - 100,
+        size: 30,
+        color: rgb(1, 0.7, 0.8),
+      });
       
-      // Add stars to the corners
-      const drawStar = (x: number, y: number, size: number) => {
-        pdf.setFillColor(255, 220, 0);
-        pdf.setDrawColor(255, 180, 0);
-        
-        const points = 5;
-        const outerRadius = size;
-        const innerRadius = size / 2;
-        
-        const startAngle = -Math.PI / 2;
-        const angleStep = Math.PI / points;
-        
-        let path = '';
-        
-        for (let i = 0; i < points * 2; i++) {
-          const radius = i % 2 === 0 ? outerRadius : innerRadius;
-          const angle = startAngle + i * angleStep;
-          const xPoint = x + radius * Math.cos(angle);
-          const yPoint = y + radius * Math.sin(angle);
-          
-          if (i === 0) {
-            path = `${xPoint} ${yPoint} m `;
-          } else {
-            path += `${xPoint} ${yPoint} l `;
-          }
-        }
-        
-        path += 'h';
-        
-        // Note: PDF.js doesn't have a direct API for complex paths
-        // This is a simplified approach - in reality you'd need a library
-        // that can handle SVG paths in PDFs
-        
-        // Instead, let's draw a simple circle as a fallback
-        pdf.circle(x, y, size, 'FD');
-      };
+      endPage.drawCircle({
+        x: endWidth - 100,
+        y: endHeight - 100,
+        size: 30,
+        color: rgb(0.7, 0.8, 1),
+      });
       
-      drawStar(25, 25, 8);
-      drawStar(pdf.internal.pageSize.getWidth() - 25, 25, 8);
-      drawStar(25, pdf.internal.pageSize.getHeight() - 25, 8);
-      drawStar(pdf.internal.pageSize.getWidth() - 25, pdf.internal.pageSize.getHeight() - 25, 8);
+      endPage.drawCircle({
+        x: 100,
+        y: 100,
+        size: 30,
+        color: rgb(0.8, 1, 0.7),
+      });
+      
+      endPage.drawCircle({
+        x: endWidth - 100,
+        y: 100,
+        size: 30,
+        color: rgb(1, 0.8, 0.4),
+      });
       
       // Add "The End" text
-      pdf.setFontSize(36);
-      pdf.setTextColor(50, 50, 150);
+      endPage.drawText('Fim', {
+        x: endWidth / 2 - 50,
+        y: endHeight / 2,
+        size: 48,
+        font: defaultFont,
+        color: rgb(0.3, 0.1, 0.6),
+      });
       
-      // Center the text
-      const text = "Fim";
-      const textWidth = pdf.getStringUnitWidth(text) * 36 / pdf.internal.scaleFactor;
-      const textX = (pdf.internal.pageSize.getWidth() - textWidth) / 2;
-      const textY = pdf.internal.pageSize.getHeight() / 2;
+      // Add a note with the app name
+      endPage.drawText('Criado com StorySnap ❤️', {
+        x: endWidth / 2 - 100,
+        y: 30,
+        size: 16,
+        font: defaultFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
       
-      pdf.text(text, textX, textY);
-      
-      // Add a small note with the app name
-      pdf.setFontSize(12);
-      pdf.setTextColor(100, 100, 100);
-      const appNote = "Criado com StorySnap ❤️";
-      const noteWidth = pdf.getStringUnitWidth(appNote) * 12 / pdf.internal.scaleFactor;
-      pdf.text(appNote, (pdf.internal.pageSize.getWidth() - noteWidth) / 2, pdf.internal.pageSize.getHeight() - 15);
-      
-      // Download the PDF with the story title as filename
-      const filename = storyData.title.replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçñ]/g, '_');
-      pdf.save(`${filename}.pdf`);
+      // Save the PDF and offer it for download
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${storyData.title.replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçñ]/g, '_')}.pdf`;
+      link.click();
       
       // Restore original page
       setCurrentPage(originalPage);
@@ -289,36 +366,60 @@ const StoryViewer = () => {
     }
   };
   
-  // Toggle between single page and spread view
+  // Toggle between view modes
   const toggleViewMode = () => {
-    setViewMode(viewMode === "single" ? "spread" : "single");
+    if (viewMode === "single") {
+      setViewMode("spread");
+    } else if (viewMode === "spread") {
+      setViewMode("carousel");
+    } else {
+      setViewMode("single");
+    }
   };
   
-  return (
-    <div className="relative">
-      {/* Story Book Mode Selector */}
-      <div className="flex justify-center mb-6">
-        <div className="bg-white rounded-full shadow-md p-1 flex rainbow-border">
-          <Button
-            variant={viewMode === "single" ? "default" : "ghost"}
-            onClick={() => setViewMode("single")}
-            className="rounded-full font-comic text-base"
-            size="sm"
-          >
-            Página Única
-          </Button>
-          <Button
-            variant={viewMode === "spread" ? "default" : "ghost"}
-            onClick={() => setViewMode("spread")}
-            className="rounded-full font-comic text-base"
-            size="sm"
-          >
-            Livro Aberto
-          </Button>
+  // Render the correct view based on viewMode
+  const renderBookView = () => {
+    if (viewMode === "carousel") {
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <Carousel>
+            <CarouselContent>
+              {/* Cover Page */}
+              <CarouselItem>
+                <div 
+                  className="h-[600px] bg-white rounded-2xl shadow-xl overflow-hidden"
+                  style={{ backgroundColor: pageColors[0] }}
+                >
+                  <CoverPage storyData={storyData} />
+                </div>
+              </CarouselItem>
+              
+              {/* Content Pages */}
+              {storyData.pages.map((page, index) => (
+                <CarouselItem key={index}>
+                  <div 
+                    className="h-[600px] bg-white rounded-2xl shadow-xl overflow-hidden"
+                    style={{ backgroundColor: pageColors[index + 1] }}
+                  >
+                    <ContentPage 
+                      page={page}
+                      pageNumber={index + 1}
+                      totalPages={totalPages - 1}
+                    />
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <div className="flex justify-center mt-4">
+              <CarouselPrevious className="relative static mr-2 left-0 translate-y-0" />
+              <CarouselNext className="relative static ml-2 right-0 translate-y-0" />
+            </div>
+          </Carousel>
         </div>
-      </div>
-      
-      {/* Book container with conditional spread view */}
+      );
+    }
+    
+    return (
       <div className={`flex justify-center perspective ${viewMode === "spread" ? "book-spread" : ""}`}>
         {viewMode === "spread" && currentPage > 0 && (
           <div 
@@ -330,7 +431,7 @@ const StoryViewer = () => {
             }}
           >
             <div className="h-full p-6 flex flex-col justify-center items-center text-center bg-doodle-pattern">
-              <p className="text-lg text-slate-500 font-patrick">
+              <p className={`text-lg text-slate-500 ${BOOK_FONTS.secondary}`}>
                 {currentPage > 1 ? `Página ${currentPage - 1}` : ""}
               </p>
             </div>
@@ -356,118 +457,173 @@ const StoryViewer = () => {
               className="story-page h-full"
             >
               {currentPage === 0 ? (
-                // Cover page - enhanced for children's book look
-                <div className="flex flex-col h-full relative">
-                  <div className="absolute top-0 left-0 w-full h-full bg-stars-pattern"></div>
-                  <div className="absolute top-0 left-0 w-full h-full">
-                    {/* Decorative elements */}
-                    <div className="absolute top-0 left-0 w-full h-16 bg-yellow-300 rounded-b-full transform -translate-y-8"></div>
-                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-blue-200 rounded-full transform translate-x-16 translate-y-16"></div>
-                    <div className="absolute top-20 right-5 w-10 h-10 bg-pink-300 rounded-full"></div>
-                    <div className="absolute bottom-40 left-5 w-16 h-16 bg-green-200 rounded-full"></div>
-                    
-                    {/* Rainbow element */}
-                    <div className="absolute top-40 left-0 right-0 h-32 opacity-20"
-                      style={{
-                        background: "linear-gradient(180deg, #FF5E78, #FFBD6D, #FFF46E, #77DD77, #92D2F7, #C199F5)",
-                        borderRadius: "100% 100% 0 0"
-                      }}
-                    ></div>
-                  </div>
-                  
-                  <div className="flex-1 relative overflow-hidden z-10 border-b-8 border-dashed border-yellow-400">
-                    <img 
-                      src={storyData.coverImageUrl} 
-                      alt="Capa da história" 
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-80"></div>
-                  </div>
-                  
-                  <div className="p-8 text-center relative z-10 bg-white bg-opacity-90">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 text-blue-600 font-bubblegum">
-                      {storyData.title}
-                    </h1>
-                    
-                    <div className="flex justify-center mb-4">
-                      <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-yellow-300 shadow-lg">
-                        <img 
-                          src={storyData.childImage} 
-                          alt={storyData.childName} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                    
-                    <p className="text-xl font-patrick">
-                      Uma história mágica sobre<br />
-                      <span className="font-bold text-2xl text-purple-600 font-schoolbell">{storyData.childName}</span>
-                    </p>
-                    
-                    <div className="mt-4 text-sm text-slate-500 font-comic">
-                      Criado com StorySnap ✨
-                    </div>
-                  </div>
-                </div>
+                <CoverPage storyData={storyData} />
               ) : (
-                // Story pages - enhanced for children's book look
-                <div className="flex flex-col h-full">
-                  {/* Decorative elements */}
-                  <div className="absolute top-2 right-2 w-10 h-10 bg-yellow-200 rounded-full opacity-60"></div>
-                  <div className="absolute bottom-12 left-3 w-12 h-12 bg-pink-200 rounded-full opacity-60"></div>
-                  
-                  <div className="flex-1 relative p-4">
-                    <div className="absolute inset-0 rounded-t-lg overflow-hidden">
-                      <img 
-                        src={storyData.pages[currentPage - 1].imageUrl} 
-                        alt={`Ilustração da página ${currentPage}`} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-70"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-6 bg-white bg-opacity-90 rounded-t-3xl -mt-6 relative z-10 min-h-[45%] flex flex-col">
-                    <div className="absolute top-0 left-1/2 w-20 h-1 bg-gray-200 rounded-full transform -translate-x-1/2 -translate-y-2"></div>
-                    
-                    <p className="text-xl leading-relaxed font-medium text-slate-800 flex-1 mt-4 font-comic">
-                      {storyData.pages[currentPage - 1].text}
-                    </p>
-                    
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="fun-page-number font-schoolbell">
-                        {currentPage}
-                      </div>
-                      
-                      <div className="text-base text-slate-500 font-patrick">
-                        Página {currentPage} de {totalPages - 1}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ContentPage 
+                  page={storyData.pages[currentPage - 1]}
+                  pageNumber={currentPage}
+                  totalPages={totalPages - 1}
+                />
               )}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
+    );
+  };
+  
+  // Cover page component
+  const CoverPage = ({ storyData }: { storyData: StoryData }) => {
+    return (
+      <div className="flex flex-col h-full relative">
+        <div className="absolute top-0 left-0 w-full h-full bg-stars-pattern"></div>
+        <div className="absolute top-0 left-0 w-full h-full">
+          {/* Decorative elements */}
+          <div className="absolute top-0 left-0 w-full h-20 bg-yellow-300 rounded-b-full transform -translate-y-10"></div>
+          <div className="absolute bottom-0 right-0 w-40 h-40 bg-blue-200 rounded-full transform translate-x-20 translate-y-20"></div>
+          <div className="absolute top-20 right-5 w-12 h-12 bg-pink-300 rounded-full"></div>
+          <div className="absolute bottom-40 left-5 w-20 h-20 bg-green-200 rounded-full"></div>
+          
+          {/* Rainbow element */}
+          <div className="absolute top-1/3 left-0 right-0 h-40 opacity-30"
+            style={{
+              background: "linear-gradient(180deg, #FF5E78, #FFBD6D, #FFF46E, #77DD77, #92D2F7, #C199F5)",
+              borderRadius: "100% 100% 0 0"
+            }}
+          ></div>
+        </div>
+        
+        <div className="flex-1 relative overflow-hidden z-10 border-b-8 border-dashed border-yellow-400">
+          <img 
+            src={storyData.coverImageUrl} 
+            alt="Capa da história" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-80"></div>
+        </div>
+        
+        <div className="p-8 text-center relative z-10 bg-white bg-opacity-90">
+          <h1 className={`text-3xl md:text-4xl font-bold mb-4 text-blue-600 ${BOOK_FONTS.title}`}>
+            {storyData.title}
+          </h1>
+          
+          <div className="flex justify-center mb-4">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-yellow-300 shadow-lg">
+              <img 
+                src={storyData.childImage} 
+                alt={storyData.childName} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+          
+          <p className={`text-xl ${BOOK_FONTS.secondary}`}>
+            Uma história mágica sobre<br />
+            <span className={`font-bold text-2xl text-purple-600 ${BOOK_FONTS.accent}`}>{storyData.childName}</span>
+          </p>
+          
+          <div className="mt-4 text-sm text-slate-500 font-comic">
+            Criado com StorySnap ✨
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  // Content page component
+  const ContentPage = ({ page, pageNumber, totalPages }: { page: StoryPage, pageNumber: number, totalPages: number }) => {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Decorative elements */}
+        <div className="absolute top-3 right-3 w-12 h-12 bg-yellow-200 rounded-full opacity-60"></div>
+        <div className="absolute bottom-14 left-4 w-14 h-14 bg-pink-200 rounded-full opacity-60"></div>
+        
+        <div className="flex-1 relative p-5">
+          <div className="absolute inset-0 rounded-t-lg overflow-hidden">
+            <img 
+              src={page.imageUrl} 
+              alt={`Ilustração da página ${pageNumber}`} 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-70"></div>
+          </div>
+        </div>
+        
+        <div className="p-6 bg-white bg-opacity-95 rounded-t-3xl -mt-6 relative z-10 min-h-[45%] flex flex-col">
+          <div className="absolute top-0 left-1/2 w-20 h-1 bg-gray-200 rounded-full transform -translate-x-1/2 -translate-y-2"></div>
+          
+          <p className={`text-xl leading-relaxed font-medium text-slate-800 flex-1 mt-4 ${BOOK_FONTS.text}`}>
+            {page.text}
+          </p>
+          
+          <div className="flex justify-between items-center mt-4">
+            <div className={`fun-page-number ${BOOK_FONTS.accent}`}>
+              {pageNumber}
+            </div>
+            
+            <div className={`text-base text-slate-500 ${BOOK_FONTS.secondary}`}>
+              Página {pageNumber} de {totalPages}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <div className="relative">
+      {/* View Mode Selector */}
+      <div className="flex justify-center mb-6">
+        <div className="bg-white rounded-full shadow-md p-1 flex rainbow-border">
+          <Button
+            variant={viewMode === "single" ? "default" : "ghost"}
+            onClick={() => setViewMode("single")}
+            className={`rounded-full text-base ${BOOK_FONTS.comic}`}
+            size="sm"
+          >
+            Página Única
+          </Button>
+          <Button
+            variant={viewMode === "spread" ? "default" : "ghost"}
+            onClick={() => setViewMode("spread")}
+            className={`rounded-full text-base ${BOOK_FONTS.comic}`}
+            size="sm"
+          >
+            Livro Aberto
+          </Button>
+          <Button
+            variant={viewMode === "carousel" ? "default" : "ghost"}
+            onClick={() => setViewMode("carousel")}
+            className={`rounded-full text-base ${BOOK_FONTS.comic}`}
+            size="sm"
+          >
+            Carrossel
+          </Button>
+        </div>
+      </div>
+      
+      {/* Book View Container */}
+      {renderBookView()}
       
       {/* Navigation Controls */}
       <div className="flex justify-between items-center mt-8">
-        <Button
-          variant="outline"
-          onClick={goToPrevPage}
-          disabled={currentPage === 0}
-          className="flex items-center gap-2 rounded-full px-6 font-comic border-2 border-purple-300"
-        >
-          <ChevronLeft size={18} />
-          Anterior
-        </Button>
+        {viewMode !== "carousel" && (
+          <Button
+            variant="outline"
+            onClick={goToPrevPage}
+            disabled={currentPage === 0}
+            className={`flex items-center gap-2 rounded-full px-6 border-2 border-purple-300 ${BOOK_FONTS.comic}`}
+          >
+            <ChevronLeft size={18} />
+            Anterior
+          </Button>
+        )}
         
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${viewMode === "carousel" ? "mx-auto" : ""}`}>
           <Button
             variant="ghost"
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 rounded-full font-comic"
+            className={`flex items-center gap-2 rounded-full ${BOOK_FONTS.comic}`}
           >
             <Home size={18} />
             Início
@@ -477,31 +633,35 @@ const StoryViewer = () => {
             variant="default"
             onClick={generatePDF}
             disabled={isPdfGenerating}
-            className="flex items-center gap-2 rounded-full px-6 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 font-bubblegum"
+            className={`flex items-center gap-2 rounded-full px-6 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 ${BOOK_FONTS.title}`}
           >
             <Download size={18} />
             {isPdfGenerating ? "Gerando..." : "Baixar Livro PDF"}
           </Button>
           
-          <Button
-            variant="ghost"
-            onClick={toggleViewMode}
-            className="flex items-center gap-2 rounded-full font-comic"
-            title={viewMode === "single" ? "Ver como livro aberto" : "Ver página única"}
-          >
-            <BookOpen size={18} />
-          </Button>
+          {viewMode !== "carousel" && (
+            <Button
+              variant="ghost"
+              onClick={toggleViewMode}
+              className={`flex items-center gap-2 rounded-full ${BOOK_FONTS.comic}`}
+              title="Mudar visualização"
+            >
+              <Wand2 size={18} />
+            </Button>
+          )}
         </div>
         
-        <Button
-          variant="outline"
-          onClick={goToNextPage}
-          disabled={currentPage === totalPages - 1}
-          className="flex items-center gap-2 rounded-full px-6 font-comic border-2 border-purple-300"
-        >
-          Próxima
-          <ChevronRight size={18} />
-        </Button>
+        {viewMode !== "carousel" && (
+          <Button
+            variant="outline"
+            onClick={goToNextPage}
+            disabled={currentPage === totalPages - 1}
+            className={`flex items-center gap-2 rounded-full px-6 border-2 border-purple-300 ${BOOK_FONTS.comic}`}
+          >
+            Próxima
+            <ChevronRight size={18} />
+          </Button>
+        )}
       </div>
     </div>
   );
