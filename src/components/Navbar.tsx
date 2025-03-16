@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useMobile } from "../hooks/use-mobile";
+import { useIsMobile } from "../hooks/use-mobile";
 
 const Navbar = () => {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
@@ -25,7 +24,6 @@ const Navbar = () => {
     };
   }, []);
 
-  // Close menu when route changes
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location]);
@@ -48,7 +46,6 @@ const Navbar = () => {
             StorySnap
           </Link>
 
-          {/* Desktop Navigation */}
           {!isMobile && (
             <ul className="flex items-center space-x-8">
               {navLinks.map((link) => (
@@ -75,7 +72,6 @@ const Navbar = () => {
             </ul>
           )}
 
-          {/* Mobile Menu Button */}
           {isMobile && (
             <button
               onClick={toggleMenu}
@@ -110,7 +106,6 @@ const Navbar = () => {
             </button>
           )}
 
-          {/* Mobile Navigation */}
           {isMobile && isMenuOpen && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
