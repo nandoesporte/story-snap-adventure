@@ -98,10 +98,18 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
 
   const generateImageDescription = async (storyParagraph: string): Promise<string> => {
     try {
-      // Prepare the prompt for image description
-      const prompt = `Baseado no seguinte parágrafo de uma história infantil, crie uma descrição visual detalhada que possa ser usada para gerar uma ilustração infantil colorida, atraente e divertida. A descrição deve ter no máximo 50 palavras e focar nos elementos principais que devem aparecer na imagem. Não inclua elementos assustadores ou inapropriados para crianças.
+      // Prepare the prompt for image description - enhanced for children's book style
+      const prompt = `Crie uma descrição visual detalhada para uma ilustração de livro infantil baseada no seguinte parágrafo:
 
-Parágrafo da história: "${storyParagraph}"
+"${storyParagraph}"
+
+A descrição deve:
+1. Focar nos elementos principais e personagens que devem aparecer na ilustração
+2. Incluir detalhes sobre as cores vibrantes, expressões faciais e cenário
+3. Ter um estilo de arte lúdico e acolhedor, apropriado para crianças
+4. Capturar a emoção e o tom da passagem
+5. Ter no máximo 100 palavras
+6. Não incluir elementos assustadores ou inapropriados
 
 Responda apenas com a descrição para a ilustração, sem comentários adicionais.`;
 
@@ -122,7 +130,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
             temperature: 0.7,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 150,
+            maxOutputTokens: 200,
           },
         }),
       });
@@ -148,8 +156,11 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
 
   const generateImage = async (description: string): Promise<string> => {
     try {
+      // Enhanced prompt for more children's book style illustrations
+      const enhancedPrompt = description + ", children's book illustration, whimsical, vibrant colors, cute characters, hand-drawn style, storybook art, friendly, detailed, playful, watercolor style, professional illustration";
+      
       // Using the DreamStudio API (Stable Diffusion) for image generation
-      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(description + ", children's book illustration, colorful, magical, cute, fun, detailed, cartoony style")}`, {
+      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`, {
         method: "GET",
       });
 
@@ -171,10 +182,39 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
+  // New function to generate a cover image
+  const generateCoverImage = async (title: string, childName: string): Promise<string> => {
+    try {
+      const coverPrompt = `Cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character. Vibrant colors, whimsical style, magical scene, professional children's book cover art, central character prominently displayed, title space at top, eye-catching, charming background, warm and inviting`;
+      
+      // Using the DreamStudio API for cover image generation
+      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao gerar imagem de capa: ${response.statusText}`);
+      }
+
+      // Convert the response to a blob URL
+      const imageBlob = await response.blob();
+      const imageUrl = URL.createObjectURL(imageBlob);
+      
+      return imageUrl;
+    } catch (error) {
+      console.error("Error generating cover image:", error);
+      toast.error("Erro ao gerar imagem de capa. Usando imagem padrão.");
+      
+      // Return a placeholder cover image URL
+      return 'https://placehold.co/600x800/FFC0CB/FFF?text=StoryBook';
+    }
+  };
+
   return {
     generateStoryBotResponse,
     generateImageDescription,
     generateImage,
+    generateCoverImage,
     hasApiKey: true, // Always true now since we're using a hardcoded API key
   };
 };
