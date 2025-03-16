@@ -113,23 +113,47 @@ const StoryCreator = () => {
       
       const storyContentWithPages = parseStoryContent(finalResponse);
       
-      const coverImageDescription = await generateImageDescription(`Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
-        formData.setting === 'forest' ? 'uma Floresta Encantada' : 
-        formData.setting === 'castle' ? 'um Castelo Mágico' : 
-        formData.setting === 'space' ? 'o Espaço Sideral' : 
-        formData.setting === 'underwater' ? 'um Mundo Submarino' : 
-        'uma Terra dos Dinossauros'
-      }`);
+      const coverImageDescription = await generateImageDescription(
+        `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
+          formData.setting === 'forest' ? 'uma Floresta Encantada' : 
+          formData.setting === 'castle' ? 'um Castelo Mágico' : 
+          formData.setting === 'space' ? 'o Espaço Sideral' : 
+          formData.setting === 'underwater' ? 'um Mundo Submarino' : 
+          'uma Terra dos Dinossauros'
+        }`,
+        formData.childName,
+        formData.childAge,
+        formData.theme,
+        formData.setting
+      );
       
-      const coverImageUrl = await generateImage(coverImageDescription);
+      const coverImageUrl = await generateImage(
+        coverImageDescription,
+        formData.childName,
+        formData.theme,
+        formData.setting
+      );
       
       const pagesWithImages: StoryPage[] = [];
       
       toast.info("Gerando imagens para cada página da história...");
       
       for (const pageText of storyContentWithPages.content) {
-        const imageDescription = await generateImageDescription(pageText);
-        const imageUrl = await generateImage(imageDescription);
+        const imageDescription = await generateImageDescription(
+          pageText,
+          formData.childName,
+          formData.childAge,
+          formData.theme,
+          formData.setting
+        );
+        
+        const imageUrl = await generateImage(
+          imageDescription,
+          formData.childName,
+          formData.theme,
+          formData.setting
+        );
+        
         pagesWithImages.push({
           text: pageText,
           imageUrl: imageUrl
@@ -157,7 +181,7 @@ const StoryCreator = () => {
   };
   
   const parseStoryContent = (response: string): { title: string; content: string[] } => {
-    let cleanedResponse = response.replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:/gi, '');
+    let cleanedResponse = response.replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:|prompt de imagem:|image prompt:/gi, '');
     
     const titleMatch = cleanedResponse.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
     const title = titleMatch ? titleMatch[1].trim() : `História de ${formData?.childName}`;
@@ -168,7 +192,7 @@ const StoryCreator = () => {
     if (pageMatches && pageMatches.length > 0) {
       content = pageMatches.map(page => {
         return page.replace(/PAGINA\s*\d+:\s*/i, '')
-          .replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:/gi, '')
+          .replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:|prompt de imagem:|image prompt:/gi, '')
           .trim();
       });
     } else {

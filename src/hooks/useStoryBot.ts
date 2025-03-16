@@ -96,20 +96,34 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
     }
   };
 
-  const generateImageDescription = async (storyParagraph: string): Promise<string> => {
+  const generateImageDescription = async (storyParagraph: string, childName: string, childAge: string, theme: string, setting: string): Promise<string> => {
     try {
-      // Prepare the prompt for image description - enhanced for children's book style
-      const prompt = `Crie uma descrição visual detalhada para uma ilustração de livro infantil baseada no seguinte parágrafo:
+      // Prompt aprimorado para gerar descrições de imagem mais detalhadas e coerentes
+      const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil de alta qualidade baseada no seguinte parágrafo:
 
 "${storyParagraph}"
 
+Contexto adicional para a história:
+- Personagem principal: ${childName}, uma criança de ${childAge}
+- Tema da história: ${theme === 'adventure' ? 'Aventura' : 
+  theme === 'fantasy' ? 'Fantasia e Magia' : 
+  theme === 'space' ? 'Exploração Espacial' : 
+  theme === 'ocean' ? 'Mundo Submarino' : 
+  'Dinossauros e Pré-história'}
+- Cenário: ${setting === 'forest' ? 'Floresta Encantada com árvores altas e coloridas' : 
+  setting === 'castle' ? 'Castelo Mágico com torres e salões encantados' : 
+  setting === 'space' ? 'Espaço Sideral com planetas, estrelas e nebulosas' : 
+  setting === 'underwater' ? 'Mundo Submarino com corais vibrantes e criaturas marinhas' : 
+  'Terra dos Dinossauros com vegetação exuberante e vulcões ao fundo'}
+
 A descrição deve:
-1. Focar nos elementos principais e personagens que devem aparecer na ilustração
-2. Incluir detalhes sobre as cores vibrantes, expressões faciais e cenário
-3. Ter um estilo de arte lúdico e acolhedor, apropriado para crianças
-4. Capturar a emoção e o tom da passagem
-5. Ter no máximo 100 palavras
-6. Não incluir elementos assustadores ou inapropriados
+1. Descrever uma cena clara e vibrante que ilustre exatamente o momento da história no parágrafo
+2. Incluir o personagem principal (${childName}) com aparência e expressões específicas
+3. Descrever detalhes do ambiente e cenário coerentes com o tema da história
+4. Mencionar cores, iluminação, perspectiva e composição para criar uma imagem atraente
+5. Especificar o estilo artístico como "ilustração de livro infantil profissional, estilo Pixar/Disney, cores vibrantes, detalhado, cativante"
+6. Ter no máximo 150 palavras e focar apenas nos elementos mais importantes
+7. NÃO incluir elementos assustadores ou inapropriados para crianças
 
 Responda apenas com a descrição para a ilustração, sem comentários adicionais.`;
 
@@ -130,7 +144,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
             temperature: 0.7,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 200,
+            maxOutputTokens: 300,
           },
         }),
       });
@@ -154,12 +168,35 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
-  const generateImage = async (description: string): Promise<string> => {
+  const generateImage = async (description: string, childName: string, theme: string, setting: string): Promise<string> => {
     try {
-      // Enhanced prompt for more children's book style illustrations
-      const enhancedPrompt = description + ", children's book illustration, whimsical, vibrant colors, cute characters, hand-drawn style, storybook art, friendly, detailed, playful, watercolor style, professional illustration";
+      // Prompt aprimorado com instruções mais detalhadas para gerar ilustrações de maior qualidade
+      const enhancedPrompt = `${description}, 
+        ${childName} as the main character, 
+        ${theme === 'adventure' ? 'adventure story' : 
+        theme === 'fantasy' ? 'fantasy magical world' : 
+        theme === 'space' ? 'space exploration' : 
+        theme === 'ocean' ? 'underwater world' : 
+        'dinosaur prehistoric world'}, 
+        ${setting === 'forest' ? 'enchanted forest setting' : 
+        setting === 'castle' ? 'magical castle setting' : 
+        setting === 'space' ? 'space setting with planets and stars' : 
+        setting === 'underwater' ? 'colorful underwater coral reef setting' : 
+        'prehistoric landscape with volcanoes and dinosaurs'}, 
+        professional children's book illustration, 
+        Pixar/Disney style, 
+        high quality, 
+        detailed, 
+        vibrant colors, 
+        storytelling scene, 
+        wholesome, 
+        expressive characters, 
+        soft lighting, 
+        clean composition, 
+        digital art, 
+        no text`;
       
-      // Using the DreamStudio API (Stable Diffusion) for image generation
+      // Using the Pollinations AI API for image generation
       const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`, {
         method: "GET",
       });
@@ -182,12 +219,31 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
-  // New function to generate a cover image
-  const generateCoverImage = async (title: string, childName: string): Promise<string> => {
+  // Função aprimorada para gerar imagem de capa
+  const generateCoverImage = async (title: string, childName: string, theme: string, setting: string): Promise<string> => {
     try {
-      const coverPrompt = `Cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character. Vibrant colors, whimsical style, magical scene, professional children's book cover art, central character prominently displayed, title space at top, eye-catching, charming background, warm and inviting`;
+      const coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character.
+        Theme: ${theme === 'adventure' ? 'adventure story with exploration' : 
+        theme === 'fantasy' ? 'magical fantasy world with spells and wonders' : 
+        theme === 'space' ? 'space exploration with planets and stars' : 
+        theme === 'ocean' ? 'underwater adventure with sea creatures' : 
+        'dinosaur prehistoric world with friendly dinosaurs'}.
+        Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees' : 
+        setting === 'castle' ? 'magnificent magical castle with towers and flags' : 
+        setting === 'space' ? 'colorful space scene with distant planets and nebulas' : 
+        setting === 'underwater' ? 'colorful underwater kingdom with coral reefs' : 
+        'prehistoric landscape with lush vegetation and volcanoes'}.
+        Portrait composition, central character prominently displayed, title space at top, 
+        professional children's book cover art, 
+        Pixar/Disney style, 
+        vibrant colors, 
+        dramatic lighting, 
+        eye-catching, 
+        high quality illustration, 
+        digital art, 
+        no text`;
       
-      // Using the DreamStudio API for cover image generation
+      // Using the Pollinations AI API for cover image generation
       const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}`, {
         method: "GET",
       });
