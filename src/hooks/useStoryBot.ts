@@ -7,7 +7,6 @@ type Message = {
   content: string;
 };
 
-// This is a temporary implementation with a provided API key
 export const useStoryBot = () => {
   // Using the provided API key
   const [apiKey] = useState<string>("AIzaSyBTgwFJ6x0Tc_wVHW5aC_teeHUAzQT4MBg");
@@ -97,8 +96,85 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
     }
   };
 
+  const generateImageDescription = async (storyParagraph: string): Promise<string> => {
+    try {
+      // Prepare the prompt for image description
+      const prompt = `Baseado no seguinte parágrafo de uma história infantil, crie uma descrição visual detalhada que possa ser usada para gerar uma ilustração infantil colorida, atraente e divertida. A descrição deve ter no máximo 50 palavras e focar nos elementos principais que devem aparecer na imagem. Não inclua elementos assustadores ou inapropriados para crianças.
+
+Parágrafo da história: "${storyParagraph}"
+
+Responda apenas com a descrição para a ilustração, sem comentários adicionais.`;
+
+      // Make the API call to Gemini
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 150,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Gemini API error for image description:", errorData);
+        throw new Error(`Erro na API do Gemini: ${errorData.error?.message || "Erro desconhecido"}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract the image description
+      const imageDescription = data.candidates?.[0]?.content?.parts?.[0]?.text || "Ilustração colorida de uma cena infantil mágica";
+      
+      return imageDescription;
+    } catch (error) {
+      console.error("Error generating image description:", error);
+      toast.error("Erro ao gerar descrição da imagem. Usando descrição padrão.");
+      return "Ilustração colorida de uma cena infantil mágica";
+    }
+  };
+
+  const generateImage = async (description: string): Promise<string> => {
+    try {
+      // Using the DreamStudio API (Stable Diffusion) for image generation
+      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(description + ", children's book illustration, colorful, magical, cute, fun, detailed, cartoony style")}`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao gerar imagem: ${response.statusText}`);
+      }
+
+      // Convert the response to a blob URL
+      const imageBlob = await response.blob();
+      const imageUrl = URL.createObjectURL(imageBlob);
+      
+      return imageUrl;
+    } catch (error) {
+      console.error("Error generating image:", error);
+      toast.error("Erro ao gerar imagem. Usando imagem padrão.");
+      
+      // Return a placeholder image URL
+      return 'https://placehold.co/600x400/FFCAE9/FFF?text=StorySnap';
+    }
+  };
+
   return {
     generateStoryBotResponse,
+    generateImageDescription,
+    generateImage,
     hasApiKey: true, // Always true now since we're using a hardcoded API key
   };
 };

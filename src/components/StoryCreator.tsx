@@ -15,6 +15,11 @@ type Message = {
   content: string;
 };
 
+type StoryPage = {
+  text: string;
+  imageUrl: string;
+};
+
 const StoryCreator = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<CreationStep>("photo");
@@ -23,7 +28,7 @@ const StoryCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const { generateStoryBotResponse } = useStoryBot();
+  const { generateStoryBotResponse, generateImageDescription, generateImage } = useStoryBot();
   
   useEffect(() => {
     if (step === "chat" && formData) {
@@ -102,19 +107,44 @@ const StoryCreator = () => {
         formData.setting === 'space' ? 'Espaço Sideral' : 
         formData.setting === 'underwater' ? 'Mundo Submarino' : 
         'Terra dos Dinossauros'
-      }. Crie uma história completa com início, meio e fim, dividida em 5 páginas incluindo uma moral. Use o nome ${formData.childName} como personagem principal e crie um título criativo.`;
+      }. Crie uma história completa com início, meio e fim, dividida em 5 páginas incluindo uma moral. Use o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc.`;
       
       const finalResponse = await generateStoryBotResponse(messages, summaryPrompt);
       
-      const storyContent = parseStoryContent(finalResponse);
+      const storyContentWithPages = parseStoryContent(finalResponse);
+      
+      const coverImageDescription = await generateImageDescription(`Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
+        formData.setting === 'forest' ? 'uma Floresta Encantada' : 
+        formData.setting === 'castle' ? 'um Castelo Mágico' : 
+        formData.setting === 'space' ? 'o Espaço Sideral' : 
+        formData.setting === 'underwater' ? 'um Mundo Submarino' : 
+        'uma Terra dos Dinossauros'
+      }`);
+      
+      const coverImageUrl = await generateImage(coverImageDescription);
+      
+      const pagesWithImages: StoryPage[] = [];
+      
+      toast.info("Gerando imagens para cada página da história...");
+      
+      for (const pageText of storyContentWithPages.content) {
+        const imageDescription = await generateImageDescription(pageText);
+        const imageUrl = await generateImage(imageDescription);
+        pagesWithImages.push({
+          text: pageText,
+          imageUrl: imageUrl
+        });
+      }
       
       sessionStorage.setItem("storyData", JSON.stringify({
-        ...storyContent,
+        title: storyContentWithPages.title,
+        coverImageUrl: coverImageUrl,
         childImage: imagePreview,
         childName: formData.childName,
         childAge: formData.childAge,
         theme: formData.theme,
-        setting: formData.setting
+        setting: formData.setting,
+        pages: pagesWithImages
       }));
       
       navigate("/view-story");
@@ -127,65 +157,30 @@ const StoryCreator = () => {
   };
   
   const parseStoryContent = (response: string): { title: string; content: string[] } => {
-    const lines = response.split('\n').filter(line => line.trim() !== '');
+    const titleMatch = response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
+    const title = titleMatch ? titleMatch[1].trim() : `História de ${formData?.childName}`;
     
-    const titleIndex = lines.findIndex(line => line.length > 15 && !line.startsWith('Página'));
-    const title = titleIndex >= 0 ? lines[titleIndex].replace(/[""#*]/g, '').trim() : "História de " + formData?.childName;
+    const pageMatches = response.match(/PAGINA\s*\d+:\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
     
     let content: string[] = [];
-    
-    const pageMarkers = lines.map((line, index) => 
-      line.toLowerCase().includes('página') || line.includes('page') ? index : -1
-    ).filter(index => index !== -1);
-    
-    if (pageMarkers.length >= 4) {
-      for (let i = 0; i < pageMarkers.length; i++) {
-        const startIdx = pageMarkers[i] + 1;
-        const endIdx = i < pageMarkers.length - 1 ? pageMarkers[i + 1] : lines.length;
-        
-        const pageContent = lines.slice(startIdx, endIdx).join('\n').trim();
-        if (pageContent) content.push(pageContent);
-      }
+    if (pageMatches && pageMatches.length > 0) {
+      content = pageMatches.map(page => {
+        return page.replace(/PAGINA\s*\d+:\s*/i, '').trim();
+      });
     } else {
-      const contentStart = titleIndex >= 0 ? titleIndex + 1 : 0;
-      const remainingLines = lines.slice(contentStart);
-      
-      const moralIndex = remainingLines.findIndex(line => 
-        line.toLowerCase().includes('moral') || 
-        line.toLowerCase().includes('conclusão') ||
-        line.toLowerCase().includes('fim')
+      const paragraphs = response.split('\n\n').filter(para => 
+        para.trim().length > 0 && !para.match(/TITULO:/i)
       );
       
-      let storyLines = remainingLines;
-      let moralLines: string[] = [];
-      
-      if (moralIndex !== -1) {
-        storyLines = remainingLines.slice(0, moralIndex);
-        moralLines = remainingLines.slice(moralIndex);
-      }
-      
-      const partSize = Math.ceil(storyLines.length / 4);
-      for (let i = 0; i < 4; i++) {
-        const start = i * partSize;
-        const end = Math.min(start + partSize, storyLines.length);
-        const part = storyLines.slice(start, end).join('\n').trim();
-        if (part) content.push(part);
-      }
-      
-      if (moralLines.length > 0) {
-        content.push(moralLines.join('\n').trim());
-      } else if (content.length === 4) {
-        content.push(`Página ${content.length + 1} da história de ${formData?.childName}.`);
-      }
+      const numPages = Math.min(5, paragraphs.length);
+      content = paragraphs.slice(0, numPages);
     }
     
     while (content.length < 5) {
-      content.push(`Página ${content.length + 1} da história de ${formData?.childName}.`);
+      content.push(`Continuação da história de ${formData?.childName}...`);
     }
     
-    content = content.slice(0, 5);
-    
-    return { title, content };
+    return { title, content: content.slice(0, 5) };
   };
   
   return (
