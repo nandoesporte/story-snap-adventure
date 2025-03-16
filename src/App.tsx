@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import Index from "./pages/Index";
 import CreateStory from "./pages/CreateStory";
 import ViewStory from "./pages/ViewStory";
+import StoryBot from "./pages/StoryBot";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/create-story" element={<CreateStory />} />
             <Route path="/view-story" element={<ViewStory />} />
             <Route path="/view-story/:storyId" element={<ViewStory />} />
+            <Route path="/storybot" element={<StoryBot />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>
