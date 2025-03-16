@@ -7,29 +7,15 @@ type Message = {
   content: string;
 };
 
-// This is a temporary implementation. In a real-world scenario, 
-// you would use Supabase Edge Functions and secure API keys
+// This is a temporary implementation with a provided API key
 export const useStoryBot = () => {
-  const [apiKey, setApiKey] = useState<string | null>(localStorage.getItem("geminiApiKey"));
+  // Using the provided API key
+  const [apiKey] = useState<string>("AIzaSyBTgwFJ6x0Tc_wVHW5aC_teeHUAzQT4MBg");
   
   const generateStoryBotResponse = async (
     messageHistory: Message[],
     userInput: string
   ): Promise<string> => {
-    if (!apiKey) {
-      // If no API key is found, ask for it first
-      const userProvidedKey = prompt(
-        "Por favor, insira sua chave de API do Gemini para continuar (isso será salvo apenas no seu navegador):"
-      );
-      
-      if (!userProvidedKey) {
-        throw new Error("API key não fornecida");
-      }
-      
-      localStorage.setItem("geminiApiKey", userProvidedKey);
-      setApiKey(userProvidedKey);
-    }
-    
     try {
       // Prepare the prompt for the Gemini API
       const systemPrompt = `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é **StoryBot**. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas. Siga estas diretrizes:
@@ -74,7 +60,7 @@ export const useStoryBot = () => {
       });
 
       // Make the API call to Gemini
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,13 +96,13 @@ export const useStoryBot = () => {
       return responseText;
     } catch (error) {
       console.error("Error in useStoryBot:", error);
-      toast.error("Erro ao processar sua solicitação. Verifique sua chave de API.");
+      toast.error("Erro ao processar sua solicitação. Por favor, tente novamente mais tarde.");
       throw error;
     }
   };
 
   return {
     generateStoryBotResponse,
-    hasApiKey: !!apiKey,
+    hasApiKey: true, // Always true now since we're using a hardcoded API key
   };
 };
