@@ -168,10 +168,10 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
-  const generateImage = async (description: string, childName: string, theme: string, setting: string): Promise<string> => {
+  const generateImage = async (description: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
-      // Prompt aprimorado com instruções mais detalhadas para gerar ilustrações de maior qualidade
-      const enhancedPrompt = `${description}, 
+      // Prompt aprimorado com instruções mais detalhadas para gerar ilustrações com características faciais da criança
+      let enhancedPrompt = `${description}, 
         ${childName} as the main character, 
         ${theme === 'adventure' ? 'adventure story' : 
         theme === 'fantasy' ? 'fantasy magical world' : 
@@ -196,8 +196,17 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         digital art, 
         no text`;
       
-      // Using the Pollinations AI API for image generation
-      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`, {
+      // Se houver uma imagem da criança, adicione uma instrução para usar as características faciais
+      if (childImageBase64) {
+        enhancedPrompt += `, character with facial features similar to the reference child photo, maintain child's recognizable facial features`;
+      }
+      
+      // Usando a Pollinations AI para geração de imagem
+      const apiUrl = childImageBase64 
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=&width=1024&height=1024&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`;
+
+      const response = await fetch(apiUrl, {
         method: "GET",
       });
 
@@ -205,7 +214,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         throw new Error(`Erro ao gerar imagem: ${response.statusText}`);
       }
 
-      // Convert the response to a blob URL
+      // Converter a resposta para uma URL de blob
       const imageBlob = await response.blob();
       const imageUrl = URL.createObjectURL(imageBlob);
       
@@ -214,15 +223,15 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
       console.error("Error generating image:", error);
       toast.error("Erro ao gerar imagem. Usando imagem padrão.");
       
-      // Return a placeholder image URL
+      // Retornar uma URL de imagem placeholder
       return 'https://placehold.co/600x400/FFCAE9/FFF?text=StorySnap';
     }
   };
 
-  // Função aprimorada para gerar imagem de capa
-  const generateCoverImage = async (title: string, childName: string, theme: string, setting: string): Promise<string> => {
+  // Função aprimorada para gerar imagem de capa com características da criança
+  const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
-      const coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character.
+      let coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character.
         Theme: ${theme === 'adventure' ? 'adventure story with exploration' : 
         theme === 'fantasy' ? 'magical fantasy world with spells and wonders' : 
         theme === 'space' ? 'space exploration with planets and stars' : 
@@ -242,9 +251,18 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         high quality illustration, 
         digital art, 
         no text`;
+        
+      // Se houver uma imagem da criança, adicione instruções para usar as características faciais
+      if (childImageBase64) {
+        coverPrompt += `, main character with facial features similar to the reference child photo, maintain child's recognizable facial features`;
+      }
       
-      // Using the Pollinations AI API for cover image generation
-      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}`, {
+      // Usando a Pollinations AI para geração de imagem de capa
+      const apiUrl = childImageBase64 
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=&width=1024&height=1600&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}`;
+      
+      const response = await fetch(apiUrl, {
         method: "GET",
       });
 
@@ -252,7 +270,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         throw new Error(`Erro ao gerar imagem de capa: ${response.statusText}`);
       }
 
-      // Convert the response to a blob URL
+      // Converter a resposta para uma URL de blob
       const imageBlob = await response.blob();
       const imageUrl = URL.createObjectURL(imageBlob);
       
@@ -261,9 +279,27 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
       console.error("Error generating cover image:", error);
       toast.error("Erro ao gerar imagem de capa. Usando imagem padrão.");
       
-      // Return a placeholder cover image URL
+      // Retornar uma URL de imagem placeholder para capa
       return 'https://placehold.co/600x800/FFC0CB/FFF?text=StoryBook';
     }
+  };
+
+  // Função para converter a imagem da criança para Base64
+  const convertImageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          resolve(reader.result as string);
+        } else {
+          reject(new Error("Falha ao converter imagem para Base64"));
+        }
+      };
+      reader.onerror = () => {
+        reject(new Error("Erro ao ler o arquivo"));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   return {
@@ -271,6 +307,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     generateImageDescription,
     generateImage,
     generateCoverImage,
+    convertImageToBase64,
     hasApiKey: true, // Always true now since we're using a hardcoded API key
   };
 };
