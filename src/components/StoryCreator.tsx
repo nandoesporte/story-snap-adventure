@@ -88,6 +88,9 @@ const StoryCreator = () => {
     } catch (error) {
       console.error("Error generating story bot response:", error);
       toast.error("Erro ao processar sua solicitação. Por favor, tente novamente.");
+      
+      const apiIssueEvent = new Event("storybot_api_issue");
+      window.dispatchEvent(apiIssueEvent);
     }
   };
   

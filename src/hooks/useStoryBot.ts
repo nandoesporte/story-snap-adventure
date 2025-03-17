@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
+import { generateStory } from "../utils/storyGenerator";
 
 type Message = {
   role: "user" | "assistant";
@@ -10,12 +10,18 @@ type Message = {
 export const useStoryBot = () => {
   // Using the provided API key
   const [apiKey] = useState<string>("AIzaSyBTgwFJ6x0Tc_wVHW5aC_teeHUAzQT4MBg");
+  const [useLocalGenerator, setUseLocalGenerator] = useState<boolean>(false);
   
   const generateStoryBotResponse = async (
     messageHistory: Message[],
     userInput: string
   ): Promise<string> => {
     try {
+      // If we've already determined the API has quota issues, use local generator
+      if (useLocalGenerator) {
+        return generateLocalResponse(messageHistory, userInput);
+      }
+      
       // Prepare the prompt for the Gemini API
       const systemInstructions = `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é StoryBot. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas. 
       
@@ -80,6 +86,14 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Gemini API error:", errorData);
+        
+        // If we hit a quota limit, switch to local generator for future requests
+        if (errorData.error?.code === 429) {
+          setUseLocalGenerator(true);
+          toast.warning("Limite de API excedido, usando gerador local para histórias.");
+          return generateLocalResponse(messageHistory, userInput);
+        }
+        
         throw new Error(`Erro na API do Gemini: ${errorData.error?.message || "Erro desconhecido"}`);
       }
 
@@ -91,8 +105,90 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
       return responseText;
     } catch (error) {
       console.error("Error in useStoryBot:", error);
-      toast.error("Erro ao processar sua solicitação. Por favor, tente novamente mais tarde.");
-      throw error;
+      
+      // If any error occurs, try the local generator
+      setUseLocalGenerator(true);
+      toast.warning("Usando gerador local de histórias devido a um erro na API.");
+      return generateLocalResponse(messageHistory, userInput);
+    }
+  };
+
+  // Local response generator that doesn't rely on external APIs
+  const generateLocalResponse = async (messageHistory: Message[], userInput: string): Promise<string> => {
+    // Extract child name and other details from the conversation
+    let childName = "criança";
+    let childAge = "5 anos";
+    let theme = "adventure";
+    let setting = "forest";
+    
+    // Try to extract child information from the message history or current input
+    const allText = [...messageHistory.map(m => m.content), userInput].join(" ");
+    
+    // Check for child name in the conversation
+    const nameMatch = allText.match(/história para ([A-Za-zÀ-ÖØ-öø-ÿ]+)/i);
+    if (nameMatch && nameMatch[1]) {
+      childName = nameMatch[1];
+    }
+    
+    // Check for child age
+    const ageMatch = allText.match(/(\d+) anos/i);
+    if (ageMatch && ageMatch[1]) {
+      childAge = `${ageMatch[1]} anos`;
+    }
+    
+    // Check for theme keywords
+    if (allText.toLowerCase().includes("fantasia")) theme = "fantasy";
+    else if (allText.toLowerCase().includes("espaço")) theme = "space";
+    else if (allText.toLowerCase().includes("oceano") || allText.toLowerCase().includes("mar")) theme = "ocean";
+    else if (allText.toLowerCase().includes("dinossauro")) theme = "dinosaurs";
+    
+    // Check for setting keywords
+    if (allText.toLowerCase().includes("castelo")) setting = "castle";
+    else if (allText.toLowerCase().includes("espaço")) setting = "space";
+    else if (allText.toLowerCase().includes("submarino") || allText.toLowerCase().includes("aquático")) setting = "underwater";
+    else if (allText.toLowerCase().includes("dinossauro")) setting = "dinosaurland";
+    
+    // Check if this is a request for the final story
+    const isFinalRequest = userInput.toLowerCase().includes("final") || 
+                          userInput.toLowerCase().includes("completa") || 
+                          userInput.toLowerCase().includes("gerar história");
+    
+    if (isFinalRequest) {
+      // Generate a complete story with pages
+      const storyData = await generateStory({
+        childName,
+        childAge,
+        theme,
+        setting,
+        imageUrl: ""
+      });
+      
+      let response = `TITULO: ${storyData.title}\n\n`;
+      
+      storyData.content.forEach((page, index) => {
+        response += `PAGINA ${index + 1}: ${page}\n\n`;
+      });
+      
+      return response;
+    } else {
+      // Generate a conversational response
+      return `Olá! Estou feliz em ajudar a criar uma história especial para ${childName}! 
+      
+Vamos criar uma história de ${theme === 'adventure' ? 'Aventura' : 
+  theme === 'fantasy' ? 'Fantasia' : 
+  theme === 'space' ? 'Espaço' : 
+  theme === 'ocean' ? 'Oceano' : 
+  'Dinossauros'} em um cenário de ${
+    setting === 'forest' ? 'Floresta Encantada' : 
+    setting === 'castle' ? 'Castelo Mágico' : 
+    setting === 'space' ? 'Espaço Sideral' : 
+    setting === 'underwater' ? 'Mundo Submarino' : 
+    'Terra dos Dinossauros'
+  }.
+
+Como você gostaria que a personalidade de ${childName} fosse representada na história? Por exemplo, ${childName} é corajoso(a), aventureiro(a), curioso(a) ou sonhador(a)?
+
+Há algum personagem ou elemento especial que você gostaria de incluir na história? Como animais, magia, amigos especiais ou objetos mágicos?`;
     }
   };
 
@@ -108,6 +204,7 @@ Contexto adicional para a história:
 - Tema da história: ${theme === 'adventure' ? 'Aventura' : 
   theme === 'fantasy' ? 'Fantasia e Magia' : 
   theme === 'space' ? 'Exploração Espacial' : 
+  theme === 'ocean' ? 'Mundo Submarino' : 
   theme === 'ocean' ? 'Mundo Submarino' : 
   'Dinossauros e Pré-história'}
 - Cenário: ${setting === 'forest' ? 'Floresta Encantada com árvores altas e coloridas' : 
@@ -182,7 +279,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         setting === 'castle' ? 'magical castle setting' : 
         setting === 'space' ? 'space setting with planets and stars' : 
         setting === 'underwater' ? 'colorful underwater coral reef setting' : 
-        'prehistoric landscape with volcanoes and dinosaurs'}, 
+        'prehistoric landscape with lush vegetation and volcanoes'}, 
         professional children's book illustration, 
         Pixar/Disney style, 
         high quality, 
@@ -308,6 +405,6 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     generateImage,
     generateCoverImage,
     convertImageToBase64,
-    hasApiKey: true, // Always true now since we're using a hardcoded API key
+    hasApiKey: true, // Always true now since we're using a hardcoded API key or local fallback
   };
 };
