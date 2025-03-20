@@ -49,10 +49,10 @@ const Navbar = () => {
           {/* Logo with sparkle icon */}
           <Link to="/" className="flex items-center">
             <div className="flex items-center gap-2">
-              <div className="text-indigo-700 relative">
+              <div className="text-violet-600 relative">
                 <Sparkles className="w-6 h-6" />
                 <motion.div
-                  className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-400 rounded-full"
+                  className="absolute -top-1 -right-1 w-2 h-2 bg-violet-400 rounded-full"
                   animate={{
                     scale: [1, 1.5, 1],
                     opacity: [0.7, 1, 0.7],
@@ -64,7 +64,7 @@ const Navbar = () => {
                   }}
                 />
               </div>
-              <span className="text-2xl font-bold text-indigo-700 tracking-tight">STORY SPARK</span>
+              <span className="text-2xl font-bold text-violet-700 tracking-tight">STORY SPARK</span>
             </div>
           </Link>
 
@@ -76,9 +76,9 @@ const Navbar = () => {
                   <NavLink
                     to={link.path}
                     className={({ isActive }) =>
-                      `relative font-medium text-sm transition-colors hover:text-indigo-700 ${
+                      `relative font-medium text-sm transition-colors hover:text-violet-700 ${
                         isActive
-                          ? "text-indigo-700"
+                          ? "text-violet-700"
                           : "text-slate-600"
                       }`
                     }
@@ -89,7 +89,7 @@ const Navbar = () => {
                         {isActive && (
                           <motion.div
                             layoutId="navbar-indicator"
-                            className="absolute -bottom-1 left-0 right-0 h-0.5 bg-indigo-700"
+                            className="absolute -bottom-1 left-0 right-0 h-0.5 bg-violet-700"
                             transition={{ type: "spring", duration: 0.5 }}
                           />
                         )}
@@ -104,12 +104,12 @@ const Navbar = () => {
           {/* Login/Signup Buttons */}
           {!isMobile && (
             <div className="flex items-center gap-3">
-              <Link to="/login" className="text-indigo-700 hover:text-indigo-800 font-medium text-sm">
+              <Link to="/login" className="text-violet-700 hover:text-violet-800 font-medium text-sm">
                 Entrar
               </Link>
               <Link 
                 to="/signup"
-                className="bg-indigo-700 hover:bg-indigo-800 text-white font-medium px-5 py-2 rounded-full text-sm transition-colors duration-200"
+                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-medium px-5 py-2 rounded-full text-sm transition-colors duration-200 shadow-sm hover:shadow-md"
               >
                 Inscreva-se gratuitamente
               </Link>
@@ -121,13 +121,13 @@ const Navbar = () => {
             <div className="flex items-center gap-3">
               <Link 
                 to="/login" 
-                className="text-indigo-700 hover:text-indigo-800 font-medium text-sm mr-2"
+                className="text-violet-700 hover:text-violet-800 font-medium text-sm mr-2"
               >
                 Entrar
               </Link>
               <button
                 onClick={toggleMenu}
-                className="text-indigo-700 focus:outline-none"
+                className="text-violet-700 focus:outline-none"
                 aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               >
                 <svg
@@ -176,7 +176,7 @@ const Navbar = () => {
                       className={({ isActive }) =>
                         `block py-2 px-4 rounded-lg ${
                           isActive
-                            ? "bg-indigo-100 text-indigo-700"
+                            ? "bg-violet-100 text-violet-700"
                             : "text-slate-600 hover:bg-slate-50"
                         }`
                       }
@@ -188,7 +188,7 @@ const Navbar = () => {
                 <li>
                   <Link
                     to="/signup"
-                    className="block py-2 px-4 mt-2 bg-indigo-700 text-white rounded-lg text-center font-medium"
+                    className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
                   >
                     Inscreva-se gratuitamente
                   </Link>
