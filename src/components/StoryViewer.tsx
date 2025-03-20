@@ -32,7 +32,7 @@ interface StoryData {
   }>;
 }
 
-// Properly define ViewMode as a union of string literals
+// Properly define ViewMode as a union type of string literals
 type ViewMode = "single" | "spread" | "carousel";
 
 const StoryViewer = () => {
@@ -417,7 +417,8 @@ const StoryViewer = () => {
         </div>
         
         {/* Book styling */}
-        <style jsx global>{`
+        <style>
+          {`
           .book-controls {
             display: flex;
             justify-content: space-between;
@@ -771,7 +772,8 @@ const StoryViewer = () => {
             box-sizing: border-box;
             font-family: 'Comic Neue', 'Bubblegum Sans', 'Patrick Hand', 'Schoolbell', sans-serif;
           }
-        `}</style>
+        `}
+        </style>
       </div>
     );
   }
