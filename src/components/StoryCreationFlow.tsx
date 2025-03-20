@@ -4,19 +4,23 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import FileUpload from "./FileUpload";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   ChevronRight, 
   ChevronLeft, 
-  Camera, 
   User, 
-  CalendarDays, 
   Map, 
   Palette, 
   Book, 
   MessageSquare, 
   Sparkles,
-  Upload
+  Settings,
+  Lightbulb,
+  BookText,
+  Volume2,
+  FileText,
+  Languages
 } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryBot } from "../hooks/useStoryBot";
@@ -30,6 +34,7 @@ type Step =
   | "setting" 
   | "length" 
   | "style" 
+  | "advancedOptions" 
   | "review" 
   | "chat" 
   | "generating";
@@ -44,6 +49,13 @@ type StoryFormData = {
   length: string;
   style: string;
   characterId: number;
+  readingLevel: string;
+  language: string;
+  audio: string;
+  moral: string;
+  characterDescription: string;
+  specialNeeds: string;
+  pages: string;
 };
 
 // Personagens pré-estabelecidos
@@ -90,6 +102,34 @@ const styleOptions = [
   { id: "storybook", name: "Livro Infantil", icon: "📕", description: "Estilo clássico de ilustração de livros infantis" }
 ];
 
+// Advanced options
+const readingLevels = [
+  { id: "beginner", name: "Leitores em desenvolvimento" },
+  { id: "intermediate", name: "Leitores intermediários" },
+  { id: "advanced", name: "Leitores avançados" }
+];
+
+const languages = [
+  { id: "pt-BR", name: "Brazilian Portuguese" },
+  { id: "en-US", name: "English (US)" },
+  { id: "es", name: "Español" }
+];
+
+const audioOptions = [
+  { id: "none", name: "Sem áudio" },
+  { id: "narration", name: "Narração" },
+  { id: "sfx", name: "Com efeitos sonoros" }
+];
+
+const specialNeedsOptions = [
+  { id: "none", name: "Nenhuma" },
+  { id: "dyslexia", name: "Dislexia" },
+  { id: "adhd", name: "TDAH" },
+  { id: "autism", name: "Autismo" }
+];
+
+const pagesOptions = ["5", "8", "10", "12", "14", "16", "20"];
+
 type Message = {
   role: "user" | "assistant";
   content: string;
@@ -114,7 +154,14 @@ const StoryCreationFlow = () => {
     settingName: "Floresta Encantada",
     length: "medium",
     style: "cartoon",
-    characterId: 0
+    characterId: 0,
+    readingLevel: "beginner",
+    language: "pt-BR",
+    audio: "none",
+    moral: "A importância de cuidar do meio ambiente.",
+    characterDescription: "",
+    specialNeeds: "none",
+    pages: "10"
   });
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -129,13 +176,18 @@ const StoryCreationFlow = () => {
       setFormData(prev => ({ 
         ...prev, 
         characterId: characterId,
-        childName: character.name.split(",")[0] // Use o primeiro nome do personagem
+        childName: character.name.split(",")[0], // Use o primeiro nome do personagem
+        characterDescription: character.description
       }));
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -179,6 +231,7 @@ const StoryCreationFlow = () => {
       "setting", 
       "length", 
       "style", 
+      "advancedOptions",
       "review", 
       "chat", 
       "generating"
@@ -202,6 +255,7 @@ const StoryCreationFlow = () => {
       "setting", 
       "length", 
       "style", 
+      "advancedOptions",
       "review", 
       "chat", 
       "generating"
@@ -222,8 +276,19 @@ const StoryCreationFlow = () => {
     com estilo visual de ${formData.style === 'cartoon' ? 'Desenho Animado' : 
       formData.style === 'watercolor' ? 'Aquarela' : 
       formData.style === 'realistic' ? 'Realista' : 
-      formData.style === 'storybook' ? 'Livro Infantil' : ''
-    }. Pode me ajudar a criar esta história?`;
+      formData.style === 'storybook' ? 'Livro Infantil' : ''}.
+    
+    Opções avançadas:
+    - Nível de leitura: ${
+      formData.readingLevel === 'beginner' ? 'Leitores em desenvolvimento' : 
+      formData.readingLevel === 'intermediate' ? 'Leitores intermediários' : 
+      'Leitores avançados'
+    }
+    - Moral da história: ${formData.moral}
+    - Descrição do personagem: ${formData.characterDescription}
+    - Número de páginas: ${formData.pages}
+    
+    Pode me ajudar a criar esta história?`;
     
     handleSendMessage(initialPrompt);
   };
@@ -264,11 +329,15 @@ const StoryCreationFlow = () => {
     setIsGenerating(true);
     
     try {
-      const pageCount = formData.length === 'short' ? 5 : formData.length === 'medium' ? 10 : 15;
+      const pageCount = Number(formData.pages) || (formData.length === 'short' ? 5 : formData.length === 'medium' ? 10 : 15);
       
       const summaryPrompt = `Por favor, finalize nossa história sobre ${formData.childName} no cenário de ${formData.settingName}. 
-      Crie uma história completa com início, meio e fim, dividida em ${pageCount} páginas incluindo uma moral. 
+      Crie uma história completa com início, meio e fim, dividida em ${pageCount} páginas incluindo esta moral: "${formData.moral}". 
       Use o nome ${formData.childName} como personagem principal e crie um título criativo. 
+      Considere o nível de leitura: ${formData.readingLevel === 'beginner' ? 'Leitores em desenvolvimento' : 
+      formData.readingLevel === 'intermediate' ? 'Leitores intermediários' : 
+      'Leitores avançados'}.
+      Personagem descrição: ${formData.characterDescription}
       No começo da história, inicie claramente com "TITULO:" seguido do título da história, 
       e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc. até "PAGINA ${pageCount}:". 
       Cada página deve ter apenas um parágrafo curto.`;
@@ -326,6 +395,10 @@ const StoryCreationFlow = () => {
         settingName: formData.settingName,
         style: formData.style,
         characterId: formData.characterId,
+        readingLevel: formData.readingLevel,
+        language: formData.language,
+        audio: formData.audio,
+        moral: formData.moral,
         pages: pagesWithImages
       }));
       
@@ -408,6 +481,18 @@ const StoryCreationFlow = () => {
                   </div>
                 </div>
               ))}
+            </div>
+            
+            <div className="flex justify-end mt-6">
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+                disabled={selectedCharacter === null}
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </motion.div>
         );
@@ -613,6 +698,157 @@ const StoryCreationFlow = () => {
           </motion.div>
         );
         
+      case "advancedOptions":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-violet-100 text-violet-600 mb-4">
+                <Settings className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold">Opções Avançadas</h3>
+              <p className="text-slate-500 mt-2">Personalize ainda mais a experiência de leitura</p>
+            </div>
+            
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <Label htmlFor="readingLevel" className="block mb-2">Nível de Leitura</Label>
+                  <Select
+                    value={formData.readingLevel}
+                    onValueChange={(value) => handleSelectChange('readingLevel', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o nível" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {readingLevels.map(level => (
+                        <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="language" className="block mb-2">Idioma</Label>
+                  <Select
+                    value={formData.language}
+                    onValueChange={(value) => handleSelectChange('language', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o idioma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages.map(lang => (
+                        <SelectItem key={lang.id} value={lang.id}>{lang.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="audio" className="block mb-2">Áudio</Label>
+                  <Select
+                    value={formData.audio}
+                    onValueChange={(value) => handleSelectChange('audio', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Opções de áudio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {audioOptions.map(option => (
+                        <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="specialNeeds" className="block mb-2">Necessidades Especiais</Label>
+                  <Select
+                    value={formData.specialNeeds}
+                    onValueChange={(value) => handleSelectChange('specialNeeds', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione uma opção" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {specialNeedsOptions.map(option => (
+                        <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="sm:col-span-2">
+                  <Label htmlFor="moral" className="block mb-2">Moral da história</Label>
+                  <Textarea
+                    id="moral"
+                    name="moral"
+                    placeholder="Ex: A importância de cuidar do meio ambiente."
+                    value={formData.moral}
+                    onChange={handleInputChange}
+                    className="w-full min-h-[80px]"
+                  />
+                </div>
+                
+                <div className="sm:col-span-2">
+                  <Label htmlFor="characterDescription" className="block mb-2">Descrição do Personagem</Label>
+                  <Textarea
+                    id="characterDescription"
+                    name="characterDescription"
+                    placeholder="Descreva melhor o personagem principal..."
+                    value={formData.characterDescription}
+                    onChange={handleInputChange}
+                    className="w-full min-h-[80px]"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="pages" className="block mb-2">Páginas</Label>
+                  <Select
+                    value={formData.pages}
+                    onValueChange={(value) => handleSelectChange('pages', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Número de páginas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pagesOptions.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-between">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.div>
+        );
+        
       case "review":
         return (
           <motion.div
@@ -688,17 +924,60 @@ const StoryCreationFlow = () => {
                 </div>
               </div>
               
-              <div className="mt-6 flex flex-col gap-2">
-                <p className="font-medium">Detalhes da história:</p>
-                <p className="text-sm text-slate-600">
-                  {formData.childName} terá uma aventura de {formData.themeName} em {formData.settingName}.
-                  As ilustrações serão em estilo {
-                    formData.style === 'cartoon' ? 'Desenho Animado' : 
-                    formData.style === 'watercolor' ? 'Aquarela' : 
-                    formData.style === 'realistic' ? 'Realista' : 
-                    formData.style === 'storybook' ? 'Livro Infantil' : ''
-                  }.
-                </p>
+              <div className="mt-6">
+                <h4 className="font-medium mb-3">Opções Avançadas:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <BookText className="w-4 h-4 text-violet-600" />
+                    <p>Nível de Leitura: {
+                      formData.readingLevel === 'beginner' ? 'Leitores em desenvolvimento' : 
+                      formData.readingLevel === 'intermediate' ? 'Leitores intermediários' : 
+                      'Leitores avançados'
+                    }</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Languages className="w-4 h-4 text-violet-600" />
+                    <p>Idioma: {
+                      formData.language === 'pt-BR' ? 'Brazilian Portuguese' : 
+                      formData.language === 'en-US' ? 'English (US)' : 
+                      'Español'
+                    }</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-violet-600" />
+                    <p>Áudio: {
+                      formData.audio === 'none' ? 'Sem áudio' : 
+                      formData.audio === 'narration' ? 'Narração' : 
+                      'Com efeitos sonoros'
+                    }</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-violet-600" />
+                    <p>Páginas: {formData.pages}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-white rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Moral da história:</p>
+                      <p className="text-sm text-slate-600">{formData.moral}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {formData.characterDescription && (
+                  <div className="mt-3 p-3 bg-white rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <User className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">Descrição do personagem:</p>
+                        <p className="text-sm text-slate-600">{formData.characterDescription}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
