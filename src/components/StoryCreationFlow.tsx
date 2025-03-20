@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -222,7 +223,8 @@ const StoryCreationFlow = () => {
     com estilo visual de ${formData.style === 'cartoon' ? 'Desenho Animado' : 
       formData.style === 'watercolor' ? 'Aquarela' : 
       formData.style === 'realistic' ? 'Realista' : 
-      formData.style === 'storybook' ? 'Livro Infantil'}. Pode me ajudar a criar esta história?`;
+      formData.style === 'storybook' ? 'Livro Infantil' : ''
+    }. Pode me ajudar a criar esta história?`;
     
     handleSendMessage(initialPrompt);
   };
