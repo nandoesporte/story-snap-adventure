@@ -114,19 +114,101 @@ const Hero = () => {
         <div className="relative w-full glass rounded-xl overflow-hidden shadow-2xl mx-auto">
           <AspectRatio ratio={isMobile ? 3/4 : 16/9} className="bg-background/80">
             <div className="flex flex-col md:flex-row h-full">
-              {/* Tela de dispositivo */}
+              {/* Tela de dispositivo com nova imagem atrativa */}
               <div className="w-full md:w-3/5 h-full p-3 sm:p-4 md:p-8 flex items-center justify-center">
                 <div className="relative w-full max-w-md mx-auto">
                   {/* Moldura de tablet/dispositivo */}
                   <div className="relative rounded-2xl overflow-hidden border-4 sm:border-8 border-gray-800 shadow-lg">
                     <AspectRatio ratio={isMobile ? 3/4 : 4/3}>
-                      <img 
-                        src="/placeholder.svg" 
-                        alt="Criança em história personalizada" 
-                        className="object-cover rounded-lg w-full h-full"
-                      />
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
+                      
+                      {/* Imagem de criança como protagonista */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative w-full h-full">
+                          {/* Cenário de aventura */}
+                          <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 via-transparent to-indigo-600/20"></div>
+                          
+                          {/* Elementos mágicos */}
+                          <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-blue-400/30 to-transparent 
+                                          flex items-start justify-center overflow-hidden">
+                            <div className="w-full h-24 mt-2 relative">
+                              {/* Estrelas e elementos mágicos */}
+                              {[...Array(6)].map((_, i) => (
+                                <motion.div
+                                  key={i}
+                                  className="absolute w-2 h-2 rounded-full bg-yellow-300"
+                                  style={{
+                                    left: `${10 + i * 20}%`,
+                                    top: `${Math.random() * 100}%`,
+                                  }}
+                                  animate={{
+                                    opacity: [0.4, 1, 0.4],
+                                    scale: [0.8, 1.2, 0.8],
+                                  }}
+                                  transition={{
+                                    duration: 2 + i % 3,
+                                    repeat: Infinity,
+                                    delay: i * 0.2,
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Silhueta de castelo ao fundo */}
+                          <div className="absolute inset-x-0 bottom-1/4 h-1/3 flex items-end justify-center">
+                            <svg width="60%" height="80%" viewBox="0 0 100 50" className="text-indigo-900/30">
+                              <path d="M10,50 L10,30 L15,30 L15,25 L20,25 L20,30 L25,30 L25,50 L35,50 L35,35 L40,35 L40,30 L45,30 L45,35 L50,25 L55,35 L55,30 L60,30 L60,35 L65,35 L65,50 L75,50 L75,30 L80,30 L80,25 L85,25 L85,30 L90,30 L90,50 Z" fill="currentColor" />
+                            </svg>
+                          </div>
+                          
+                          {/* Protagonista criança (silhueta com efeito mágico) */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="relative w-32 h-40">
+                              {/* Silhueta da criança */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <svg viewBox="0 0 50 70" width="100%" height="100%" className="text-blue-900/70">
+                                  <path d="M25,15 C30,15 34,19 34,24 C34,29 30,33 25,33 C20,33 16,29 16,24 C16,19 20,15 25,15 Z" fill="currentColor" />
+                                  <path d="M15,33 L35,33 L38,65 C38,67 37,68 35,68 L30,68 L28,55 L25,68 L22,55 L20,68 L15,68 C13,68 12,67 12,65 Z" fill="currentColor" />
+                                  <path d="M19,33 L12,45 M31,33 L38,45" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                              </div>
+                              
+                              {/* Efeito de brilho mágico ao redor da criança */}
+                              <motion.div
+                                className="absolute inset-0 rounded-full bg-storysnap-blue/10 blur-md"
+                                animate={{
+                                  scale: [1, 1.1, 1],
+                                  opacity: [0.5, 0.8, 0.5]
+                                }}
+                                transition={{
+                                  duration: 3,
+                                  repeat: Infinity,
+                                  ease: "easeInOut"
+                                }}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Elementos dinossauros no tema */}
+                          <div className="absolute bottom-4 left-4 w-16 h-12">
+                            <svg viewBox="0 0 50 30" className="text-emerald-700/50">
+                              <path d="M10,30 C5,30 0,25 0,20 C0,15 5,15 10,15 L15,15 C20,15 20,10 25,10 L30,5 L35,5 L40,10 L45,15 L48,20 L50,25 L45,30 Z" fill="currentColor" />
+                              <circle cx="38" cy="14" r="1.5" fill="#000" fillOpacity="0.5" />
+                            </svg>
+                          </div>
+                          
+                          <div className="absolute bottom-4 right-4 w-14 h-10">
+                            <svg viewBox="0 0 40 25" className="text-emerald-800/40">
+                              <path d="M5,25 C3,25 0,22 0,18 C0,14 3,14 5,14 L10,14 C12,14 12,10 15,10 L20,5 L25,5 L28,10 L30,14 L32,18 L35,20 L30,25 Z" fill="currentColor" />
+                              <circle cx="28" cy="12" r="1" fill="#000" fillOpacity="0.5" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      
                       {/* Overlay de interface do app */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
                         <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4">
                           <h3 className="text-white text-sm sm:text-lg font-bold">A Aventura de Mateus</h3>
                           <p className="text-white/90 text-xs sm:text-sm">Uma jornada mágica no mundo dos dinossauros</p>
