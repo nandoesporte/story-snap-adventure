@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -319,7 +318,7 @@ const StoryViewer = () => {
   }
   
   // Main render for Single Page mode
-  if (viewMode === "single") {
+  if (viewMode === "single" as ViewMode) {
     return (
       <div className="flex flex-col" ref={storyBookRef}>
         <div className="book-controls">
@@ -328,7 +327,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("single")}
-              className={viewMode === "single" ? "active-mode" : ""}
+              className={viewMode === "single" as ViewMode ? "active-mode" : ""}
             >
               <BookOpenIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Página</span>
@@ -337,7 +336,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("spread")}
-              className={viewMode === "spread" ? "active-mode" : ""}
+              className={viewMode === "spread" as ViewMode ? "active-mode" : ""}
             >
               <SplitIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Abertura</span>
@@ -346,7 +345,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("carousel")}
-              className={viewMode === "carousel" ? "active-mode" : ""}
+              className={viewMode === "carousel" as ViewMode ? "active-mode" : ""}
             >
               <LayoutGridIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Carrossel</span>
@@ -779,7 +778,7 @@ const StoryViewer = () => {
   }
   
   // Render for Book Spread mode
-  if (viewMode === "spread") {
+  if (viewMode === "spread" as ViewMode) {
     // Calculate pages for spread view (pairs of pages)
     const leftPage = Math.max(0, currentPage * 2 - 1);
     const rightPage = leftPage + 1;
@@ -793,7 +792,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("single")}
-              className={viewMode === "single" ? "active-mode" : ""}
+              className={viewMode === "single" as ViewMode ? "active-mode" : ""}
             >
               <BookOpenIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Página</span>
@@ -802,7 +801,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("spread")}
-              className={viewMode === "spread" ? "active-mode" : ""}
+              className={viewMode === "spread" as ViewMode ? "active-mode" : ""}
             >
               <SplitIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Abertura</span>
@@ -811,7 +810,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("carousel")}
-              className={viewMode === "carousel" ? "active-mode" : ""}
+              className={viewMode === "carousel" as ViewMode ? "active-mode" : ""}
             >
               <LayoutGridIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Carrossel</span>
@@ -893,7 +892,7 @@ const StoryViewer = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setViewMode("single")}
-            className={viewMode === "single" ? "active-mode" : ""}
+            className={viewMode === "single" as ViewMode ? "active-mode" : ""}
           >
             <BookOpenIcon className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Página</span>
@@ -902,7 +901,7 @@ const StoryViewer = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setViewMode("spread")}
-            className={viewMode === "spread" ? "active-mode" : ""}
+            className={viewMode === "spread" as ViewMode ? "active-mode" : ""}
           >
             <SplitIcon className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Abertura</span>
@@ -911,7 +910,7 @@ const StoryViewer = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setViewMode("carousel")}
-            className={viewMode === "carousel" ? "active-mode" : ""}
+            className={viewMode === "carousel" as ViewMode ? "active-mode" : ""}
           >
             <LayoutGridIcon className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Carrossel</span>
