@@ -239,9 +239,12 @@ const StoryCreationFlow = () => {
     
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
-      setCurrentStep(stepOrder[currentIndex + 1]);
+      // Fix: Ensure we're using the correct next step index
+      const nextStep = stepOrder[currentIndex + 1];
+      setCurrentStep(nextStep);
       
-      if (stepOrder[currentIndex + 1] === "chat") {
+      // If next step is chat, initialize StoryBot chat
+      if (nextStep === "chat") {
         initializeChatWithStoryBot();
       }
     }
@@ -552,6 +555,27 @@ const StoryCreationFlow = () => {
                 </div>
               </div>
             )}
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+                disabled={!formData.childAge.trim()}
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </motion.div>
         );
         
@@ -587,6 +611,26 @@ const StoryCreationFlow = () => {
                   </div>
                 </div>
               ))}
+            </div>
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </motion.div>
         );
@@ -624,6 +668,26 @@ const StoryCreationFlow = () => {
                 </div>
               ))}
             </div>
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </motion.div>
         );
         
@@ -658,6 +722,26 @@ const StoryCreationFlow = () => {
                   </div>
                 </div>
               ))}
+            </div>
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </motion.div>
         );
@@ -694,6 +778,26 @@ const StoryCreationFlow = () => {
                   </div>
                 </div>
               ))}
+            </div>
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="story"
+                onClick={handleGoBack}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              
+              <Button
+                variant="storyPrimary"
+                onClick={handleGoNext}
+                className="gap-2"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </motion.div>
         );
