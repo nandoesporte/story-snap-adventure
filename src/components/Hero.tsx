@@ -88,8 +88,8 @@ const Hero = () => {
           >
             <div className="relative w-full max-w-lg">
               <img 
-                src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
-                alt="Livro mágico com personagens infantis e paisagens coloridas super realista" 
+                src="https://images.unsplash.com/photo-1501286353178-1ec881214838?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200" 
+                alt="Crianças criando histórias mágicas com livros coloridos" 
                 className="w-full h-auto z-10 rounded-lg shadow-xl"
               />
               

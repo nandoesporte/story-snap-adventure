@@ -124,8 +124,8 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">CRIE SUA HISTÓRIA COM IMAGINAÇÃO!</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
-                    alt="Criança em mundo mágico" 
+                    src="https://images.unsplash.com/photo-1472396961693-142e6e269027?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800" 
+                    alt="Crianças criando histórias mágicas" 
                     className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
                 </div>
@@ -146,7 +146,7 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">DÊ VIDA À HISTÓRIA!</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                    src="https://images.unsplash.com/photo-1439886183900-e79ec0057170?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800" 
                     alt="Personagens de histórias infantis" 
                     className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
@@ -168,7 +168,7 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">PERSONALIZE PARA AS NECESSIDADES DE APRENDIZAGEM</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                    src="https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800" 
                     alt="Criança lendo livro mágico" 
                     className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
