@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -677,7 +676,7 @@ const StoryCreationFlow = () => {
                         formData.style === 'cartoon' ? 'Desenho Animado' : 
                         formData.style === 'watercolor' ? 'Aquarela' : 
                         formData.style === 'realistic' ? 'Realista' : 
-                        'Livro Infantil'
+                        formData.style === 'storybook' ? 'Livro Infantil' : ''
                       }</p>
                     </div>
                   </div>
@@ -692,7 +691,7 @@ const StoryCreationFlow = () => {
                     formData.style === 'cartoon' ? 'Desenho Animado' : 
                     formData.style === 'watercolor' ? 'Aquarela' : 
                     formData.style === 'realistic' ? 'Realista' : 
-                    'Livro Infantil'
+                    formData.style === 'storybook' ? 'Livro Infantil' : ''
                   }.
                 </p>
               </div>
@@ -805,140 +804,4 @@ const StoryCreationFlow = () => {
       case "generating":
         return (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex flex-col items-center justify-center py-12"
-          >
-            <div className="relative w-24 h-24 mb-8">
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full animate-pulse opacity-50"></div>
-              <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
-                <Sparkles className="w-10 h-10 text-violet-600" />
-              </div>
-            </div>
-            
-            <h3 className="text-xl font-bold mb-2">Criando a história mágica</h3>
-            <p className="text-slate-500 text-center max-w-md mb-6">
-              Nosso sistema está gerando uma história única e personalizada para {formData.childName}.
-              Este processo pode levar alguns minutos.
-            </p>
-            
-            <div className="w-full max-w-md bg-violet-50 rounded-lg p-4 border border-violet-100">
-              <div className="flex items-center mb-3">
-                <LoadingSpinner size="sm" />
-                <span className="ml-2 text-violet-700 font-medium">Criando narrativa...</span>
-              </div>
-              <div className="w-full h-2 bg-violet-100 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 animate-[progress_8s_ease-in-out_infinite]" style={{width: '65%'}}></div>
-              </div>
-              <div className="mt-3 text-center text-xs text-slate-500">
-                Por favor, não feche esta janela
-              </div>
-            </div>
-          </motion.div>
-        );
-        
-      default:
-        return null;
-    }
-  };
-  
-  // Render stepper header
-  const renderStepper = () => {
-    const steps = [
-      { id: "photo", label: "Foto", icon: <Camera className="w-4 h-4" /> },
-      { id: "childDetails", label: "Detalhes", icon: <User className="w-4 h-4" /> },
-      { id: "theme", label: "Tema", icon: <Book className="w-4 h-4" /> },
-      { id: "setting", label: "Cenário", icon: <Map className="w-4 h-4" /> },
-      { id: "style", label: "Estilo", icon: <Palette className="w-4 h-4" /> },
-      { id: "review", label: "Revisão", icon: <Sparkles className="w-4 h-4" /> }
-    ];
-    
-    const stepIndex = steps.findIndex(step => step.id === currentStep);
-    const progress = stepIndex >= 0 ? (stepIndex / (steps.length - 1)) * 100 : 0;
-    
-    if (["chat", "generating"].includes(currentStep)) {
-      return null; // Hide stepper for these steps
-    }
-    
-    return (
-      <div className="mb-8">
-        <div className="relative">
-          <div className="w-full h-1 bg-violet-100 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-violet-600 transition-all duration-500 ease-in-out" 
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-          
-          <div className="hidden md:flex justify-between mt-2">
-            {steps.map((step, index) => (
-              <div 
-                key={step.id}
-                className={`flex flex-col items-center ${
-                  stepIndex >= index 
-                    ? 'text-violet-600' 
-                    : 'text-slate-400'
-                }`}
-              >
-                <div 
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                    stepIndex > index 
-                      ? 'bg-violet-600 text-white' 
-                      : stepIndex === index 
-                        ? 'bg-white border-2 border-violet-600 text-violet-600' 
-                        : 'bg-white border border-slate-200 text-slate-400'
-                  }`}
-                >
-                  {stepIndex > index ? '✓' : index + 1}
-                </div>
-                <span className="text-xs mt-1">{step.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div>
-      {renderStepper()}
-      
-      <div className="min-h-[400px]">
-        <AnimatePresence mode="wait">
-          {renderStepContent()}
-        </AnimatePresence>
-      </div>
-      
-      {["photo", "childDetails", "theme", "setting", "length", "style"].includes(currentStep) && (
-        <div className="mt-6 flex justify-between">
-          {currentStep !== "photo" ? (
-            <Button
-              variant="story"
-              onClick={handleGoBack}
-              className="gap-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Voltar
-            </Button>
-          ) : (
-            <div></div> // Empty div to maintain flex spacing
-          )}
-          
-          <Button
-            variant="storyPrimary"
-            onClick={handleGoNext}
-            className="gap-2"
-          >
-            Próximo
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default StoryCreationFlow;
-
+            initial={{ opacity:
