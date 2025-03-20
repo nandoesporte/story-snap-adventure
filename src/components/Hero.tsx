@@ -79,7 +79,7 @@ const Hero = () => {
             </motion.div>
           </div>
           
-          {/* Right side - 3D Book Illustration */}
+          {/* Right side - Realistic children's book illustration */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,12 +88,12 @@ const Hero = () => {
           >
             <div className="relative w-full max-w-lg">
               <img 
-                src="/lovable-uploads/586ba736-5fe5-4d24-bc18-536872f83ec7.png" 
-                alt="Livro mágico com personagens infantis e paisagens coloridas" 
-                className="w-full h-auto z-10 drop-shadow-xl"
+                src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                alt="Livro mágico com personagens infantis e paisagens coloridas super realista" 
+                className="w-full h-auto z-10 rounded-lg shadow-xl"
               />
               
-              {/* Animated elements */}
+              {/* Magic effects overlaid */}
               <motion.div
                 className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
                 animate={{
@@ -106,8 +106,22 @@ const Hero = () => {
                   ease: "easeInOut",
                 }}
               >
-                <Wand2 className="w-full h-full" />
+                <Wand2 className="w-full h-full filter drop-shadow-lg" />
               </motion.div>
+              
+              {/* Additional decorative elements for the book */}
+              <motion.div
+                className="absolute -bottom-4 -left-4 w-28 h-28 bg-gradient-to-br from-indigo-200/50 to-purple-300/50 rounded-full blur-xl"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 0.8, 0.5],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
             </div>
           </motion.div>
         </div>

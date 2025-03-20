@@ -124,9 +124,9 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">CRIE SUA HISTÓRIA COM IMAGINAÇÃO!</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem em dragão" 
-                    className="h-full object-contain mx-auto"
+                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                    alt="Criança em mundo mágico" 
+                    className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
                 </div>
                 <p className="text-white/80">
@@ -146,9 +146,9 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">DÊ VIDA À HISTÓRIA!</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem guaxinim" 
-                    className="h-full object-contain mx-auto"
+                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                    alt="Personagens de histórias infantis" 
+                    className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
                 </div>
                 <p className="text-white/80">
@@ -168,9 +168,9 @@ const Index = () => {
                 <h3 className="text-2xl font-bold mb-3">PERSONALIZE PARA AS NECESSIDADES DE APRENDIZAGEM</h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem menina" 
-                    className="h-full object-contain mx-auto"
+                    src="/lovable-uploads/1dab797b-be42-4472-b092-238f718f6f0c.png" 
+                    alt="Criança lendo livro mágico" 
+                    className="h-full object-contain mx-auto rounded-lg shadow-md"
                   />
                 </div>
                 <p className="text-white/80">
