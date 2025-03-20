@@ -79,7 +79,7 @@ const Hero = () => {
             </motion.div>
           </div>
           
-          {/* Right side - 3D Book Illustration */}
+          {/* Right side - Fantasy Book Illustration without characters */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,8 +88,8 @@ const Hero = () => {
           >
             <div className="relative w-full max-w-lg">
               <img 
-                src="/lovable-uploads/586ba736-5fe5-4d24-bc18-536872f83ec7.png" 
-                alt="Livro mágico com personagens infantis e paisagens coloridas" 
+                src="/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png" 
+                alt="Livro mágico com paisagens fantásticas e cenário de aventura" 
                 className="w-full h-auto z-10 drop-shadow-xl"
               />
               
