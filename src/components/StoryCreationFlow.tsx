@@ -145,7 +145,6 @@ const StoryCreationFlow = () => {
   };
 
   const handleGoNext = () => {
-    // Validation logic for each step
     if (currentStep === "photo" && !imagePreview) {
       toast.error("Por favor, adicione uma foto para continuar.");
       return;
@@ -162,7 +161,6 @@ const StoryCreationFlow = () => {
       }
     }
 
-    // Navigation logic
     const stepOrder: Step[] = [
       "photo", 
       "childDetails", 
@@ -179,7 +177,6 @@ const StoryCreationFlow = () => {
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
       
-      // If moving to chat, initialize the first message
       if (stepOrder[currentIndex + 1] === "chat") {
         initializeChatWithStoryBot();
       }
@@ -268,10 +265,8 @@ const StoryCreationFlow = () => {
       
       const storyContentWithPages = parseStoryContent(finalResponse, pageCount);
       
-      // Converter a imagem da criança para base64 para referência de características
       const childImageBase64 = imagePreview;
       
-      // Gerar a imagem de capa com referência à imagem da criança
       const coverImageDescription = await generateImageDescription(
         `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${formData.settingName}`,
         formData.childName,
@@ -280,7 +275,6 @@ const StoryCreationFlow = () => {
         formData.setting
       );
       
-      // FIX: Removed the extra argument to match the function signature
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
@@ -293,9 +287,7 @@ const StoryCreationFlow = () => {
       
       toast.info("Gerando imagens para cada página da história...");
       
-      // Gerar imagens para cada página com coerência visual entre elas
       for (const pageText of storyContentWithPages.content) {
-        // Gerar uma descrição detalhada da imagem baseada no texto da página
         const imageDescription = await generateImageDescription(
           pageText,
           formData.childName,
@@ -304,14 +296,13 @@ const StoryCreationFlow = () => {
           formData.setting
         );
         
-        // Gerar a imagem baseada na descrição, mantendo consistência com a imagem da criança
         const imageUrl = await generateImage(
           imageDescription,
           formData.childName,
           formData.theme,
           formData.setting,
           childImageBase64,
-          formData.style // Passando o estilo escolhido para a geração de imagem
+          formData.style
         );
         
         pagesWithImages.push({
@@ -320,7 +311,6 @@ const StoryCreationFlow = () => {
         });
       }
       
-      // Salvar todos os dados da história para visualização
       sessionStorage.setItem("storyData", JSON.stringify({
         title: storyContentWithPages.title,
         coverImageUrl: coverImageUrl,
@@ -367,12 +357,10 @@ const StoryCreationFlow = () => {
       content = paragraphs;
     }
     
-    // Ensure we have exactly the requested number of pages
     while (content.length < pageCount) {
       content.push(`A aventura de ${formData.childName} continua...`);
     }
     
-    // If we have more pages than requested, trim to the requested count
     content = content.slice(0, pageCount);
     
     return { title, content };
@@ -763,7 +751,6 @@ const StoryCreationFlow = () => {
                     className="flex-1"
                   />
                   <Button 
-                    // FIX: Changed from "primary" to "default" to match allowed variants
                     variant="default"
                     onClick={() => {
                       const input = document.querySelector('input[placeholder*="StoryBot"]') as HTMLInputElement;
@@ -804,4 +791,42 @@ const StoryCreationFlow = () => {
       case "generating":
         return (
           <motion.div
-            initial={{ opacity:
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="min-h-[400px] flex flex-col items-center justify-center"
+          >
+            <LoadingSpinner size="lg" />
+            <p className="mt-6 text-lg font-medium">Gerando a história personalizada...</p>
+            <p className="text-slate-500">Isso pode levar alguns instantes</p>
+          </motion.div>
+        );
+    }
+  };
+
+  return (
+    <div className="container mx-auto max-w-4xl px-4 py-12">
+      <div className="glass rounded-2xl p-8 md:p-12 shadow-xl">
+        <AnimatePresence mode="wait">
+          {currentStep === "generating" ? (
+            <motion.div
+              key="generating"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="min-h-[400px] flex flex-col items-center justify-center"
+            >
+              <LoadingSpinner size="lg" />
+              <p className="mt-6 text-lg font-medium">Gerando a história personalizada...</p>
+              <p className="text-slate-500">Isso pode levar alguns instantes</p>
+            </motion.div>
+          ) : (
+            renderStepContent()
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+export default StoryCreationFlow;
