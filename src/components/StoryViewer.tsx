@@ -32,7 +32,7 @@ interface StoryData {
   }>;
 }
 
-// Properly define ViewMode as a union type of string literals
+// Define ViewMode as a union type of string literals
 type ViewMode = "single" | "spread" | "carousel";
 
 const StoryViewer = () => {
