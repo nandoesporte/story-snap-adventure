@@ -211,7 +211,7 @@ const StoryCreationFlow = () => {
     com estilo visual de ${formData.style === 'cartoon' ? 'Desenho Animado' : 
       formData.style === 'watercolor' ? 'Aquarela' : 
       formData.style === 'realistic' ? 'Realista' : 
-      'Livro Infantil'}. Pode me ajudar a criar esta história?`;
+      formData.style === 'Livro Infantil'}. Pode me ajudar a criar esta história?`;
     
     handleSendMessage(initialPrompt);
   };
@@ -267,6 +267,7 @@ const StoryCreationFlow = () => {
       
       const childImageBase64 = imagePreview;
       
+      // Corrected call to generateCoverImage with the right number of arguments
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
@@ -804,22 +805,4 @@ const StoryCreationFlow = () => {
             <motion.div
               key="generating"
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="min-h-[400px] flex flex-col items-center justify-center"
-            >
-              <LoadingSpinner size="lg" />
-              <p className="mt-6 text-lg font-medium">Gerando a história personalizada...</p>
-              <p className="text-slate-500">Isso pode levar alguns instantes</p>
-            </motion.div>
-          ) : (
-            renderStepContent()
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
-
-export default StoryCreationFlow;
-
+              animate={{ opacity: 1, y
