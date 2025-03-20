@@ -265,11 +265,17 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
-  const generateImage = async (description: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
+  const generateImage = async (
+    description: string, 
+    childName: string, 
+    theme: string, 
+    setting: string, 
+    childImageBase64?: string | null
+  ): Promise<string> => {
     try {
-      // Prompt aprimorado com instruções mais detalhadas para gerar ilustrações com características faciais da criança
+      // Prompt aprimorado com instruções mais detalhadas para manter consistência do personagem
       let enhancedPrompt = `${description}, 
-        ${childName} as the main character, 
+        ${childName} as the main character with consistent appearance across all images, 
         ${theme === 'adventure' ? 'adventure story' : 
         theme === 'fantasy' ? 'fantasy magical world' : 
         theme === 'space' ? 'space exploration' : 
@@ -291,18 +297,37 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         soft lighting, 
         clean composition, 
         digital art, 
+        maintain character visual consistency throughout the story,
+        same character style in every image,
         no text`;
       
-      // Se houver uma imagem da criança, adicione uma instrução para usar as características faciais
+      // Adicionar instruções específicas para manter as características faciais consistentes
       if (childImageBase64) {
-        enhancedPrompt += `, character with facial features similar to the reference child photo, maintain child's recognizable facial features`;
+        enhancedPrompt += `, character with consistent facial features similar to the reference child photo, 
+        maintain child's recognizable facial features in all illustrations,
+        same character design across all images,
+        consistent child character appearance`;
       }
       
-      // Usando a Pollinations AI para geração de imagem
+      // Preparar um seed consistente baseado no nome da criança para manter coerência visual
+      // O mesmo seed gerará imagens com estilo similar
+      const generateConsistentSeed = (name: string): number => {
+        let seed = 0;
+        for (let i = 0; i < name.length; i++) {
+          seed += name.charCodeAt(i);
+        }
+        return seed * 1000; // Multiplicar para obter um número maior
+      };
+      
+      const seed = generateConsistentSeed(childName);
+      
+      // Usando a Pollinations AI para geração de imagem com seed consistente
       const apiUrl = childImageBase64 
-        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=&width=1024&height=1024&nologo=1`
-        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`;
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1024&height=1024&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}`;
 
+      console.log("Generating image with seed:", seed);
+      
       const response = await fetch(apiUrl, {
         method: "GET",
       });
@@ -325,10 +350,21 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     }
   };
 
-  // Função aprimorada para gerar imagem de capa com características da criança
+  // Função aprimorada para gerar imagem de capa com características consistentes
   const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
-      let coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character.
+      // Gerar seed consistente baseado no nome da criança
+      const generateConsistentSeed = (name: string): number => {
+        let seed = 0;
+        for (let i = 0; i < name.length; i++) {
+          seed += name.charCodeAt(i);
+        }
+        return seed * 1000 + 42; // Adicionar offset para a capa ser diferente, mas relacionada
+      };
+      
+      const seed = generateConsistentSeed(childName);
+      
+      let coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character with consistent appearance.
         Theme: ${theme === 'adventure' ? 'adventure story with exploration' : 
         theme === 'fantasy' ? 'magical fantasy world with spells and wonders' : 
         theme === 'space' ? 'space exploration with planets and stars' : 
@@ -347,17 +383,22 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         eye-catching, 
         high quality illustration, 
         digital art, 
+        maintain character visual consistency,
         no text`;
         
-      // Se houver uma imagem da criança, adicione instruções para usar as características faciais
+      // Se houver uma imagem da criança, adicione instruções para manter as características faciais consistentes
       if (childImageBase64) {
-        coverPrompt += `, main character with facial features similar to the reference child photo, maintain child's recognizable facial features`;
+        coverPrompt += `, main character with consistent facial features similar to the reference child photo, 
+        maintain child's recognizable facial features,
+        same character design as in story pages`;
       }
       
-      // Usando a Pollinations AI para geração de imagem de capa
+      // Usando a Pollinations AI para geração de imagem de capa com seed consistente
       const apiUrl = childImageBase64 
-        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=&width=1024&height=1600&nologo=1`
-        : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}`;
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1024&height=1600&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}`;
+      
+      console.log("Generating cover image with seed:", seed);
       
       const response = await fetch(apiUrl, {
         method: "GET",

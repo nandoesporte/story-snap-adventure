@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -28,7 +29,7 @@ const StoryCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const { generateStoryBotResponse, generateImageDescription, generateImage } = useStoryBot();
+  const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage, convertImageToBase64 } = useStoryBot();
   
   useEffect(() => {
     if (step === "chat" && formData) {
@@ -116,6 +117,9 @@ const StoryCreator = () => {
       
       const storyContentWithPages = parseStoryContent(finalResponse);
       
+      // Converter a imagem da criança para base64 para referência de características
+      const childImageBase64 = imagePreview;
+      
       const coverImageDescription = await generateImageDescription(
         `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
           formData.setting === 'forest' ? 'uma Floresta Encantada' : 
@@ -130,11 +134,12 @@ const StoryCreator = () => {
         formData.setting
       );
       
-      const coverImageUrl = await generateImage(
-        coverImageDescription,
+      const coverImageUrl = await generateCoverImage(
+        storyContentWithPages.title,
         formData.childName,
         formData.theme,
-        formData.setting
+        formData.setting,
+        childImageBase64 // Passando a imagem da criança para manter consistência
       );
       
       const pagesWithImages: StoryPage[] = [];
@@ -154,7 +159,8 @@ const StoryCreator = () => {
           imageDescription,
           formData.childName,
           formData.theme,
-          formData.setting
+          formData.setting,
+          childImageBase64 // Passando a imagem da criança para manter consistência em todas as páginas
         );
         
         pagesWithImages.push({
