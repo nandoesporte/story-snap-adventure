@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -280,7 +279,6 @@ const StoryCreationFlow = () => {
       
       const characterImage = imagePreview;
       
-      // Corrected call to generateCoverImage with the right number of arguments
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
@@ -307,8 +305,7 @@ const StoryCreationFlow = () => {
           formData.childName,
           formData.theme,
           formData.setting,
-          characterImage,
-          formData.style
+          characterImage
         );
         
         pagesWithImages.push({
