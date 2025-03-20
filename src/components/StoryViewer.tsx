@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -31,13 +32,14 @@ interface StoryData {
   }>;
 }
 
-// Define a proper union type for view modes
+// Properly define ViewMode as a union of string literals
 type ViewMode = "single" | "spread" | "carousel";
 
 const StoryViewer = () => {
   const [storyData, setStoryData] = useState<StoryData | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  // Explicitly type the viewMode state with the ViewMode type
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const storyBookRef = useRef<HTMLDivElement>(null);
