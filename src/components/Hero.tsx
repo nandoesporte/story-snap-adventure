@@ -121,9 +121,9 @@ const Hero = () => {
                   <div className="relative rounded-2xl overflow-hidden border-4 sm:border-8 border-gray-800 shadow-lg">
                     <AspectRatio ratio={isMobile ? 3/4 : 4/3}>
                       <img 
-                        src="https://images.unsplash.com/photo-1555009393-f20bdb245c6d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
+                        src="/placeholder.svg" 
                         alt="Criança em história personalizada" 
-                        className="object-cover rounded-lg"
+                        className="object-cover rounded-lg w-full h-full"
                       />
                       {/* Overlay de interface do app */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent">
