@@ -113,7 +113,6 @@ Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e ac
     }
   };
 
-  // Local response generator that doesn't rely on external APIs
   const generateLocalResponse = async (messageHistory: Message[], userInput: string): Promise<string> => {
     // Extract child name and other details from the conversation
     let childName = "criança";
@@ -275,6 +274,128 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     childImageBase64?: string | null
   ): Promise<string> => {
     try {
+      console.log("Generating image with Gemini 2.0 Flash");
+      
+      // Enhanced prompt with detailed instructions for character consistency
+      let enhancedPrompt = `Create a high-quality children's book illustration for this text: "${description}"
+
+Character specifications:
+- Main character is ${childName}, a child character who should remain visually consistent across all illustrations
+- Character should have the same facial features, hair style, and general appearance in every image
+- ${childImageBase64 ? "The character should resemble the facial features from the reference photo" : "Create a distinct, memorable character design that can be maintained consistently"}
+
+Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees and soft glowing elements' : 
+setting === 'castle' ? 'magical castle with grand architecture, towers, and magical elements' : 
+setting === 'space' ? 'colorful space scene with planets, stars, and spaceships' : 
+setting === 'underwater' ? 'vibrant underwater world with coral reefs and sea creatures' : 
+'prehistoric landscape with friendly dinosaurs and lush vegetation'}
+
+Style:
+- Professional children's book illustration with vibrant colors
+- Pixar/Disney style with soft lighting and clear composition
+- Clean, detailed digital art with high production value
+- Safe for children, no scary or inappropriate elements
+
+IMPORTANT: Maintain absolute character consistency with previous illustrations - same face, same hair, same general appearance.`;
+      
+      // Use Gemini 2.0 Flash model specifically for image generation
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { 
+                  text: enhancedPrompt 
+                },
+                ...(childImageBase64 ? [{
+                  inlineData: {
+                    mimeType: "image/jpeg",
+                    data: childImageBase64.split(',')[1] // Remove the data:image/jpeg;base64, part
+                  }
+                }] : [])
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            topK: 32,
+            topP: 1,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Gemini API error for image generation:", errorData);
+        
+        // Fallback to the original image generation if Gemini image generation fails
+        toast.error("Falha na geração de imagem com Gemini. Usando gerador alternativo.");
+        return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+      }
+
+      const data = await response.json();
+      
+      // Check if we have image data in the response
+      if (data.candidates && 
+          data.candidates[0]?.content?.parts && 
+          data.candidates[0].content.parts.some(part => part.inlineData)) {
+        
+        // Extract the image data
+        const imagePart = data.candidates[0].content.parts.find(part => part.inlineData);
+        if (imagePart && imagePart.inlineData) {
+          const base64Data = imagePart.inlineData.data;
+          const mimeType = imagePart.inlineData.mimeType;
+          
+          // Create a data URL
+          const imageUrl = `data:${mimeType};base64,${base64Data}`;
+          return imageUrl;
+        }
+      }
+      
+      // If we couldn't find image data in the response, fall back to alternative method
+      console.log("No image data found in Gemini response, using fallback method");
+      return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+    } catch (error) {
+      console.error("Error generating image with Gemini:", error);
+      toast.error("Erro ao gerar imagem com Gemini. Usando gerador alternativo.");
+      
+      // Fallback to the original image generation method
+      return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+    }
+  };
+
+  const fallbackImageGeneration = async (
+    description: string, 
+    childName: string, 
+    theme: string, 
+    setting: string, 
+    childImageBase64?: string | null
+  ): Promise<string> => {
+    try {
       // Prompt aprimorado para maior consistência de personagem e coerência com o texto
       let enhancedPrompt = `${description}, 
         highly detailed children's book illustration of ${childName} as the main character,
@@ -340,8 +461,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`
         : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`;
 
-      console.log("Generating image with seed:", seed);
-      console.log("Using prompt:", enhancedPrompt);
+      console.log("Fallback: Generating image with Pollinations using seed:", seed);
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -357,16 +477,133 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
       
       return imageUrl;
     } catch (error) {
-      console.error("Error generating image:", error);
-      toast.error("Erro ao gerar imagem. Usando imagem padrão.");
+      console.error("Error with fallback image generation:", error);
+      toast.error("Erro em todos os métodos de geração de imagem. Usando imagem padrão.");
       
       // Retornar uma URL de imagem placeholder
       return 'https://placehold.co/600x400/FFCAE9/FFF?text=StorySnap';
     }
   };
 
-  // Função aprimorada para gerar imagem de capa com características consistentes
   const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
+    try {
+      console.log("Generating cover image with Gemini 2.0 Flash");
+      
+      // Enhanced prompt specifically for book covers
+      const coverPrompt = `Create a high-quality children's book COVER illustration for a story titled "${title}" featuring ${childName} as the main character.
+
+Character specifications:
+- ${childName} should be prominently featured as the main character
+- Character should have the same facial features and appearance as in the story illustrations
+- ${childImageBase64 ? "The character should resemble the facial features from the reference photo" : "Create a distinct, memorable character design"}
+
+Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees and glowing elements' : 
+setting === 'castle' ? 'magnificent magical castle with towers and fantasy elements' : 
+setting === 'space' ? 'colorful space scene with planets, stars, and cosmic elements' : 
+setting === 'underwater' ? 'colorful underwater kingdom with coral reefs and sea life' : 
+'prehistoric landscape with friendly dinosaurs and volcanic elements in the background'}
+
+Style:
+- Professional children's book COVER art with vibrant colors
+- Portrait/vertical composition with the main character prominently featured
+- Leave space at the top for the title (but don't include text)
+- Pixar/Disney style with dramatic lighting and eye-catching elements
+- Clean, detailed digital art with high production value
+- Safe for children, no scary or inappropriate elements
+
+This is for a BOOK COVER, so make it visually striking and attention-grabbing while matching the art style of the interior pages.`;
+
+      // Use Gemini 2.0 Flash model specifically for image generation
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { 
+                  text: coverPrompt 
+                },
+                ...(childImageBase64 ? [{
+                  inlineData: {
+                    mimeType: "image/jpeg",
+                    data: childImageBase64.split(',')[1] // Remove the data:image/jpeg;base64, part
+                  }
+                }] : [])
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            topK: 32,
+            topP: 1,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Gemini API error for cover image generation:", errorData);
+        
+        // Fallback to the original cover image generation if Gemini image generation fails
+        toast.error("Falha na geração de capa com Gemini. Usando gerador alternativo.");
+        return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+      }
+
+      const data = await response.json();
+      
+      // Check if we have image data in the response
+      if (data.candidates && 
+          data.candidates[0]?.content?.parts && 
+          data.candidates[0].content.parts.some(part => part.inlineData)) {
+        
+        // Extract the image data
+        const imagePart = data.candidates[0].content.parts.find(part => part.inlineData);
+        if (imagePart && imagePart.inlineData) {
+          const base64Data = imagePart.inlineData.data;
+          const mimeType = imagePart.inlineData.mimeType;
+          
+          // Create a data URL
+          const imageUrl = `data:${mimeType};base64,${base64Data}`;
+          return imageUrl;
+        }
+      }
+      
+      // If we couldn't find image data in the response, fall back to alternative method
+      console.log("No image data found in Gemini response for cover, using fallback method");
+      return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+    } catch (error) {
+      console.error("Error generating cover image with Gemini:", error);
+      toast.error("Erro ao gerar imagem de capa com Gemini. Usando gerador alternativo.");
+      
+      // Fallback to the original cover image generation method
+      return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+    }
+  };
+
+  const fallbackCoverImageGeneration = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
       // Gerar seed consistente baseado no nome da criança e título
       const generateConsistentSeed = (name: string, title: string): number => {
@@ -424,8 +661,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1200&height=1600&nologo=1`
         : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1200&height=1600&nologo=1`;
       
-      console.log("Generating cover image with seed:", seed);
-      console.log("Using cover prompt:", coverPrompt);
+      console.log("Fallback: Generating cover image with Pollinations using seed:", seed);
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -441,15 +677,14 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
       
       return imageUrl;
     } catch (error) {
-      console.error("Error generating cover image:", error);
-      toast.error("Erro ao gerar imagem de capa. Usando imagem padrão.");
+      console.error("Error with fallback cover image generation:", error);
+      toast.error("Erro em todos os métodos de geração de capa. Usando imagem padrão.");
       
       // Retornar uma URL de imagem placeholder para capa
       return 'https://placehold.co/600x800/FFC0CB/FFF?text=StoryBook';
     }
   };
 
-  // Função para converter a imagem da criança para Base64
   const convertImageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
