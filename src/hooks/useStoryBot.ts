@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { generateStory } from "../utils/storyGenerator";
@@ -276,13 +277,14 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     try {
       console.log("Generating image with Gemini 2.0 Flash");
       
-      // Enhanced prompt with detailed instructions for character consistency
+      // Enhanced prompt with improved character consistency instructions
       let enhancedPrompt = `Create a high-quality children's book illustration for this text: "${description}"
 
 Character specifications:
-- Main character is ${childName}, a child character who should remain visually consistent across all illustrations
-- Character should have the same facial features, hair style, and general appearance in every image
-- ${childImageBase64 ? "The character should resemble the facial features from the reference photo" : "Create a distinct, memorable character design that can be maintained consistently"}
+- Main character is ${childName}, a child character who MUST remain VISUALLY CONSISTENT across all illustrations
+- Character MUST have IDENTICAL facial features, hair style, clothing colors, and general appearance in every image
+- ${childImageBase64 ? "The character's face MUST CLOSELY MATCH the facial features from the reference photo with high fidelity" : "Create a distinct, memorable character design that can be maintained consistently"}
+- Pay special attention to the character's unique facial structure, eye shape, nose, mouth, and hair from the reference
 
 Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees and soft glowing elements' : 
 setting === 'castle' ? 'magical castle with grand architecture, towers, and magical elements' : 
@@ -295,8 +297,12 @@ Style:
 - Pixar/Disney style with soft lighting and clear composition
 - Clean, detailed digital art with high production value
 - Safe for children, no scary or inappropriate elements
+- The character must be clearly visible and prominent in the scene
 
-IMPORTANT: Maintain absolute character consistency with previous illustrations - same face, same hair, same general appearance.`;
+CRITICAL: This is page ${description.length % 7 + 1} of the story, maintaining ABSOLUTE character consistency with previous illustrations is essential - same face, same hair, same general appearance. The child character MUST look like the SAME PERSON in every illustration, with the same facial features as in the reference photo.`;
+      
+      // Increase model weights for character consistency
+      const tempValue = description.length % 7 >= 6 ? 0.2 : 0.4; // Lower temperature for later pages
       
       // Use Gemini 2.0 Flash model specifically for image generation
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -322,7 +328,7 @@ IMPORTANT: Maintain absolute character consistency with previous illustrations -
             }
           ],
           generationConfig: {
-            temperature: 0.4,
+            temperature: tempValue, // Lower temperature for more consistency
             topK: 32,
             topP: 1,
             maxOutputTokens: 2048,
@@ -396,10 +402,16 @@ IMPORTANT: Maintain absolute character consistency with previous illustrations -
     childImageBase64?: string | null
   ): Promise<string> => {
     try {
+      // Enhanced prompt for better character consistency, especially for later pages
+      const pageNumber = description.length % 10; // Estimated page number based on text length
+      const isLaterPage = pageNumber >= 6; // Pages 7-10
+      
       // Prompt aprimorado para maior consistência de personagem e coerência com o texto
       let enhancedPrompt = `${description}, 
         highly detailed children's book illustration of ${childName} as the main character,
-        child character with consistent appearance across all illustrations,
+        ${isLaterPage ? 'IMPORTANT: maintain EXACT SAME character appearance as previous pages,' : ''}
+        child character with IDENTICAL appearance across all illustrations,
+        ${isLaterPage ? 'focus on facial features matching reference photo with high accuracy,' : ''}
         ${theme === 'adventure' ? 'adventure story' : 
         theme === 'fantasy' ? 'fantasy magical world' : 
         theme === 'space' ? 'space exploration' : 
@@ -415,10 +427,11 @@ IMPORTANT: Maintain absolute character consistency with previous illustrations -
         high quality, 
         detailed, 
         vibrant colors, 
-        same character design in every image,
-        maintain absolute character consistency between images,
+        EXACT same character design in every image,
+        maintain ABSOLUTE character consistency between images,
         same art style across all story pages,
         consistent character design throughout the story,
+        child character with IDENTICAL appearance on every page,
         illustration that directly represents the story text,
         soft lighting, 
         clean composition, 
@@ -427,12 +440,20 @@ IMPORTANT: Maintain absolute character consistency with previous illustrations -
       
       // Instruções específicas para manter as características faciais da foto da criança
       if (childImageBase64) {
-        enhancedPrompt += `, character with facial features similar to the reference child photo, 
-        maintain child's recognizable facial features,
-        same character design across all images,
-        consistent child character appearance throughout the story,
-        recognizable child character with consistent design,
-        same facial features and expressions as in reference photo`;
+        enhancedPrompt += `, child character with IDENTICAL facial features to the reference photo, 
+        maintain child's recognizable facial structure with high accuracy,
+        EXACT same character design across all images,
+        consistent child character appearance throughout all pages,
+        recognizable child character with identical design to reference,
+        SAME facial features, expressions, and proportions as in reference photo`;
+        
+        // Add extra emphasis for later pages
+        if (isLaterPage) {
+          enhancedPrompt += `, CRITICAL: this is page ${pageNumber + 1}, character must be IDENTICAL to previous pages,
+          HIGHEST priority on facial consistency with reference photo,
+          close-up view of character face when possible,
+          maintain EXACT same hair style, eye shape, and facial structure`;
+        }
       }
       
       // Gerar seed consistente baseado no nome da criança e no texto da história
@@ -461,7 +482,7 @@ IMPORTANT: Maintain absolute character consistency with previous illustrations -
         ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`
         : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`;
 
-      console.log("Fallback: Generating image with Pollinations using seed:", seed);
+      console.log("Fallback: Generating image with Pollinations using seed:", seed, "for page:", pageNumber + 1);
       
       const response = await fetch(apiUrl, {
         method: "GET",
