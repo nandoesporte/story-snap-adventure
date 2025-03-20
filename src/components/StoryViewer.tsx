@@ -367,7 +367,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("spread")}
-              className={viewMode === "spread" ? "bg-slate-200" : ""}
+              className={viewMode === "spread" as any ? "bg-slate-200" : ""}
             >
               <SplitIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Abertura</span>
@@ -376,7 +376,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("carousel")}
-              className={viewMode === "carousel" ? "bg-slate-200" : ""}
+              className={viewMode === "carousel" as any ? "bg-slate-200" : ""}
             >
               <LayoutGridIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Carrossel</span>
@@ -466,7 +466,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("single")}
-              className={viewMode === "single" ? "bg-slate-200" : ""}
+              className={viewMode === "single" as any ? "bg-slate-200" : ""}
             >
               <BookOpenIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Página</span>
@@ -484,7 +484,7 @@ const StoryViewer = () => {
               variant="outline" 
               size="sm" 
               onClick={() => setViewMode("carousel")}
-              className={viewMode === "carousel" ? "bg-slate-200" : ""}
+              className={viewMode === "carousel" as any ? "bg-slate-200" : ""}
             >
               <LayoutGridIcon className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Carrossel</span>
@@ -567,7 +567,7 @@ const StoryViewer = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setViewMode("single")}
-            className={viewMode === "single" ? "bg-slate-200" : ""}
+            className={viewMode === "single" as any ? "bg-slate-200" : ""}
           >
             <BookOpenIcon className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Página</span>
@@ -576,7 +576,7 @@ const StoryViewer = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setViewMode("spread")}
-            className={viewMode === "spread" ? "bg-slate-200" : ""}
+            className={viewMode === "spread" as any ? "bg-slate-200" : ""}
           >
             <SplitIcon className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Abertura</span>
