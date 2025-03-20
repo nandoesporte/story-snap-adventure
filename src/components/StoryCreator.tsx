@@ -120,6 +120,7 @@ const StoryCreator = () => {
       // Converter a imagem da criança para base64 para referência de características
       const childImageBase64 = imagePreview;
       
+      // Gerar a imagem de capa com referência à imagem da criança
       const coverImageDescription = await generateImageDescription(
         `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
           formData.setting === 'forest' ? 'uma Floresta Encantada' : 
@@ -146,7 +147,9 @@ const StoryCreator = () => {
       
       toast.info("Gerando imagens para cada página da história...");
       
+      // Gerar imagens para cada página com coerência visual entre elas
       for (const pageText of storyContentWithPages.content) {
+        // Gerar uma descrição detalhada da imagem baseada no texto da página
         const imageDescription = await generateImageDescription(
           pageText,
           formData.childName,
@@ -155,12 +158,13 @@ const StoryCreator = () => {
           formData.setting
         );
         
+        // Gerar a imagem baseada na descrição, mantendo consistência com a imagem da criança
         const imageUrl = await generateImage(
           imageDescription,
           formData.childName,
           formData.theme,
           formData.setting,
-          childImageBase64 // Passando a imagem da criança para manter consistência em todas as páginas
+          childImageBase64 // Passando a imagem da criança para consistência em todas as páginas
         );
         
         pagesWithImages.push({
@@ -169,6 +173,7 @@ const StoryCreator = () => {
         });
       }
       
+      // Salvar todos os dados da história para visualização
       sessionStorage.setItem("storyData", JSON.stringify({
         title: storyContentWithPages.title,
         coverImageUrl: coverImageUrl,

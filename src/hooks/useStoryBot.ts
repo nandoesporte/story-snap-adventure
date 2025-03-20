@@ -188,14 +188,14 @@ Vamos criar uma história de ${theme === 'adventure' ? 'Aventura' :
 
 Como você gostaria que a personalidade de ${childName} fosse representada na história? Por exemplo, ${childName} é corajoso(a), aventureiro(a), curioso(a) ou sonhador(a)?
 
-Há algum personagem ou elemento especial que você gostaria de incluir na história? Como animais, magia, amigos especiais ou objetos mágicos?`;
+Há algum personagem ou elemento específico que você gostaria de incluir na história? Como animais, magia, amigos especiais ou objetos mágicos?`;
     }
   };
 
   const generateImageDescription = async (storyParagraph: string, childName: string, childAge: string, theme: string, setting: string): Promise<string> => {
     try {
-      // Prompt aprimorado para gerar descrições de imagem mais detalhadas e coerentes
-      const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil de alta qualidade baseada no seguinte parágrafo:
+      // Prompt aprimorado para gerar descrições de imagem mais detalhadas e coerentes com o texto
+      const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil de alta qualidade que represente EXATAMENTE o conteúdo do seguinte parágrafo:
 
 "${storyParagraph}"
 
@@ -214,13 +214,15 @@ Contexto adicional para a história:
   'Terra dos Dinossauros com vegetação exuberante e vulcões ao fundo'}
 
 A descrição deve:
-1. Descrever uma cena clara e vibrante que ilustre exatamente o momento da história no parágrafo
-2. Incluir o personagem principal (${childName}) com aparência e expressões específicas
-3. Descrever detalhes do ambiente e cenário coerentes com o tema da história
-4. Mencionar cores, iluminação, perspectiva e composição para criar uma imagem atraente
-5. Especificar o estilo artístico como "ilustração de livro infantil profissional, estilo Pixar/Disney, cores vibrantes, detalhado, cativante"
-6. Ter no máximo 150 palavras e focar apenas nos elementos mais importantes
+1. Descrever uma cena que ilustre EXATAMENTE o momento da história no parágrafo, mantendo total fidelidade ao texto
+2. Incluir o personagem principal (${childName}) de forma clara e central na cena, com expressões que correspondam ao contexto emocional do texto
+3. Descrever detalhes do ambiente e cenário que sejam coerentes com o texto e o tema da história
+4. Mencionar cores, iluminação e composição que complementem a narrativa
+5. Especificar o estilo artístico como "ilustração de livro infantil profissional, estilo Pixar/Disney, cores vibrantes, detalhado"
+6. Ser concisa, focando apenas nos elementos essenciais descritos no texto
 7. NÃO incluir elementos assustadores ou inapropriados para crianças
+
+IMPORTANTE: Esta descrição será usada para gerar uma imagem que deve manter total coerência com o texto da história e consistência visual com outras imagens da mesma história.
 
 Responda apenas com a descrição para a ilustração, sem comentários adicionais.`;
 
@@ -238,7 +240,7 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
             }
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.6,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 300,
@@ -273,9 +275,10 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     childImageBase64?: string | null
   ): Promise<string> => {
     try {
-      // Prompt aprimorado com instruções mais detalhadas para manter consistência do personagem
+      // Prompt aprimorado para maior consistência de personagem e coerência com o texto
       let enhancedPrompt = `${description}, 
-        ${childName} as the main character with consistent appearance across all images, 
+        highly detailed children's book illustration of ${childName} as the main character,
+        child character with consistent appearance across all illustrations,
         ${theme === 'adventure' ? 'adventure story' : 
         theme === 'fantasy' ? 'fantasy magical world' : 
         theme === 'space' ? 'space exploration' : 
@@ -291,42 +294,54 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         high quality, 
         detailed, 
         vibrant colors, 
-        storytelling scene, 
-        wholesome, 
-        expressive characters, 
+        same character design in every image,
+        maintain absolute character consistency between images,
+        same art style across all story pages,
+        consistent character design throughout the story,
+        illustration that directly represents the story text,
         soft lighting, 
         clean composition, 
         digital art, 
-        maintain character visual consistency throughout the story,
-        same character style in every image,
         no text`;
       
-      // Adicionar instruções específicas para manter as características faciais consistentes
+      // Instruções específicas para manter as características faciais da foto da criança
       if (childImageBase64) {
-        enhancedPrompt += `, character with consistent facial features similar to the reference child photo, 
-        maintain child's recognizable facial features in all illustrations,
+        enhancedPrompt += `, character with facial features similar to the reference child photo, 
+        maintain child's recognizable facial features,
         same character design across all images,
-        consistent child character appearance`;
+        consistent child character appearance throughout the story,
+        recognizable child character with consistent design,
+        same facial features and expressions as in reference photo`;
       }
       
-      // Preparar um seed consistente baseado no nome da criança para manter coerência visual
-      // O mesmo seed gerará imagens com estilo similar
-      const generateConsistentSeed = (name: string): number => {
+      // Gerar seed consistente baseado no nome da criança e no texto da história
+      // para manter coerência visual entre as imagens
+      const generateConsistentSeed = (name: string, text: string): number => {
         let seed = 0;
         for (let i = 0; i < name.length; i++) {
           seed += name.charCodeAt(i);
         }
+        
+        // Adicionar uma porção do texto para diferenciar cada página
+        // mas manter consistência no estilo
+        const uniqueTextPart = text.slice(0, 10);
+        for (let i = 0; i < uniqueTextPart.length; i++) {
+          seed += uniqueTextPart.charCodeAt(i);
+        }
+        
         return seed * 1000; // Multiplicar para obter um número maior
       };
       
-      const seed = generateConsistentSeed(childName);
+      const seed = generateConsistentSeed(childName, description);
       
-      // Usando a Pollinations AI para geração de imagem com seed consistente
+      // Usando a API Pollinations para geração de imagem com seed consistente
+      // Width e height maiores para melhor qualidade
       const apiUrl = childImageBase64 
-        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1024&height=1024&nologo=1`
-        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}`;
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`;
 
       console.log("Generating image with seed:", seed);
+      console.log("Using prompt:", enhancedPrompt);
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -353,18 +368,25 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
   // Função aprimorada para gerar imagem de capa com características consistentes
   const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
-      // Gerar seed consistente baseado no nome da criança
-      const generateConsistentSeed = (name: string): number => {
+      // Gerar seed consistente baseado no nome da criança e título
+      const generateConsistentSeed = (name: string, title: string): number => {
         let seed = 0;
         for (let i = 0; i < name.length; i++) {
           seed += name.charCodeAt(i);
         }
+        
+        // Adicionar o título para tornar a capa única mas relacionada
+        for (let i = 0; i < title.length; i++) {
+          seed += title.charCodeAt(i);
+        }
+        
         return seed * 1000 + 42; // Adicionar offset para a capa ser diferente, mas relacionada
       };
       
-      const seed = generateConsistentSeed(childName);
+      const seed = generateConsistentSeed(childName, title);
       
-      let coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character with consistent appearance.
+      let coverPrompt = `Book cover illustration for a children's storybook titled "${title}" featuring ${childName} as the main character,
+        main character with consistent appearance across all story illustrations,
         Theme: ${theme === 'adventure' ? 'adventure story with exploration' : 
         theme === 'fantasy' ? 'magical fantasy world with spells and wonders' : 
         theme === 'space' ? 'space exploration with planets and stars' : 
@@ -383,22 +405,27 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
         eye-catching, 
         high quality illustration, 
         digital art, 
-        maintain character visual consistency,
+        maintain character visual consistency with story pages,
+        same art style as inside illustrations,
+        highly detailed,
         no text`;
         
-      // Se houver uma imagem da criança, adicione instruções para manter as características faciais consistentes
+      // Instruções específicas para manter as características faciais da foto da criança
       if (childImageBase64) {
-        coverPrompt += `, main character with consistent facial features similar to the reference child photo, 
+        coverPrompt += `, main character with facial features similar to the reference child photo, 
         maintain child's recognizable facial features,
-        same character design as in story pages`;
+        same character design as in story pages,
+        consistent character appearance throughout the book`;
       }
       
-      // Usando a Pollinations AI para geração de imagem de capa com seed consistente
+      // Usando a API Pollinations para geração de imagem de capa com seed consistente
+      // Usando proporções para capa de livro (mais alta que larga)
       const apiUrl = childImageBase64 
-        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1024&height=1600&nologo=1`
-        : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}`;
+        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1200&height=1600&nologo=1`
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(coverPrompt)}?seed=${seed}&width=1200&height=1600&nologo=1`;
       
       console.log("Generating cover image with seed:", seed);
+      console.log("Using cover prompt:", coverPrompt);
       
       const response = await fetch(apiUrl, {
         method: "GET",
