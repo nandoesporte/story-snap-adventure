@@ -2,8 +2,11 @@
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Hero = () => {
+  const isMobile = useIsMobile();
+  
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden">
       {/* Background elements */}
@@ -106,17 +109,17 @@ const Hero = () => {
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.5 }}
-        className="w-full max-w-5xl mt-16 md:mt-20"
+        className="w-full max-w-5xl mt-12 md:mt-20 px-2 sm:px-4"
       >
         <div className="relative w-full glass rounded-xl overflow-hidden shadow-2xl mx-auto">
-          <AspectRatio ratio={16/9} className="bg-background/80">
+          <AspectRatio ratio={isMobile ? 3/4 : 16/9} className="bg-background/80">
             <div className="flex flex-col md:flex-row h-full">
               {/* Tela de dispositivo */}
-              <div className="w-full md:w-3/5 h-full p-4 md:p-8 flex items-center justify-center">
+              <div className="w-full md:w-3/5 h-full p-3 sm:p-4 md:p-8 flex items-center justify-center">
                 <div className="relative w-full max-w-md mx-auto">
                   {/* Moldura de tablet/dispositivo */}
-                  <div className="relative rounded-2xl overflow-hidden border-8 border-gray-800 shadow-lg">
-                    <AspectRatio ratio={4/3}>
+                  <div className="relative rounded-2xl overflow-hidden border-4 sm:border-8 border-gray-800 shadow-lg">
+                    <AspectRatio ratio={isMobile ? 3/4 : 4/3}>
                       <img 
                         src="https://images.unsplash.com/photo-1555009393-f20bdb245c6d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
                         alt="Criança em história personalizada" 
@@ -124,44 +127,44 @@ const Hero = () => {
                       />
                       {/* Overlay de interface do app */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent">
-                        <div className="absolute bottom-4 left-4 right-4">
-                          <h3 className="text-white text-lg font-bold">A Aventura de Mateus</h3>
-                          <p className="text-white/90 text-sm">Uma jornada mágica no mundo dos dinossauros</p>
+                        <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4">
+                          <h3 className="text-white text-sm sm:text-lg font-bold">A Aventura de Mateus</h3>
+                          <p className="text-white/90 text-xs sm:text-sm">Uma jornada mágica no mundo dos dinossauros</p>
                         </div>
                       </div>
                     </AspectRatio>
                   </div>
                   {/* Botão de controle do dispositivo */}
-                  <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-8 h-8 rounded-full bg-gray-800"></div>
+                  <div className="absolute -bottom-2 sm:-bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-800"></div>
                 </div>
               </div>
               
               {/* Texto de benefícios */}
-              <div className="w-full md:w-2/5 p-6 md:p-8 flex flex-col justify-center">
-                <ul className="space-y-4 text-left">
-                  <li className="flex items-start gap-3">
-                    <div className="rounded-full bg-storysnap-blue/20 p-1 mt-0.5">
-                      <svg className="h-4 w-4 text-storysnap-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-full md:w-2/5 p-4 sm:p-6 md:p-8 flex flex-col justify-center">
+                <ul className="space-y-2 sm:space-y-4 text-left">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="rounded-full bg-storysnap-blue/20 p-1 mt-0.5 flex-shrink-0">
+                      <svg className="h-3 w-3 sm:h-4 sm:w-4 text-storysnap-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-sm md:text-base">Histórias personalizadas com fotos reais do seu filho</span>
+                    <span className="text-xs sm:text-sm md:text-base">Histórias personalizadas com fotos reais do seu filho</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="rounded-full bg-storysnap-purple/20 p-1 mt-0.5">
-                      <svg className="h-4 w-4 text-storysnap-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="rounded-full bg-storysnap-purple/20 p-1 mt-0.5 flex-shrink-0">
+                      <svg className="h-3 w-3 sm:h-4 sm:w-4 text-storysnap-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-sm md:text-base">Narrativas envolventes e educativas</span>
+                    <span className="text-xs sm:text-sm md:text-base">Narrativas envolventes e educativas</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="rounded-full bg-storysnap-pink/20 p-1 mt-0.5">
-                      <svg className="h-4 w-4 text-storysnap-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="rounded-full bg-storysnap-pink/20 p-1 mt-0.5 flex-shrink-0">
+                      <svg className="h-3 w-3 sm:h-4 sm:w-4 text-storysnap-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-sm md:text-base">Compartilhe facilmente com família e amigos</span>
+                    <span className="text-xs sm:text-sm md:text-base">Compartilhe facilmente com família e amigos</span>
                   </li>
                 </ul>
               </div>
