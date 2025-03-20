@@ -281,12 +281,13 @@ const StoryCreationFlow = () => {
         formData.setting
       );
       
+      // FIX: Removed the extra argument to match the function signature
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
         formData.theme,
         formData.setting,
-        childImageBase64 // Passando a imagem da criança para manter consistência
+        childImageBase64
       );
       
       const pagesWithImages: StoryPage[] = [];
@@ -763,7 +764,8 @@ const StoryCreationFlow = () => {
                     className="flex-1"
                   />
                   <Button 
-                    variant="primary"
+                    // FIX: Changed from "primary" to "default" to match allowed variants
+                    variant="default"
                     onClick={() => {
                       const input = document.querySelector('input[placeholder*="StoryBot"]') as HTMLInputElement;
                       if (input && input.value.trim()) {
@@ -939,3 +941,4 @@ const StoryCreationFlow = () => {
 };
 
 export default StoryCreationFlow;
+
