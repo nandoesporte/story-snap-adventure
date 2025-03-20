@@ -144,105 +144,27 @@ export const customScrollbarStyles = `
   background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3Estars%3C/title%3E%3Cg fill='%23FFD700' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M12 18l-4 2 1-4.75L5 11.5l5-.5L12 7l2 4 5 .5-4 3.75L16 20z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* Rainbow gradient border */
-.rainbow-border {
+/* Additional children's book styling */
+.book-page {
   position: relative;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  overflow: hidden;
 }
 
-.rainbow-border::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
-  background: linear-gradient(45deg, #ff0000, #ff9900, #ffff00, #33cc33, #3399ff, #cc33ff);
-  border-radius: inherit;
-  z-index: -1;
-  animation: rainbow-border-animation 3s linear infinite;
-}
-
-@keyframes rainbow-border-animation {
-  0% {
-    filter: hue-rotate(0deg);
-  }
-  100% {
-    filter: hue-rotate(360deg);
-  }
-}
-
-/* Childish handwriting underline */
-.childish-underline {
-  position: relative;
-  display: inline-block;
-}
-
-.childish-underline::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: url("data:image/svg+xml,%3Csvg width='100' height='8' viewBox='0 0 100 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,5 C15,2 35,8 50,5 C65,2 85,8 100,5 L100,8 L0,8 Z' fill='%23ff9900'/%3E%3C/svg%3E") repeat-x;
-  background-size: 100px 8px;
-}
-
-/* Cloud shapes */
-.cloud-shape {
-  position: relative;
-  background: white;
-  border-radius: 50%;
-}
-
-.cloud-shape::before,
-.cloud-shape::after {
-  content: '';
-  position: absolute;
-  background: white;
-  border-radius: 50%;
-}
-
-.cloud-shape::before {
-  width: 60%;
-  height: 80%;
-  top: -30%;
-  left: 10%;
-}
-
-.cloud-shape::after {
-  width: 70%;
-  height: 70%;
-  top: -20%;
-  right: 10%;
-}
-
-/* Cute book decorations */
-.border-dots {
-  border: 3px dotted;
-}
-
-.border-scalloped {
-  position: relative;
-}
-
-.border-scalloped::after {
+.book-page::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at top left, transparent 15px, currentColor 0) top left,
-              radial-gradient(circle at top right, transparent 15px, currentColor 0) top right,
-              radial-gradient(circle at bottom right, transparent 15px, currentColor 0) bottom right,
-              radial-gradient(circle at bottom left, transparent 15px, currentColor 0) bottom left;
-  background-size: 50% 50%;
-  background-repeat: no-repeat;
-  pointer-events: none;
+  width: 15px;
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.03));
 }
 
-/* Fun page numbers */
+/* Fun page number styling */
 .fun-page-number {
   position: relative;
   width: 40px;
@@ -258,5 +180,133 @@ export const customScrollbarStyles = `
   transform: rotate(-5deg);
   box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
 }
-`;
 
+/* Children's book cover styles */
+.childbook-cover {
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 
+    0 10px 20px rgba(0, 0, 0, 0.2),
+    0 6px 6px rgba(0, 0, 0, 0.1);
+}
+
+.childbook-cover::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23FFFFFF' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+.childbook-title {
+  font-family: 'Bubblegum Sans', cursive;
+  color: white;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+  font-size: 2.5rem;
+  text-align: center;
+  padding: 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.childbook-author {
+  font-family: 'Comic Neue', cursive;
+  color: white;
+  text-align: center;
+  font-size: 1.2rem;
+  padding: 10px;
+  position: relative;
+  z-index: 10;
+}
+
+.childbook-illustration {
+  padding: 20px;
+  text-align: center;
+  position: relative;
+  z-index: 10;
+}
+
+.childbook-illustration img {
+  max-width: 80%;
+  border-radius: 10px;
+  border: 5px solid white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Book pages style */
+.book-page-content {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #333;
+  padding: 20px;
+  position: relative;
+}
+
+.book-illustration {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.book-illustration img {
+  max-width: 90%;
+  border-radius: 8px;
+  border: 5px solid white;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Book page number */
+.book-page-number {
+  position: absolute;
+  bottom: 10px;
+  right: 20px;
+  font-family: 'Schoolbell', cursive;
+  font-size: 1.5rem;
+  color: #666;
+}
+
+/* Colorful decorative elements */
+.childbook-decoration {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.decoration-1 {
+  background-color: #FF9A8B;
+  top: 10%;
+  left: 10%;
+}
+
+.decoration-2 {
+  background-color: #FFD8CB;
+  bottom: 15%;
+  right: 15%;
+  width: 70px;
+  height: 70px;
+}
+
+.decoration-3 {
+  background-color: #A5FFD6;
+  bottom: 20%;
+  left: 20%;
+  width: 40px;
+  height: 40px;
+}
+
+.decoration-4 {
+  background-color: #FFC3A0;
+  top: 20%;
+  right: 10%;
+  width: 60px;
+  height: 60px;
+}
+`;
