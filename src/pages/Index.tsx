@@ -4,6 +4,16 @@ import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Footer from "../components/Footer";
 import { Book, Heart, Users, Stars, Sparkles, BookOpen } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const Index = () => {
   const features = [
@@ -88,8 +98,8 @@ const Index = () => {
           </div>
         </section>
         
-        {/* How it Works Section */}
-        <section className="py-16 md:py-24 px-4 bg-gradient-to-br from-indigo-50 to-purple-50">
+        {/* New "Como Funciona" Section in purple gradient background */}
+        <section className="py-16 md:py-24 px-4 bg-gradient-to-b from-indigo-500 to-purple-600 text-white overflow-hidden">
           <div className="container mx-auto">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -98,58 +108,103 @@ const Index = () => {
               viewport={{ once: true }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-indigo-800 mb-4">Como funciona?</h2>
-              <p className="text-slate-600 max-w-2xl mx-auto">Em apenas três passos simples, crie uma história personalizada para seu filho.</p>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">COMECE A CRIAR</h2>
             </motion.div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              {[
-                {
-                  step: '01',
-                  title: 'Personalize',
-                  description: 'Informe o nome, idade e características do seu filho.',
-                  icon: <Users className="h-8 w-8" />
-                },
-                {
-                  step: '02',
-                  title: 'Escolha o tema',
-                  description: 'Selecione o tema da história entre várias opções mágicas.',
-                  icon: <Sparkles className="h-8 w-8" />
-                },
-                {
-                  step: '03',
-                  title: 'Leia e compartilhe',
-                  description: 'Receba sua história personalizada pronta para ler e compartilhar.',
-                  icon: <BookOpen className="h-8 w-8" />
-                }
-              ].map((item, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.2 }}
-                  viewport={{ once: true }}
-                  className="relative"
-                >
-                  <div className="bg-white rounded-xl p-6 shadow-sm z-10 relative">
-                    <div className="text-4xl font-bold text-indigo-200 mb-4">{item.step}</div>
-                    <h3 className="text-xl font-semibold text-indigo-800 mb-3 flex items-center gap-2">
-                      {item.icon}
-                      {item.title}
-                    </h3>
-                    <p className="text-slate-600">{item.description}</p>
-                  </div>
-                  
-                  {index < 2 && (
-                    <div className="hidden md:block absolute top-1/2 -right-12 transform -translate-y-1/2 z-0">
-                      <svg width="64" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M0 12H61M61 12L50 1M61 12L50 23" stroke="#C7D2FE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10 max-w-6xl mx-auto relative">
+              {/* Step 1 */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                viewport={{ once: true }}
+                className="text-center relative z-10"
+              >
+                <div className="text-6xl font-bold mb-4">1</div>
+                <h3 className="text-2xl font-bold mb-3">CRIE SUA HISTÓRIA COM IMAGINAÇÃO!</h3>
+                <div className="relative h-48 mb-6 mx-auto">
+                  <img 
+                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
+                    alt="Personagem em dragão" 
+                    className="h-full object-contain mx-auto"
+                  />
+                </div>
+                <p className="text-white/80">
+                  Basta escrever o que você quer que aconteça na história!
+                </p>
+              </motion.div>
+              
+              {/* Step 2 */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                viewport={{ once: true }}
+                className="text-center relative z-10"
+              >
+                <div className="text-6xl font-bold mb-4">2</div>
+                <h3 className="text-2xl font-bold mb-3">DÊ VIDA À HISTÓRIA!</h3>
+                <div className="relative h-48 mb-6 mx-auto">
+                  <img 
+                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
+                    alt="Personagem guaxinim" 
+                    className="h-full object-contain mx-auto"
+                  />
+                </div>
+                <p className="text-white/80">
+                  Escolha um nome, faça o upload de uma foto e comece a criar!
+                </p>
+              </motion.div>
+              
+              {/* Step 3 */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                viewport={{ once: true }}
+                className="text-center relative z-10"
+              >
+                <div className="text-6xl font-bold mb-4">3</div>
+                <h3 className="text-2xl font-bold mb-3">PERSONALIZE PARA AS NECESSIDADES DE APRENDIZAGEM</h3>
+                <div className="relative h-48 mb-6 mx-auto">
+                  <img 
+                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
+                    alt="Personagem menina" 
+                    className="h-full object-contain mx-auto"
+                  />
+                </div>
+                <p className="text-white/80">
+                  Adapte cada história às necessidades únicas da criança.
+                </p>
+              </motion.div>
+              
+              {/* Connecting lines between steps (only visible on md screens and up) */}
+              <div className="hidden md:block absolute top-1/3 left-0 w-full h-0.5 bg-white/20 -z-0"></div>
             </div>
+            
+            {/* Bottom message and CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              viewport={{ once: true }}
+              className="text-center mt-16 max-w-3xl mx-auto"
+            >
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">
+                Explore uma aventura mágica em cada conto!
+              </h3>
+              <p className="text-white/80 mb-8">
+                Leia e compartilhe sua história para dar vida a ela.
+              </p>
+              <NavLink to="/create-story">
+                <Button 
+                  size="lg"
+                  className="bg-white text-indigo-700 hover:bg-white/90 font-bold rounded-full px-10 py-6 h-auto text-lg"
+                >
+                  CRIAR HISTÓRIA
+                </Button>
+              </NavLink>
+            </motion.div>
           </div>
         </section>
         
@@ -216,13 +271,13 @@ const Index = () => {
                 whileTap={{ scale: 0.95 }}
                 className="inline-block"
               >
-                <a 
-                  href="/create-story" 
+                <NavLink 
+                  to="/create-story" 
                   className="bg-white text-indigo-700 font-bold py-3 px-8 rounded-full inline-flex items-center text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <Book className="mr-2 h-5 w-5" />
                   Criar Minha Primeira História
-                </a>
+                </NavLink>
               </motion.div>
               <p className="text-indigo-200 mt-4">Experimente gratuitamente hoje!</p>
             </motion.div>
