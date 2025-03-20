@@ -79,7 +79,7 @@ const Hero = () => {
             </motion.div>
           </div>
           
-          {/* Right side - Fantasy Adventure illustration */}
+          {/* Right side - 3D Book Illustration */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,12 +88,12 @@ const Hero = () => {
           >
             <div className="relative w-full max-w-lg">
               <img 
-                src="https://images.pexels.com/photos/3400744/pexels-photo-3400744.jpeg?auto=compress&cs=tinysrgb&w=1200" 
-                alt="Criança lendo um livro mágico cheio de aventuras" 
-                className="w-full h-auto z-10 rounded-lg shadow-xl"
+                src="/lovable-uploads/586ba736-5fe5-4d24-bc18-536872f83ec7.png" 
+                alt="Livro mágico com personagens infantis e paisagens coloridas" 
+                className="w-full h-auto z-10 drop-shadow-xl"
               />
               
-              {/* Magic effects overlaid */}
+              {/* Animated elements */}
               <motion.div
                 className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
                 animate={{
@@ -106,120 +106,24 @@ const Hero = () => {
                   ease: "easeInOut",
                 }}
               >
-                <Wand2 className="w-full h-full filter drop-shadow-lg" />
-              </motion.div>
-              
-              {/* Additional decorative elements for the book */}
-              <motion.div
-                className="absolute -bottom-4 -left-4 w-28 h-28 bg-gradient-to-br from-indigo-200/50 to-purple-300/50 rounded-full blur-xl"
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 0.8, 0.5],
-                }}
-                transition={{
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-              
-              {/* Fantasy-themed floating elements */}
-              <motion.div 
-                className="absolute -top-10 -left-10 w-24 h-24"
-                animate={{
-                  y: [-5, 5, -5],
-                  x: [3, -3, 3],
-                  rotate: [0, 5, 0],
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <img 
-                  src="https://images.pexels.com/photos/1310847/pexels-photo-1310847.jpeg?auto=compress&cs=tinysrgb&w=600" 
-                  alt="Elemento mágico" 
-                  className="w-full h-full object-contain opacity-70 rounded-full"
-                />
-              </motion.div>
-              
-              <motion.div 
-                className="absolute -bottom-10 -right-10 w-20 h-20"
-                animate={{
-                  y: [5, -5, 5],
-                  x: [-3, 3, -3],
-                  rotate: [0, -5, 0],
-                }}
-                transition={{
-                  duration: 7,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <img 
-                  src="https://images.pexels.com/photos/8812896/pexels-photo-8812896.jpeg?auto=compress&cs=tinysrgb&w=600" 
-                  alt="Elemento mágico" 
-                  className="w-full h-full object-contain opacity-70 rounded-full"
-                />
+                <Wand2 className="w-full h-full" />
               </motion.div>
             </div>
           </motion.div>
         </div>
       </div>
       
-      {/* Bottom section with theme previews */}
+      {/* Bottom testimonial bar */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.8 }}
-        className="w-full bg-indigo-700 py-8 mt-8"
+        className="w-full bg-indigo-700 py-4 mt-8"
       >
         <div className="container mx-auto px-4">
-          <p className="text-white text-center text-lg md:text-xl lg:text-2xl font-semibold mb-6">
-            Explore mundos fantásticos de aventura!
+          <p className="text-white text-center text-sm md:text-base lg:text-lg">
+            Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.
           </p>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {/* Adventure theme preview */}
-            <div className="bg-indigo-800/50 p-4 rounded-xl overflow-hidden group hover:bg-indigo-800/70 transition-all">
-              <div className="relative h-40 rounded-lg overflow-hidden mb-3">
-                <img 
-                  src="https://images.pexels.com/photos/4666751/pexels-photo-4666751.jpeg?auto=compress&cs=tinysrgb&w=1200" 
-                  alt="Aventura fantástica com castelo e dragão" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/70 to-transparent"></div>
-                <span className="absolute bottom-2 left-2 text-white font-bold text-lg">Aventura</span>
-              </div>
-            </div>
-            
-            {/* Dinosaur theme preview */}
-            <div className="bg-indigo-800/50 p-4 rounded-xl overflow-hidden group hover:bg-indigo-800/70 transition-all">
-              <div className="relative h-40 rounded-lg overflow-hidden mb-3">
-                <img 
-                  src="https://images.pexels.com/photos/67112/pexels-photo-67112.jpeg?auto=compress&cs=tinysrgb&w=1200" 
-                  alt="Dinossauros fantásticos em floresta encantada" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/70 to-transparent"></div>
-                <span className="absolute bottom-2 left-2 text-white font-bold text-lg">Dinossauros</span>
-              </div>
-            </div>
-            
-            {/* Ocean theme preview */}
-            <div className="bg-indigo-800/50 p-4 rounded-xl overflow-hidden group hover:bg-indigo-800/70 transition-all">
-              <div className="relative h-40 rounded-lg overflow-hidden mb-3">
-                <img 
-                  src="https://images.pexels.com/photos/37403/bora-bora-french-polynesia-sunset-ocean.jpg?auto=compress&cs=tinysrgb&w=1200" 
-                  alt="Oceano mágico com criaturas marinhas" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/70 to-transparent"></div>
-                <span className="absolute bottom-2 left-2 text-white font-bold text-lg">Oceano</span>
-              </div>
-            </div>
-          </div>
         </div>
       </motion.div>
     </div>
