@@ -9,7 +9,7 @@ import {
   ChevronRight, 
   AlertCircle, 
   Info, 
-  Camera, 
+  Users, 
   Upload, 
   Image as ImageIcon, 
   PenTool, 
@@ -56,7 +56,7 @@ const styleOptions = [
 const CreateStory = () => {
   const navigate = useNavigate();
   const [showApiAlert, setShowApiAlert] = useState(false);
-  const [showGeminiInfo, setShowGeminiInfo] = useState(true);
+  const [showCharacterInfo, setShowCharacterInfo] = useState(true);
   const [currentTab, setCurrentTab] = useState("wizard");
 
   useEffect(() => {
@@ -64,13 +64,13 @@ const CreateStory = () => {
     const hasApiIssue = localStorage.getItem("storybot_api_issue") === "true";
     setShowApiAlert(hasApiIssue);
 
-    // Check if we've already shown the Gemini info
-    const geminiInfoShown = localStorage.getItem("gemini_info_shown") === "true";
-    setShowGeminiInfo(!geminiInfoShown);
+    // Check if we've already shown the Character info
+    const characterInfoShown = localStorage.getItem("character_info_shown") === "true";
+    setShowCharacterInfo(!characterInfoShown);
     
     // If showing for the first time, mark as shown
-    if (!geminiInfoShown) {
-      localStorage.setItem("gemini_info_shown", "true");
+    if (!characterInfoShown) {
+      localStorage.setItem("character_info_shown", "true");
     }
 
     // Listen for API issues
@@ -86,8 +86,8 @@ const CreateStory = () => {
     };
   }, []);
 
-  const handleDismissGeminiInfo = () => {
-    setShowGeminiInfo(false);
+  const handleDismissCharacterInfo = () => {
+    setShowCharacterInfo(false);
   };
 
   return (
@@ -106,17 +106,17 @@ const CreateStory = () => {
               Criar História Personalizada
             </h1>
             <p className="text-slate-600 max-w-xl mx-auto">
-              Crie uma história mágica com seu filho como protagonista em apenas alguns passos simples.
+              Crie uma história mágica com personagens encantadores em apenas alguns passos simples.
             </p>
           </motion.div>
           
-          {showGeminiInfo && (
+          {showCharacterInfo && (
             <Alert className="mb-6 bg-blue-50 border-blue-200">
               <Info className="h-4 w-4 text-blue-500" />
               <AlertDescription className="flex justify-between items-center">
-                <span>Utilizando Gemini 2.0 Flash para geração de imagens com alta coerência visual e consistência de personagens. Garantimos maior fidelidade à foto da criança em todas as páginas da história.</span>
+                <span>Agora com 10 personagens encantadores e únicos! Escolha seu favorito para viver aventuras incríveis em histórias personalizadas.</span>
                 <button 
-                  onClick={handleDismissGeminiInfo}
+                  onClick={handleDismissCharacterInfo}
                   className="text-xs text-blue-500 hover:text-blue-700"
                 >
                   Fechar

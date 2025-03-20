@@ -24,7 +24,7 @@ import { toast } from "sonner";
 
 // Step types
 type Step = 
-  | "photo" 
+  | "character" 
   | "childDetails" 
   | "theme" 
   | "setting" 
@@ -43,7 +43,22 @@ type StoryFormData = {
   settingName: string;
   length: string;
   style: string;
+  characterId: number;
 };
+
+// Personagens pré-estabelecidos
+const characters = [
+  { id: 1, name: "Luna, a Coelha Aventureira", image: "/placeholder.svg", description: "Coelha curiosa que adora explorar florestas mágicas" },
+  { id: 2, name: "Leo, o Leãozinho Corajoso", image: "/placeholder.svg", description: "Pequeno leão que enfrenta seus medos com bravura" },
+  { id: 3, name: "Pingo, o Pinguim Inventor", image: "/placeholder.svg", description: "Pinguim genial que cria bugigangas incríveis" },
+  { id: 4, name: "Flora, a Fadinha das Flores", image: "/placeholder.svg", description: "Fada encantadora que cuida do jardim mágico" },
+  { id: 5, name: "Rex, o Dinossauro Amigável", image: "/placeholder.svg", description: "Dino gentil que adora fazer novos amigos" },
+  { id: 6, name: "Bolhas, o Peixinho Explorador", image: "/placeholder.svg", description: "Peixinho curioso que desvenda mistérios oceânicos" },
+  { id: 7, name: "Ziggy, o Dragão Colorido", image: "/placeholder.svg", description: "Dragãozinho que muda de cor conforme seu humor" },
+  { id: 8, name: "Mia, a Gatinha Astronauta", image: "/placeholder.svg", description: "Gata corajosa que viaja pelas estrelas" },
+  { id: 9, name: "Tuck, a Tartaruga Sábia", image: "/placeholder.svg", description: "Tartaruga milenar cheia de histórias e conselhos" },
+  { id: 10, name: "Zep, o Robozinho Curioso", image: "/placeholder.svg", description: "Robô adorável que aprende sobre emoções humanas" }
+];
 
 // Available options
 const themes = [
@@ -87,8 +102,8 @@ type StoryPage = {
 
 const StoryCreationFlow = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<Step>("photo");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [currentStep, setCurrentStep] = useState<Step>("character");
+  const [selectedCharacter, setSelectedCharacter] = useState<number | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData>({
     childName: "",
@@ -98,24 +113,24 @@ const StoryCreationFlow = () => {
     setting: "forest",
     settingName: "Floresta Encantada",
     length: "medium",
-    style: "cartoon"
+    style: "cartoon",
+    characterId: 0
   });
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   
   const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage } = useStoryBot();
 
-  const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file);
-    
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
+  const handleCharacterSelect = (characterId: number) => {
+    const character = characters.find(c => c.id === characterId);
+    if (character) {
+      setSelectedCharacter(characterId);
+      setImagePreview(character.image);
+      setFormData(prev => ({ 
+        ...prev, 
+        characterId: characterId,
+        childName: character.name.split(",")[0] // Use o primeiro nome do personagem
+      }));
     }
   };
 
@@ -145,24 +160,20 @@ const StoryCreationFlow = () => {
   };
 
   const handleGoNext = () => {
-    if (currentStep === "photo" && !imagePreview) {
-      toast.error("Por favor, adicione uma foto para continuar.");
+    if (currentStep === "character" && !selectedCharacter) {
+      toast.error("Por favor, selecione um personagem para continuar.");
       return;
     }
 
     if (currentStep === "childDetails") {
-      if (!formData.childName.trim()) {
-        toast.error("Por favor, informe o nome da criança.");
-        return;
-      }
       if (!formData.childAge.trim()) {
-        toast.error("Por favor, informe a idade da criança.");
+        toast.error("Por favor, informe a idade do personagem.");
         return;
       }
     }
 
     const stepOrder: Step[] = [
-      "photo", 
+      "character", 
       "childDetails", 
       "theme", 
       "setting", 
@@ -185,7 +196,7 @@ const StoryCreationFlow = () => {
 
   const handleGoBack = () => {
     const stepOrder: Step[] = [
-      "photo", 
+      "character", 
       "childDetails", 
       "theme", 
       "setting", 
@@ -211,7 +222,7 @@ const StoryCreationFlow = () => {
     com estilo visual de ${formData.style === 'cartoon' ? 'Desenho Animado' : 
       formData.style === 'watercolor' ? 'Aquarela' : 
       formData.style === 'realistic' ? 'Realista' : 
-      formData.style === 'Livro Infantil'}. Pode me ajudar a criar esta história?`;
+      formData.style === 'storybook' ? 'Livro Infantil'}. Pode me ajudar a criar esta história?`;
     
     handleSendMessage(initialPrompt);
   };
@@ -243,7 +254,7 @@ const StoryCreationFlow = () => {
   };
 
   const generateFinalStory = async () => {
-    if (!formData || !selectedFile || !imagePreview) {
+    if (!formData || !selectedCharacter) {
       toast.error("Informações incompletas para gerar a história.");
       return;
     }
@@ -265,7 +276,7 @@ const StoryCreationFlow = () => {
       
       const storyContentWithPages = parseStoryContent(finalResponse, pageCount);
       
-      const childImageBase64 = imagePreview;
+      const characterImage = imagePreview;
       
       // Corrected call to generateCoverImage with the right number of arguments
       const coverImageUrl = await generateCoverImage(
@@ -273,7 +284,7 @@ const StoryCreationFlow = () => {
         formData.childName,
         formData.theme,
         formData.setting,
-        childImageBase64
+        characterImage
       );
       
       const pagesWithImages: StoryPage[] = [];
@@ -294,7 +305,7 @@ const StoryCreationFlow = () => {
           formData.childName,
           formData.theme,
           formData.setting,
-          childImageBase64,
+          characterImage,
           formData.style
         );
         
@@ -307,7 +318,7 @@ const StoryCreationFlow = () => {
       sessionStorage.setItem("storyData", JSON.stringify({
         title: storyContentWithPages.title,
         coverImageUrl: coverImageUrl,
-        childImage: imagePreview,
+        characterImage: imagePreview,
         childName: formData.childName,
         childAge: formData.childAge,
         theme: formData.theme,
@@ -315,6 +326,7 @@ const StoryCreationFlow = () => {
         setting: formData.setting,
         settingName: formData.settingName,
         style: formData.style,
+        characterId: formData.characterId,
         pages: pagesWithImages
       }));
       
@@ -361,7 +373,7 @@ const StoryCreationFlow = () => {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case "photo":
+      case "character":
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -371,22 +383,32 @@ const StoryCreationFlow = () => {
           >
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-violet-100 text-violet-600 mb-4">
-                <Camera className="w-6 h-6" />
+                <User className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold">Adicione uma foto da criança</h3>
-              <p className="text-slate-500 mt-2">Esta foto será usada para personalizar o personagem principal da história</p>
+              <h3 className="text-xl font-bold">Escolha um personagem</h3>
+              <p className="text-slate-500 mt-2">Selecione um personagem para ser o protagonista da história</p>
             </div>
             
-            <div className="bg-violet-50 p-6 rounded-xl border border-violet-100">
-              <FileUpload
-                onFileSelect={handleFileSelect}
-                imagePreview={imagePreview}
-              />
-            </div>
-            
-            <div className="text-sm text-slate-500 bg-slate-50 p-4 rounded-lg">
-              <p>✓ Sua foto é armazenada com segurança e usada apenas para gerar as ilustrações da história</p>
-              <p>✓ Recomendamos uma foto frontal e bem iluminada do rosto da criança</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {characters.map((character) => (
+                <div 
+                  key={character.id}
+                  className={`story-option-card flex cursor-pointer transition-all ${selectedCharacter === character.id ? 'ring-2 ring-violet-500 bg-violet-50' : 'hover:bg-slate-50'}`}
+                  onClick={() => handleCharacterSelect(character.id)}
+                >
+                  <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0 bg-slate-200">
+                    <img 
+                      src={character.image} 
+                      alt={character.name}
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{character.name}</h4>
+                    <p className="text-sm text-slate-500">{character.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </motion.div>
         );
@@ -403,29 +425,31 @@ const StoryCreationFlow = () => {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-violet-100 text-violet-600 mb-4">
                 <User className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold">Detalhes sobre a criança</h3>
-              <p className="text-slate-500 mt-2">Estas informações ajudarão a personalizar a história</p>
+              <h3 className="text-xl font-bold">Detalhes sobre o personagem</h3>
+              <p className="text-slate-500 mt-2">Acrescente algumas informações sobre o personagem</p>
             </div>
             
             <div className="space-y-4 max-w-md mx-auto">
               <div>
-                <Label htmlFor="childName">Nome da criança</Label>
+                <Label htmlFor="childName">Nome do personagem</Label>
                 <Input 
                   id="childName"
                   name="childName"
-                  placeholder="Ex: Sofia"
+                  placeholder="Ex: Luna"
                   value={formData.childName}
                   onChange={handleInputChange}
                   className="mt-1"
+                  disabled
                 />
+                <p className="text-xs text-slate-500 mt-1">O nome do personagem será mantido como no original</p>
               </div>
               
               <div>
-                <Label htmlFor="childAge">Idade da criança</Label>
+                <Label htmlFor="childAge">Idade do personagem</Label>
                 <Input 
                   id="childAge"
                   name="childAge"
-                  placeholder="Ex: 5 anos"
+                  placeholder="Ex: 7 anos"
                   value={formData.childAge}
                   onChange={handleInputChange}
                   className="mt-1"
@@ -433,11 +457,11 @@ const StoryCreationFlow = () => {
               </div>
             </div>
             
-            {imagePreview && (
+            {selectedCharacter && (
               <div className="mt-4 flex justify-center">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-violet-300">
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-violet-300 bg-slate-100">
                   <img 
-                    src={imagePreview} 
+                    src={characters.find(c => c.id === selectedCharacter)?.image || ''} 
                     alt="Preview"
                     className="w-full h-full object-cover" 
                   />
@@ -609,10 +633,10 @@ const StoryCreationFlow = () => {
             <div className="bg-violet-50 rounded-xl border border-violet-100 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex items-center">
-                  {imagePreview && (
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-violet-300 mr-4">
+                  {selectedCharacter && (
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-violet-300 mr-4 bg-slate-100">
                       <img 
-                        src={imagePreview} 
+                        src={characters.find(c => c.id === selectedCharacter)?.image || ''} 
                         alt="Preview"
                         className="w-full h-full object-cover" 
                       />
@@ -620,6 +644,7 @@ const StoryCreationFlow = () => {
                   )}
                   <div>
                     <h4 className="font-medium text-lg">{formData.childName}</h4>
+                    <p className="text-sm text-slate-500">{characters.find(c => c.id === selectedCharacter)?.description}</p>
                     <p className="text-sm text-slate-500">Idade: {formData.childAge}</p>
                   </div>
                 </div>
@@ -805,4 +830,21 @@ const StoryCreationFlow = () => {
             <motion.div
               key="generating"
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="min-h-[400px] flex flex-col items-center justify-center"
+            >
+              <LoadingSpinner size="lg" />
+              <p className="mt-6 text-lg font-medium">Gerando a história personalizada...</p>
+              <p className="text-slate-500">Isso pode levar alguns instantes</p>
+            </motion.div>
+          ) : (
+            renderStepContent()
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+export default StoryCreationFlow;
