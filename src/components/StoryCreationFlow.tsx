@@ -267,14 +267,6 @@ const StoryCreationFlow = () => {
       
       const childImageBase64 = imagePreview;
       
-      const coverImageDescription = await generateImageDescription(
-        `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${formData.settingName}`,
-        formData.childName,
-        formData.childAge,
-        formData.theme,
-        formData.setting
-      );
-      
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
@@ -830,3 +822,4 @@ const StoryCreationFlow = () => {
 };
 
 export default StoryCreationFlow;
+
