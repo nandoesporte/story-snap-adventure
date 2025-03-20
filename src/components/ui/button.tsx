@@ -26,6 +26,9 @@ const buttonVariants = cva(
         purple: "bg-violet-600 text-white hover:bg-violet-700",
         white: "bg-white text-violet-700 hover:bg-gray-100 border border-gray-200",
         action: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 shadow-md hover:shadow-lg",
+        story: "bg-white/80 backdrop-blur-sm text-violet-800 border border-violet-200 hover:bg-white hover:border-violet-300 shadow-sm hover:shadow transition-all duration-200",
+        storyPrimary: "bg-gradient-to-r from-violet-500 to-indigo-500 text-white hover:from-violet-600 hover:to-indigo-600 shadow-md hover:shadow-lg transition-all duration-200",
+        storySecondary: "bg-white/90 backdrop-blur-sm text-violet-800 border border-violet-200 hover:bg-white hover:border-violet-300 shadow-sm hover:shadow transition-all duration-200",
       },
       size: {
         default: "h-10 px-4 py-2",
