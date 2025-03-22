@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import Index from "./pages/Index";
 import CreateStory from "./pages/CreateStory";
@@ -18,18 +18,16 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/create-story" element={<CreateStory />} />
-            <Route path="/view-story" element={<ViewStory />} />
-            <Route path="/view-story/:storyId" element={<ViewStory />} />
-            <Route path="/storybot" element={<StoryBot />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AnimatePresence>
-      </BrowserRouter>
+      <AnimatePresence mode="wait">
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/create-story" element={<CreateStory />} />
+          <Route path="/view-story" element={<ViewStory />} />
+          <Route path="/view-story/:storyId" element={<ViewStory />} />
+          <Route path="/storybot" element={<StoryBot />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AnimatePresence>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -1,5 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpudW1ib3Z0cHJkbmZkZHd3ZXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NDU4OTMsImV4cCI6MjA1ODIyMTg5M30.YiOKTKqRXruZsd3h2NRFCSJ9fWzAnrMFkSynBhdoBGI';
@@ -8,23 +8,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // User types
 export type UserSession = {
-  user: {
-    id: string;
-    email: string;
-  } | null;
+  user: User | null;
   session: any | null;
 };
 
 // Helper functions for authentication
-export const getUser = async () => {
-  const { data: { user, session }, error } = await supabase.auth.getSession();
+export const getUser = async (): Promise<UserSession> => {
+  const { data, error } = await supabase.auth.getSession();
   
   if (error) {
     console.error('Error fetching user:', error.message);
     return { user: null, session: null };
   }
   
-  return { user, session };
+  // Get the user data separately
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  return { user, session: data.session };
 };
 
 export const signInWithEmail = async (email: string, password: string) => {
