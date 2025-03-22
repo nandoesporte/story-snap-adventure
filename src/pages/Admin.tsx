@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { HomeIcon } from "lucide-react";
+import { HomeIcon, ExclamationTriangleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -20,6 +21,31 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState("themes");
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [storageBucketExists, setStorageBucketExists] = useState<boolean | null>(null);
+
+  // Check if the storage bucket exists
+  useEffect(() => {
+    const checkStorageBucket = async () => {
+      try {
+        const { data, error } = await supabase.storage.listBuckets();
+        if (error) {
+          console.error("Error checking storage buckets:", error);
+          setStorageBucketExists(false);
+          return;
+        }
+        
+        const publicBucket = data?.find(bucket => bucket.name === 'public');
+        setStorageBucketExists(!!publicBucket);
+      } catch (err) {
+        console.error("Error checking storage bucket:", err);
+        setStorageBucketExists(false);
+      }
+    };
+    
+    if (user) {
+      checkStorageBucket();
+    }
+  }, [user]);
 
   // Fetch all index page contents for admin panel
   const { data: indexPageContents, isLoading: isLoadingContents } = useQuery({
@@ -190,6 +216,28 @@ const Admin = () => {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+
+      {storageBucketExists === false && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle className="flex items-center">
+            <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+            Configuração do Storage Necessária
+          </AlertTitle>
+          <AlertDescription>
+            <p className="mb-2">
+              Para que o upload de arquivos funcione corretamente, você precisa criar um bucket de armazenamento chamado 'public' no seu projeto Supabase.
+            </p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Acesse o painel do Supabase</li>
+              <li>Navegue até Storage → Buckets</li>
+              <li>Clique em "New Bucket"</li>
+              <li>Nomeie o bucket como "public"</li>
+              <li>Marque a opção "Public bucket" (para acesso público aos arquivos)</li>
+              <li>Configure as RLS policies conforme necessário para controle de acesso</li>
+            </ol>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="space-y-6">
         <div>

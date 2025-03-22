@@ -3,6 +3,7 @@ import { useState, useRef, ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FileUploadProps {
   onFileSelect?: (file: File) => void;
@@ -14,8 +15,12 @@ interface FileUploadProps {
 const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType = "image" }: FileUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Possible bucket names to try (in order)
+  const bucketOptions = ['public', 'profile-images', 'storage'];
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -54,6 +59,9 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
   };
 
   const uploadFile = async (file: File) => {
+    // Reset error state
+    setError(null);
+    
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
@@ -72,46 +80,48 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
       const filePath = `lovable-uploads/${fileName}`;
       
-      // Skip bucket creation since it requires admin privileges
-      // Instead, try to upload directly to the 'public' bucket
-      // which should already exist and be configured in Supabase
+      // Try each bucket until one works
+      let uploadSuccess = false;
+      let publicUrl = '';
+      let lastError = null;
       
-      // Upload the file
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-        
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError);
-        
-        // If the error is because the bucket doesn't exist
-        if (uploadError.message.includes("not found") || uploadError.message.includes("does not exist")) {
-          toast({
-            title: "Erro de configuração",
-            description: "O bucket de armazenamento 'public' não existe. Contate o administrador do sistema.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Erro ao fazer upload",
-            description: "Não foi possível carregar o arquivo. Erro: " + uploadError.message,
-            variant: "destructive",
-          });
+      for (const bucketName of bucketOptions) {
+        try {
+          // Upload the file to the current bucket
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
+            
+          if (uploadError) {
+            lastError = uploadError;
+            console.log(`Upload to bucket '${bucketName}' failed:`, uploadError.message);
+            continue; // Try next bucket
+          }
+          
+          // Get public URL from the successful bucket
+          const { data } = await supabase.storage
+            .from(bucketName)
+            .getPublicUrl(filePath);
+            
+          if (data?.publicUrl) {
+            publicUrl = data.publicUrl;
+            uploadSuccess = true;
+            console.log(`Upload to bucket '${bucketName}' succeeded`);
+            break; // Exit the loop since we succeeded
+          }
+        } catch (err) {
+          console.error(`Error with bucket '${bucketName}':`, err);
         }
-        return;
       }
       
-      // Get the public URL
-      const { data } = await supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
-        
-      let publicUrl = data?.publicUrl;
+      if (!uploadSuccess) {
+        throw new Error(lastError?.message || 'Falha ao fazer upload para todos os buckets disponíveis');
+      }
       
-      // If for some reason we couldn't get the public URL, fallback to a relative path
+      // If we got here and don't have a URL, create a fallback
       if (!publicUrl) {
         publicUrl = `/lovable-uploads/${fileName}`;
       }
@@ -126,9 +136,17 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       });
     } catch (error: any) {
       console.error("Upload error:", error);
+      
+      // Set a more user-friendly error message
+      const errorMessage = error?.message || 'Erro desconhecido';
+      setError(
+        "Não foi possível fazer upload da imagem. O bucket de armazenamento 'public' não existe no seu projeto Supabase. " +
+        "Crie um bucket chamado 'public' no painel do Supabase em Storage → Buckets → New bucket."
+      );
+      
       toast({
         title: "Erro ao fazer upload",
-        description: `Não foi possível carregar o arquivo. ${error?.message || 'Erro desconhecido'}`,
+        description: "Não foi possível carregar o arquivo. Verifique o painel para mais detalhes.",
         variant: "destructive",
       });
     } finally {
@@ -149,6 +167,14 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       transition={{ duration: 0.5 }}
       className="w-full"
     >
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all
           ${isDragging ? 'border-storysnap-blue bg-storysnap-blue/5' : 'border-slate-200 hover:border-storysnap-blue/50 hover:bg-slate-50'}
