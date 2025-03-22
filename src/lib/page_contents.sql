@@ -42,20 +42,20 @@ BEGIN
             TO anon, authenticated
             USING (true);
 
-        -- Create trigger function for updating updated_at
-        CREATE OR REPLACE FUNCTION update_timestamp()
-        RETURNS TRIGGER AS $$
+        -- Create trigger function properly for updating updated_at
+        EXECUTE 'CREATE OR REPLACE FUNCTION update_timestamp()
+        RETURNS TRIGGER AS $trigger$
         BEGIN
             NEW.updated_at = NOW();
             RETURN NEW;
         END;
-        $$ LANGUAGE plpgsql;
+        $trigger$ LANGUAGE plpgsql;';
 
-        -- Create trigger on the table
-        CREATE TRIGGER update_timestamp_trigger
+        -- Create trigger on the table with proper syntax
+        EXECUTE 'CREATE TRIGGER update_timestamp_trigger
         BEFORE UPDATE ON public.page_contents
         FOR EACH ROW
-        EXECUTE FUNCTION update_timestamp();
+        EXECUTE FUNCTION update_timestamp();';
         
         -- Insert initial data
         INSERT INTO public.page_contents (page, section, key, content, content_type)
