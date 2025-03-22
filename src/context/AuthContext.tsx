@@ -18,23 +18,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userSession, setUserSession] = useState<UserSession>({ user: null, session: null });
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   // Load user session on component mount
   useEffect(() => {
     const loadCurrentSession = async () => {
       try {
+        console.log('Loading current session...');
+        setLoading(true);
+        
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Initial session check:', session);
+        console.log('Initial session check:', session ? 'Session found' : 'No session');
         
         if (session) {
-          const { data: { user } } = await supabase.auth.getUser();
-          console.log('User from session:', user);
-          setUserSession({ user, session });
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            console.log('User from session:', user ? 'User found' : 'No user');
+            if (user) {
+              setUserSession({ user, session });
+            }
+          } catch (userError) {
+            console.error('Error getting user from session:', userError);
+          }
         }
       } catch (error) {
         console.error('Error loading initial session:', error);
       } finally {
         setLoading(false);
+        setInitialized(true);
       }
     };
 
@@ -43,13 +54,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
+        console.log('Auth state changed:', event, session ? 'With session' : 'No session');
         
         if (session) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
-            console.log('User after auth change:', user);
-            setUserSession({ user, session });
+            console.log('User after auth change:', user ? 'User found' : 'No user');
+            if (user) {
+              setUserSession({ user, session });
+            }
           } catch (error) {
             console.error('Error getting user after auth state change:', error);
           }
@@ -64,6 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       if (authListener?.subscription) {
+        console.log('Cleaning up auth listener subscription');
         authListener.subscription.unsubscribe();
       }
     };
@@ -83,7 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
       
-      console.log('Sign in success:', data);
+      console.log('Sign in success:', data.user ? 'User found' : 'No user');
       return data;
     } catch (error) {
       console.error('Sign in exception:', error);
@@ -107,7 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
       
-      console.log('Sign up success:', data);
+      console.log('Sign up success:', data.user ? 'User found' : 'No user');
       return data;
     } catch (error) {
       console.error('Sign up exception:', error);
@@ -137,6 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   };
+
+  // Ensure context is available before rendering children
+  if (!initialized && loading) {
+    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+  }
 
   const value = {
     user: userSession.user,

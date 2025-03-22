@@ -7,7 +7,15 @@ import { Button } from '@/components/ui/button';
 
 const NavbarUser = () => {
   try {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+    
+    if (loading) {
+      return (
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-24 bg-gray-200 animate-pulse rounded"></div>
+        </div>
+      );
+    }
     
     if (!user) {
       return (
