@@ -12,108 +12,58 @@ type AuthContextType = {
   signOut: () => Promise<void>;
 };
 
-// Criando o contexto com um valor padrão apropriado
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  session: null,
-  loading: true,
-  signIn: async () => ({}),
-  signUp: async () => ({}),
-  signOut: async () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userSession, setUserSession] = useState<UserSession>({ user: null, session: null });
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
 
-  // Carregar sessão do usuário na montagem do componente
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadCurrentSession = async () => {
+    // Check for active session on component mount
+    const loadUser = async () => {
       try {
-        console.log('Loading current session...');
-        
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Initial session check:', session ? 'Session found' : 'No session');
-        
-        if (session && isMounted) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            console.log('User from session:', user ? 'User found' : 'No user');
-            if (user && isMounted) {
-              setUserSession({ user, session });
-            }
-          } catch (userError) {
-            console.error('Error getting user from session:', userError);
-          }
-        }
+        const session = await getUser();
+        setUserSession({ user: session.user, session: session.session });
       } catch (error) {
-        console.error('Error loading initial session:', error);
+        console.error('Error loading user:', error);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-          setInitialized(true);
-        }
+        setLoading(false);
       }
     };
 
-    loadCurrentSession();
+    loadUser();
 
-    // Configurar listener de estado de autenticação
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session ? 'With session' : 'No session');
-        
-        if (session && isMounted) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            console.log('User after auth change:', user ? 'User found' : 'No user');
-            if (user && isMounted) {
-              setUserSession({ user, session });
-            }
-          } catch (error) {
-            console.error('Error getting user after auth state change:', error);
-          }
-        } else if (isMounted) {
-          console.log('No session in auth change, clearing user');
-          setUserSession({ user: null, session: null });
+    // Set up auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.info('Auth state changed:', event, session ? 'session exists' : 'no session');
+      
+      if (session) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          setUserSession({ user, session });
+        } catch (error) {
+          console.error('Error getting user after auth state change:', error);
         }
-        
-        if (isMounted) {
-          setLoading(false);
-        }
+      } else {
+        setUserSession({ user: null, session: null });
       }
-    );
+      setLoading(false);
+    });
 
     return () => {
-      isMounted = false;
-      if (authListener?.subscription) {
-        console.log('Cleaning up auth listener subscription');
-        authListener.subscription.unsubscribe();
-      }
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    console.info('AuthContext: Signing in with:', email);
     setLoading(true);
     try {
-      console.log('AuthContext: Signing in with:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
-      
-      if (error) {
-        console.error('Sign in error:', error);
-        throw error;
-      }
-      
-      console.log('Sign in success:', data.user ? 'User found' : 'No user');
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Sign in exception:', error);
+      console.error('Sign in error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -123,21 +73,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('AuthContext: Signing up with:', email);
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
-        password 
-      });
-      
-      if (error) {
-        console.error('Sign up error:', error);
-        throw error;
-      }
-      
-      console.log('Sign up success:', data.user ? 'User found' : 'No user');
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Sign up exception:', error);
+      console.error('Sign up error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -147,33 +87,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     setLoading(true);
     try {
-      console.log('AuthContext: Signing out');
       const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out error:', error);
-        throw error;
-      }
-      
-      console.log('Sign out successful');
-      setUserSession({ user: null, session: null });
+      if (error) throw error;
     } catch (error) {
-      console.error('Sign out exception:', error);
+      console.error('Sign out error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
-
-  // Mostrar uma tela de carregamento durante a inicialização
-  if (!initialized && loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
-        <span className="ml-3 text-lg font-medium text-violet-800">Carregando...</span>
-      </div>
-    );
-  }
 
   const value = {
     user: userSession.user,

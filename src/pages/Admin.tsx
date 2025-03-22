@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
-import { AdminUtils } from "@/components/admin/AdminUtils";
 import { useToast } from "@/hooks/use-toast";
 
 const Admin = () => {
@@ -59,7 +58,6 @@ const Admin = () => {
             <TabsTrigger value="stories">Histórias</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="themes">Temas e Configurações</TabsTrigger>
-            <TabsTrigger value="utils">Utilidades</TabsTrigger>
           </TabsList>
           <TabsContent value="stories" className="mt-4">
             <StoryManager />
@@ -69,9 +67,6 @@ const Admin = () => {
           </TabsContent>
           <TabsContent value="themes" className="mt-4">
             <ThemeManager />
-          </TabsContent>
-          <TabsContent value="utils" className="mt-4">
-            <AdminUtils />
           </TabsContent>
         </Tabs>
       </div>
