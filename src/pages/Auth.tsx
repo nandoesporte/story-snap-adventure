@@ -89,10 +89,10 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex flex-col min-h-screen">
       <Navbar />
       <motion.div 
-        className="flex-grow flex items-center justify-center p-4 bg-gradient-to-b from-violet-50 to-indigo-50"
+        className="flex-grow flex items-center justify-center p-4 bg-gradient-to-b from-violet-50 to-indigo-50 pt-24"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
