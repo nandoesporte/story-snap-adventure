@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { User } from "@supabase/supabase-js";
-import { toast } from "sonner";
+import { toast as sonnerToast } from "sonner";
 
 type AdminUser = {
   id: string;
@@ -209,10 +209,17 @@ export const UserManager = () => {
       
       if (error) throw error;
       
-      toast.success(`${targetEmail} agora é um administrador`);
+      toast({
+        title: `${targetEmail} agora é um administrador`,
+        variant: "success",
+      });
       refetch();
     } catch (error: any) {
-      toast.error(`Erro ao configurar administrador: ${error.message}`);
+      toast({
+        title: "Erro ao configurar administrador",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
