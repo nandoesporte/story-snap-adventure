@@ -39,7 +39,8 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   };
 
   // Default image if none provided
-  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png");
+  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png");
+  const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
@@ -123,7 +124,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
             <div className="relative w-full max-w-lg">
               <img 
                 src={heroImage}
-                alt={getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente")}
+                alt={imageAlt}
                 className="w-full h-auto z-10 drop-shadow-xl"
               />
               

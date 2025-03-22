@@ -12,7 +12,7 @@ VALUES
 ('index', 'hero', 'subtitle', 'Crie histórias divertidas e personalizadas que dão vida às aventuras do seu filho e despertem sua paixão pela leitura. Leva apenas alguns segundos!', 'text'),
 ('index', 'hero', 'button_text', 'CRIAR HISTÓRIA', 'text'),
 ('index', 'hero', 'button_subtitle', 'Experimente Grátis!', 'text'),
-('index', 'hero', 'image_url', '/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png', 'image'),
+('index', 'hero', 'image_url', '/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png', 'image'),
 ('index', 'hero', 'image_alt', 'Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente', 'text'),
 ('index', 'hero', 'banner_text', 'Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.', 'text'),
 

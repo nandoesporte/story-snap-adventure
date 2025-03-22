@@ -1,4 +1,3 @@
-
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -178,7 +177,7 @@ const updateHeroImage = async () => {
       .eq('key', 'image_url')
       .single();
     
-    const imageUrl = '/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png';
+    const imageUrl = '/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png';
     
     if (error) {
       if (error.code === 'PGRST116') {
