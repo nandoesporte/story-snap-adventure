@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -19,6 +19,7 @@ import {
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -42,8 +43,16 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const Auth = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -64,13 +73,18 @@ const Auth = () => {
 
   const onLoginSubmit = async (values: LoginFormValues) => {
     setIsLoggingIn(true);
+    setAuthError(null);
+    
     try {
       console.log('Attempting login with:', values.email);
-      await signIn(values.email, values.password);
+      const result = await signIn(values.email, values.password);
+      console.log('Login result:', result);
+      
       toast.success('Login realizado com sucesso!');
       navigate('/');
     } catch (error: any) {
       console.error('Login error:', error);
+      setAuthError(error.message || 'Erro ao fazer login. Por favor, tente novamente.');
       toast.error(error.message || 'Erro ao fazer login. Por favor, tente novamente.');
     } finally {
       setIsLoggingIn(false);
@@ -79,6 +93,8 @@ const Auth = () => {
 
   const onRegisterSubmit = async (values: RegisterFormValues) => {
     setIsRegistering(true);
+    setAuthError(null);
+    
     try {
       console.log('Attempting registration with:', values.email);
       await signUp(values.email, values.password);
@@ -86,6 +102,7 @@ const Auth = () => {
       navigate('/');
     } catch (error: any) {
       console.error('Register error:', error);
+      setAuthError(error.message || 'Erro ao criar conta. Por favor, tente novamente.');
       toast.error(error.message || 'Erro ao criar conta. Por favor, tente novamente.');
     } finally {
       setIsRegistering(false);
@@ -111,6 +128,12 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {authError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            )}
+            
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Login</TabsTrigger>

@@ -15,43 +15,75 @@ export type UserSession = {
 
 // Helper functions for authentication
 export const getUser = async (): Promise<UserSession> => {
-  const { data, error } = await supabase.auth.getSession();
-  
-  if (error) {
-    console.error('Error fetching user session:', error.message);
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Error fetching user session:', sessionError.message);
+      return { user: null, session: null };
+    }
+    
+    if (!sessionData.session) {
+      console.log('No active session found');
+      return { user: null, session: null };
+    }
+    
+    // Get the user data if there's an active session
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('Error fetching user data:', userError.message);
+      return { user: null, session: sessionData.session };
+    }
+    
+    console.log('getUser returned:', userData.user);
+    return { user: userData.user, session: sessionData.session };
+  } catch (error) {
+    console.error('Unexpected error in getUser:', error);
     return { user: null, session: null };
   }
-  
-  // Get the user data separately
-  const { data: { user } } = await supabase.auth.getUser();
-  console.log('getUser returned:', user);
-  
-  return { user, session: data.session };
 };
 
 export const signInWithEmail = async (email: string, password: string) => {
+  console.log('supabase.ts: signInWithEmail', email);
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
   
-  if (error) throw error;
+  if (error) {
+    console.error('signInWithEmail error:', error);
+    throw error;
+  }
+  
+  console.log('signInWithEmail success:', data);
   return data;
 };
 
 export const signUpWithEmail = async (email: string, password: string) => {
+  console.log('supabase.ts: signUpWithEmail', email);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
   });
   
-  if (error) throw error;
+  if (error) {
+    console.error('signUpWithEmail error:', error);
+    throw error;
+  }
+  
+  console.log('signUpWithEmail success:', data);
   return data;
 };
 
 export const signOut = async () => {
+  console.log('supabase.ts: signOut');
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) {
+    console.error('signOut error:', error);
+    throw error;
+  }
+  console.log('signOut success');
 };
 
 // Helper for stories database operations
@@ -154,35 +186,59 @@ export const getAllStories = async () => {
 export const makeUserAdmin = async (email: string) => {
   console.log('Making user admin:', email);
   try {
-    // First get the user ID by querying the auth.users directly
+    // First, check if the user exists by querying auth.users view or custom profiles table
+    // This will depend on how you've set up your database
     const { data: userData, error: userError } = await supabase
-      .from('users')
+      .from('profiles')  // or 'users' depending on your schema
       .select('id')
       .eq('email', email)
       .single();
     
-    if (userError || !userData) {
+    if (userError) {
       console.error('Error finding user:', userError);
-      throw new Error('User not found');
-    }
-    
-    console.log('Found user:', userData);
-    
-    // Update the user_profiles table
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ is_admin: true })
-      .eq('id', userData.id);
-    
-    if (error) {
-      console.error('Error updating user_profiles:', error);
-      throw error;
+      // Try a different approach if the first one fails
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+        
+      if (usersError || !usersData) {
+        console.error('Error finding user in users table:', usersError);
+        throw new Error('User not found');
+      }
+      
+      console.log('Found user in users table:', usersData);
+      
+      // Update the user_profiles table
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ is_admin: true })
+        .eq('id', usersData.id);
+      
+      if (updateError) {
+        console.error('Error updating user_profiles:', updateError);
+        throw updateError;
+      }
+    } else {
+      console.log('Found user in profiles table:', userData);
+      
+      // Update the profiles table with admin privileges
+      const { error: updateError } = await supabase
+        .from('profiles')  // or 'user_profiles' depending on your schema
+        .update({ is_admin: true })
+        .eq('id', userData.id);
+      
+      if (updateError) {
+        console.error('Error updating profiles:', updateError);
+        throw updateError;
+      }
     }
     
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('makeUserAdmin error:', error);
-    throw error;
+    throw new Error(`Failed to make user admin: ${error.message}`);
   }
 };
 
