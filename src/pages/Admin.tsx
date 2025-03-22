@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { HomeIcon, ExclamationTriangleIcon } from "lucide-react";
+import { HomeIcon, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
@@ -220,7 +220,7 @@ const Admin = () => {
       {storageBucketExists === false && (
         <Alert variant="destructive" className="mb-6">
           <AlertTitle className="flex items-center">
-            <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+            <AlertTriangle className="h-4 w-4 mr-2" />
             Configuração do Storage Necessária
           </AlertTitle>
           <AlertDescription>
