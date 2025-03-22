@@ -6,12 +6,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE OR REPLACE FUNCTION create_page_contents_if_not_exists()
 RETURNS void AS $$
 BEGIN
-    -- Check if the table exists
-    IF NOT EXISTS (
-        SELECT FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND tablename = 'page_contents'
-    ) THEN
+    -- Check if the table exists using a correct SQL query
+    PERFORM 1 FROM pg_tables 
+    WHERE schemaname = 'public' 
+    AND tablename = 'page_contents';
+    
+    IF NOT FOUND THEN
         -- Create page_contents table
         CREATE TABLE public.page_contents (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -78,12 +78,12 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_user_profiles_if_not_exists()
 RETURNS void AS $$
 BEGIN
-    -- Check if the table exists
-    IF NOT EXISTS (
-        SELECT FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND tablename = 'user_profiles'
-    ) THEN
+    -- Check if the table exists using a better approach
+    PERFORM 1 FROM pg_tables 
+    WHERE schemaname = 'public' 
+    AND tablename = 'user_profiles';
+    
+    IF NOT FOUND THEN
         -- Create user_profiles table
         CREATE TABLE public.user_profiles (
           id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
