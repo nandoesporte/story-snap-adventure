@@ -10,6 +10,7 @@ import CreateStory from "./pages/CreateStory";
 import ViewStory from "./pages/ViewStory";
 import StoryBot from "./pages/StoryBot";
 import NotFound from "./pages/NotFound";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/view-story" element={<ViewStory />} />
           <Route path="/view-story/:storyId" element={<ViewStory />} />
           <Route path="/storybot" element={<StoryBot />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AnimatePresence>

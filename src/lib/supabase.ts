@@ -100,7 +100,6 @@ export const getUserStories = async () => {
   const { data, error } = await supabase
     .from('stories')
     .select('*')
-    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
   if (error) throw error;
@@ -126,3 +125,105 @@ export const deleteStory = async (id: string) => {
   
   if (error) throw error;
 };
+
+// Admin functions
+export const updateStory = async (id: string, updates: Partial<Story>) => {
+  const { data, error } = await supabase
+    .from('stories')
+    .update(updates)
+    .eq('id', id)
+    .select();
+  
+  if (error) throw error;
+  return data[0];
+};
+
+export const getAllStories = async () => {
+  const { data, error } = await supabase
+    .from('stories')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
+};
+
+// SQL setup for Supabase (this is not executed, just for reference)
+export const supabaseSetupSQL = `
+-- Create tables for the admin panel and app
+
+-- Create themes table
+CREATE TABLE themes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create settings table
+CREATE TABLE settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key TEXT NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE themes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+-- Allow authenticated users to read themes
+CREATE POLICY "Allow authenticated users to read themes"
+  ON themes
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Allow authenticated users to read settings
+CREATE POLICY "Allow authenticated users to read settings"
+  ON settings
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Allow admin users to manage themes
+CREATE POLICY "Allow admin users to manage themes"
+  ON themes
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM auth.users
+      WHERE auth.users.id = auth.uid()
+      AND auth.users.email IN ('admin@example.com')
+    )
+  );
+
+-- Allow admin users to manage settings
+CREATE POLICY "Allow admin users to manage settings"
+  ON settings
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM auth.users
+      WHERE auth.users.id = auth.uid()
+      AND auth.users.email IN ('admin@example.com')
+    )
+  );
+
+-- Insert default themes
+INSERT INTO themes (name, description) VALUES
+('Aventura', 'Histórias de aventura com muita ação e exploração'),
+('Fantasia', 'Histórias mágicas em mundos fantásticos'),
+('Educacional', 'Histórias com foco em ensinar conceitos e valores'),
+('Amizade', 'Histórias sobre amizade e relacionamentos'),
+('Natureza', 'Histórias sobre animais e o mundo natural');
+
+-- Insert default settings
+INSERT INTO settings (key, value, description) VALUES
+('allow_story_sharing', 'true', 'Permitir compartilhamento de histórias'),
+('max_stories_per_user', '10', 'Número máximo de histórias por usuário'),
+('default_theme', 'Aventura', 'Tema padrão para novas histórias'),
+('enable_ai_features', 'true', 'Habilitar recursos de IA');
+`;
