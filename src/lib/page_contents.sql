@@ -1,5 +1,6 @@
 
 
+
 -- Create UUID extension if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -29,12 +30,12 @@ BEGIN
         -- Add RLS policies
         ALTER TABLE public.page_contents ENABLE ROW LEVEL SECURITY;
 
-        -- Admin can do anything
+        -- Admin can do anything - FIXED: user_id → id in the subquery
         CREATE POLICY admin_all ON public.page_contents
             FOR ALL
             TO authenticated
             USING (
-                (SELECT is_admin FROM public.user_profiles WHERE user_id = auth.uid())
+                (SELECT is_admin FROM public.user_profiles WHERE id = auth.uid())
             );
 
         -- Anyone can read page contents
@@ -115,3 +116,4 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
