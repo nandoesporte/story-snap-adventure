@@ -1,4 +1,3 @@
-
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -146,6 +145,24 @@ export const getAllStories = async () => {
   
   if (error) throw error;
   return data;
+};
+
+// Admin operations
+export const makeUserAdmin = async (email: string) => {
+  // First get the user ID from the auth users
+  const { data: userData, error: userError } = await supabase.auth.admin.getUserByEmail(email);
+  
+  if (userError || !userData?.user) throw new Error('User not found');
+  
+  // Update the user_profiles table
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ is_admin: true })
+    .eq('id', userData.user.id);
+  
+  if (error) throw error;
+  
+  return { success: true };
 };
 
 // Reference to the SQL setup file
