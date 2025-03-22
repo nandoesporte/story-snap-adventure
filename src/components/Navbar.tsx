@@ -4,7 +4,6 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useIsMobile } from "../hooks/use-mobile";
 import { Sparkles } from "lucide-react";
-import NavbarUser from "./NavbarUser";
 
 const Navbar = () => {
   const isMobile = useIsMobile();
@@ -102,42 +101,62 @@ const Navbar = () => {
             </ul>
           )}
 
-          {/* Login/Signup Buttons - Replaced with NavbarUser component */}
-          <NavbarUser />
+          {/* Login/Signup Buttons */}
+          {!isMobile && (
+            <div className="flex items-center gap-3">
+              <Link to="/login" className="text-violet-700 hover:text-violet-800 font-medium text-sm">
+                Entrar
+              </Link>
+              <Link 
+                to="/signup"
+                className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-medium px-5 py-2 rounded-full text-sm transition-colors duration-200 shadow-sm hover:shadow-md"
+              >
+                Inscreva-se gratuitamente
+              </Link>
+            </div>
+          )}
 
           {/* Mobile Menu Button */}
           {isMobile && (
-            <button
-              onClick={toggleMenu}
-              className="text-violet-700 focus:outline-none"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+            <div className="flex items-center gap-3">
+              <Link 
+                to="/login" 
+                className="text-violet-700 hover:text-violet-800 font-medium text-sm mr-2"
               >
-                {isMenuOpen ? (
-                  <path
-                    d="M18 6L6 18M6 6L18 18"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ) : (
-                  <path
-                    d="M4 6H20M4 12H20M4 18H20"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )}
-              </svg>
-            </button>
+                Entrar
+              </Link>
+              <button
+                onClick={toggleMenu}
+                className="text-violet-700 focus:outline-none"
+                aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  {isMenuOpen ? (
+                    <path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : (
+                    <path
+                      d="M4 6H20M4 12H20M4 18H20"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                </svg>
+              </button>
+            </div>
           )}
 
           {/* Mobile Menu */}
@@ -168,7 +187,7 @@ const Navbar = () => {
                 ))}
                 <li>
                   <Link
-                    to="/auth"
+                    to="/signup"
                     className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
                   >
                     Inscreva-se gratuitamente
