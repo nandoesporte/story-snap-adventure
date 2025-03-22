@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -11,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import StorageConfigAlert from "@/components/StorageConfigAlert";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -20,30 +20,6 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState("themes");
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
-  const [storageBucketExists, setStorageBucketExists] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkStorageBucket = async () => {
-      try {
-        const { data, error } = await supabase.storage.listBuckets();
-        if (error) {
-          console.error("Error checking storage buckets:", error);
-          setStorageBucketExists(false);
-          return;
-        }
-        
-        const publicBucket = data?.find(bucket => bucket.name === 'public');
-        setStorageBucketExists(!!publicBucket);
-      } catch (err) {
-        console.error("Error checking storage bucket:", err);
-        setStorageBucketExists(false);
-      }
-    };
-    
-    if (user) {
-      checkStorageBucket();
-    }
-  }, [user]);
 
   const { data: indexPageContents, isLoading: isLoadingContents } = useQuery({
     queryKey: ["all-page-contents", "index"],
@@ -197,10 +173,6 @@ const Admin = () => {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-
-      {storageBucketExists === false && (
-        <StorageConfigAlert className="mb-6" />
-      )}
 
       <div className="space-y-6">
         <div>

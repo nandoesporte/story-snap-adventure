@@ -1,12 +1,7 @@
 
 import { useState, useRef, ChangeEvent } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import StorageConfigAlert from "@/components/StorageConfigAlert";
-
-// Define the bucket options array
-const bucketOptions = ['public', 'avatars', 'stories'];
 
 interface FileUploadProps {
   onFileSelect?: (file: File) => void;
@@ -18,7 +13,6 @@ interface FileUploadProps {
 const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType = "image" }: FileUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -41,7 +35,7 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       }
       
       if (onUploadComplete) {
-        await uploadFile(e.dataTransfer.files[0]);
+        await handleFileUpload(e.dataTransfer.files[0]);
       }
     }
   };
@@ -53,14 +47,12 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       }
       
       if (onUploadComplete) {
-        await uploadFile(e.target.files[0]);
+        await handleFileUpload(e.target.files[0]);
       }
     }
   };
 
-  const uploadFile = async (file: File) => {
-    setError(null);
-    
+  const handleFileUpload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "Erro ao fazer upload",
@@ -73,54 +65,14 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     try {
       setIsUploading(true);
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
-      const filePath = `lovable-uploads/${fileName}`;
+      // Criar URL local para o arquivo
+      const fileUrl = URL.createObjectURL(file);
       
-      let uploadSuccess = false;
-      let publicUrl = '';
-      let lastError = null;
-      
-      for (const bucketName of bucketOptions) {
-        try {
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: true
-            });
-            
-          if (uploadError) {
-            lastError = uploadError;
-            console.log(`Upload to bucket '${bucketName}' failed:`, uploadError.message);
-            continue;
-          }
-          
-          const { data } = await supabase.storage
-            .from(bucketName)
-            .getPublicUrl(filePath);
-            
-          if (data?.publicUrl) {
-            publicUrl = data.publicUrl;
-            uploadSuccess = true;
-            console.log(`Upload to bucket '${bucketName}' succeeded`);
-            break;
-          }
-        } catch (err) {
-          console.error(`Error with bucket '${bucketName}':`, err);
-        }
-      }
-      
-      if (!uploadSuccess) {
-        throw new Error(lastError?.message || 'Falha ao fazer upload para todos os buckets disponíveis');
-      }
-      
-      if (!publicUrl) {
-        publicUrl = `/lovable-uploads/${fileName}`;
-      }
+      // Simular um pequeno atraso para mostrar o loading
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (onUploadComplete) {
-        onUploadComplete(publicUrl);
+        onUploadComplete(fileUrl);
       }
       
       toast({
@@ -130,11 +82,9 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     } catch (error: any) {
       console.error("Upload error:", error);
       
-      setError("storage_bucket_missing");
-      
       toast({
         title: "Erro ao fazer upload",
-        description: "Não foi possível carregar o arquivo. Verifique o painel para mais detalhes.",
+        description: "Não foi possível carregar o arquivo.",
         variant: "destructive",
       });
     } finally {
@@ -155,10 +105,6 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       transition={{ duration: 0.5 }}
       className="w-full"
     >
-      {error === "storage_bucket_missing" && (
-        <StorageConfigAlert compact className="mb-4" />
-      )}
-      
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all
           ${isDragging ? 'border-storysnap-blue bg-storysnap-blue/5' : 'border-slate-200 hover:border-storysnap-blue/50 hover:bg-slate-50'}
