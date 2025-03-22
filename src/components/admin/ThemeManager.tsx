@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUpload } from "@/components/FileUpload";
+import FileUpload from "@/components/FileUpload";
 
 type Theme = {
   id: string;

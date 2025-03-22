@@ -1,15 +1,21 @@
 
 import { useState, useRef, ChangeEvent } from "react";
 import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
-  imagePreview: string | null;
+  onFileSelect?: (file: File) => void;
+  onUploadComplete?: (url: string) => void;
+  imagePreview?: string | null;
+  uploadType?: "image" | "file";
 }
 
-const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
+const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType = "image" }: FileUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -20,18 +26,77 @@ const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileSelect(e.dataTransfer.files[0]);
+      if (onFileSelect) {
+        onFileSelect(e.dataTransfer.files[0]);
+      }
+      
+      if (onUploadComplete) {
+        await uploadFile(e.dataTransfer.files[0]);
+      }
     }
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0]);
+      if (onFileSelect) {
+        onFileSelect(e.target.files[0]);
+      }
+      
+      if (onUploadComplete) {
+        await uploadFile(e.target.files[0]);
+      }
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro ao fazer upload",
+        description: "O arquivo é muito grande. Tamanho máximo: 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `lovable-uploads/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('public')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      const publicUrl = `/lovable-uploads/${fileName}`;
+      
+      if (onUploadComplete) {
+        onUploadComplete(publicUrl);
+      }
+      
+      toast({
+        title: "Upload concluído",
+        description: "Arquivo enviado com sucesso",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Erro ao fazer upload",
+        description: "Não foi possível carregar o arquivo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -50,7 +115,8 @@ const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
     >
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all
-          ${isDragging ? 'border-storysnap-blue bg-storysnap-blue/5' : 'border-slate-200 hover:border-storysnap-blue/50 hover:bg-slate-50'}`}
+          ${isDragging ? 'border-storysnap-blue bg-storysnap-blue/5' : 'border-slate-200 hover:border-storysnap-blue/50 hover:bg-slate-50'}
+          ${isUploading ? 'opacity-70 pointer-events-none' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -61,7 +127,7 @@ const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
           ref={fileInputRef}
           onChange={handleFileChange}
           className="hidden"
-          accept="image/*"
+          accept={uploadType === "image" ? "image/*" : undefined}
         />
         
         {imagePreview ? (
@@ -77,7 +143,9 @@ const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
               className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
-                onFileSelect(null as unknown as File);
+                if (onFileSelect) {
+                  onFileSelect(null as unknown as File);
+                }
               }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -106,6 +174,12 @@ const FileUpload = ({ onFileSelect, imagePreview }: FileUploadProps) => {
             JPG, PNG ou GIF (máx. 5MB)
           </p>
         </div>
+        
+        {isUploading && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-xl">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-700"></div>
+          </div>
+        )}
       </div>
     </motion.div>
   );
