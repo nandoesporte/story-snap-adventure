@@ -178,7 +178,7 @@ const updateHeroImage = async () => {
       .eq('key', 'image_url')
       .single();
     
-    const imageUrl = '/lovable-uploads/ebc01802-0a17-4159-83dc-e8d4d624b008.png';
+    const imageUrl = '/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png';
     
     if (error) {
       if (error.code === 'PGRST116') {

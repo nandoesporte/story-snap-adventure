@@ -88,7 +88,7 @@ const Index = () => {
   ];
 
   // Get hero section image content
-  const heroImageUrl = getContent("hero", "image_url", "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png");
+  const heroImageUrl = getContent("hero", "image_url", "/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png");
 
   return (
     <div className="min-h-screen flex flex-col">

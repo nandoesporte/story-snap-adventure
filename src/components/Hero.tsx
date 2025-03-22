@@ -39,7 +39,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   };
 
   // Default image if none provided
-  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/ebc01802-0a17-4159-83dc-e8d4d624b008.png");
+  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png");
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
