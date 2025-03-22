@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -42,7 +41,7 @@ const UserProfile = () => {
         const { data, error } = await supabase
           .from('user_profiles')
           .select('is_admin')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
           
         if (error) {
