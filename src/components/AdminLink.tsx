@@ -2,13 +2,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 
 export const AdminLink = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const isOnAdminPage = location.pathname.startsWith('/admin');
   
   const { data: isAdmin, isLoading } = useQuery({
     queryKey: ['isUserAdmin', user?.id],
@@ -42,9 +45,13 @@ export const AdminLink = () => {
 
   return (
     <Link to="/admin">
-      <Button variant="outline" size="sm" className="gap-2">
-        <Settings className="h-4 w-4" />
-        Admin
+      <Button 
+        variant={isOnAdminPage ? "default" : "outline"} 
+        size="sm" 
+        className={`gap-2 ${isOnAdminPage ? 'bg-violet-600 hover:bg-violet-700' : ''}`}
+      >
+        <Shield className="h-4 w-4" />
+        <span className="hidden md:inline">Admin</span>
       </Button>
     </Link>
   );

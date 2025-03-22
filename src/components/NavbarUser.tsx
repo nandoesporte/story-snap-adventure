@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import UserProfile from './UserProfile';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
+import { AdminLink } from './AdminLink';
 
 const NavbarUser = () => {
   const { user, loading } = useAuth();
@@ -36,7 +37,12 @@ const NavbarUser = () => {
   }
   
   // Authenticated
-  return <UserProfile />;
+  return (
+    <div className="flex items-center gap-3">
+      <AdminLink />
+      <UserProfile />
+    </div>
+  );
 };
 
 export default NavbarUser;
