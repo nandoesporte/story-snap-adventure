@@ -4,8 +4,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 
 export const AdminLink = () => {
@@ -13,33 +11,12 @@ export const AdminLink = () => {
   const location = useLocation();
   const isOnAdminPage = location.pathname.startsWith('/admin');
   
-  const { data: isAdmin, isLoading } = useQuery({
-    queryKey: ['isUserAdmin', user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      
-      // Check if user is admin in user_profiles
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-      
-      if (error || !data) {
-        console.error('Error checking admin status:', error);
-        return false;
-      }
-      
-      return data.is_admin === true;
-    },
-    enabled: !!user, // Only run query if user exists
-  });
-  
-  // Also show admin link for the specific email we're making admin
+  // For simplicity, just check if it's the target email
+  // This avoids the circular reference in RLS policies
   const isTargetEmail = user?.email === 'nandoesporte1@gmail.com';
 
   // Don't show the admin link if not logged in or definitely not an admin
-  if (!user || (!isAdmin && !isTargetEmail && !isLoading)) {
+  if (!user || !isTargetEmail) {
     return null;
   }
 

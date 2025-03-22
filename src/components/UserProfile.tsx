@@ -14,37 +14,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserRound, LogOut, Settings, BookOpen, Shield } from 'lucide-react';
 import { toast } from 'sonner';
-import { AdminLink } from './AdminLink';
-import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
 
 const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const { data: isAdmin } = useQuery({
-    queryKey: ['isUserAdmin', user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      
-      // Check if user is admin in user_profiles
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-      
-      if (error || !data) {
-        console.error('Error checking admin status:', error);
-        return false;
-      }
-      
-      return data.is_admin === true;
-    },
-    enabled: !!user, // Only run query if user exists
-  });
-
-  // Also check specific email for admin status
+  // For simplicity, just check if it's the target email
   const isTargetEmail = user?.email === 'nandoesporte1@gmail.com';
 
   const handleSignOut = async () => {
@@ -112,7 +87,7 @@ const UserProfile = () => {
         </DropdownMenuItem>
         
         {/* Admin link for admin users */}
-        {(isAdmin || isTargetEmail) && (
+        {isTargetEmail && (
           <DropdownMenuItem asChild>
             <Link to="/admin" className="flex items-center cursor-pointer text-violet-600 font-medium">
               <Shield className="mr-2 h-4 w-4" />

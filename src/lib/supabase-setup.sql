@@ -1,4 +1,3 @@
-
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -111,15 +110,9 @@ CREATE POLICY "Users can update their own profile"
   ON user_profiles FOR UPDATE
   USING (auth.uid() = id);
 
-CREATE POLICY "Admin users can view all profiles"
+CREATE POLICY "Everyone can view admin profiles"
   ON user_profiles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.is_admin = true
-    )
-  );
+  USING (true);
 
 -- Stories policies
 CREATE POLICY "Users can view their own stories"
@@ -355,3 +348,18 @@ BEGIN
   RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Set is_admin=true for nandoesporte1@gmail.com
+DO $$
+DECLARE
+  user_id UUID;
+BEGIN
+  SELECT id INTO user_id FROM auth.users WHERE email = 'nandoesporte1@gmail.com';
+  
+  IF user_id IS NOT NULL THEN
+    INSERT INTO user_profiles (id, is_admin, display_name)
+    VALUES (user_id, true, 'Admin User')
+    ON CONFLICT (id) DO UPDATE
+    SET is_admin = true;
+  END IF;
+END $$;
