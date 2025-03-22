@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import LoadingSpinner from './LoadingSpinner';
 
 const NavbarUser = () => {
+  // Safely use the auth context with proper error handling
   try {
     const { user, loading } = useAuth();
     
