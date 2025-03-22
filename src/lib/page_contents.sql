@@ -42,8 +42,8 @@ BEGIN
             TO anon, authenticated
             USING (true);
 
-        -- Create update trigger for updated_at
-        CREATE OR REPLACE FUNCTION update_modified_column() 
+        -- Create trigger function for updating updated_at
+        CREATE OR REPLACE FUNCTION update_timestamp()
         RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = NOW();
@@ -51,10 +51,11 @@ BEGIN
         END;
         $$ LANGUAGE plpgsql;
 
-        CREATE TRIGGER set_timestamp
+        -- Create trigger on the table
+        CREATE TRIGGER update_timestamp_trigger
         BEFORE UPDATE ON public.page_contents
         FOR EACH ROW
-        EXECUTE FUNCTION update_modified_column();
+        EXECUTE FUNCTION update_timestamp();
         
         -- Insert initial data
         INSERT INTO public.page_contents (page, section, key, content, content_type)
