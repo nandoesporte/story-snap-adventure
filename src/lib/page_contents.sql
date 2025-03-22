@@ -43,7 +43,7 @@ BEGIN
             USING (true);
 
         -- Create update trigger for updated_at
-        CREATE OR REPLACE FUNCTION update_page_contents_updated_at()
+        CREATE OR REPLACE FUNCTION update_modified_column() 
         RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = NOW();
@@ -51,10 +51,10 @@ BEGIN
         END;
         $$ LANGUAGE plpgsql;
 
-        CREATE TRIGGER update_page_contents_updated_at
+        CREATE TRIGGER set_timestamp
         BEFORE UPDATE ON public.page_contents
         FOR EACH ROW
-        EXECUTE FUNCTION update_page_contents_updated_at();
+        EXECUTE FUNCTION update_modified_column();
         
         -- Insert initial data
         INSERT INTO public.page_contents (page, section, key, content, content_type)
