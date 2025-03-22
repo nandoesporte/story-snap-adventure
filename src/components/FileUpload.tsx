@@ -1,8 +1,12 @@
+
 import { useState, useRef, ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import StorageConfigAlert from "@/components/StorageConfigAlert";
+
+// Define the bucket options array
+const bucketOptions = ['public', 'avatars', 'stories'];
 
 interface FileUploadProps {
   onFileSelect?: (file: File) => void;
