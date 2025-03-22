@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { HomeIcon, AlertTriangle } from "lucide-react";
+import { HomeIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
@@ -12,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import StorageConfigAlert from "@/components/StorageConfigAlert";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -23,7 +22,6 @@ const Admin = () => {
   const [isChecking, setIsChecking] = useState(true);
   const [storageBucketExists, setStorageBucketExists] = useState<boolean | null>(null);
 
-  // Check if the storage bucket exists
   useEffect(() => {
     const checkStorageBucket = async () => {
       try {
@@ -47,21 +45,16 @@ const Admin = () => {
     }
   }, [user]);
 
-  // Fetch all index page contents for admin panel
   const { data: indexPageContents, isLoading: isLoadingContents } = useQuery({
     queryKey: ["all-page-contents", "index"],
     queryFn: async () => {
       try {
-        // First try to create the page_contents table if it doesn't exist
         try {
           await supabase.rpc('create_page_contents_if_not_exists');
         } catch (err) {
           console.warn("Error calling create_page_contents_if_not_exists:", err);
-          // If RPC doesn't exist yet, we might need to run the SQL directly
-          // This would typically be done via SQL migration in Supabase dashboard
         }
         
-        // Then get the contents
         const { data, error } = await supabase
           .from("page_contents")
           .select("*")
@@ -81,7 +74,6 @@ const Admin = () => {
     enabled: !!user,
   });
 
-  // Check if user is admin
   useEffect(() => {
     if (!user) {
       setIsChecking(false);
@@ -91,28 +83,23 @@ const Admin = () => {
     const checkAdmin = async () => {
       setIsChecking(true);
       try {
-        // First try to create the user_profiles table with proper columns if it doesn't exist
         try {
           await supabase.rpc('create_user_profiles_if_not_exists');
         } catch (err) {
           console.warn("Error calling create_user_profiles_if_not_exists:", err);
-          // If RPC doesn't exist yet, we might need to run the SQL directly
         }
         
-        // Then check if user is admin
         const { data, error } = await supabase
           .from("user_profiles")
           .select("is_admin")
-          .eq("id", user.id)  // FIXED: Changed from user_id to id to match table structure
+          .eq("id", user.id)
           .single();
         
         if (error) {
-          // If the user doesn't have a profile yet, create one
           if (error.code === 'PGRST116') {
-            // Not found
             const { data: newProfile, error: insertError } = await supabase
               .from("user_profiles")
-              .insert({ id: user.id, is_admin: user.email === 'nandoesporte1@gmail.com' })  // FIXED: Changed from user_id to id
+              .insert({ id: user.id, is_admin: user.email === 'nandoesporte1@gmail.com' })
               .select()
               .single();
               
@@ -125,15 +112,13 @@ const Admin = () => {
           setIsAdmin(data?.is_admin || false);
         }
         
-        // Special case: if this is the hardcoded admin email, always grant access
         if (user.email === 'nandoesporte1@gmail.com') {
           setIsAdmin(true);
           
-          // Ensure this user is admin in the database too
           await supabase
             .from("user_profiles")
             .upsert({ 
-              id: user.id,  // FIXED: Changed from user_id to id
+              id: user.id,
               is_admin: true,
               display_name: user.email
             })
@@ -142,7 +127,6 @@ const Admin = () => {
       } catch (error: any) {
         console.error("Error checking admin status:", error);
         
-        // Special case: if this is the hardcoded admin email, always grant access
         if (user.email === 'nandoesporte1@gmail.com') {
           setIsAdmin(true);
         } else {
@@ -161,7 +145,6 @@ const Admin = () => {
     checkAdmin();
   }, [user, toast]);
 
-  // Redirect if not authenticated
   React.useEffect(() => {
     if (!user && !isChecking) {
       toast({
@@ -180,7 +163,6 @@ const Admin = () => {
     }
   }, [user, isAdmin, isChecking, navigate, toast]);
 
-  // Prevent rendering before we confirm admin status
   if (isChecking || isAdmin === null) {
     return (
       <div className="container py-8 min-h-screen flex flex-col items-center justify-center gap-4">
@@ -190,7 +172,6 @@ const Admin = () => {
     );
   }
 
-  // Handle loading state for contents
   if (isLoadingContents) {
     return (
       <div className="container py-8 min-h-screen flex flex-col items-center justify-center gap-4">
@@ -218,25 +199,7 @@ const Admin = () => {
       </Breadcrumb>
 
       {storageBucketExists === false && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertTitle className="flex items-center">
-            <AlertTriangle className="h-4 w-4 mr-2" />
-            Configuração do Storage Necessária
-          </AlertTitle>
-          <AlertDescription>
-            <p className="mb-2">
-              Para que o upload de arquivos funcione corretamente, você precisa criar um bucket de armazenamento chamado 'public' no seu projeto Supabase.
-            </p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Acesse o painel do Supabase</li>
-              <li>Navegue até Storage → Buckets</li>
-              <li>Clique em "New Bucket"</li>
-              <li>Nomeie o bucket como "public"</li>
-              <li>Marque a opção "Public bucket" (para acesso público aos arquivos)</li>
-              <li>Configure as RLS policies conforme necessário para controle de acesso</li>
-            </ol>
-          </AlertDescription>
-        </Alert>
+        <StorageConfigAlert className="mb-6" />
       )}
 
       <div className="space-y-6">
