@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Email inválido' }),
@@ -42,8 +43,15 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const Auth = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -63,26 +71,58 @@ const Auth = () => {
   });
 
   const onLoginSubmit = async (values: LoginFormValues) => {
+    if (isLoggingIn) return; // Prevent multiple submissions
+    
     setIsLoggingIn(true);
     try {
+      console.log('Attempting login with:', values.email);
       await signIn(values.email, values.password);
       toast.success('Login realizado com sucesso!');
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login. Por favor, tente novamente.');
+      console.error('Login error:', error);
+      let errorMessage = 'Erro ao fazer login. Por favor, tente novamente.';
+      
+      // Extract more specific error messages from Supabase
+      if (error.message) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Credenciais inválidas. Verifique seu email e senha.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Por favor, confirme seu email antes de fazer login.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoggingIn(false);
     }
   };
 
   const onRegisterSubmit = async (values: RegisterFormValues) => {
+    if (isRegistering) return; // Prevent multiple submissions
+    
     setIsRegistering(true);
     try {
       await signUp(values.email, values.password);
       toast.success('Registro realizado com sucesso! Verifique seu email para confirmar sua conta.');
-      navigate('/');
+      // Stay on the same page but switch to login tab
+      // Don't navigate away so user can see the success message
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar conta. Por favor, tente novamente.');
+      console.error('Registration error:', error);
+      let errorMessage = 'Erro ao criar conta. Por favor, tente novamente.';
+      
+      // Extract more specific error messages from Supabase
+      if (error.message) {
+        if (error.message.includes('already exists')) {
+          errorMessage = 'Este email já está em uso. Tente fazer login.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
     }
@@ -148,7 +188,12 @@ const Auth = () => {
                       variant="storyPrimary"
                       disabled={isLoggingIn}
                     >
-                      {isLoggingIn ? 'Entrando...' : 'Entrar'}
+                      {isLoggingIn ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Entrando...
+                        </>
+                      ) : 'Entrar'}
                     </Button>
                   </form>
                 </Form>
@@ -202,7 +247,12 @@ const Auth = () => {
                       variant="storyPrimary"
                       disabled={isRegistering}
                     >
-                      {isRegistering ? 'Criando conta...' : 'Criar Conta'}
+                      {isRegistering ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Criando conta...
+                        </>
+                      ) : 'Criar Conta'}
                     </Button>
                   </form>
                 </Form>

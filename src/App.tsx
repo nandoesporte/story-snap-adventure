@@ -15,7 +15,14 @@ import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import MyStories from "./pages/MyStories";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
