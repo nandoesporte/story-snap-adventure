@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Pencil, Trash2, Search, Plus, Settings, FileText, Image } from "lucide-react";
+import { Pencil, Trash2, Search, Plus, Settings, FileText, Image, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,13 +41,14 @@ type PageContent = {
 export const ThemeManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"themes" | "settings" | "page-content">("themes");
+  const [activeTab, setActiveTab] = useState<"themes" | "settings" | "page-content">("page-content");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingItem, setEditingItem] = useState<Theme | Setting | PageContent | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<string>("index");
   const [selectedSection, setSelectedSection] = useState<string>("all");
+  const [currentSectionView, setCurrentSectionView] = useState<"list" | "section-preview">("list");
 
   const { data: themes = [], isLoading: themesLoading } = useQuery({
     queryKey: ["admin-themes"],
@@ -80,6 +82,28 @@ export const ThemeManager = () => {
       const { data, error } = await query;
       if (error) throw error;
       return data;
+    },
+    enabled: activeTab === "page-content",
+  });
+
+  // Get all available sections for the selected page
+  const { data: pageSections = [] } = useQuery({
+    queryKey: ["page-sections", selectedPage],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("page_contents")
+        .select("section")
+        .eq("page", selectedPage)
+        .order("section");
+      
+      if (error) throw error;
+      
+      // Extract unique sections
+      const uniqueSections = Array.from(
+        new Set(data.map((item: any) => item.section))
+      );
+      
+      return uniqueSections;
     },
     enabled: activeTab === "page-content",
   });
@@ -261,6 +285,8 @@ export const ThemeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-page-contents"] });
+      queryClient.invalidateQueries({ queryKey: ["page-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["page-contents"] });
       toast({
         title: "Conteúdo de página criado com sucesso",
         variant: "default",
@@ -294,6 +320,7 @@ export const ThemeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-page-contents"] });
+      queryClient.invalidateQueries({ queryKey: ["page-contents"] });
       toast({
         title: "Conteúdo de página atualizado com sucesso",
         variant: "default",
@@ -316,6 +343,8 @@ export const ThemeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-page-contents"] });
+      queryClient.invalidateQueries({ queryKey: ["page-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["page-contents"] });
       toast({
         title: "Conteúdo de página excluído com sucesso",
         variant: "default",
@@ -359,7 +388,7 @@ export const ThemeManager = () => {
       settingForm.reset({ key: "", value: "", description: "" });
     } else if (activeTab === "page-content") {
       pageContentForm.reset({ 
-        section: "", 
+        section: selectedSection !== "all" ? selectedSection : "", 
         key: "", 
         content: "", 
         content_type: "text",
@@ -432,13 +461,21 @@ export const ThemeManager = () => {
     }
   };
 
-  const pageSections = Array.from(
-    new Set(pageContents.map((content: PageContent) => content.section))
-  );
+  // Group page contents by section
+  const contentsBySection = React.useMemo(() => {
+    const grouped: Record<string, PageContent[]> = {};
+    pageContents.forEach((content: PageContent) => {
+      if (!grouped[content.section]) {
+        grouped[content.section] = [];
+      }
+      grouped[content.section].push(content);
+    });
+    return grouped;
+  }, [pageContents]);
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 mb-6">
         <Button
           variant={activeTab === "themes" ? "default" : "outline"}
           onClick={() => setActiveTab("themes")}
@@ -497,15 +534,33 @@ export const ThemeManager = () => {
               <option value="all">Todas as Seções</option>
               {pageSections.map((section) => (
                 <option key={section} value={section}>
-                  {section}
+                  {section.charAt(0).toUpperCase() + section.slice(1)}
                 </option>
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1 block">Visualização:</label>
+            <div className="flex border rounded overflow-hidden">
+              <button 
+                className={`py-2 px-4 ${currentSectionView === 'list' ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}
+                onClick={() => setCurrentSectionView('list')}
+              >
+                Lista
+              </button>
+              <button 
+                className={`py-2 px-4 ${currentSectionView === 'section-preview' ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}
+                onClick={() => setCurrentSectionView('section-preview')}
+              >
+                Por Seção
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -531,9 +586,116 @@ export const ThemeManager = () => {
         </Button>
       </div>
 
-      {(activeTab === "themes" && themesLoading) || 
+      {/* Page Content Section View */}
+      {activeTab === "page-content" && currentSectionView === "section-preview" && (
+        <div className="space-y-8">
+          {Object.entries(contentsBySection).map(([section, contents]) => (
+            <Card key={section} className="overflow-hidden">
+              <CardHeader className="bg-slate-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="capitalize">{section}</CardTitle>
+                    <CardDescription>
+                      {contents.length} itens nesta seção
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setSelectedSection(section);
+                      handleCreate();
+                    }}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {contents.map((content) => (
+                    <div 
+                      key={content.id} 
+                      className="border rounded-md p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleEdit(content)}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-medium text-sm">{content.key}</h4>
+                        <span className="text-xs px-2 py-1 bg-slate-100 rounded-full">
+                          {content.content_type}
+                        </span>
+                      </div>
+                      
+                      {content.content_type === "image" ? (
+                        <div className="aspect-video relative overflow-hidden rounded-md bg-slate-100">
+                          <img 
+                            src={content.content} 
+                            alt={content.key}
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                      ) : content.content_type === "json" ? (
+                        <div className="max-h-24 overflow-y-auto bg-slate-50 p-2 rounded text-xs font-mono">
+                          {content.content}
+                        </div>
+                      ) : (
+                        <div className="max-h-24 overflow-y-auto text-sm">
+                          {content.content.length > 100 
+                            ? content.content.substring(0, 100) + "..." 
+                            : content.content}
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(content);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(content.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {Object.keys(contentsBySection).length === 0 && (
+            <div className="text-center py-12 bg-slate-50 rounded-lg">
+              <Layers className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+              <h3 className="text-lg font-medium text-slate-700 mb-2">Nenhuma seção encontrada</h3>
+              <p className="text-slate-500 mb-6">Comece adicionando conteúdo para a página {selectedPage}</p>
+              <Button onClick={handleCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar primeiro conteúdo
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* List View */}
+      {(activeTab !== "page-content" || currentSectionView === "list") && 
+       ((activeTab === "themes" && themesLoading) || 
        (activeTab === "settings" && settingsLoading) || 
-       (activeTab === "page-content" && pageContentsLoading) ? (
+       (activeTab === "page-content" && pageContentsLoading)) ? (
         <div className="text-center py-8">Carregando...</div>
       ) : filteredData.length === 0 ? (
         <div className="text-center py-8">Nenhum item encontrado.</div>
@@ -721,12 +883,41 @@ export const ThemeManager = () => {
                     <FormItem>
                       <FormLabel>Seção</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Ex: hero, features, testimonials" />
+                        <select 
+                          className="w-full border rounded px-3 py-2"
+                          value={field.value}
+                          onChange={field.onChange}
+                        >
+                          {field.value ? <option value={field.value}>{field.value}</option> : <option value="">Selecione uma seção</option>}
+                          <option value="hero">Hero</option>
+                          <option value="features">Features</option>
+                          <option value="how_it_works">Como Funciona</option>
+                          <option value="testimonials">Depoimentos</option>
+                          <option value="cta">CTA</option>
+                          <option value="other">Nova Seção</option>
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                
+                {pageContentForm.watch("section") === "other" && (
+                  <FormField
+                    control={pageContentForm.control}
+                    name="section"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome da Nova Seção</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Ex: pricing, faq, team" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
                 <FormField
                   control={pageContentForm.control}
                   name="key"
@@ -979,17 +1170,8 @@ export const ThemeManager = () => {
                               <FileUpload
                                 onUploadComplete={(url) => field.onChange(url)}
                                 uploadType="image"
+                                imagePreview={field.value}
                               />
-                              {field.value && (
-                                <div className="mt-2">
-                                  <p className="text-xs text-gray-500 mb-1">Pré-visualização:</p>
-                                  <img 
-                                    src={field.value} 
-                                    alt="Preview" 
-                                    className="max-h-32 rounded border"
-                                  />
-                                </div>
-                              )}
                             </div>
                           ) : contentType === "json" ? (
                             <Textarea 
