@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { HomeIcon } from "lucide-react";
@@ -9,12 +9,63 @@ import { StoryManager } from "@/components/admin/StoryManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("stories");
+  const [activeTab, setActiveTab] = useState("themes");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Fetch all index page contents for admin panel
+  const { data: indexPageContents } = useQuery({
+    queryKey: ["all-page-contents", "index"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("page_contents")
+        .select("*")
+        .eq("page", "index")
+        .order("section", { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      const checkAdmin = async () => {
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("is_admin")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsAdmin(data?.is_admin || false);
+        
+        if (!data?.is_admin) {
+          toast({
+            title: "Acesso negado",
+            description: "Você não tem permissão para acessar esta área.",
+            variant: "destructive",
+          });
+          navigate("/");
+        }
+      };
+
+      checkAdmin();
+    }
+  }, [user, navigate, toast]);
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -27,6 +78,15 @@ const Admin = () => {
       navigate("/");
     }
   }, [user, navigate, toast]);
+
+  // Prevent rendering before we confirm admin status
+  if (user && !isAdmin) {
+    return (
+      <div className="container py-8 min-h-screen flex items-center justify-center">
+        <p>Verificando permissões...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-8 min-h-screen">
@@ -66,7 +126,7 @@ const Admin = () => {
             <UserManager />
           </TabsContent>
           <TabsContent value="themes" className="mt-4">
-            <ThemeManager />
+            <ThemeManager initialPageContents={indexPageContents} />
           </TabsContent>
         </Tabs>
       </div>

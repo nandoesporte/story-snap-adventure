@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card";
 
 const Index = () => {
-  // Fetch page content from the database
+  // Fetch page content from the database with better error handling
   const { data: pageContents = [], isLoading } = useQuery({
     queryKey: ["page-contents", "index"],
     queryFn: async () => {
@@ -27,7 +27,11 @@ const Index = () => {
         .select("*")
         .eq("page", "index");
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching page contents:", error);
+        return [];
+      }
+      
       return data;
     },
   });

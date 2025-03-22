@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,11 @@ type PageContent = {
   page: string;
 };
 
-export const ThemeManager = () => {
+interface ThemeManagerProps {
+  initialPageContents?: PageContent[];
+}
+
+export const ThemeManager = ({ initialPageContents }: ThemeManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"themes" | "settings" | "page-content">("page-content");
@@ -48,7 +52,14 @@ export const ThemeManager = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<string>("index");
   const [selectedSection, setSelectedSection] = useState<string>("all");
-  const [currentSectionView, setCurrentSectionView] = useState<"list" | "section-preview">("list");
+  const [currentSectionView, setCurrentSectionView] = useState<"list" | "section-preview">("section-preview");
+
+  // Pre-populate the page contents with the initial data if provided
+  useEffect(() => {
+    if (initialPageContents && initialPageContents.length > 0) {
+      queryClient.setQueryData(["admin-page-contents", "index", "all"], initialPageContents);
+    }
+  }, [initialPageContents, queryClient]);
 
   const { data: themes = [], isLoading: themesLoading } = useQuery({
     queryKey: ["admin-themes"],

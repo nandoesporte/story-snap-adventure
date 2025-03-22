@@ -11,7 +11,7 @@ interface HeroProps {
 }
 
 const Hero = ({ customImageUrl }: HeroProps) => {
-  // Fetch hero content from the database
+  // Fetch hero content from the database with better error handling
   const { data: heroContents = [] } = useQuery({
     queryKey: ["page-contents", "index", "hero"],
     queryFn: async () => {
@@ -21,7 +21,11 @@ const Hero = ({ customImageUrl }: HeroProps) => {
         .eq("page", "index")
         .eq("section", "hero");
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching hero content:", error);
+        return [];
+      }
+      
       return data;
     },
   });
@@ -35,7 +39,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   };
 
   // Default image if none provided
-  const heroImage = customImageUrl || "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png";
+  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png");
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
