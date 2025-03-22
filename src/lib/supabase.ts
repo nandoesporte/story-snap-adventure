@@ -1,4 +1,3 @@
-
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -8,173 +7,159 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Initialize necessary database structure
 export const initializeDatabaseStructure = async () => {
-  // Create stored procedures for creating tables if they don't exist
-  const { error: procError } = await supabase.rpc('create_functions_if_not_exists');
-  
-  if (procError) {
-    console.error("Error creating database functions:", procError);
-    
-    // Fallback: create the functions directly
-    const { error } = await supabase.sql(`
-      -- Create function to create page_contents table if it doesn't exist
-      CREATE OR REPLACE FUNCTION public.create_page_contents_if_not_exists()
-      RETURNS void
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      BEGIN
-        CREATE TABLE IF NOT EXISTS public.page_contents (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          page TEXT NOT NULL,
-          section TEXT NOT NULL,
-          key TEXT NOT NULL,
-          content TEXT,
-          content_type TEXT DEFAULT 'text',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          UNIQUE(page, section, key)
-        );
-        
-        -- Create RLS policies
-        ALTER TABLE public.page_contents ENABLE ROW LEVEL SECURITY;
-        
-        -- Drop policies if they exist to avoid errors
-        DROP POLICY IF EXISTS "Public can view page_contents" ON public.page_contents;
-        DROP POLICY IF EXISTS "Authenticated users can insert page_contents" ON public.page_contents;
-        DROP POLICY IF EXISTS "Admins can update page_contents" ON public.page_contents;
-        DROP POLICY IF EXISTS "Admins can delete page_contents" ON public.page_contents;
-        
-        -- Create policies
-        CREATE POLICY "Public can view page_contents" 
-          ON public.page_contents FOR SELECT USING (true);
-          
-        CREATE POLICY "Authenticated users can insert page_contents" 
-          ON public.page_contents FOR INSERT 
-          WITH CHECK (auth.role() = 'authenticated');
-          
-        CREATE POLICY "Admins can update page_contents" 
-          ON public.page_contents FOR UPDATE 
-          USING (
-            EXISTS (
-              SELECT 1 FROM public.user_profiles up 
-              WHERE up.user_id = auth.uid() AND up.is_admin = true
-            ) OR auth.email() = 'nandoesporte1@gmail.com'
-          );
-          
-        CREATE POLICY "Admins can delete page_contents" 
-          ON public.page_contents FOR DELETE 
-          USING (
-            EXISTS (
-              SELECT 1 FROM public.user_profiles up 
-              WHERE up.user_id = auth.uid() AND up.is_admin = true
-            ) OR auth.email() = 'nandoesporte1@gmail.com'
-          );
-      END;
-      $$;
-
-      -- Create function to create user_profiles table if it doesn't exist
-      CREATE OR REPLACE FUNCTION public.create_user_profiles_if_not_exists()
-      RETURNS void
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      BEGIN
-        CREATE TABLE IF NOT EXISTS public.user_profiles (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-          name TEXT,
-          avatar_url TEXT,
-          is_admin BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          UNIQUE(user_id)
-        );
-        
-        -- Create RLS policies
-        ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-        
-        -- Drop policies if they exist to avoid errors
-        DROP POLICY IF EXISTS "Users can view their own profile" ON public.user_profiles;
-        DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
-        DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
-        DROP POLICY IF EXISTS "Admins can update all profiles" ON public.user_profiles;
-        
-        -- Create policies
-        CREATE POLICY "Users can view their own profile" 
-          ON public.user_profiles FOR SELECT 
-          USING (auth.uid() = user_id);
-          
-        CREATE POLICY "Users can update their own profile" 
-          ON public.user_profiles FOR UPDATE 
-          USING (auth.uid() = user_id);
-          
-        CREATE POLICY "Admins can view all profiles" 
-          ON public.user_profiles FOR SELECT 
-          USING (
-            EXISTS (
-              SELECT 1 FROM public.user_profiles up 
-              WHERE up.user_id = auth.uid() AND up.is_admin = true
-            ) OR auth.email() = 'nandoesporte1@gmail.com'
-          );
-          
-        CREATE POLICY "Admins can update all profiles" 
-          ON public.user_profiles FOR UPDATE 
-          USING (
-            EXISTS (
-              SELECT 1 FROM public.user_profiles up 
-              WHERE up.user_id = auth.uid() AND up.is_admin = true
-            ) OR auth.email() = 'nandoesporte1@gmail.com'
-          );
-      END;
-      $$;
-
-      -- Create function that creates both functions if they don't exist
-      CREATE OR REPLACE FUNCTION public.create_functions_if_not_exists()
-      RETURNS void
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      BEGIN
-        -- Ensure uuid-ossp extension is available
-        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        
-        -- Call the individual functions
-        PERFORM public.create_page_contents_if_not_exists();
-        PERFORM public.create_user_profiles_if_not_exists();
-      END;
-      $$;
-    `);
-    
-    if (error) {
-      console.error("Error creating database structure:", error);
-    }
-  }
-  
-  // Run the stored procedures
-  await supabase.rpc('create_page_contents_if_not_exists');
-  await supabase.rpc('create_user_profiles_if_not_exists');
-  
-  // Run the SQL script to insert initial data
   try {
-    const { error } = await supabase.sql(`
-      -- Insert initial data for page_contents if it doesn't exist
-      DO $$
-      BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'page_contents') THEN
-          -- Insert data only if table is empty
-          IF NOT EXISTS (SELECT 1 FROM public.page_contents LIMIT 1) THEN
-            ${getSupabaseSetupSQL()}
-          END IF;
-        END IF;
-      END $$;
-    `);
+    // Create the functions if they don't exist by calling stored procedures
+    console.log("Initializing database structure...");
     
-    if (error) {
-      console.error("Error inserting initial data:", error);
+    // Try to call existing functions to create tables if they don't exist
+    try {
+      const { error: pageContentsError } = await supabase.rpc('create_page_contents_if_not_exists');
+      if (pageContentsError) {
+        console.warn("Error creating page_contents table:", pageContentsError);
+      }
+    } catch (err) {
+      console.warn("create_page_contents_if_not_exists function may not exist yet:", err);
     }
+    
+    try {
+      const { error: userProfilesError } = await supabase.rpc('create_user_profiles_if_not_exists');
+      if (userProfilesError) {
+        console.warn("Error creating user_profiles table:", userProfilesError);
+      }
+    } catch (err) {
+      console.warn("create_user_profiles_if_not_exists function may not exist yet:", err);
+    }
+    
+    // Fallback: Try to ensure tables exist by querying them
+    console.log("Checking if tables already exist...");
+    
+    // Check if page_contents table exists
+    const { error: pageContentsCheckError } = await supabase
+      .from('page_contents')
+      .select('count(*)', { count: 'exact', head: true });
+      
+    if (pageContentsCheckError && pageContentsCheckError.code === '42P01') {
+      console.log("Page contents table doesn't exist. Please create it in the Supabase dashboard.");
+      // We can't create tables directly from client-side code
+      // User needs to run SQL in the Supabase dashboard
+    }
+    
+    // Check if user_profiles table exists
+    const { error: userProfilesCheckError } = await supabase
+      .from('user_profiles')
+      .select('count(*)', { count: 'exact', head: true });
+      
+    if (userProfilesCheckError && userProfilesCheckError.code === '42P01') {
+      console.log("User profiles table doesn't exist. Please create it in the Supabase dashboard.");
+      // We can't create tables directly from client-side code
+      // User needs to run SQL in the Supabase dashboard
+    }
+    
+    // Try to seed initial data if page_contents table exists
+    if (!pageContentsCheckError) {
+      // Check if table is empty
+      const { count, error: countError } = await supabase
+        .from('page_contents')
+        .select('*', { count: 'exact', head: true });
+        
+      if (!countError && count === 0) {
+        console.log("Page contents table is empty, seeding initial data...");
+        
+        // Insert some initial data
+        const initialData = getInitialPageContents();
+        
+        for (const item of initialData) {
+          const { error: insertError } = await supabase
+            .from('page_contents')
+            .insert(item);
+            
+          if (insertError) {
+            console.error("Error inserting initial data:", insertError);
+          }
+        }
+      }
+    }
+    
+    console.log("Database structure initialization completed");
   } catch (err) {
-    console.error("Error running setup SQL:", err);
+    console.error("Error initializing database structure:", err);
   }
+};
+
+// Get initial page contents data
+const getInitialPageContents = () => {
+  return [
+    {
+      page: 'index',
+      section: 'hero',
+      key: 'title',
+      content: 'Histórias infantis personalizadas em minutos',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'hero',
+      key: 'subtitle',
+      content: 'Crie histórias mágicas com os personagens e cenários que seu filho adora',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'title',
+      content: 'Como funciona',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'subtitle',
+      content: 'Crie histórias únicas em apenas 3 passos simples',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature1_title',
+      content: 'Personalize sua história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature1_description',
+      content: 'Escolha o nome da criança, idade, cenário e tema da história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature2_title',
+      content: 'Nossa IA cria a história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature2_description',
+      content: 'Nosso sistema gera textos e ilustrações personalizadas',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature3_title',
+      content: 'Leia e compartilhe',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature3_description',
+      content: 'Leia online, baixe em PDF ou compartilhe com a família',
+      content_type: 'text'
+    }
+  ];
 };
 
 // User types
@@ -332,4 +317,3 @@ export const getSupabaseSetupSQL = () => {
 
 // Initialize the database structure when the module is imported
 initializeDatabaseStructure().catch(console.error);
-
