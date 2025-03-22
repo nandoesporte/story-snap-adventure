@@ -16,9 +16,9 @@ export const AdminUtils = () => {
     
     setLoading(true);
     try {
-      // First get the user ID from the auth.users table
+      // Get the user profile and set is_admin to true
       const { data: userData, error: userError } = await supabase
-        .from('auth.users')
+        .from('users')
         .select('id')
         .eq('email', email)
         .single();

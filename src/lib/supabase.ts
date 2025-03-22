@@ -149,16 +149,20 @@ export const getAllStories = async () => {
 
 // Admin operations
 export const makeUserAdmin = async (email: string) => {
-  // First get the user ID from the auth users
-  const { data: userData, error: userError } = await supabase.auth.admin.getUserByEmail(email);
+  // First get the user ID by querying the users directly
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .single();
   
-  if (userError || !userData?.user) throw new Error('User not found');
+  if (userError || !userData) throw new Error('User not found');
   
   // Update the user_profiles table
   const { error } = await supabase
     .from('user_profiles')
     .update({ is_admin: true })
-    .eq('id', userData.user.id);
+    .eq('id', userData.id);
   
   if (error) throw error;
   
