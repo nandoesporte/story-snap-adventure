@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Pencil, Trash2, Search, Lock, UserPlus } from "lucide-react";
+import { Pencil, Trash2, Search, Lock, UserPlus, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 type AdminUser = {
   id: string;
@@ -26,6 +27,7 @@ export const UserManager = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isPromotingAdmin, setIsPromotingAdmin] = useState(false);
 
   const { data: users = [], isLoading, error, refetch } = useQuery({
     queryKey: ["admin-users"],
@@ -44,6 +46,23 @@ export const UserManager = () => {
       }
     }
   });
+
+  const { data: userProfiles = [] } = useQuery({
+    queryKey: ["user-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, is_admin');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const isUserAdmin = (userId: string) => {
+    const profile = userProfiles.find(profile => profile.id === userId);
+    return profile?.is_admin || false;
+  };
 
   const createUserForm = useForm({
     defaultValues: {
@@ -135,6 +154,72 @@ export const UserManager = () => {
     }
   };
 
+  const handlePromoteToAdmin = async (userId: string, email: string) => {
+    if (window.confirm(`Promover "${email}" para administrador?`)) {
+      setIsPromotingAdmin(true);
+      try {
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ is_admin: true })
+          .eq('id', userId);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Usuário promovido a administrador",
+          description: `${email} agora tem acesso de administrador.`,
+          variant: "default",
+        });
+        
+        refetch();
+      } catch (error: any) {
+        toast({
+          title: "Erro ao promover usuário",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsPromotingAdmin(false);
+      }
+    }
+  };
+
+  const makeSpecificUserAdmin = async () => {
+    const targetEmail = "nandoesporte1@gmail.com";
+    try {
+      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
+      
+      if (userError) throw userError;
+      
+      const targetUser = userData.users.find(user => user.email === targetEmail);
+      
+      if (!targetUser) {
+        toast({
+          title: "Usuário não encontrado",
+          description: `Não encontramos o usuário com email ${targetEmail}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_admin: true })
+        .eq('id', targetUser.id);
+      
+      if (error) throw error;
+      
+      toast.success(`${targetEmail} agora é um administrador`);
+      refetch();
+    } catch (error: any) {
+      toast.error(`Erro ao configurar administrador: ${error.message}`);
+    }
+  };
+
+  useEffect(() => {
+    makeSpecificUserAdmin();
+  }, []);
+
   const openResetPasswordDialog = (userId: string) => {
     setSelectedUserId(userId);
     setIsResetPasswordDialogOpen(true);
@@ -179,6 +264,7 @@ export const UserManager = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Data de Criação</TableHead>
                 <TableHead>Último Login</TableHead>
+                <TableHead>Admin</TableHead>
                 <TableHead className="w-[150px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -197,6 +283,24 @@ export const UserManager = () => {
                           locale: ptBR,
                         })
                       : "Nunca"}
+                  </TableCell>
+                  <TableCell>
+                    {isUserAdmin(user.id) ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        Admin
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePromoteToAdmin(user.id, user.email || '')}
+                        disabled={isPromotingAdmin}
+                      >
+                        <ShieldCheck className="h-4 w-4 mr-1" />
+                        <span className="text-xs">Promover</span>
+                      </Button>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
