@@ -77,7 +77,7 @@ const Admin = () => {
         const { data, error } = await supabase
           .from("user_profiles")
           .select("is_admin")
-          .eq("user_id", user.id)
+          .eq("id", user.id)  // FIXED: Changed from user_id to id to match table structure
           .single();
         
         if (error) {
@@ -86,7 +86,7 @@ const Admin = () => {
             // Not found
             const { data: newProfile, error: insertError } = await supabase
               .from("user_profiles")
-              .insert({ user_id: user.id, is_admin: user.email === 'nandoesporte1@gmail.com' })
+              .insert({ id: user.id, is_admin: user.email === 'nandoesporte1@gmail.com' })  // FIXED: Changed from user_id to id
               .select()
               .single();
               
@@ -107,7 +107,7 @@ const Admin = () => {
           await supabase
             .from("user_profiles")
             .upsert({ 
-              user_id: user.id, 
+              id: user.id,  // FIXED: Changed from user_id to id
               is_admin: true,
               display_name: user.email
             })

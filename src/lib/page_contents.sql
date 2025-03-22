@@ -1,6 +1,4 @@
 
-
-
 -- Create UUID extension if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -86,7 +84,7 @@ BEGIN
     AND tablename = 'user_profiles';
     
     IF NOT FOUND THEN
-        -- Create user_profiles table
+        -- Create user_profiles table with id as the primary key (not user_id)
         CREATE TABLE public.user_profiles (
           id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
           display_name TEXT,
@@ -116,4 +114,3 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-
