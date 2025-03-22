@@ -34,7 +34,7 @@ export const StoryManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-stories"] });
       toast({
         title: "História removida com sucesso",
-        variant: "success",
+        variant: "default",
       });
     },
     onError: (error) => {

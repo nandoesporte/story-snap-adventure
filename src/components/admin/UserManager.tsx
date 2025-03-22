@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -12,10 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { User } from "@supabase/supabase-js";
 
-type User = {
+type AdminUser = {
   id: string;
-  email: string;
+  email?: string;
   created_at: string;
   last_sign_in_at: string | null;
 };
@@ -27,7 +27,6 @@ export const UserManager = () => {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  // Fetch users
   const { data: users = [], isLoading, error, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
@@ -35,16 +34,17 @@ export const UserManager = () => {
       if (error) throw error;
       return data.users || [];
     },
-    onError: (error) => {
-      toast({
-        title: "Erro ao carregar usuários",
-        description: "Você pode não ter permissões administrativas suficientes.",
-        variant: "destructive",
-      });
-    },
+    meta: {
+      onError: () => {
+        toast({
+          title: "Erro ao carregar usuários",
+          description: "Você pode não ter permissões administrativas suficientes.",
+          variant: "destructive",
+        });
+      }
+    }
   });
 
-  // Create user form
   const createUserForm = useForm({
     defaultValues: {
       email: "",
@@ -52,14 +52,12 @@ export const UserManager = () => {
     },
   });
 
-  // Reset password form
   const resetPasswordForm = useForm({
     defaultValues: {
       password: "",
     },
   });
 
-  // Create user
   const handleCreateUser = async (values: { email: string; password: string }) => {
     try {
       const { data, error } = await supabase.auth.admin.createUser({
@@ -72,7 +70,7 @@ export const UserManager = () => {
       
       toast({
         title: "Usuário criado com sucesso",
-        variant: "success",
+        variant: "default",
       });
       
       setIsCreateDialogOpen(false);
@@ -87,7 +85,6 @@ export const UserManager = () => {
     }
   };
 
-  // Reset user password
   const handleResetPassword = async (values: { password: string }) => {
     if (!selectedUserId) return;
     
@@ -101,7 +98,7 @@ export const UserManager = () => {
       
       toast({
         title: "Senha alterada com sucesso",
-        variant: "success",
+        variant: "default",
       });
       
       setIsResetPasswordDialogOpen(false);
@@ -115,7 +112,6 @@ export const UserManager = () => {
     }
   };
 
-  // Delete user
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm("Tem certeza que deseja excluir este usuário?")) {
       try {
@@ -125,7 +121,7 @@ export const UserManager = () => {
         
         toast({
           title: "Usuário excluído com sucesso",
-          variant: "success",
+          variant: "default",
         });
         
         refetch();
@@ -139,16 +135,14 @@ export const UserManager = () => {
     }
   };
 
-  // Open reset password dialog
   const openResetPasswordDialog = (userId: string) => {
     setSelectedUserId(userId);
     setIsResetPasswordDialogOpen(true);
   };
 
-  // Filter users by search term
   const filteredUsers = users.filter(
     (user: User) =>
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
   );
 
   return (
@@ -191,9 +185,11 @@ export const UserManager = () => {
             <TableBody>
               {filteredUsers.map((user: User) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell className="font-medium">{user.email || "N/A"}</TableCell>
                   <TableCell>
-                    {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                    {user.created_at 
+                      ? format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR }) 
+                      : "N/A"}
                   </TableCell>
                   <TableCell>
                     {user.last_sign_in_at
@@ -229,7 +225,6 @@ export const UserManager = () => {
         </div>
       )}
 
-      {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -274,7 +269,6 @@ export const UserManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Dialog */}
       <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>

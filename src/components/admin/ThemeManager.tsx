@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -85,7 +84,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-themes"] });
       toast({
         title: "Tema criado com sucesso",
-        variant: "success",
+        variant: "default",
       });
       setIsCreateDialogOpen(false);
       themeForm.reset();
@@ -114,7 +113,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-themes"] });
       toast({
         title: "Tema atualizado com sucesso",
-        variant: "success",
+        variant: "default",
       });
       setIsEditDialogOpen(false);
     },
@@ -137,7 +136,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-themes"] });
       toast({
         title: "Tema excluído com sucesso",
-        variant: "success",
+        variant: "default",
       });
     },
     onError: (error: any) => {
@@ -160,7 +159,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       toast({
         title: "Configuração criada com sucesso",
-        variant: "success",
+        variant: "default",
       });
       setIsCreateDialogOpen(false);
       settingForm.reset();
@@ -189,7 +188,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       toast({
         title: "Configuração atualizada com sucesso",
-        variant: "success",
+        variant: "default",
       });
       setIsEditDialogOpen(false);
     },
@@ -212,7 +211,7 @@ export const ThemeManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       toast({
         title: "Configuração excluída com sucesso",
-        variant: "success",
+        variant: "default",
       });
     },
     onError: (error: any) => {
