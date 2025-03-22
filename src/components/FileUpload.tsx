@@ -53,6 +53,41 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     }
   };
 
+  const ensureBucketExists = async () => {
+    try {
+      // Check if bucket exists by listing buckets
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      
+      if (error) {
+        console.error("Error listing buckets:", error);
+        return false;
+      }
+      
+      // Check if 'public' bucket exists
+      const publicBucket = buckets?.find(bucket => bucket.name === 'public');
+      
+      if (!publicBucket) {
+        // Create the bucket if it doesn't exist
+        const { error: createError } = await supabase.storage.createBucket('public', {
+          public: true,
+          fileSizeLimit: 5242880 // 5MB
+        });
+        
+        if (createError) {
+          console.error("Error creating bucket:", createError);
+          return false;
+        }
+        
+        console.log("Created 'public' bucket successfully");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error ensuring bucket exists:", error);
+      return false;
+    }
+  };
+
   const uploadFile = async (file: File) => {
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -66,19 +101,46 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
 
     try {
       setIsUploading(true);
+      
+      // Try to ensure the bucket exists before uploading
+      const bucketExists = await ensureBucketExists();
+      if (!bucketExists) {
+        toast({
+          title: "Erro ao fazer upload",
+          description: "Não foi possível preparar o armazenamento. Tente novamente mais tarde.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
       const filePath = `lovable-uploads/${fileName}`;
       
+      // Upload the file
       const { error: uploadError } = await supabase.storage
         .from('public')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
         
       if (uploadError) {
+        console.error("Storage upload error:", uploadError);
         throw uploadError;
       }
       
-      const publicUrl = `/lovable-uploads/${fileName}`;
+      // Get the public URL
+      const { data } = await supabase.storage
+        .from('public')
+        .getPublicUrl(filePath);
+        
+      let publicUrl = data?.publicUrl;
+      
+      // If for some reason we couldn't get the public URL, fallback to a relative path
+      if (!publicUrl) {
+        publicUrl = `/lovable-uploads/${fileName}`;
+      }
       
       if (onUploadComplete) {
         onUploadComplete(publicUrl);
@@ -92,7 +154,7 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       console.error("Upload error:", error);
       toast({
         title: "Erro ao fazer upload",
-        description: "Não foi possível carregar o arquivo",
+        description: "Não foi possível carregar o arquivo. Verifique se você tem permissões suficientes.",
         variant: "destructive",
       });
     } finally {
