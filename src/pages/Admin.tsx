@@ -11,34 +11,55 @@ import { ThemeManager } from "@/components/admin/ThemeManager";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("themes");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
 
   // Fetch all index page contents for admin panel
-  const { data: indexPageContents } = useQuery({
+  const { data: indexPageContents, isLoading: isLoadingContents } = useQuery({
     queryKey: ["all-page-contents", "index"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("page_contents")
-        .select("*")
-        .eq("page", "index")
-        .order("section", { ascending: true });
-      
-      if (error) throw error;
-      return data;
+      try {
+        // First try to create the page_contents table if it doesn't exist
+        await supabase.rpc('create_page_contents_if_not_exists');
+        
+        // Then get the contents
+        const { data, error } = await supabase
+          .from("page_contents")
+          .select("*")
+          .eq("page", "index")
+          .order("section", { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error("Error fetching page contents:", err);
+        return [];
+      }
     },
     enabled: !!user,
   });
 
   // Check if user is admin
   useEffect(() => {
-    if (user) {
-      const checkAdmin = async () => {
+    if (!user) {
+      setIsChecking(false);
+      return;
+    }
+
+    const checkAdmin = async () => {
+      setIsChecking(true);
+      try {
+        // First try to create the user_profiles table with proper columns if it doesn't exist
+        await supabase.rpc('create_user_profiles_if_not_exists');
+        
+        // Then check if user is admin
         const { data, error } = await supabase
           .from("user_profiles")
           .select("is_admin")
@@ -46,44 +67,85 @@ const Admin = () => {
           .single();
         
         if (error) {
-          console.error("Error checking admin status:", error);
-          setIsAdmin(false);
-          return;
+          // If the user doesn't have a profile yet, create one
+          if (error.code === 'PGRST116') {
+            // Not found
+            const { data: newProfile, error: insertError } = await supabase
+              .from("user_profiles")
+              .insert({ user_id: user.id, is_admin: user.email === 'nandoesporte1@gmail.com' })
+              .select()
+              .single();
+              
+            if (insertError) throw insertError;
+            setIsAdmin(newProfile?.is_admin || false);
+          } else {
+            throw error;
+          }
+        } else {
+          setIsAdmin(data?.is_admin || false);
         }
-
-        setIsAdmin(data?.is_admin || false);
         
-        if (!data?.is_admin) {
+        // Special case: if this is the hardcoded admin email, always grant access
+        if (user.email === 'nandoesporte1@gmail.com') {
+          setIsAdmin(true);
+        }
+      } catch (error: any) {
+        console.error("Error checking admin status:", error);
+        
+        // Special case: if this is the hardcoded admin email, always grant access
+        if (user.email === 'nandoesporte1@gmail.com') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
           toast({
-            title: "Acesso negado",
-            description: "Você não tem permissão para acessar esta área.",
+            title: "Erro ao verificar permissões",
+            description: "Não foi possível verificar suas permissões de administrador.",
             variant: "destructive",
           });
-          navigate("/");
         }
-      };
+      } finally {
+        setIsChecking(false);
+      }
+    };
 
-      checkAdmin();
-    }
-  }, [user, navigate, toast]);
+    checkAdmin();
+  }, [user, toast]);
 
   // Redirect if not authenticated
   React.useEffect(() => {
-    if (!user) {
+    if (!user && !isChecking) {
       toast({
         title: "Acesso negado",
         description: "Você precisa estar autenticado para acessar o painel administrativo.",
         variant: "destructive",
       });
       navigate("/");
+    } else if (isAdmin === false && !isChecking) {
+      toast({
+        title: "Acesso negado",
+        description: "Você não tem permissão para acessar esta área.",
+        variant: "destructive",
+      });
+      navigate("/");
     }
-  }, [user, navigate, toast]);
+  }, [user, isAdmin, isChecking, navigate, toast]);
 
   // Prevent rendering before we confirm admin status
-  if (user && !isAdmin) {
+  if (isChecking || isAdmin === null) {
     return (
-      <div className="container py-8 min-h-screen flex items-center justify-center">
+      <div className="container py-8 min-h-screen flex flex-col items-center justify-center gap-4">
+        <LoadingSpinner size="lg" />
         <p>Verificando permissões...</p>
+      </div>
+    );
+  }
+
+  // Handle loading state for contents
+  if (isLoadingContents) {
+    return (
+      <div className="container py-8 min-h-screen flex flex-col items-center justify-center gap-4">
+        <LoadingSpinner size="lg" />
+        <p>Carregando conteúdo da página...</p>
       </div>
     );
   }
@@ -126,7 +188,7 @@ const Admin = () => {
             <UserManager />
           </TabsContent>
           <TabsContent value="themes" className="mt-4">
-            <ThemeManager initialPageContents={indexPageContents} />
+            <ThemeManager initialPageContents={indexPageContents || []} />
           </TabsContent>
         </Tabs>
       </div>

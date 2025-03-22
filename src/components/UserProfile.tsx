@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,13 +14,52 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserRound, LogOut, Settings, BookOpen, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  // For simplicity, just check if it's the target email
-  const isTargetEmail = user?.email === 'nandoesporte1@gmail.com';
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  useEffect(() => {
+    // For simplicity, just check if it's the target email
+    // This avoids the circular reference in RLS policies
+    if (user?.email === 'nandoesporte1@gmail.com') {
+      setIsAdmin(true);
+      return;
+    }
+    
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    
+    const checkAdminStatus = async () => {
+      try {
+        // Try to initialize the table structure first
+        await supabase.rpc('create_user_profiles_if_not_exists');
+        
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('is_admin')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+          return;
+        }
+        
+        setIsAdmin(data?.is_admin || false);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -87,7 +126,7 @@ const UserProfile = () => {
         </DropdownMenuItem>
         
         {/* Admin link for admin users */}
-        {isTargetEmail && (
+        {isAdmin && (
           <DropdownMenuItem asChild>
             <Link to="/admin" className="flex items-center cursor-pointer text-violet-600 font-medium">
               <Shield className="mr-2 h-4 w-4" />

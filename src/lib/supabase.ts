@@ -6,6 +6,177 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Initialize necessary database structure
+export const initializeDatabaseStructure = async () => {
+  // Create stored procedures for creating tables if they don't exist
+  const { error: procError } = await supabase.rpc('create_functions_if_not_exists');
+  
+  if (procError) {
+    console.error("Error creating database functions:", procError);
+    
+    // Fallback: create the functions directly
+    const { error } = await supabase.sql(`
+      -- Create function to create page_contents table if it doesn't exist
+      CREATE OR REPLACE FUNCTION public.create_page_contents_if_not_exists()
+      RETURNS void
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      AS $$
+      BEGIN
+        CREATE TABLE IF NOT EXISTS public.page_contents (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          page TEXT NOT NULL,
+          section TEXT NOT NULL,
+          key TEXT NOT NULL,
+          content TEXT,
+          content_type TEXT DEFAULT 'text',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(page, section, key)
+        );
+        
+        -- Create RLS policies
+        ALTER TABLE public.page_contents ENABLE ROW LEVEL SECURITY;
+        
+        -- Drop policies if they exist to avoid errors
+        DROP POLICY IF EXISTS "Public can view page_contents" ON public.page_contents;
+        DROP POLICY IF EXISTS "Authenticated users can insert page_contents" ON public.page_contents;
+        DROP POLICY IF EXISTS "Admins can update page_contents" ON public.page_contents;
+        DROP POLICY IF EXISTS "Admins can delete page_contents" ON public.page_contents;
+        
+        -- Create policies
+        CREATE POLICY "Public can view page_contents" 
+          ON public.page_contents FOR SELECT USING (true);
+          
+        CREATE POLICY "Authenticated users can insert page_contents" 
+          ON public.page_contents FOR INSERT 
+          WITH CHECK (auth.role() = 'authenticated');
+          
+        CREATE POLICY "Admins can update page_contents" 
+          ON public.page_contents FOR UPDATE 
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles up 
+              WHERE up.user_id = auth.uid() AND up.is_admin = true
+            ) OR auth.email() = 'nandoesporte1@gmail.com'
+          );
+          
+        CREATE POLICY "Admins can delete page_contents" 
+          ON public.page_contents FOR DELETE 
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles up 
+              WHERE up.user_id = auth.uid() AND up.is_admin = true
+            ) OR auth.email() = 'nandoesporte1@gmail.com'
+          );
+      END;
+      $$;
+
+      -- Create function to create user_profiles table if it doesn't exist
+      CREATE OR REPLACE FUNCTION public.create_user_profiles_if_not_exists()
+      RETURNS void
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      AS $$
+      BEGIN
+        CREATE TABLE IF NOT EXISTS public.user_profiles (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+          name TEXT,
+          avatar_url TEXT,
+          is_admin BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(user_id)
+        );
+        
+        -- Create RLS policies
+        ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+        
+        -- Drop policies if they exist to avoid errors
+        DROP POLICY IF EXISTS "Users can view their own profile" ON public.user_profiles;
+        DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
+        DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
+        DROP POLICY IF EXISTS "Admins can update all profiles" ON public.user_profiles;
+        
+        -- Create policies
+        CREATE POLICY "Users can view their own profile" 
+          ON public.user_profiles FOR SELECT 
+          USING (auth.uid() = user_id);
+          
+        CREATE POLICY "Users can update their own profile" 
+          ON public.user_profiles FOR UPDATE 
+          USING (auth.uid() = user_id);
+          
+        CREATE POLICY "Admins can view all profiles" 
+          ON public.user_profiles FOR SELECT 
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles up 
+              WHERE up.user_id = auth.uid() AND up.is_admin = true
+            ) OR auth.email() = 'nandoesporte1@gmail.com'
+          );
+          
+        CREATE POLICY "Admins can update all profiles" 
+          ON public.user_profiles FOR UPDATE 
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles up 
+              WHERE up.user_id = auth.uid() AND up.is_admin = true
+            ) OR auth.email() = 'nandoesporte1@gmail.com'
+          );
+      END;
+      $$;
+
+      -- Create function that creates both functions if they don't exist
+      CREATE OR REPLACE FUNCTION public.create_functions_if_not_exists()
+      RETURNS void
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      AS $$
+      BEGIN
+        -- Ensure uuid-ossp extension is available
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        
+        -- Call the individual functions
+        PERFORM public.create_page_contents_if_not_exists();
+        PERFORM public.create_user_profiles_if_not_exists();
+      END;
+      $$;
+    `);
+    
+    if (error) {
+      console.error("Error creating database structure:", error);
+    }
+  }
+  
+  // Run the stored procedures
+  await supabase.rpc('create_page_contents_if_not_exists');
+  await supabase.rpc('create_user_profiles_if_not_exists');
+  
+  // Run the SQL script to insert initial data
+  try {
+    const { error } = await supabase.sql(`
+      -- Insert initial data for page_contents if it doesn't exist
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'page_contents') THEN
+          -- Insert data only if table is empty
+          IF NOT EXISTS (SELECT 1 FROM public.page_contents LIMIT 1) THEN
+            ${getSupabaseSetupSQL()}
+          END IF;
+        END IF;
+      END $$;
+    `);
+    
+    if (error) {
+      console.error("Error inserting initial data:", error);
+    }
+  } catch (err) {
+    console.error("Error running setup SQL:", err);
+  }
+};
+
 // User types
 export type UserSession = {
   user: User | null;
@@ -151,5 +322,14 @@ export const getAllStories = async () => {
 // Reference to the SQL setup file
 // The SQL setup is now in src/lib/supabase-setup.sql
 export const getSupabaseSetupSQL = () => {
-  return import.meta.glob('./supabase-setup.sql', { as: 'raw', eager: true })['./supabase-setup.sql'];
+  try {
+    return import.meta.glob('./update_page_contents.sql', { as: 'raw', eager: true })['./update_page_contents.sql'];
+  } catch (e) {
+    console.error("Error loading SQL file:", e);
+    return "";
+  }
 };
+
+// Initialize the database structure when the module is imported
+initializeDatabaseStructure().catch(console.error);
+

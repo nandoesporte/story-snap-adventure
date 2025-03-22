@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase, UserSession, getUser } from '../lib/supabase';
+import { supabase, UserSession, getUser, initializeDatabaseStructure } from '../lib/supabase';
 import { toast } from 'sonner';
 
 type AuthContextType = {
@@ -30,6 +30,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
 
+  // Initialize database if user is admin
+  const initializeDBIfAdmin = async (user: User | null) => {
+    if (!user) return;
+    
+    // Only init if admin user (for now, just using our hardcoded admin email)
+    if (user.email === 'nandoesporte1@gmail.com') {
+      try {
+        await initializeDatabaseStructure();
+      } catch (error) {
+        console.error('Error initializing database:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     // Set mounted ref for cleanup
     isMounted.current = true;
@@ -45,6 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserSession({ user: session.user, session: session.session });
           if (session.user) {
             console.info('User loaded successfully:', session.user.email);
+            // Initialize database if admin
+            initializeDBIfAdmin(session.user);
           } else {
             console.info('No authenticated user found');
           }
@@ -74,6 +90,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (isMounted.current) {
               setUserSession({ user, session });
               console.info('User authenticated:', user?.email);
+              
+              // Initialize database if admin
+              initializeDBIfAdmin(user);
             }
           }).catch(error => {
             console.error('Error getting user after auth state change:', error);
@@ -112,6 +131,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       console.info('Sign in successful for:', email);
+      
+      // Initialize database if admin
+      if (data.user && data.user.email === 'nandoesporte1@gmail.com') {
+        await initializeDBIfAdmin(data.user);
+      }
+      
       return data;
     } catch (error: any) {
       console.error('Sign in error:', error);
