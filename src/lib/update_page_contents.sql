@@ -1,4 +1,7 @@
 
+-- Ensure page_contents exists before trying to insert data
+SELECT create_page_contents_if_not_exists();
+
 -- Insert additional data for the index page, filling in anything that might be missing
 INSERT INTO public.page_contents (page, section, key, content, content_type)
 VALUES

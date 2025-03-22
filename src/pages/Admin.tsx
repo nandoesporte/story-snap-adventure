@@ -27,7 +27,13 @@ const Admin = () => {
     queryFn: async () => {
       try {
         // First try to create the page_contents table if it doesn't exist
-        await supabase.rpc('create_page_contents_if_not_exists');
+        try {
+          await supabase.rpc('create_page_contents_if_not_exists');
+        } catch (err) {
+          console.warn("Error calling create_page_contents_if_not_exists:", err);
+          // If RPC doesn't exist yet, we might need to run the SQL directly
+          // This would typically be done via SQL migration in Supabase dashboard
+        }
         
         // Then get the contents
         const { data, error } = await supabase
@@ -36,7 +42,10 @@ const Admin = () => {
           .eq("page", "index")
           .order("section", { ascending: true });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching page contents:", error);
+          return [];
+        }
         return data || [];
       } catch (err) {
         console.error("Error fetching page contents:", err);
@@ -57,7 +66,12 @@ const Admin = () => {
       setIsChecking(true);
       try {
         // First try to create the user_profiles table with proper columns if it doesn't exist
-        await supabase.rpc('create_user_profiles_if_not_exists');
+        try {
+          await supabase.rpc('create_user_profiles_if_not_exists');
+        } catch (err) {
+          console.warn("Error calling create_user_profiles_if_not_exists:", err);
+          // If RPC doesn't exist yet, we might need to run the SQL directly
+        }
         
         // Then check if user is admin
         const { data, error } = await supabase
@@ -88,6 +102,16 @@ const Admin = () => {
         // Special case: if this is the hardcoded admin email, always grant access
         if (user.email === 'nandoesporte1@gmail.com') {
           setIsAdmin(true);
+          
+          // Ensure this user is admin in the database too
+          await supabase
+            .from("user_profiles")
+            .upsert({ 
+              user_id: user.id, 
+              is_admin: true,
+              display_name: user.email
+            })
+            .select();
         }
       } catch (error: any) {
         console.error("Error checking admin status:", error);
