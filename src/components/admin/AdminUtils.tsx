@@ -15,18 +15,24 @@ export const AdminUtils = () => {
     if (!email) return;
     
     setLoading(true);
+    toast({
+      title: "Processando...",
+      description: `Tentando fazer ${email} administrador.`,
+    });
+    
     try {
+      console.log('Admin Utils - making user admin:', email);
       await makeUserAdmin(email);
       
       toast({
-        title: "Success!",
-        description: `${email} is now an administrator.`,
+        title: "Sucesso!",
+        description: `${email} agora é um administrador.`,
       });
     } catch (error: any) {
       console.error('Error making user admin:', error);
       toast({
-        title: "Error!",
-        description: error.message,
+        title: "Erro!",
+        description: error.message || "Erro ao tornar usuário administrador.",
         variant: "destructive",
       });
     } finally {

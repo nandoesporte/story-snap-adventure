@@ -18,12 +18,13 @@ export const getUser = async (): Promise<UserSession> => {
   const { data, error } = await supabase.auth.getSession();
   
   if (error) {
-    console.error('Error fetching user:', error.message);
+    console.error('Error fetching user session:', error.message);
     return { user: null, session: null };
   }
   
   // Get the user data separately
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('getUser returned:', user);
   
   return { user, session: data.session };
 };
@@ -151,24 +152,38 @@ export const getAllStories = async () => {
 
 // Admin operations
 export const makeUserAdmin = async (email: string) => {
-  // First get the user ID by querying the users directly
-  const { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', email)
-    .single();
-  
-  if (userError || !userData) throw new Error('User not found');
-  
-  // Update the user_profiles table
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({ is_admin: true })
-    .eq('id', userData.id);
-  
-  if (error) throw error;
-  
-  return { success: true };
+  console.log('Making user admin:', email);
+  try {
+    // First get the user ID by querying the auth.users directly
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+    
+    if (userError || !userData) {
+      console.error('Error finding user:', userError);
+      throw new Error('User not found');
+    }
+    
+    console.log('Found user:', userData);
+    
+    // Update the user_profiles table
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ is_admin: true })
+      .eq('id', userData.id);
+    
+    if (error) {
+      console.error('Error updating user_profiles:', error);
+      throw error;
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('makeUserAdmin error:', error);
+    throw error;
+  }
 };
 
 // Reference to the SQL setup file

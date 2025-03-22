@@ -65,6 +65,7 @@ const Auth = () => {
   const onLoginSubmit = async (values: LoginFormValues) => {
     setIsLoggingIn(true);
     try {
+      console.log('Attempting login with:', values.email);
       await signIn(values.email, values.password);
       toast.success('Login realizado com sucesso!');
       navigate('/');
@@ -79,6 +80,7 @@ const Auth = () => {
   const onRegisterSubmit = async (values: RegisterFormValues) => {
     setIsRegistering(true);
     try {
+      console.log('Attempting registration with:', values.email);
       await signUp(values.email, values.password);
       toast.success('Registro realizado com sucesso! Verifique seu email para confirmar sua conta.');
       navigate('/');
