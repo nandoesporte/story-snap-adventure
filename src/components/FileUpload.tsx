@@ -53,41 +53,6 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     }
   };
 
-  const ensureBucketExists = async () => {
-    try {
-      // Check if bucket exists by listing buckets
-      const { data: buckets, error } = await supabase.storage.listBuckets();
-      
-      if (error) {
-        console.error("Error listing buckets:", error);
-        return false;
-      }
-      
-      // Check if 'public' bucket exists
-      const publicBucket = buckets?.find(bucket => bucket.name === 'public');
-      
-      if (!publicBucket) {
-        // Create the bucket if it doesn't exist
-        const { error: createError } = await supabase.storage.createBucket('public', {
-          public: true,
-          fileSizeLimit: 5242880 // 5MB
-        });
-        
-        if (createError) {
-          console.error("Error creating bucket:", createError);
-          return false;
-        }
-        
-        console.log("Created 'public' bucket successfully");
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Error ensuring bucket exists:", error);
-      return false;
-    }
-  };
-
   const uploadFile = async (file: File) => {
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -102,23 +67,17 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     try {
       setIsUploading(true);
       
-      // Try to ensure the bucket exists before uploading
-      const bucketExists = await ensureBucketExists();
-      if (!bucketExists) {
-        toast({
-          title: "Erro ao fazer upload",
-          description: "Não foi possível preparar o armazenamento. Tente novamente mais tarde.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
+      // Generate a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
       const filePath = `lovable-uploads/${fileName}`;
       
+      // Skip bucket creation since it requires admin privileges
+      // Instead, try to upload directly to the 'public' bucket
+      // which should already exist and be configured in Supabase
+      
       // Upload the file
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('public')
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -127,7 +86,22 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
         
       if (uploadError) {
         console.error("Storage upload error:", uploadError);
-        throw uploadError;
+        
+        // If the error is because the bucket doesn't exist
+        if (uploadError.message.includes("not found") || uploadError.message.includes("does not exist")) {
+          toast({
+            title: "Erro de configuração",
+            description: "O bucket de armazenamento 'public' não existe. Contate o administrador do sistema.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro ao fazer upload",
+            description: "Não foi possível carregar o arquivo. Erro: " + uploadError.message,
+            variant: "destructive",
+          });
+        }
+        return;
       }
       
       // Get the public URL
@@ -150,11 +124,11 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
         title: "Upload concluído",
         description: "Arquivo enviado com sucesso",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
       toast({
         title: "Erro ao fazer upload",
-        description: "Não foi possível carregar o arquivo. Verifique se você tem permissões suficientes.",
+        description: `Não foi possível carregar o arquivo. ${error?.message || 'Erro desconhecido'}`,
         variant: "destructive",
       });
     } finally {
