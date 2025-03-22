@@ -3,8 +3,40 @@ import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
-const Hero = () => {
+interface HeroProps {
+  customImageUrl?: string;
+}
+
+const Hero = ({ customImageUrl }: HeroProps) => {
+  // Fetch hero content from the database
+  const { data: heroContents = [] } = useQuery({
+    queryKey: ["page-contents", "index", "hero"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("page_contents")
+        .select("*")
+        .eq("page", "index")
+        .eq("section", "hero");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Helper function to get content by key
+  const getContent = (key: string, defaultValue: string = "") => {
+    const content = heroContents.find(
+      (item: any) => item.key === key
+    );
+    return content ? content.content : defaultValue;
+  };
+
+  // Default image if none provided
+  const heroImage = customImageUrl || "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png";
+
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
       {/* Animated stars/sparkles */}
@@ -41,9 +73,9 @@ const Hero = () => {
               transition={{ duration: 0.6 }}
               className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-indigo-800 leading-tight tracking-tight"
             >
-              ACENDA<br />
-              A IMAGINAÇÃO<br />
-              DO SEU FILHO!
+              {getContent("title_line1", "ACENDA")}<br />
+              {getContent("title_line2", "A IMAGINAÇÃO")}<br />
+              {getContent("title_line3", "DO SEU FILHO!")}
             </motion.h1>
             
             <motion.p
@@ -52,9 +84,7 @@ const Hero = () => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-base md:text-lg text-indigo-700/90 max-w-lg"
             >
-              Crie histórias divertidas e personalizadas que dão vida
-              às aventuras do seu filho e despertem sua paixão pela
-              leitura. Leva apenas alguns segundos!
+              {getContent("subtitle", "Crie histórias divertidas e personalizadas que dão vida às aventuras do seu filho e despertem sua paixão pela leitura. Leva apenas alguns segundos!")}
             </motion.p>
             
             <motion.div
@@ -69,17 +99,17 @@ const Hero = () => {
                   className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-full px-8 py-3 h-auto text-base"
                 >
                   <Book className="mr-2 h-5 w-5" />
-                  CRIAR HISTÓRIA
+                  {getContent("button_text", "CRIAR HISTÓRIA")}
                 </Button>
               </NavLink>
               
               <span className="text-indigo-700 font-medium ml-2">
-                Experimente Grátis!
+                {getContent("button_subtitle", "Experimente Grátis!")}
               </span>
             </motion.div>
           </div>
           
-          {/* Right side - Fantasy Book Illustration without characters */}
+          {/* Right side - Fantasy Book Illustration */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,8 +118,8 @@ const Hero = () => {
           >
             <div className="relative w-full max-w-lg">
               <img 
-                src="/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png" 
-                alt="Livro mágico com paisagens fantásticas e cenário de aventura" 
+                src={heroImage}
+                alt={getContent("image_alt", "Livro mágico com paisagens fantásticas e cenário de aventura")}
                 className="w-full h-auto z-10 drop-shadow-xl"
               />
               
@@ -122,7 +152,7 @@ const Hero = () => {
       >
         <div className="container mx-auto px-4">
           <p className="text-white text-center text-sm md:text-base lg:text-lg">
-            Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.
+            {getContent("banner_text", "Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.")}
           </p>
         </div>
       </motion.div>

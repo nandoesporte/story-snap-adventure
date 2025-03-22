@@ -1,5 +1,7 @@
 
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Footer from "../components/Footer";
@@ -16,52 +18,79 @@ import {
 } from "@/components/ui/card";
 
 const Index = () => {
+  // Fetch page content from the database
+  const { data: pageContents = [], isLoading } = useQuery({
+    queryKey: ["page-contents", "index"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("page_contents")
+        .select("*")
+        .eq("page", "index");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Helper function to get content by section and key
+  const getContent = (section: string, key: string, defaultValue: string = "") => {
+    const content = pageContents.find(
+      (item: any) => item.section === section && item.key === key
+    );
+    return content ? content.content : defaultValue;
+  };
+
+  // Get features content from database or use defaults
   const features = [
     {
       icon: <Book className="h-10 w-10 text-indigo-600" />,
-      title: "Histórias Personalizadas",
-      description: "Crie histórias únicas com o nome e características do seu filho como protagonista."
+      title: getContent("features", "feature1_title", "Histórias Personalizadas"),
+      description: getContent("features", "feature1_description", "Crie histórias únicas com o nome e características do seu filho como protagonista.")
     },
     {
       icon: <Stars className="h-10 w-10 text-indigo-600" />,
-      title: "Ilustrações Mágicas",
-      description: "Imagens coloridas e encantadoras que trazem a história à vida."
+      title: getContent("features", "feature2_title", "Ilustrações Mágicas"),
+      description: getContent("features", "feature2_description", "Imagens coloridas e encantadoras que trazem a história à vida.")
     },
     {
       icon: <Users className="h-10 w-10 text-indigo-600" />,
-      title: "Personagens Diversos",
-      description: "Escolha entre vários personagens e cenários para criar histórias diversas."
+      title: getContent("features", "feature3_title", "Personagens Diversos"),
+      description: getContent("features", "feature3_description", "Escolha entre vários personagens e cenários para criar histórias diversas.")
     },
     {
       icon: <Heart className="h-10 w-10 text-indigo-600" />,
-      title: "Valores e Lições",
-      description: "Histórias que transmitem valores importantes e lições de vida."
+      title: getContent("features", "feature4_title", "Valores e Lições"),
+      description: getContent("features", "feature4_description", "Histórias que transmitem valores importantes e lições de vida.")
     }
   ];
 
+  // Get testimonials content from database or use defaults
   const testimonials = [
     {
-      avatar: "https://randomuser.me/api/portraits/women/32.jpg",
-      name: "Ana Silva",
-      text: "Minha filha adora as histórias personalizadas! Agora ela pede para ler todos os dias."
+      avatar: getContent("testimonials", "testimonial1_avatar", "https://randomuser.me/api/portraits/women/32.jpg"),
+      name: getContent("testimonials", "testimonial1_name", "Ana Silva"),
+      text: getContent("testimonials", "testimonial1_text", "Minha filha adora as histórias personalizadas! Agora ela pede para ler todos os dias.")
     },
     {
-      avatar: "https://randomuser.me/api/portraits/men/46.jpg",
-      name: "Carlos Mendes",
-      text: "Uma forma incrível de incentivar a leitura. Meu filho se empolga ao ver seu nome nas aventuras."
+      avatar: getContent("testimonials", "testimonial2_avatar", "https://randomuser.me/api/portraits/men/46.jpg"),
+      name: getContent("testimonials", "testimonial2_name", "Carlos Mendes"),
+      text: getContent("testimonials", "testimonial2_text", "Uma forma incrível de incentivar a leitura. Meu filho se empolga ao ver seu nome nas aventuras.")
     },
     {
-      avatar: "https://randomuser.me/api/portraits/women/65.jpg",
-      name: "Juliana Martins",
-      text: "As ilustrações são lindas e as histórias têm valores importantes. Recomendo para todas as famílias!"
+      avatar: getContent("testimonials", "testimonial3_avatar", "https://randomuser.me/api/portraits/women/65.jpg"),
+      name: getContent("testimonials", "testimonial3_name", "Juliana Martins"),
+      text: getContent("testimonials", "testimonial3_text", "As ilustrações são lindas e as histórias têm valores importantes. Recomendo para todas as famílias!")
     }
   ];
+
+  // Get hero section image content
+  const heroImageUrl = getContent("hero", "image_url", "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png");
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <Hero />
+        <Hero customImageUrl={heroImageUrl} />
         
         {/* Features Section */}
         <section className="py-16 md:py-24 px-4 bg-white">
@@ -73,8 +102,12 @@ const Index = () => {
               viewport={{ once: true }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-indigo-800 mb-4">Por que escolher o Story Spark?</h2>
-              <p className="text-slate-600 max-w-2xl mx-auto">Criamos histórias mágicas que incentivam a leitura e fortalecem o vínculo familiar.</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-indigo-800 mb-4">
+                {getContent("features", "section_title", "Por que escolher o Story Spark?")}
+              </h2>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                {getContent("features", "section_description", "Criamos histórias mágicas que incentivam a leitura e fortalecem o vínculo familiar.")}
+              </p>
             </motion.div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -98,7 +131,7 @@ const Index = () => {
           </div>
         </section>
         
-        {/* New "Como Funciona" Section in purple gradient background */}
+        {/* How it Works Section */}
         <section className="py-16 md:py-24 px-4 bg-gradient-to-b from-indigo-500 to-purple-600 text-white overflow-hidden">
           <div className="container mx-auto">
             <motion.div 
@@ -108,7 +141,9 @@ const Index = () => {
               viewport={{ once: true }}
               className="text-center mb-16"
             >
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">COMECE A CRIAR</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                {getContent("how_it_works", "section_title", "COMECE A CRIAR")}
+              </h2>
             </motion.div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10 max-w-6xl mx-auto relative">
@@ -121,16 +156,18 @@ const Index = () => {
                 className="text-center relative z-10"
               >
                 <div className="text-6xl font-bold mb-4">1</div>
-                <h3 className="text-2xl font-bold mb-3">CRIE SUA HISTÓRIA COM IMAGINAÇÃO!</h3>
+                <h3 className="text-2xl font-bold mb-3">
+                  {getContent("how_it_works", "step1_title", "CRIE SUA HISTÓRIA COM IMAGINAÇÃO!")}
+                </h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem em dragão" 
+                    src={getContent("how_it_works", "step1_image", "/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png")}
+                    alt="Passo 1" 
                     className="h-full object-contain mx-auto"
                   />
                 </div>
                 <p className="text-white/80">
-                  Basta escrever o que você quer que aconteça na história!
+                  {getContent("how_it_works", "step1_description", "Basta escrever o que você quer que aconteça na história!")}
                 </p>
               </motion.div>
               
@@ -143,16 +180,18 @@ const Index = () => {
                 className="text-center relative z-10"
               >
                 <div className="text-6xl font-bold mb-4">2</div>
-                <h3 className="text-2xl font-bold mb-3">DÊ VIDA À HISTÓRIA!</h3>
+                <h3 className="text-2xl font-bold mb-3">
+                  {getContent("how_it_works", "step2_title", "DÊ VIDA À HISTÓRIA!")}
+                </h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem guaxinim" 
+                    src={getContent("how_it_works", "step2_image", "/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png")}
+                    alt="Passo 2" 
                     className="h-full object-contain mx-auto"
                   />
                 </div>
                 <p className="text-white/80">
-                  Escolha um nome, faça o upload de uma foto e comece a criar!
+                  {getContent("how_it_works", "step2_description", "Escolha um nome, faça o upload de uma foto e comece a criar!")}
                 </p>
               </motion.div>
               
@@ -165,16 +204,18 @@ const Index = () => {
                 className="text-center relative z-10"
               >
                 <div className="text-6xl font-bold mb-4">3</div>
-                <h3 className="text-2xl font-bold mb-3">PERSONALIZE PARA AS NECESSIDADES DE APRENDIZAGEM</h3>
+                <h3 className="text-2xl font-bold mb-3">
+                  {getContent("how_it_works", "step3_title", "PERSONALIZE PARA AS NECESSIDADES DE APRENDIZAGEM")}
+                </h3>
                 <div className="relative h-48 mb-6 mx-auto">
                   <img 
-                    src="/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png" 
-                    alt="Personagem menina" 
+                    src={getContent("how_it_works", "step3_image", "/lovable-uploads/72f6e9b6-e312-4a1c-8402-c8c60c94959b.png")}
+                    alt="Passo 3" 
                     className="h-full object-contain mx-auto"
                   />
                 </div>
                 <p className="text-white/80">
-                  Adapte cada história às necessidades únicas da criança.
+                  {getContent("how_it_works", "step3_description", "Adapte cada história às necessidades únicas da criança.")}
                 </p>
               </motion.div>
               
@@ -191,17 +232,17 @@ const Index = () => {
               className="text-center mt-16 max-w-3xl mx-auto"
             >
               <h3 className="text-2xl md:text-3xl font-bold mb-4">
-                Explore uma aventura mágica em cada conto!
+                {getContent("how_it_works", "cta_title", "Explore uma aventura mágica em cada conto!")}
               </h3>
               <p className="text-white/80 mb-8">
-                Leia e compartilhe sua história para dar vida a ela.
+                {getContent("how_it_works", "cta_description", "Leia e compartilhe sua história para dar vida a ela.")}
               </p>
               <NavLink to="/create-story">
                 <Button 
                   size="lg"
                   className="bg-white text-indigo-700 hover:bg-white/90 font-bold rounded-full px-10 py-6 h-auto text-lg"
                 >
-                  CRIAR HISTÓRIA
+                  {getContent("how_it_works", "cta_button_text", "CRIAR HISTÓRIA")}
                 </Button>
               </NavLink>
             </motion.div>
@@ -218,8 +259,12 @@ const Index = () => {
               viewport={{ once: true }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-indigo-800 mb-4">O que as famílias estão dizendo</h2>
-              <p className="text-slate-600 max-w-2xl mx-auto">Histórias que estão fazendo a diferença na vida de milhares de crianças.</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-indigo-800 mb-4">
+                {getContent("testimonials", "section_title", "O que as famílias estão dizendo")}
+              </h2>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                {getContent("testimonials", "section_description", "Histórias que estão fazendo a diferença na vida de milhares de crianças.")}
+              </p>
             </motion.div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -262,9 +307,11 @@ const Index = () => {
               viewport={{ once: true }}
               className="text-center max-w-3xl mx-auto"
             >
-              <h2 className="text-3xl md:text-4xl font-bold mb-6">Pronto para criar memórias inesquecíveis?</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                {getContent("cta", "title", "Pronto para criar memórias inesquecíveis?")}
+              </h2>
               <p className="text-indigo-100 mb-8 text-lg">
-                Comece agora a criar histórias personalizadas que seu filho vai adorar!
+                {getContent("cta", "description", "Comece agora a criar histórias personalizadas que seu filho vai adorar!")}
               </p>
               <motion.div 
                 whileHover={{ scale: 1.05 }}
@@ -276,10 +323,12 @@ const Index = () => {
                   className="bg-white text-indigo-700 font-bold py-3 px-8 rounded-full inline-flex items-center text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <Book className="mr-2 h-5 w-5" />
-                  Criar Minha Primeira História
+                  {getContent("cta", "button_text", "Criar Minha Primeira História")}
                 </NavLink>
               </motion.div>
-              <p className="text-indigo-200 mt-4">Experimente gratuitamente hoje!</p>
+              <p className="text-indigo-200 mt-4">
+                {getContent("cta", "subtitle", "Experimente gratuitamente hoje!")}
+              </p>
             </motion.div>
           </div>
         </section>
