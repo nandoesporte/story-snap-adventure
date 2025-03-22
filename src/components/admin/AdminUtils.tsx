@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { makeUserAdmin } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -11,35 +11,12 @@ export const AdminUtils = () => {
   const [email, setEmail] = useState("nandoesporte1@gmail.com");
   const [loading, setLoading] = useState(false);
 
-  const makeUserAdmin = async () => {
+  const handleMakeUserAdmin = async () => {
     if (!email) return;
     
     setLoading(true);
     try {
-      // Get the user profile and set is_admin to true
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
-      
-      if (userError) {
-        throw new Error(`User not found: ${userError.message}`);
-      }
-      
-      if (!userData?.id) {
-        throw new Error('User ID not found');
-      }
-      
-      // Update the user_profiles table to set is_admin to true
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ is_admin: true })
-        .eq('id', userData.id);
-      
-      if (updateError) {
-        throw updateError;
-      }
+      await makeUserAdmin(email);
       
       toast({
         title: "Success!",
@@ -74,7 +51,7 @@ export const AdminUtils = () => {
             onChange={(e) => setEmail(e.target.value)}
             className="flex-1"
           />
-          <Button onClick={makeUserAdmin} disabled={loading}>
+          <Button onClick={handleMakeUserAdmin} disabled={loading}>
             {loading ? "Processing..." : "Make Admin"}
           </Button>
         </div>

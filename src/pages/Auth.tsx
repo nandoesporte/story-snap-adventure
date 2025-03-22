@@ -69,6 +69,7 @@ const Auth = () => {
       toast.success('Login realizado com sucesso!');
       navigate('/');
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error(error.message || 'Erro ao fazer login. Por favor, tente novamente.');
     } finally {
       setIsLoggingIn(false);
@@ -82,6 +83,7 @@ const Auth = () => {
       toast.success('Registro realizado com sucesso! Verifique seu email para confirmar sua conta.');
       navigate('/');
     } catch (error: any) {
+      console.error('Register error:', error);
       toast.error(error.message || 'Erro ao criar conta. Por favor, tente novamente.');
     } finally {
       setIsRegistering(false);
