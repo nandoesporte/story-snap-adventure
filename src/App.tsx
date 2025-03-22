@@ -19,9 +19,9 @@ import MyStories from "./pages/MyStories";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
+  <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
         <Toaster />
         <Sonner />
         <AnimatePresence mode="wait">
@@ -38,9 +38,9 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </AuthProvider>
 );
 
 export default App;

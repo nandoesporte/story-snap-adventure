@@ -12,6 +12,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
 };
 
+// Create context with a meaningful default value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -62,7 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     return () => {
-      authListener?.subscription.unsubscribe();
+      if (authListener?.subscription) {
+        authListener.subscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -135,17 +138,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const value = {
+    user: userSession.user,
+    session: userSession.session,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user: userSession.user,
-        session: userSession.session,
-        loading,
-        signIn,
-        signUp,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
