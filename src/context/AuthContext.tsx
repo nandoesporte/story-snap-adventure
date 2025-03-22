@@ -12,29 +12,37 @@ type AuthContextType = {
   signOut: () => Promise<void>;
 };
 
-// Create context with a meaningful default value
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Criando o contexto com um valor padrão apropriado
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  loading: true,
+  signIn: async () => ({}),
+  signUp: async () => ({}),
+  signOut: async () => {},
+});
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userSession, setUserSession] = useState<UserSession>({ user: null, session: null });
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Load user session on component mount
+  // Carregar sessão do usuário na montagem do componente
   useEffect(() => {
+    let isMounted = true;
+    
     const loadCurrentSession = async () => {
       try {
         console.log('Loading current session...');
-        setLoading(true);
         
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Initial session check:', session ? 'Session found' : 'No session');
         
-        if (session) {
+        if (session && isMounted) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
             console.log('User from session:', user ? 'User found' : 'No user');
-            if (user) {
+            if (user && isMounted) {
               setUserSession({ user, session });
             }
           } catch (userError) {
@@ -44,38 +52,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.error('Error loading initial session:', error);
       } finally {
-        setLoading(false);
-        setInitialized(true);
+        if (isMounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
       }
     };
 
     loadCurrentSession();
 
-    // Set up auth state listener
+    // Configurar listener de estado de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session ? 'With session' : 'No session');
         
-        if (session) {
+        if (session && isMounted) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
             console.log('User after auth change:', user ? 'User found' : 'No user');
-            if (user) {
+            if (user && isMounted) {
               setUserSession({ user, session });
             }
           } catch (error) {
             console.error('Error getting user after auth state change:', error);
           }
-        } else {
+        } else if (isMounted) {
           console.log('No session in auth change, clearing user');
           setUserSession({ user: null, session: null });
         }
         
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     );
 
     return () => {
+      isMounted = false;
       if (authListener?.subscription) {
         console.log('Cleaning up auth listener subscription');
         authListener.subscription.unsubscribe();
@@ -152,9 +165,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Ensure context is available before rendering children
+  // Mostrar uma tela de carregamento durante a inicialização
   if (!initialized && loading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+        <span className="ml-3 text-lg font-medium text-violet-800">Carregando...</span>
+      </div>
+    );
   }
 
   const value = {

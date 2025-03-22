@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import UserProfile from './UserProfile';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import LoadingSpinner from './LoadingSpinner';
 
 const NavbarUser = () => {
   try {
@@ -11,8 +13,9 @@ const NavbarUser = () => {
     
     if (loading) {
       return (
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-24 bg-gray-200 animate-pulse rounded"></div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-24" />
+          <LoadingSpinner size="sm" />
         </div>
       );
     }
@@ -33,7 +36,7 @@ const NavbarUser = () => {
     return <UserProfile />;
   } catch (error) {
     console.error('Error in NavbarUser:', error);
-    // Fallback UI when context is not available
+    // Interface de fallback quando o contexto não está disponível
     return (
       <div className="flex items-center gap-4">
         <Link to="/auth">
