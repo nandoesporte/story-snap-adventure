@@ -1,3 +1,4 @@
+
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -78,6 +79,9 @@ export const initializeDatabaseStructure = async () => {
           }
         }
       }
+      
+      // Update the hero image regardless
+      await updateHeroImage();
     }
     
     console.log("Database structure initialization completed");
@@ -160,6 +164,61 @@ const getInitialPageContents = () => {
       content_type: 'text'
     }
   ];
+};
+
+// Update the hero image in the database
+const updateHeroImage = async () => {
+  try {
+    // Check if the hero image entry exists
+    const { data, error } = await supabase
+      .from('page_contents')
+      .select('*')
+      .eq('page', 'index')
+      .eq('section', 'hero')
+      .eq('key', 'image_url')
+      .single();
+    
+    const imageUrl = '/lovable-uploads/ebc01802-0a17-4159-83dc-e8d4d624b008.png';
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Record doesn't exist, insert it
+        const { error: insertError } = await supabase
+          .from('page_contents')
+          .insert({
+            page: 'index',
+            section: 'hero',
+            key: 'image_url',
+            content: imageUrl,
+            content_type: 'image'
+          });
+          
+        if (insertError) {
+          console.error("Error inserting hero image:", insertError);
+        } else {
+          console.log("Hero image inserted successfully");
+        }
+      } else {
+        console.error("Error checking hero image:", error);
+      }
+    } else {
+      // Record exists, update it
+      const { error: updateError } = await supabase
+        .from('page_contents')
+        .update({ content: imageUrl })
+        .eq('page', 'index')
+        .eq('section', 'hero')
+        .eq('key', 'image_url');
+        
+      if (updateError) {
+        console.error("Error updating hero image:", updateError);
+      } else {
+        console.log("Hero image updated successfully");
+      }
+    }
+  } catch (err) {
+    console.error("Error updating hero image:", err);
+  }
 };
 
 // User types

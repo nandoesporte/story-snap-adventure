@@ -9,8 +9,8 @@ VALUES
 ('index', 'hero', 'subtitle', 'Crie histórias divertidas e personalizadas que dão vida às aventuras do seu filho e despertem sua paixão pela leitura. Leva apenas alguns segundos!', 'text'),
 ('index', 'hero', 'button_text', 'CRIAR HISTÓRIA', 'text'),
 ('index', 'hero', 'button_subtitle', 'Experimente Grátis!', 'text'),
-('index', 'hero', 'image_url', '/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png', 'image'),
-('index', 'hero', 'image_alt', 'Livro mágico com paisagens fantásticas e cenário de aventura', 'text'),
+('index', 'hero', 'image_url', '/lovable-uploads/ebc01802-0a17-4159-83dc-e8d4d624b008.png', 'image'),
+('index', 'hero', 'image_alt', 'Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente', 'text'),
 ('index', 'hero', 'banner_text', 'Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.', 'text'),
 
 -- Features section
@@ -58,4 +58,5 @@ VALUES
 ('index', 'cta', 'description', 'Comece agora a criar histórias personalizadas que seu filho vai adorar!', 'text'),
 ('index', 'cta', 'button_text', 'Criar Minha Primeira História', 'text'),
 ('index', 'cta', 'subtitle', 'Experimente gratuitamente hoje!', 'text')
-ON CONFLICT (page, section, key) DO NOTHING;
+ON CONFLICT (page, section, key) DO UPDATE 
+SET content = EXCLUDED.content, content_type = EXCLUDED.content_type;

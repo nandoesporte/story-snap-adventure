@@ -39,7 +39,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   };
 
   // Default image if none provided
-  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/c957b202-faa2-45c1-9fb5-e93af40aa4dd.png");
+  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/ebc01802-0a17-4159-83dc-e8d4d624b008.png");
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
@@ -123,7 +123,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
             <div className="relative w-full max-w-lg">
               <img 
                 src={heroImage}
-                alt={getContent("image_alt", "Livro mágico com paisagens fantásticas e cenário de aventura")}
+                alt={getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente")}
                 className="w-full h-auto z-10 drop-shadow-xl"
               />
               
