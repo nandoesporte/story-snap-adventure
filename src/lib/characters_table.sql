@@ -62,8 +62,8 @@ BEGIN
             FOR DELETE
             USING (creator_id = auth.uid());
 
-        -- Create or replace update trigger function
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        -- Create trigger function for updating the updated_at timestamp
+        CREATE OR REPLACE FUNCTION public.update_updated_at_column()
         RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = NOW();
@@ -74,7 +74,7 @@ BEGIN
         -- Add trigger to update updated_at
         CREATE TRIGGER update_characters_updated_at
             BEFORE UPDATE ON public.characters
-            FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+            FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
             
         -- Insert predefined characters
         INSERT INTO public.characters (name, description, personality, age, is_active)
