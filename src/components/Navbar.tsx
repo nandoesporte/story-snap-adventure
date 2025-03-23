@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -47,7 +46,6 @@ const Navbar = () => {
     >
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between py-4">
-          {/* Logo with sparkle icon */}
           <Link to="/" className="flex items-center">
             <div className="flex items-center gap-2">
               <div className="text-violet-600 relative">
@@ -65,11 +63,10 @@ const Navbar = () => {
                   }}
                 />
               </div>
-              <span className="text-2xl font-bold text-violet-700 tracking-tight">STORY SPARK</span>
+              <span className="text-2xl font-bold text-violet-700 tracking-tight">HISTÓRIAS MÁGICAS</span>
             </div>
           </Link>
 
-          {/* Desktop Navigation Links */}
           {!isMobile && (
             <ul className="flex items-center space-x-6">
               {navLinks.map((link) => (
@@ -102,10 +99,8 @@ const Navbar = () => {
             </ul>
           )}
 
-          {/* Login/Signup Buttons - Replaced with NavbarUser component */}
           <NavbarUser />
 
-          {/* Mobile Menu Button */}
           {isMobile && (
             <button
               onClick={toggleMenu}
@@ -140,7 +135,6 @@ const Navbar = () => {
             </button>
           )}
 
-          {/* Mobile Menu */}
           {isMobile && isMenuOpen && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
