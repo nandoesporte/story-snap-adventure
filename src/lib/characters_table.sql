@@ -4,6 +4,7 @@
 -- Create extension for UUID generation if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Check if the characters table exists and create it if it doesn't
 DO $$
 DECLARE
     table_exists BOOLEAN;
@@ -36,13 +37,11 @@ BEGIN
         ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
 
         -- Create RLS policies
-        -- Anyone can view active characters
         CREATE POLICY "Anyone can view active characters" 
             ON public.characters 
             FOR SELECT 
             USING (is_active = true);
 
-        -- Admin users can manage all characters
         CREATE POLICY "Admin users can manage characters" 
             ON public.characters 
             FOR ALL
@@ -54,13 +53,11 @@ BEGIN
                 )
             );
             
-        -- Users can create their own characters
         CREATE POLICY "Users can insert their own characters"
             ON public.characters
             FOR INSERT
             WITH CHECK (auth.uid() IS NOT NULL);
             
-        -- Users can update and delete their own characters
         CREATE POLICY "Users can update their own characters"
             ON public.characters
             FOR UPDATE

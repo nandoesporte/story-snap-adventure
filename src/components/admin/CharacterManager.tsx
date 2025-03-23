@@ -55,30 +55,118 @@ export const CharacterManager = () => {
     
     try {
       console.log("Loading initialization SQL script...");
-      // Fetch the SQL initialization script
-      const response = await fetch('/src/lib/init-database.sql');
-      if (!response.ok) {
-        throw new Error(`Failed to load SQL script: ${response.status} ${response.statusText}`);
-      }
       
-      const sqlScript = await response.text();
-      console.log("SQL script loaded, executing...");
-      
-      // Execute the SQL script directly using Supabase's REST API
-      const { error } = await supabase.rpc('exec', { sql: sqlScript });
-      
-      if (error) {
-        console.error("Error executing SQL script:", error);
+      // Try a direct approach - create the table using a simple SQL command
+      const createTableSQL = `
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         
-        // Fallback to execute as superuser if available
-        console.log("Attempting fallback initialization...");
-        const { error: fallbackError } = await supabase.functions.invoke('initialize-database', {
-          body: { script: sqlScript }
-        });
+        CREATE TABLE IF NOT EXISTS public.characters (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          name TEXT NOT NULL,
+          description TEXT NOT NULL,
+          image_url TEXT,
+          age TEXT,
+          personality TEXT,
+          is_premium BOOLEAN DEFAULT false,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          creator_id UUID REFERENCES auth.users(id)
+        );
         
-        if (fallbackError) {
-          throw new Error(fallbackError.message || "Failed to initialize database");
-        }
+        -- Only create policies if they don't exist
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT FROM pg_policies 
+            WHERE tablename = 'characters' AND policyname = 'Anyone can view active characters'
+          ) THEN
+            ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
+            
+            CREATE POLICY "Anyone can view active characters" 
+                ON public.characters 
+                FOR SELECT 
+                USING (is_active = true);
+                
+            CREATE POLICY "Admin users can manage characters" 
+                ON public.characters 
+                FOR ALL
+                USING (
+                    EXISTS (
+                        SELECT 1 FROM user_profiles
+                        WHERE user_profiles.id = auth.uid()
+                        AND user_profiles.is_admin = true
+                    )
+                );
+                
+            CREATE POLICY "Users can insert their own characters"
+                ON public.characters
+                FOR INSERT
+                WITH CHECK (auth.uid() IS NOT NULL);
+                
+            CREATE POLICY "Users can update their own characters"
+                ON public.characters
+                FOR UPDATE
+                USING (creator_id = auth.uid());
+                
+            CREATE POLICY "Users can delete their own characters"
+                ON public.characters
+                FOR DELETE
+                USING (creator_id = auth.uid());
+          END IF;
+        END
+        $$;
+        
+        -- Create trigger function if it doesn't exist
+        CREATE OR REPLACE FUNCTION update_characters_modified()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        
+        -- Create the trigger if it doesn't exist
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT FROM pg_trigger
+            WHERE tgname = 'characters_updated_at'
+          ) THEN
+            CREATE TRIGGER characters_updated_at
+            BEFORE UPDATE ON public.characters
+            FOR EACH ROW EXECUTE FUNCTION update_characters_modified();
+          END IF;
+        END
+        $$;
+        
+        -- Insert sample data only if the table is empty
+        INSERT INTO public.characters (name, description, personality, age, is_active)
+        SELECT 
+          'Pingo, o Pinguim Inventor', 
+          'Pinguim genial que cria bugigangas incríveis', 
+          'Curioso, inteligente e sempre pensando em novas invenções', 
+          '8 anos', 
+          true
+        WHERE NOT EXISTS (SELECT 1 FROM public.characters LIMIT 1);
+        
+        INSERT INTO public.characters (name, description, personality, age, is_active)
+        SELECT 
+          'Flora, a Fadinha das Flores', 
+          'Fada encantadora que cuida do jardim mágico', 
+          'Gentil, alegre e apaixonada pela natureza', 
+          '100 anos (mas parece 6)', 
+          true
+        WHERE NOT EXISTS (SELECT 1 FROM public.characters LIMIT 1);
+      `;
+      
+      console.log("Executing simplified SQL...");
+      const { error: createError } = await supabase.rpc('exec', { sql: createTableSQL });
+      
+      if (createError) {
+        console.error("Error executing simplified SQL:", createError);
+        setErrorMessage(`Erro ao criar tabela: ${createError.message}`);
+        throw createError;
       }
       
       console.log("Database initialization completed successfully");
@@ -92,56 +180,64 @@ export const CharacterManager = () => {
     } catch (error: any) {
       console.error("Error initializing database:", error);
       
-      // Try one more approach - directly creating the table
+      // Try with an even simpler approach as a last resort
       try {
-        console.log("Attempting direct table creation...");
-        const { error: directError } = await supabase.from('characters').select('count(*)');
+        console.log("Attempting simplest table creation as last resort...");
+        const simpleCreateTable = `
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          
+          CREATE TABLE IF NOT EXISTS public.characters (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            image_url TEXT,
+            age TEXT,
+            personality TEXT,
+            is_premium BOOLEAN DEFAULT false,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            creator_id UUID REFERENCES auth.users(id)
+          );
+        `;
         
-        if (directError && directError.code === '42P01') { // relation does not exist
-          const createTableSQL = `
-            CREATE TABLE IF NOT EXISTS public.characters (
-              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-              name TEXT NOT NULL,
-              description TEXT NOT NULL,
-              image_url TEXT,
-              age TEXT,
-              personality TEXT,
-              is_premium BOOLEAN DEFAULT false,
-              is_active BOOLEAN DEFAULT true,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-              creator_id UUID REFERENCES auth.users(id)
-            );
+        const { error: simpleCreateError } = await supabase.rpc('exec', { sql: simpleCreateTable });
+        
+        if (simpleCreateError) {
+          setErrorMessage(`Falha na criação da tabela: ${simpleCreateError.message}`);
+          throw simpleCreateError;
+        } else {
+          toast({
+            title: "Tabela criada com sucesso",
+            description: "A tabela base foi criada, mas sem políticas RLS. As políticas serão criadas em seguida.",
+            variant: "default",
+          });
+          
+          // Now try to create the RLS policies separately
+          const rlsPolicies = `
+            ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
+            
+            CREATE POLICY IF NOT EXISTS "Anyone can view active characters" 
+                ON public.characters 
+                FOR SELECT 
+                USING (is_active = true);
           `;
           
-          const { error: createError } = await supabase.rpc('exec', { sql: createTableSQL });
-          
-          if (createError) {
-            setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
-            toast({
-              title: "Erro ao inicializar banco de dados",
-              description: "Tente fazer login novamente ou contate o administrador do sistema.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Tabela criada com sucesso",
-              description: "A tabela de personagens foi criada, mas sem as políticas RLS.",
-              variant: "default",
-            });
-            queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
-          }
-        } else {
-          setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
-          toast({
-            title: "Erro ao inicializar banco de dados",
-            description: error.message || "Ocorreu um erro ao inicializar o banco de dados",
-            variant: "destructive",
+          // Attempt to create RLS policies, but don't fail if it doesn't work
+          await supabase.rpc('exec', { sql: rlsPolicies }).catch(err => {
+            console.warn("Couldn't create RLS policies, but table was created:", err);
           });
+          
+          queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
         }
-      } catch (fallbackError: any) {
-        console.error("All initialization attempts failed:", fallbackError);
-        setErrorMessage(`Todos os métodos de inicialização falharam. Por favor, contate o administrador.`);
+      } catch (finalError: any) {
+        console.error("All table creation attempts failed:", finalError);
+        setErrorMessage(`Não foi possível criar a tabela. Erro: ${finalError.message || "Erro desconhecido"}`);
+        toast({
+          title: "Erro ao inicializar banco de dados",
+          description: finalError.message || "Ocorreu um erro ao inicializar o banco de dados",
+          variant: "destructive",
+        });
       }
     } finally {
       setIsInitializing(false);
