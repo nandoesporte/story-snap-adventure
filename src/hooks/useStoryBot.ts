@@ -12,9 +12,13 @@ type Message = {
 export const useStoryBot = () => {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 2;
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
     setIsGenerating(true);
+    let currentRetry = retryCount;
+    
     try {
       // Try to get the system prompt from the database
       let systemPrompt: string | null = null;
@@ -29,6 +33,8 @@ export const useStoryBot = () => {
 
         if (!promptError) {
           systemPrompt = promptData?.prompt || null;
+        } else {
+          console.log("Error fetching prompt from database:", promptError);
         }
       } catch (err) {
         console.log("Error fetching prompt from database, will try localStorage:", err);
@@ -37,6 +43,7 @@ export const useStoryBot = () => {
       // If database fetch failed, try localStorage
       if (!systemPrompt) {
         systemPrompt = localStorage.getItem('storybot_prompt');
+        console.log("Using localStorage prompt");
       }
 
       // Default system prompt if none exists in database or localStorage
@@ -51,6 +58,7 @@ Suas respostas devem ser:
 5. Bem estruturadas com começo, meio e fim
 
 Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.`;
+        console.log("Using default prompt");
       }
 
       // Format conversation history for OpenAI
@@ -74,17 +82,38 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
       if (!apiResponse.ok) {
         const errorData = await apiResponse.json().catch(() => null);
         console.error("API error response:", errorData);
+        
+        // Check if we can retry
+        if (currentRetry < MAX_RETRIES) {
+          console.log(`Retrying request (${currentRetry + 1}/${MAX_RETRIES})...`);
+          setRetryCount(currentRetry + 1);
+          
+          // Wait a moment before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return await generateStoryBotResponse(messages, userPrompt);
+        }
+        
         throw new Error(errorData?.error || "Failed to generate response");
       }
 
+      // Reset retry count on success
+      setRetryCount(0);
       const data = await apiResponse.json();
       return data.response || "Desculpe, não consegui gerar uma resposta.";
     } catch (error) {
       console.error("Error generating StoryBot response:", error);
       // Trigger API issue event
-      const apiIssueEvent = new Event("storybot_api_issue");
-      window.dispatchEvent(apiIssueEvent);
-      throw error;
+      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
+      
+      // Provide a graceful fallback response
+      const fallbackResponses = [
+        "Peço desculpas, estou com dificuldades técnicas no momento. Poderia tentar novamente com outras palavras?",
+        "Estou tendo problemas para processar sua solicitação. Vamos tentar algo diferente?",
+        "Hmm, parece que houve um problema na geração da história. Poderia reformular sua pergunta?"
+      ];
+      
+      // Choose a random fallback response
+      return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
     } finally {
       setIsGenerating(false);
     }

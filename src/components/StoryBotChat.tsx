@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryBot } from "../hooks/useStoryBot";
+import { AlertCircle } from "lucide-react";
 
 type Message = {
   role: "user" | "assistant";
@@ -17,6 +18,7 @@ const StoryBotChat = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [characterPrompt, setCharacterPrompt] = useState<string>("");
+  const [hasApiError, setHasApiError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { generateStoryBotResponse } = useStoryBot();
   
@@ -27,6 +29,22 @@ const StoryBotChat = () => {
     };
     
     setMessages([initialMessage]);
+    
+    // Check if we've already detected API issues
+    const hasApiIssue = localStorage.getItem("storybot_api_issue") === "true";
+    setHasApiError(hasApiIssue);
+    
+    // Listen for API issues
+    const handleApiIssue = () => {
+      setHasApiError(true);
+      localStorage.setItem("storybot_api_issue", "true");
+    };
+    
+    window.addEventListener("storybot_api_issue", handleApiIssue);
+    
+    return () => {
+      window.removeEventListener("storybot_api_issue", handleApiIssue);
+    };
   }, []);
 
   useEffect(() => {
@@ -76,7 +94,18 @@ const StoryBotChat = () => {
     setIsLoading(true);
     
     try {
-      const response = await generateStoryBotResponse(messages, inputValue);
+      let response;
+      
+      try {
+        response = await generateStoryBotResponse(messages, inputValue);
+      } catch (error) {
+        console.error("StoryBot response generation failed:", error);
+        throw error;
+      }
+      
+      if (!response) {
+        throw new Error("Resposta vazia do StoryBot");
+      }
       
       const assistantMessage: Message = {
         role: "assistant",
@@ -86,12 +115,15 @@ const StoryBotChat = () => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error generating response:", error);
-      toast.error("Não foi possível gerar uma resposta. Tente novamente.");
+      toast.error("Não foi possível gerar uma resposta. Tente novamente.", {
+        description: "Estamos enfrentando dificuldades técnicas momentâneas.",
+        duration: 5000,
+      });
       
       // Add a fallback message in case of error
       const errorAssistantMessage: Message = {
         role: "assistant",
-        content: "Desculpe, estou tendo dificuldades para processar sua solicitação. Poderia tentar novamente com outras palavras?"
+        content: "Desculpe, estou tendo dificuldades para processar sua solicitação. Por favor, tente novamente com outras palavras ou aguarde um momento."
       };
       
       setMessages(prev => [...prev, errorAssistantMessage]);
@@ -99,6 +131,7 @@ const StoryBotChat = () => {
       // Trigger API issue event
       const apiIssueEvent = new Event("storybot_api_issue");
       window.dispatchEvent(apiIssueEvent);
+      setHasApiError(true);
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +139,15 @@ const StoryBotChat = () => {
 
   return (
     <div className="glass rounded-2xl p-6 md:p-8 shadow-xl mb-12 flex flex-col h-[700px]">
+      {hasApiError && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700">
+          <AlertCircle className="h-4 w-4" />
+          <p className="text-sm">
+            Estamos com limitações técnicas no momento. As respostas podem ser simplificadas.
+          </p>
+        </div>
+      )}
+      
       <div className="flex-1 overflow-y-auto mb-4 pr-2 custom-scrollbar">
         {messages.map((message, index) => (
           <motion.div
