@@ -14,6 +14,7 @@ export const useStoryBot = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
+  const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
   
   // Create an instance of the StoryBot service
   const storyBot = new StoryBot();
@@ -21,6 +22,7 @@ export const useStoryBot = () => {
   // Update API availability status from the service
   useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
+    setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
   }, []);
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
@@ -90,7 +92,7 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      return await storyBot.generateImage(
+      const result = await storyBot.generateImage(
         imageDescription,
         characterName,
         theme,
@@ -99,11 +101,13 @@ export const useStoryBot = () => {
         style,
         characterPrompt
       );
+      setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
+      return result;
     } catch (error) {
       console.error("Error generating image:", error);
-      setApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
-      localStorage.setItem("storybot_api_issue", "true");
+      setLeonardoApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
       
       // Fallback to themed placeholders
       const themeImages = {
@@ -186,6 +190,13 @@ export const useStoryBot = () => {
     }
   };
 
+  // Reset Leonardo API availability status for testing
+  const resetLeonardoApiStatus = () => {
+    localStorage.removeItem("leonardo_api_issue");
+    setLeonardoApiAvailable(true);
+    toast.success("Status da API do Leonardo foi redefinido. Tente gerar imagens novamente.");
+  };
+
   return { 
     generateStoryBotResponse, 
     isGenerating,
@@ -193,6 +204,8 @@ export const useStoryBot = () => {
     generateImage,
     generateCoverImage,
     convertImageToBase64,
-    apiAvailable
+    apiAvailable,
+    leonardoApiAvailable,
+    resetLeonardoApiStatus
   };
 };

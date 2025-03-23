@@ -30,6 +30,7 @@ export class StoryBot {
   private apiAvailable: boolean = true;
   private MAX_RETRIES: number = 2;
   private API_TIMEOUT: number = 30000; // 30 seconds
+  private leonardoApiAvailable: boolean = true;
 
   constructor() {
     // Check if API was previously marked as unavailable
@@ -37,10 +38,20 @@ export class StoryBot {
     if (apiIssue === "true") {
       this.apiAvailable = false;
     }
+
+    // Check if Leonardo API was previously marked as unavailable
+    const leonardoApiIssue = localStorage.getItem("leonardo_api_issue");
+    if (leonardoApiIssue === "true") {
+      this.leonardoApiAvailable = false;
+    }
   }
 
   public isApiAvailable(): boolean {
     return this.apiAvailable;
+  }
+
+  public isLeonardoApiAvailable(): boolean {
+    return this.leonardoApiAvailable;
   }
 
   public async getSystemPrompt(): Promise<string> {
@@ -336,28 +347,109 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
     console.log("Generating image:", { imageDescription, theme, style });
     
     try {
-      // For production: Here we would integrate with Leonardo AI
-      // For now, we're returning themed placeholder images
+      // Check if Leonardo API is available
+      if (!this.leonardoApiAvailable) {
+        throw new Error("Leonardo API marked as unavailable");
+      }
+
+      // Enhance prompt with style and character information
+      let enhancedPrompt = imageDescription;
       
-      // Simulate network delay to make it feel like generation is happening
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (characterPrompt) {
+        enhancedPrompt += `\n\nCharacter details: ${characterPrompt}`;
+      }
       
-      // Return the themed image
-      const themeImages = {
-        adventure: "/images/placeholders/adventure.jpg",
-        fantasy: "/images/placeholders/fantasy.jpg",
-        space: "/images/placeholders/space.jpg",
-        ocean: "/images/placeholders/ocean.jpg",
-        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      // Add style instructions
+      const styleInstructions = {
+        cartoon: "vibrant cartoon style, bright colors, simple shapes, child-friendly illustration",
+        watercolor: "soft watercolor style, gentle brushstrokes, dreamy atmosphere, pastel colors",
+        realistic: "realistic illustration, detailed, natural lighting, proper proportions",
+        childrenbook: "classic children's book illustration, warm colors, gentle outlines, storybook feel",
+        papercraft: "paper craft style, 3D paper elements, textured, colorful paper cutouts"
       };
       
-      // Return the themed image
-      return themeImages[theme as keyof typeof themeImages] || "/images/placeholders/adventure.jpg";
+      enhancedPrompt += `\n\nStyle: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.cartoon}`;
+      
+      // Call Leonardo API to generate image
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${LEONARDO_API_KEY}`
+        },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          modelId: "1e7737d7-545e-469f-857f-44398ad5588c", // Leonardo Creative model
+          width: 768,
+          height: 768,
+          num_images: 1,
+          prompt_magic: true,
+          highContrast: true,
+          negative_prompt: "poor quality, blurry, distorted, deformed, disfigured, low resolution, ugly, duplicate, morbid, mutilated, mutation, disgusting, bad anatomy, bad proportions, watermark, signature, text"
+        })
+      });
+
+      if (!response.ok) {
+        console.error("Leonardo API error:", await response.text());
+        throw new Error(`Leonardo API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Leonardo API response:", data);
+
+      // Check if we have a generation ID
+      if (!data.generationId) {
+        throw new Error("No generation ID received from Leonardo API");
+      }
+
+      // Poll for the generated image
+      const generationId = data.generationId;
+      let imageUrl = "";
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!imageUrl && attempts < maxAttempts) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds between polls
+
+        const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+          headers: {
+            "Authorization": `Bearer ${LEONARDO_API_KEY}`
+          }
+        });
+
+        if (!statusResponse.ok) {
+          console.error("Error checking generation status:", await statusResponse.text());
+          continue;
+        }
+
+        const statusData = await statusResponse.json();
+        console.log("Generation status:", statusData);
+
+        if (statusData.generations_by_pk.status === "COMPLETE") {
+          if (statusData.generations_by_pk.generated_images && statusData.generations_by_pk.generated_images.length > 0) {
+            imageUrl = statusData.generations_by_pk.generated_images[0].url;
+            this.leonardoApiAvailable = true;
+            return imageUrl;
+          }
+        } else if (statusData.generations_by_pk.status === "FAILED") {
+          throw new Error("Image generation failed");
+        }
+      }
+
+      if (!imageUrl) {
+        throw new Error("Failed to get generated image after multiple attempts");
+      }
+
+      return imageUrl;
     } catch (error) {
-      console.error("Error generating image:", error);
-      this.apiAvailable = false;
+      console.error("Error generating image with Leonardo API:", error);
       
-      // Fallback to themed placeholders
+      // Mark Leonardo API as unavailable
+      this.leonardoApiAvailable = false;
+      localStorage.setItem("leonardo_api_issue", "true");
+      
+      // Fall back to themed placeholders
       const themeImages = {
         adventure: "/images/placeholders/adventure.jpg",
         fantasy: "/images/placeholders/fantasy.jpg",
@@ -366,6 +458,7 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
         dinosaurs: "/images/placeholders/dinosaurs.jpg"
       };
       
+      toast.error("Não foi possível gerar imagens personalizadas. Usando imagens pré-definidas.");
       return themeImages[theme as keyof typeof themeImages] || "/images/placeholders/adventure.jpg";
     }
   }
