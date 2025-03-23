@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
 const getGeminiApiKey = () => {
-  return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
+  const key = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
+  return key !== 'undefined' && key !== 'null' ? key : '';
 };
 
 // Initialize Gemini API client with API key
@@ -10,8 +11,18 @@ export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey());
 
 // Function to reinitialize Gemini with a new API key
 export const reinitializeGeminiAI = (apiKey: string) => {
-  localStorage.setItem('gemini_api_key', apiKey);
-  return new GoogleGenerativeAI(apiKey);
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+    console.error('Tentativa de inicializar Gemini com chave inválida:', apiKey);
+    return null;
+  }
+  
+  try {
+    localStorage.setItem('gemini_api_key', apiKey);
+    return new GoogleGenerativeAI(apiKey);
+  } catch (error) {
+    console.error('Erro ao reinicializar Gemini:', error);
+    return null;
+  }
 };
 
 // Keep OpenAI interface for backward compatibility
@@ -77,5 +88,5 @@ export const openai = {
 // For development without API keys, we can detect if the API key is valid
 export const isOpenAIKeyValid = () => {
   const apiKey = getGeminiApiKey();
-  return apiKey && apiKey.length > 0 && !apiKey.includes('your-api-key');
+  return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
 };

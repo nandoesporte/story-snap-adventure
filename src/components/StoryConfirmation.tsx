@@ -1,9 +1,11 @@
-import React from "react";
+
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, AlertCircle } from "lucide-react";
+import { Sparkles, AlertCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BookGenerationService } from "@/services/BookGenerationService";
+import { toast } from "sonner";
 
 interface StoryDetails {
   childName: string;
@@ -58,7 +60,41 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
   onEdit,
   apiAvailable
 }) => {
-  const isApiAvailable = apiAvailable || BookGenerationService.isGeminiApiKeyValid();
+  const [isApiAvailable, setIsApiAvailable] = useState(apiAvailable);
+  const [apiKeyMessage, setApiKeyMessage] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Check if the API key is available
+    const checkApiKey = () => {
+      const isGeminiAvailable = BookGenerationService.isGeminiApiKeyValid();
+      setIsApiAvailable(isGeminiAvailable);
+      
+      if (!isGeminiAvailable) {
+        const apiKey = BookGenerationService.getGeminiApiKey();
+        if (!apiKey) {
+          setApiKeyMessage("Nenhuma chave API Gemini configurada. Configure nas configurações para ativar todos os recursos.");
+        } else if (apiKey === 'undefined' || apiKey === 'null') {
+          setApiKeyMessage("Chave API Gemini inválida. Verifique as configurações.");
+        } else {
+          setApiKeyMessage("Erro ao conectar com a API Gemini. Verifique se a chave é válida nas configurações.");
+        }
+      } else {
+        setApiKeyMessage(null);
+      }
+    };
+    
+    checkApiKey();
+  }, [apiAvailable]);
+  
+  const handleConfirm = () => {
+    if (!isApiAvailable) {
+      toast.error("Configuração da API necessária", {
+        description: "Configure a chave da API Gemini nas configurações para gerar histórias."
+      });
+      return;
+    }
+    onConfirm();
+  };
 
   return (
     <motion.div 
@@ -78,7 +114,16 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
         <Alert className="mb-6 border border-amber-200" variant="default">
           <AlertCircle className="h-4 w-4 text-amber-500" />
           <AlertDescription>
-            <span className="font-semibold">Modo simplificado ativo:</span> Configure uma chave API válida nas configurações para ativar todos os recursos.
+            <span className="font-semibold">Modo simplificado ativo:</span> {apiKeyMessage || "Configure uma chave API válida nas configurações para ativar todos os recursos."}
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {isApiAvailable && (
+        <Alert className="mb-6 border border-emerald-200 bg-emerald-50" variant="default">
+          <Info className="h-4 w-4 text-emerald-500" />
+          <AlertDescription className="text-emerald-700">
+            <span className="font-semibold">API Gemini conectada:</span> Todos os recursos estão disponíveis.
           </AlertDescription>
         </Alert>
       )}
@@ -188,8 +233,13 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
         
         <Button
           variant="default"
-          onClick={onConfirm}
-          className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
+          onClick={handleConfirm}
+          className={`px-6 py-3 ${
+            isApiAvailable
+              ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
+              : "bg-gray-400 hover:bg-gray-500 cursor-not-allowed"
+          }`}
+          disabled={!isApiAvailable}
         >
           Gerar História com Ilustrações
         </Button>
