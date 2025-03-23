@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -592,7 +591,7 @@ const StoryCreationFlow = () => {
               <div className="mt-4 flex justify-center">
                 <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-violet-300 bg-slate-100">
                   <img 
-                    src={characters.find(c => c.id === selectedCharacter)?.image || ''} 
+                    src={characters.find(c => c.id === selectedCharacter)?.image_url || ''} 
                     alt="Preview"
                     className="w-full h-full object-cover" 
                   />
@@ -1019,7 +1018,7 @@ const StoryCreationFlow = () => {
                   {selectedCharacter && (
                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-violet-300 mr-4 bg-slate-100">
                       <img 
-                        src={characters.find(c => c.id === selectedCharacter)?.image || ''} 
+                        src={characters.find(c => c.id === selectedCharacter)?.image_url || ''} 
                         alt="Preview"
                         className="w-full h-full object-cover" 
                       />
