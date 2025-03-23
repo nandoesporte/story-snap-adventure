@@ -6,6 +6,8 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface Character {
   id: string;
@@ -19,7 +21,9 @@ interface Character {
 }
 
 const Characters = () => {
-  const { data: characters, isLoading } = useQuery({
+  const { toast } = useToast();
+  
+  const { data: characters, isLoading, refetch } = useQuery({
     queryKey: ["characters"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -30,12 +34,25 @@ const Characters = () => {
         
       if (error) {
         console.error("Error fetching characters:", error);
+        toast({
+          title: "Erro ao carregar personagens",
+          description: "Por favor, tente novamente mais tarde.",
+          variant: "destructive",
+        });
         return [];
       }
       
       return data as Character[];
     },
+    staleTime: 0, // Always consider the data stale
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Refetch when component mounts
   });
+
+  // Force a refetch when the component mounts to ensure fresh data
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -66,7 +83,7 @@ const Characters = () => {
                   <div className="aspect-square relative overflow-hidden bg-gray-100">
                     {character.image_url ? (
                       <img
-                        src={character.image_url}
+                        src={`${character.image_url}?${new Date().getTime()}`} 
                         alt={character.name}
                         className="object-cover w-full h-full"
                       />
