@@ -4,6 +4,35 @@ import { v4 as uuidv4 } from 'uuid';
 import { geminiAI, isOpenAIKeyValid, reinitializeGeminiAI } from '@/lib/openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// Type definitions that are needed in other components
+export type StoryTheme = 'adventure' | 'fantasy' | 'space' | 'ocean' | 'dinosaurs';
+export type StorySetting = 'forest' | 'castle' | 'space' | 'underwater' | 'dinosaurland';
+export type StoryStyle = 'cartoon' | 'watercolor' | 'realistic' | 'childrenbook' | 'papercraft';
+export type StoryLength = 'short' | 'medium' | 'long';
+export type ReadingLevel = 'beginner' | 'intermediate' | 'advanced';
+export type StoryLanguage = 'portuguese' | 'english' | 'spanish';
+export type StoryMoral = 'friendship' | 'courage' | 'respect' | 'environment' | 'honesty' | 'perseverance';
+
+export interface StoryInputData {
+  childName: string;
+  childAge: string;
+  theme: StoryTheme;
+  setting: StorySetting;
+  characterId?: string;
+  characterName?: string;
+  style?: StoryStyle;
+  length?: StoryLength;
+  imagePreview?: string | null;
+  readingLevel?: ReadingLevel;
+  language?: StoryLanguage;
+  moral?: StoryMoral;
+}
+
+export interface GeneratedStory {
+  title: string;
+  content: string[];
+}
+
 export interface StoryPage {
   text: string;
   page_number: number;
@@ -40,6 +69,111 @@ export class BookGenerationService {
   static currentStoryId: string | null = null;
   static isGenerating: boolean = false;
   static abortController: AbortController | null = null;
+  
+  // Instance properties for the instance-based approach
+  private data: StoryInputData;
+  private progressCallback?: (stage: string, percent: number) => void;
+  private errorCallback?: (message: string) => void;
+  
+  constructor(
+    data: StoryInputData,
+    progressCallback?: (stage: string, percent: number) => void,
+    errorCallback?: (message: string) => void
+  ) {
+    this.data = data;
+    this.progressCallback = progressCallback;
+    this.errorCallback = errorCallback;
+  }
+  
+  public cancel(): void {
+    BookGenerationService.cancelGeneration();
+  }
+  
+  /**
+   * Generate the story content based on the input data
+   */
+  public async generateStoryContent(): Promise<GeneratedStory | null> {
+    try {
+      // Convert the instance data to the format expected by the static method
+      const storyParams: Story = {
+        title: `Story for ${this.data.childName}`,
+        character_name: this.data.characterName || this.data.childName,
+        character_age: this.data.childAge,
+        theme: this.data.theme,
+        setting: this.data.setting,
+        style: this.data.style,
+        moral: this.data.moral,
+        language: this.data.language,
+        reading_level: this.data.readingLevel,
+        num_pages: this.getNumPagesFromLength(this.data.length)
+      };
+      
+      // Use the static method to generate the story
+      const result = await BookGenerationService.generateStory(
+        storyParams,
+        (message, progress) => {
+          this.progressCallback?.(this.convertProgressStage(message), progress);
+        }
+      );
+      
+      // Convert the result to GeneratedStory format
+      return {
+        title: result.title,
+        content: result.pages.map(page => page.text)
+      };
+    } catch (error: any) {
+      this.errorCallback?.(error.message);
+      return null;
+    }
+  }
+  
+  /**
+   * Generate the complete story with illustrations
+   */
+  public async generateCompleteStory(): Promise<CompleteStory | null> {
+    // For now, this is a placeholder that just returns the story content
+    // without generating illustrations
+    try {
+      const storyContent = await this.generateStoryContent();
+      if (!storyContent) return null;
+      
+      // Convert to CompleteStory format
+      const completeStory: CompleteStory = {
+        title: storyContent.title,
+        character_name: this.data.characterName || this.data.childName,
+        pages: storyContent.content.map((text, index) => ({
+          text,
+          page_number: index + 1,
+          image_prompt: `Illustration for page ${index + 1}: ${text.substring(0, 100)}...`
+        }))
+      };
+      
+      return completeStory;
+    } catch (error) {
+      console.error("Error in generateCompleteStory:", error);
+      return null;
+    }
+  }
+  
+  private getNumPagesFromLength(length?: StoryLength): number {
+    switch (length) {
+      case 'short': return 5;
+      case 'medium': return 10;
+      case 'long': return 15;
+      default: return 5;
+    }
+  }
+  
+  private convertProgressStage(message: string): string {
+    if (message.includes("Preparando")) return "preparando";
+    if (message.includes("Criando uma história")) return "gerando-historia";
+    if (message.includes("StoryBot está escrevendo")) return "gerando-historia";
+    if (message.includes("Criando a narrativa")) return "gerando-historia";
+    if (message.includes("Formatando")) return "gerando-historia";
+    if (message.includes("Salvando")) return "finalizando";
+    if (message.includes("concluída")) return "concluido";
+    return "gerando-historia";
+  }
   
   /**
    * Get the Gemini API key from localStorage or environment
