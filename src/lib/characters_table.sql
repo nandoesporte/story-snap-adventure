@@ -5,6 +5,9 @@ RETURNS void AS $$
 BEGIN
     -- Check if the table already exists
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'characters') THEN
+        -- Create extension for UUID generation if it doesn't exist
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        
         -- Create the characters table
         CREATE TABLE public.characters (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -16,7 +19,8 @@ BEGIN
             is_premium BOOLEAN DEFAULT false,
             is_active BOOLEAN DEFAULT true,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            creator_id UUID REFERENCES auth.users(id)
         );
 
         -- Enable Row Level Security (RLS)
@@ -32,6 +36,7 @@ BEGIN
         -- Admin users can manage all characters
         CREATE POLICY "Admin users can manage characters" 
             ON public.characters 
+            FOR ALL
             USING (
                 EXISTS (
                     SELECT 1 FROM user_profiles
@@ -39,6 +44,32 @@ BEGIN
                     AND user_profiles.is_admin = true
                 )
             );
+            
+        -- Users can create their own characters
+        CREATE POLICY "Users can insert their own characters"
+            ON public.characters
+            FOR INSERT
+            WITH CHECK (auth.uid() IS NOT NULL);
+            
+        -- Users can update and delete their own characters
+        CREATE POLICY "Users can update their own characters"
+            ON public.characters
+            FOR UPDATE
+            USING (creator_id = auth.uid());
+            
+        CREATE POLICY "Users can delete their own characters"
+            ON public.characters
+            FOR DELETE
+            USING (creator_id = auth.uid());
+
+        -- Create or replace update trigger function
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
 
         -- Add trigger to update updated_at
         CREATE TRIGGER update_characters_updated_at

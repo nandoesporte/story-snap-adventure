@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Edit, Trash2, Plus, Image } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Character {
   id: string;
@@ -22,6 +23,7 @@ interface Character {
   is_premium: boolean;
   is_active: boolean;
   created_at: string;
+  creator_id?: string;
 }
 
 const defaultCharacter: Omit<Character, 'id' | 'created_at'> = {
@@ -41,6 +43,7 @@ export const CharacterManager = () => {
   const [currentCharacter, setCurrentCharacter] = useState<Partial<Character>>(defaultCharacter);
   const [isEditing, setIsEditing] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const { user } = useAuth();
 
   // Force refetch when component mounts
   useEffect(() => {
@@ -85,9 +88,15 @@ export const CharacterManager = () => {
 
   const createCharacter = useMutation({
     mutationFn: async (character: Omit<Character, 'id' | 'created_at'>) => {
+      // Add creator_id to character data
+      const characterWithCreator = {
+        ...character,
+        creator_id: user?.id
+      };
+      
       const { data, error } = await supabase
         .from("characters")
-        .insert(character)
+        .insert(characterWithCreator)
         .select()
         .single();
       
@@ -105,6 +114,7 @@ export const CharacterManager = () => {
       resetForm();
     },
     onError: (error: any) => {
+      console.error("Create character error:", error);
       toast({
         title: "Erro ao criar personagem",
         description: error.message || "Ocorreu um erro ao criar o personagem",
@@ -346,6 +356,9 @@ export const CharacterManager = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{isEditing ? "Editar Personagem" : "Novo Personagem"}</DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes do personagem abaixo
+            </DialogDescription>
           </DialogHeader>
           
           <form onSubmit={handleSubmit} className="space-y-4">
