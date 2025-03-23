@@ -16,6 +16,7 @@ import Footer from "../components/Footer";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { generateStoryWithGPT4, generateStory } from "@/utils/storyGenerator";
+import { Progress } from "@/components/ui/progress";
 
 type StoryPage = {
   text: string;
@@ -29,6 +30,8 @@ const StoryCreator = () => {
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState<string>("preparando");
   const { generateImageDescription, generateImage, generateCoverImage, apiAvailable } = useStoryBot();
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   useEffect(() => {
     // Get story data from session storage
@@ -43,6 +46,12 @@ const StoryCreator = () => {
       navigate("/create-story");
       toast.error("Dados da história não encontrados. Por favor, comece novamente.");
     }
+
+    // Cleanup function to ensure we don't leave the page hanging
+    return () => {
+      // If we navigate away, make sure we clean up any pending processes
+      setIsGenerating(false);
+    };
   }, [navigate]);
   
   const updateProgress = (stage: string, percent: number) => {
@@ -52,6 +61,7 @@ const StoryCreator = () => {
   
   const generateStoryContent = async (data: any) => {
     setIsGenerating(true);
+    setHasError(false);
     
     try {
       updateProgress("preparando", 10);
@@ -120,7 +130,8 @@ const StoryCreator = () => {
         const progressPercent = 60 + Math.floor((i / storyResult.content.length) * 30);
         updateProgress(`ilustracao-${i+1}`, progressPercent);
         
-        let imageDescription, imageUrl;
+        let imageDescription = "";
+        let imageUrl = "";
         
         try {
           // Generate image description
@@ -179,9 +190,10 @@ const StoryCreator = () => {
       
     } catch (error) {
       console.error("Error generating story:", error);
+      setHasError(true);
+      setErrorMessage("Ocorreu um erro ao gerar a história. Use o botão abaixo para tentar novamente.");
       toast.error("Ocorreu um erro ao gerar a história. Por favor, tente novamente.");
       setIsGenerating(false);
-      navigate("/create-story");
     }
   };
   
@@ -217,6 +229,21 @@ const StoryCreator = () => {
     }
   };
   
+  const handleRetry = () => {
+    if (storyData) {
+      setHasError(false);
+      setProgress(0);
+      setCurrentStage("preparando");
+      generateStoryContent(storyData);
+    } else {
+      navigate("/create-story");
+    }
+  };
+  
+  const handleCancelAndReturn = () => {
+    navigate("/create-story");
+  };
+  
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
       <Navbar />
@@ -242,48 +269,13 @@ const StoryCreator = () => {
               <div className="relative w-32 h-32 flex items-center justify-center mb-6">
                 <div className="absolute inset-0 rounded-full bg-indigo-100 animate-pulse"></div>
                 {getStageIcon()}
-                
-                {progress < 100 && (
-                  <div className="absolute inset-0">
-                    <svg className="w-full h-full" viewBox="0 0 100 100">
-                      <circle 
-                        className="text-gray-200" 
-                        strokeWidth="4" 
-                        stroke="currentColor" 
-                        fill="transparent" 
-                        r="46" 
-                        cx="50" 
-                        cy="50"
-                      />
-                      <circle 
-                        className="text-indigo-500" 
-                        strokeWidth="4" 
-                        stroke="currentColor" 
-                        fill="transparent" 
-                        r="46" 
-                        cx="50" 
-                        cy="50"
-                        strokeDasharray={2 * Math.PI * 46}
-                        strokeDashoffset={2 * Math.PI * 46 * (1 - progress / 100)}
-                        strokeLinecap="round"
-                        style={{ 
-                          transformOrigin: '50% 50%',
-                          transform: 'rotate(-90deg)'
-                        }}
-                      />
-                    </svg>
-                  </div>
-                )}
               </div>
               
               <h2 className="text-2xl font-bold mb-2">{getStageName()}</h2>
               <p className="text-slate-500 mb-4">{progress}% concluído</p>
               
-              <div className="w-full max-w-md bg-gray-200 rounded-full h-2.5 mb-6">
-                <div 
-                  className="bg-gradient-to-r from-violet-500 to-indigo-600 h-2.5 rounded-full transition-all duration-500" 
-                  style={{ width: `${progress}%` }}
-                ></div>
+              <div className="w-full max-w-md mb-6">
+                <Progress value={progress} className="h-2.5" />
               </div>
               
               <div className="text-center max-w-md">
@@ -313,14 +305,34 @@ const StoryCreator = () => {
               ))}
             </div>
             
-            <div className="text-center">
-              <div className="flex items-center justify-center">
-                <div className="flex items-center px-3 py-1.5 bg-indigo-50 rounded-full text-sm text-indigo-600">
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                  <span>{storyData?.childName || 'Criança'} está prestes a viver uma grande aventura!</span>
+            {hasError ? (
+              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-100 mb-6">
+                <p className="text-red-600 mb-4">{errorMessage}</p>
+                <div className="flex justify-center gap-4">
+                  <button 
+                    onClick={handleRetry}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors"
+                  >
+                    Tentar Novamente
+                  </button>
+                  <button 
+                    onClick={handleCancelAndReturn}
+                    className="px-4 py-2 border border-violet-200 text-violet-600 rounded-md hover:bg-violet-50 transition-colors"
+                  >
+                    Voltar
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center">
+                <div className="flex items-center justify-center">
+                  <div className="flex items-center px-3 py-1.5 bg-indigo-50 rounded-full text-sm text-indigo-600">
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    <span>{storyData?.childName || storyData?.characterName || 'Personagem'} está prestes a viver uma grande aventura!</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </main>
