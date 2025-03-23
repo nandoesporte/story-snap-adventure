@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,13 +67,16 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
   });
 
   const nextStep = () => {
-    if (step === 1 && (!childName || !childAge)) {
+    if (step === 1 && !characterId && characterId !== "") {
       return;
     }
-    if (step === 2 && !theme) {
+    if (step === 2 && (!childName || !childAge)) {
       return;
     }
-    if (step === 3 && !setting) {
+    if (step === 3 && !theme) {
+      return;
+    }
+    if (step === 4 && !setting) {
       return;
     }
     setStep(step + 1);
@@ -115,11 +119,11 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
                 {step > stepNumber ? "✓" : stepNumber}
               </div>
               <div className={`text-xs text-center ${step === stepNumber ? "text-violet-600 font-medium" : "text-slate-500"}`}>
-                {stepNumber === 1 && "Criança"}
-                {stepNumber === 2 && "Tema"}
-                {stepNumber === 3 && "Cenário"}
-                {stepNumber === 4 && "Detalhes"}
-                {stepNumber === 5 && "Personagem"}
+                {stepNumber === 1 && "Personagem"}
+                {stepNumber === 2 && "Criança"}
+                {stepNumber === 3 && "Tema"}
+                {stepNumber === 4 && "Cenário"}
+                {stepNumber === 5 && "Detalhes"}
               </div>
               {stepNumber < 5 && (
                 <div className={`h-1 w-full mt-2 ${step > stepNumber ? "bg-green-500" : "bg-violet-100"}`}></div>
@@ -137,6 +141,73 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
         transition={{ duration: 0.3 }}
       >
         {step === 1 && (
+          <div>
+            <h3 className="text-xl font-bold mb-4">Escolha um personagem especial</h3>
+            <p className="text-slate-600 mb-4">
+              Selecione um personagem para acompanhar a criança nesta aventura incrível!
+            </p>
+            
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-700"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card 
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    characterId === "" ? "ring-2 ring-violet-500 bg-violet-50" : ""
+                  }`}
+                  onClick={() => setCharacterId("")}
+                >
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-violet-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Sem personagem</h4>
+                      <p className="text-sm text-slate-500">
+                        A criança será a única protagonista da história
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {characters?.map((character: any) => (
+                  <Card 
+                    key={character.id}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      characterId === character.id ? "ring-2 ring-violet-500 bg-violet-50" : ""
+                    }`}
+                    onClick={() => setCharacterId(character.id)}
+                  >
+                    <CardContent className="p-4 flex items-center gap-4">
+                      {character.image_url ? (
+                        <img 
+                          src={character.image_url} 
+                          alt={character.name}
+                          className="w-16 h-16 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center">
+                          <Sparkles className="h-8 w-8 text-violet-500" />
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-bold">{character.name}</h4>
+                        <p className="text-sm text-slate-500">
+                          {character.description?.substring(0, 60)}
+                          {character.description?.length > 60 ? "..." : ""}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 2 && (
           <div>
             <h3 className="text-xl font-bold mb-4">Sobre a criança</h3>
             <div className="space-y-4">
@@ -170,7 +241,7 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div>
             <h3 className="text-xl font-bold mb-4">Escolha um tema</h3>
             <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -202,7 +273,7 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div>
             <h3 className="text-xl font-bold mb-4">Escolha um cenário</h3>
             <RadioGroup value={setting} onValueChange={setSetting} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -234,7 +305,7 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div>
             <h3 className="text-xl font-bold mb-4">Detalhes da história</h3>
             <div className="space-y-6">
@@ -291,73 +362,6 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
             </div>
           </div>
         )}
-
-        {step === 5 && (
-          <div>
-            <h3 className="text-xl font-bold mb-4">Escolha um personagem especial</h3>
-            <p className="text-slate-600 mb-4">
-              Selecione um personagem para acompanhar {childName} nesta aventura incrível!
-            </p>
-            
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-700"></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card 
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    characterId === "" ? "ring-2 ring-violet-500 bg-violet-50" : ""
-                  }`}
-                  onClick={() => setCharacterId("")}
-                >
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center">
-                      <Sparkles className="h-8 w-8 text-violet-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">Sem personagem</h4>
-                      <p className="text-sm text-slate-500">
-                        {childName} será o único protagonista da história
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {characters?.map((character: any) => (
-                  <Card 
-                    key={character.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      characterId === character.id ? "ring-2 ring-violet-500 bg-violet-50" : ""
-                    }`}
-                    onClick={() => setCharacterId(character.id)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      {character.image_url ? (
-                        <img 
-                          src={character.image_url} 
-                          alt={character.name}
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center">
-                          <Sparkles className="h-8 w-8 text-violet-500" />
-                        </div>
-                      )}
-                      <div>
-                        <h4 className="font-bold">{character.name}</h4>
-                        <p className="text-sm text-slate-500">
-                          {character.description?.substring(0, 60)}
-                          {character.description?.length > 60 ? "..." : ""}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </motion.div>
 
       <div className="mt-8 flex justify-between">
@@ -378,9 +382,10 @@ const StoryCreationFlow: React.FC<StoryCreationFlowProps> = ({ onComplete }) => 
             variant="storyPrimary"
             onClick={nextStep}
             className="gap-2"
-            disabled={(step === 1 && (!childName || !childAge)) || 
-                     (step === 2 && !theme) || 
-                     (step === 3 && !setting)}
+            disabled={(step === 1 && !characterId && characterId !== "") || 
+                     (step === 2 && (!childName || !childAge)) || 
+                     (step === 3 && !theme) || 
+                     (step === 4 && !setting)}
           >
             Próximo <ChevronRight className="h-4 w-4" />
           </Button>
