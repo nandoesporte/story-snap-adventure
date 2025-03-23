@@ -52,6 +52,15 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     }
   };
 
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleFileUpload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
       toast({
@@ -65,14 +74,14 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     try {
       setIsUploading(true);
       
-      // Criar URL local para o arquivo
-      const fileUrl = URL.createObjectURL(file);
+      // Convert file to base64 string for persistent storage
+      const base64String = await convertFileToBase64(file);
       
       // Simular um pequeno atraso para mostrar o loading
       await new Promise(resolve => setTimeout(resolve, 500));
       
       if (onUploadComplete) {
-        onUploadComplete(fileUrl);
+        onUploadComplete(base64String);
       }
       
       toast({
