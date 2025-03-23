@@ -60,8 +60,10 @@ Suas respostas devem ser:
 3. Em português do Brasil
 4. Livres de conteúdo assustador, violento ou inadequado
 5. Bem estruturadas com começo, meio e fim
+6. Ricas em detalhes visuais e sensoriais
+7. Com personagens cativantes e memoráveis
 
-Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.`;
+Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados. Cada página deve ter conteúdo substancial com pelo menos 3-4 parágrafos (cerca de 150-200 palavras) para criar uma experiência de leitura rica.`;
         console.log("Using default prompt");
       }
 
@@ -129,7 +131,8 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     childName: string,
     childAge: string,
     theme: string,
-    setting: string
+    setting: string,
+    style: string = "cartoon"
   ) => {
     try {
       // If API was previously marked as unavailable, use simplified description
@@ -137,18 +140,17 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         return `Ilustração detalhada de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}. A cena mostra: ${pageText.substring(0, 100)}...`;
       }
       
+      // Enhanced image description prompt
+      const imagePrompt = `Crie uma descrição detalhada para ilustração de livro infantil no estilo ${style}, com um visual colorido, encantador e adequado para crianças. O protagonista da história é ${childName}, e a imagem deve representar fielmente a cena descrita no texto abaixo. O cenário é ${setting}, que deve ser detalhado de forma vibrante e mágica. A ilustração deve expressar emoções, ação e aventura, transmitindo a essência da história de forma visualmente envolvente. Garanta que os elementos do ambiente, cores e expressões dos personagens estejam bem definidos e alinhados ao tom infantil da narrativa.
+
+Texto da cena: "${pageText}"
+
+Forneça uma descrição visual completa em até 150 palavras, focando nos elementos visuais principais desta cena. A descrição será usada para gerar uma ilustração. Enfatize as cores, expressões, ambiente e ação principal.`;
+      
       const messages: Message[] = [
         {
           role: "user",
-          content: `Por favor, crie uma descrição detalhada para esta cena de uma história infantil:
-            
-            Texto da página: "${pageText}"
-            
-            Personagem principal: ${childName}, ${childAge}
-            Tema da história: ${theme}
-            Cenário: ${setting}
-            
-            Forneça uma descrição visual completa em até 150 palavras, focando nos elementos visuais principais desta cena. A descrição será usada para gerar uma ilustração. Enfatize as cores, expressões, ambiente e ação principal.`
+          content: imagePrompt
         }
       ];
       
@@ -170,7 +172,8 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     childName: string,
     theme: string,
     setting: string,
-    childImageBase64: string | null
+    childImageBase64: string | null,
+    style: string = "cartoon"
   ) => {
     try {
       console.log("Generating image with description:", imageDescription);
@@ -214,7 +217,8 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     childName: string,
     theme: string,
     setting: string,
-    childImageBase64: string | null
+    childImageBase64: string | null,
+    style: string = "cartoon"
   ) => {
     try {
       console.log("Generating cover image for title:", title);

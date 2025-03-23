@@ -30,9 +30,14 @@ Suas respostas devem ser:
 3. Em português do Brasil
 4. Livres de conteúdo assustador, violento ou inadequado
 5. Bem estruturadas com começo, meio e fim
+6. Ricas em detalhes visuais e sensoriais
+7. Com personagens cativantes e memoráveis
 
-Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.'
+Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados. Cada página deve ter conteúdo substancial com pelo menos 3-4 parágrafos (cerca de 150-200 palavras) para criar uma experiência de leitura rica.
+
+IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim.'
     );
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
