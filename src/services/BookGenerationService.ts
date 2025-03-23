@@ -244,6 +244,7 @@ export class BookGenerationService {
       };
       
       this.updateProgress("concluido", 100);
+      console.log("Complete story generated with correct format for ViewStory component");
       return completeStory;
       
     } catch (error) {

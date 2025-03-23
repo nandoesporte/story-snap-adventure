@@ -1,16 +1,30 @@
+
 import { useEffect, useState, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { motion, AnimatePresence } from "framer-motion";
 import { customScrollbarStyles } from "../utils/cssStyles";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Share2, Download, Heart, ChevronLeft, ChevronRight, VolumeIcon } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Share2, 
+  Download, 
+  Heart, 
+  ChevronLeft, 
+  ChevronRight, 
+  VolumeIcon,
+  AlertTriangle
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const ViewStory = () => {
+  const navigate = useNavigate();
   const [storyData, setStoryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -18,6 +32,7 @@ const ViewStory = () => {
   const [loading, setLoading] = useState(true);
   const [pageDirection, setPageDirection] = useState<"left" | "right">("right");
   const [isNarrating, setIsNarrating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const bookRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -37,16 +52,40 @@ const ViewStory = () => {
   }, []);
 
   useEffect(() => {
-    const data = sessionStorage.getItem("storyData");
-    if (data) {
-      setStoryData(JSON.parse(data));
-    }
-    
-    const timer = setTimeout(() => {
+    try {
+      console.log("Attempting to load story data from sessionStorage");
+      const data = sessionStorage.getItem("storyData");
+      
+      if (!data) {
+        console.warn("No story data found in sessionStorage");
+        setLoadError("Não foi possível encontrar os dados da história");
+        setLoading(false);
+        return;
+      }
+      
+      const parsedData = JSON.parse(data);
+      console.log("Successfully loaded story data:", parsedData);
+      
+      if (!parsedData.title || !parsedData.pages || !Array.isArray(parsedData.pages)) {
+        console.error("Invalid story data format:", parsedData);
+        setLoadError("Formato de dados da história inválido");
+        setLoading(false);
+        return;
+      }
+      
+      setStoryData(parsedData);
+      
+      // Add a slight delay before hiding the loading state
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } catch (error) {
+      console.error("Error loading story data:", error);
+      setLoadError(`Erro ao carregar dados da história: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       setLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
+    }
   }, []);
 
   const handleNextPage = () => {
@@ -233,20 +272,39 @@ const ViewStory = () => {
     );
   }
 
-  if (!storyData) {
+  if (loadError || !storyData) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-600 to-indigo-700">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-xl max-w-md text-center">
-            <h2 className="text-2xl font-bold mb-4">História não encontrada</h2>
-            <p className="mb-6">Parece que não há nenhuma história para exibir. Crie uma nova história primeiro!</p>
-            <Button 
-              onClick={() => window.location.href = "/create-story"}
-              className="bg-storysnap-blue hover:bg-storysnap-blue/90"
-            >
-              Criar História
-            </Button>
+          <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
+            <div className="text-center mb-6">
+              <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-4">Problema ao carregar história</h2>
+              {loadError && (
+                <Alert variant="destructive" className="mb-6">
+                  <AlertTitle>Erro</AlertTitle>
+                  <AlertDescription>{loadError}</AlertDescription>
+                </Alert>
+              )}
+              <p className="mb-6 text-gray-600">
+                Tente criar uma nova história ou retorne à página inicial.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4">
+              <Button 
+                onClick={() => navigate("/create-story")}
+                className="bg-storysnap-blue hover:bg-storysnap-blue/90"
+              >
+                Criar Nova História
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => navigate("/")}
+              >
+                Voltar para o Início
+              </Button>
+            </div>
           </div>
         </div>
         <Footer />
@@ -501,7 +559,7 @@ const ViewStory = () => {
                         
                         <div className="border-t border-gray-200 pt-6 mt-4">
                           <Button 
-                            onClick={() => window.location.href = "/create-story"}
+                            onClick={() => navigate("/create-story")}
                             className="w-full py-6 bg-storysnap-blue hover:bg-storysnap-blue/90"
                           >
                             Criar Outra História

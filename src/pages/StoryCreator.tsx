@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +48,6 @@ const StoryCreator = () => {
   const [editTitle, setEditTitle] = useState("");
   const [bookGenerator, setBookGenerator] = useState<BookGenerationService | null>(null);
   
-  // Function to clear generation state
   const resetGenerationState = useCallback(() => {
     setProgress(0);
     setCurrentStage("preparando");
@@ -66,14 +64,12 @@ const StoryCreator = () => {
   }, []);
   
   useEffect(() => {
-    // Get story data from session storage
     const storedData = sessionStorage.getItem("create_story_data");
     if (storedData) {
       try {
         const parsedData = JSON.parse(storedData) as StoryInputData;
         setStoryData(parsedData);
         
-        // Start story generation process
         resetGenerationState();
         generateStoryContent(parsedData);
       } catch (error) {
@@ -86,9 +82,7 @@ const StoryCreator = () => {
       toast.error("Dados da história não encontrados. Por favor, comece novamente.");
     }
 
-    // Cleanup function to ensure we don't leave the page hanging
     return () => {
-      // If we navigate away, make sure we clean up any pending processes
       setIsGenerating(false);
       setCancelRequested(true);
       if (bookGenerator) {
@@ -112,7 +106,6 @@ const StoryCreator = () => {
     try {
       updateProgress("preparando", 10);
       
-      // Create the book generator service
       const generator = new BookGenerationService(
         data,
         updateProgress,
@@ -125,10 +118,8 @@ const StoryCreator = () => {
       
       setBookGenerator(generator);
       
-      // Start story generation
       updateProgress("gerando-historia", 20);
       
-      // Generate story content with full structure
       const storyResult = await generator.generateStoryContent();
       
       if (cancelRequested) return;
@@ -137,11 +128,12 @@ const StoryCreator = () => {
         throw new Error("Falha ao gerar o conteúdo da história");
       }
       
-      // After story generation, update state and show review screen
       setGeneratedStory(storyResult);
       updateProgress("revisao-historia", 50);
       setShowReview(true);
       setIsGenerating(false);
+      
+      console.log("Generated story content:", storyResult);
       
     } catch (error) {
       console.error("Error generating story:", error);
@@ -156,27 +148,37 @@ const StoryCreator = () => {
   };
   
   const continueWithImageGeneration = async () => {
-    if (!storyData || !generatedStory || !bookGenerator) return;
+    if (!storyData || !generatedStory || !bookGenerator) {
+      console.error("Missing required data for image generation", {
+        hasStoryData: !!storyData,
+        hasGeneratedStory: !!generatedStory,
+        hasBookGenerator: !!bookGenerator
+      });
+      return;
+    }
     
     setShowReview(false);
     setIsGenerating(true);
     
     try {
-      // Generate complete story with images
+      console.log("Starting image generation process...");
       const completeStory = await bookGenerator.generateCompleteStory();
       
-      if (cancelRequested || !completeStory) return;
+      if (cancelRequested || !completeStory) {
+        console.warn("Story generation cancelled or failed to create complete story");
+        return;
+      }
       
-      // Store complete story data in session storage
       updateProgress("finalizando", 95);
       
+      console.log("Storing complete story data in sessionStorage:", completeStory);
       sessionStorage.setItem("storyData", JSON.stringify(completeStory));
       
       updateProgress("concluido", 100);
       
-      // Wait a bit for the progress bar to complete
       setTimeout(() => {
         if (!cancelRequested) {
+          console.log("Navigation to view-story page");
           navigate("/view-story");
           toast.success("História gerada com sucesso!");
         }
@@ -242,7 +244,6 @@ const StoryCreator = () => {
       setCurrentStage("preparando");
       setCancelRequested(false);
       
-      // Add slight delay before retrying to ensure cleanup
       setTimeout(() => {
         generateStoryContent(storyData);
       }, 500);
