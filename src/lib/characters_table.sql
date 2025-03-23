@@ -44,6 +44,18 @@ BEGIN
         CREATE TRIGGER update_characters_updated_at
             BEFORE UPDATE ON public.characters
             FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+            
+        -- Insert predefined characters
+        INSERT INTO public.characters (name, description, personality, age, is_active)
+        VALUES 
+            ('Pingo, o Pinguim Inventor', 'Pinguim genial que cria bugigangas incríveis', 'Curioso, inteligente e sempre pensando em novas invenções', '8 anos', true),
+            ('Flora, a Fadinha das Flores', 'Fada encantadora que cuida do jardim mágico', 'Gentil, alegre e apaixonada pela natureza', '100 anos (mas parece 6)', true),
+            ('Rex, o Dinossauro Amigável', 'Dino gentil que adora fazer novos amigos', 'Extrovertido, brincalhão e um pouco desastrado', 'Pré-histórico', true),
+            ('Bolhas, o Peixinho Explorador', 'Peixinho curioso que desvenda mistérios oceânicos', 'Aventureiro, corajoso e muito falante', '5 anos', true),
+            ('Ziggy, o Dragão Colorido', 'Dragãozinho que muda de cor conforme seu humor', 'Emotivo, divertido e cheio de surpresas', '300 anos', true),
+            ('Mia, a Gatinha Astronauta', 'Gata corajosa que viaja pelas estrelas', 'Destemida, inteligente e sonhadora', '7 anos', true),
+            ('Tuck, a Tartaruga Sábia', 'Tartaruga milenar cheia de histórias e conselhos', 'Paciente, sábia e com grande senso de humor', '500 anos', true),
+            ('Zep, o Robozinho Curioso', 'Robô adorável que aprende sobre emoções humanas', 'Analítico, inocente e sempre fazendo perguntas', '2 anos', true);
     END IF;
 END;
 $$ LANGUAGE plpgsql;

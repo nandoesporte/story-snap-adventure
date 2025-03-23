@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Edit, Trash2, Plus } from "lucide-react";
+import { Edit, Trash2, Plus, Image } from "lucide-react";
 
 interface Character {
   id: string;
@@ -40,6 +40,12 @@ export const CharacterManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentCharacter, setCurrentCharacter] = useState<Partial<Character>>(defaultCharacter);
   const [isEditing, setIsEditing] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  // Force refetch when component mounts
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
+  }, [queryClient]);
 
   const { data: characters, isLoading } = useQuery({
     queryKey: ["admin-characters"],
@@ -72,6 +78,9 @@ export const CharacterManager = () => {
         return [];
       }
     },
+    staleTime: 0, // Don't cache the data
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const createCharacter = useMutation({
@@ -162,6 +171,50 @@ export const CharacterManager = () => {
     }
   });
 
+  const uploadImage = async (file: File): Promise<string> => {
+    setIsImageUploading(true);
+    try {
+      // Generate a unique file name to avoid conflicts
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `character-images/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('public')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL
+      const { data } = supabase.storage
+        .from('public')
+        .getPublicUrl(filePath);
+        
+      return data.publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer upload da imagem",
+        description: error.message || "Ocorreu um erro ao fazer upload da imagem",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsImageUploading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const imageUrl = await uploadImage(file);
+      setCurrentCharacter(prev => ({ ...prev, image_url: imageUrl }));
+    } catch (error) {
+      console.error("Error uploading image:", error);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setCurrentCharacter(prev => ({ ...prev, [name]: value }));
@@ -212,6 +265,12 @@ export const CharacterManager = () => {
     setIsDialogOpen(true);
   };
 
+  // Add timestamp to image URLs to prevent caching
+  const getImageUrl = (url?: string) => {
+    if (!url) return null;
+    return `${url}?t=${Date.now()}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -230,6 +289,7 @@ export const CharacterManager = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">Imagem</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Idade</TableHead>
                 <TableHead>Descrição</TableHead>
@@ -241,6 +301,19 @@ export const CharacterManager = () => {
             <TableBody>
               {characters.map((character) => (
                 <TableRow key={character.id}>
+                  <TableCell>
+                    {character.image_url ? (
+                      <img 
+                        src={getImageUrl(character.image_url)} 
+                        alt={character.name} 
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                        <Image className="h-5 w-5 text-gray-500" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{character.name}</TableCell>
                   <TableCell>{character.age}</TableCell>
                   <TableCell className="truncate max-w-xs">{character.description}</TableCell>
@@ -325,13 +398,33 @@ export const CharacterManager = () => {
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="image_url" className="text-sm font-medium">URL da Imagem</label>
+              <label htmlFor="image_upload" className="text-sm font-medium">Imagem do Personagem</label>
+              <div className="flex items-center space-x-4">
+                {currentCharacter.image_url && (
+                  <img 
+                    src={getImageUrl(currentCharacter.image_url)} 
+                    alt={currentCharacter.name || "Prévia"} 
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                )}
+                <div className="flex-1">
+                  <Input
+                    id="image_upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={isImageUploading}
+                  />
+                </div>
+              </div>
+              {isImageUploading && <p className="text-sm text-blue-500">Enviando imagem...</p>}
               <Input
                 id="image_url"
                 name="image_url"
                 value={currentCharacter.image_url || ""}
                 onChange={handleInputChange}
-                placeholder="https://example.com/imagem.jpg"
+                placeholder="ou insira a URL da imagem"
+                className="mt-2"
               />
             </div>
             
@@ -357,7 +450,7 @@ export const CharacterManager = () => {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" className="ml-2">
+              <Button type="submit" className="ml-2" disabled={isImageUploading}>
                 {isEditing ? "Atualizar" : "Criar"} Personagem
               </Button>
             </DialogFooter>
