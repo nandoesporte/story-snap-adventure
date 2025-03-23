@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import LoadingSpinner from "./LoadingSpinner";
 import StoryBotChat from "./StoryBotChat";
 import { useStoryBot } from "../hooks/useStoryBot";
+import { supabase } from "@/lib/supabase";
 
 type CreationStep = "photo" | "details" | "chat" | "generating";
 
@@ -21,6 +22,15 @@ type StoryPage = {
   imageUrl: string;
 };
 
+interface Character {
+  id: string;
+  name: string;
+  description: string;
+  personality: string;
+  image_url?: string;
+  generation_prompt?: string;
+}
+
 const StoryCreator = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<CreationStep>("photo");
@@ -29,11 +39,40 @@ const StoryCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage, convertImageToBase64 } = useStoryBot();
+  
+  // Fetch character data when formData changes
+  useEffect(() => {
+    const fetchCharacter = async () => {
+      if (formData?.characterId) {
+        try {
+          const { data, error } = await supabase
+            .from("characters")
+            .select("*")
+            .eq("id", formData.characterId)
+            .single();
+            
+          if (error) {
+            console.error("Error fetching character:", error);
+            return;
+          }
+          
+          setSelectedCharacter(data as Character);
+        } catch (error) {
+          console.error("Error fetching character:", error);
+        }
+      } else {
+        setSelectedCharacter(null);
+      }
+    };
+    
+    fetchCharacter();
+  }, [formData?.characterId]);
   
   useEffect(() => {
     if (step === "chat" && formData) {
-      const initialPrompt = `Olá StoryBot! Estou criando uma história para ${formData.childName}, que tem ${formData.childAge}. 
+      let initialPrompt = `Olá StoryBot! Estou criando uma história para ${formData.childName}, que tem ${formData.childAge}. 
       Gostaria de uma história com tema de "${formData.theme === 'adventure' ? 'Aventura' : 
       formData.theme === 'fantasy' ? 'Fantasia' : 
       formData.theme === 'space' ? 'Espaço' : 
@@ -44,11 +83,31 @@ const StoryCreator = () => {
         formData.setting === 'space' ? 'Espaço Sideral' : 
         formData.setting === 'underwater' ? 'Mundo Submarino' : 
         'Terra dos Dinossauros'
-      }". Pode me ajudar a criar uma história incrível?`;
+      }".`;
+      
+      // Add character information if available
+      if (selectedCharacter) {
+        initialPrompt += `\n\nGostaria que a história incluísse o personagem ${selectedCharacter.name}.`;
+        
+        if (selectedCharacter.description) {
+          initialPrompt += `\nDescrição do personagem: ${selectedCharacter.description}`;
+        }
+        
+        if (selectedCharacter.personality) {
+          initialPrompt += `\nPersonalidade: ${selectedCharacter.personality}`;
+        }
+        
+        // Add generation prompt if available
+        if (selectedCharacter.generation_prompt) {
+          initialPrompt += `\n\nInformações adicionais para geração da história: ${selectedCharacter.generation_prompt}`;
+        }
+      }
+      
+      initialPrompt += `\n\nPode me ajudar a criar uma história incrível?`;
       
       handleSendMessage(initialPrompt);
     }
-  }, [step, formData]);
+  }, [step, formData, selectedCharacter]);
   
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
@@ -105,13 +164,26 @@ const StoryCreator = () => {
     setIsGenerating(true);
     
     try {
-      const summaryPrompt = `Por favor, finalize nossa história sobre ${formData.childName} no cenário de ${
+      let summaryPrompt = `Por favor, finalize nossa história sobre ${formData.childName} no cenário de ${
         formData.setting === 'forest' ? 'Floresta Encantada' : 
         formData.setting === 'castle' ? 'Castelo Mágico' : 
         formData.setting === 'space' ? 'Espaço Sideral' : 
         formData.setting === 'underwater' ? 'Mundo Submarino' : 
         'Terra dos Dinossauros'
-      }. Crie uma história completa com início, meio e fim, dividida em 10 páginas incluindo uma moral. Use o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc. até "PAGINA 10:". Cada página deve ter apenas um parágrafo curto.`;
+      }. Crie uma história completa com início, meio e fim, dividida em 10 páginas incluindo uma moral.`;
+      
+      // Add character information to the final prompt
+      if (selectedCharacter) {
+        summaryPrompt += ` A história deve incluir o personagem ${selectedCharacter.name} com as seguintes características: 
+        ${selectedCharacter.description || ''} 
+        ${selectedCharacter.personality ? `Personalidade: ${selectedCharacter.personality}` : ''}`;
+        
+        if (selectedCharacter.generation_prompt) {
+          summaryPrompt += `\nUse as seguintes instruções específicas para criar a história: ${selectedCharacter.generation_prompt}`;
+        }
+      }
+      
+      summaryPrompt += `\n\nUse o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc. até "PAGINA 10:". Cada página deve ter apenas um parágrafo curto.`;
       
       const finalResponse = await generateStoryBotResponse(messages, summaryPrompt);
       
@@ -128,7 +200,7 @@ const StoryCreator = () => {
           formData.setting === 'space' ? 'o Espaço Sideral' : 
           formData.setting === 'underwater' ? 'um Mundo Submarino' : 
           'uma Terra dos Dinossauros'
-        }`,
+        }${selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''}`,
         formData.childName,
         formData.childAge,
         formData.theme,
@@ -151,7 +223,7 @@ const StoryCreator = () => {
       for (const pageText of storyContentWithPages.content) {
         // Gerar uma descrição detalhada da imagem baseada no texto da página
         const imageDescription = await generateImageDescription(
-          pageText,
+          pageText + (selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''),
           formData.childName,
           formData.childAge,
           formData.theme,
@@ -182,6 +254,8 @@ const StoryCreator = () => {
         childAge: formData.childAge,
         theme: formData.theme,
         setting: formData.setting,
+        characterId: formData.characterId,
+        characterName: selectedCharacter?.name,
         pages: pagesWithImages
       }));
       
@@ -294,7 +368,7 @@ const StoryCreator = () => {
                     <img src={imagePreview} alt="Criança" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div>
+                <div className="flex-1">
                   <p className="font-medium">Detalhes:</p>
                   <p className="text-sm text-slate-600">Nome: {formData?.childName}, Idade: {formData?.childAge}</p>
                   <p className="text-sm text-slate-600">Tema: {
@@ -310,6 +384,13 @@ const StoryCreator = () => {
                     formData?.setting === 'underwater' ? 'Mundo Submarino' : 
                     'Terra dos Dinossauros'
                   }</p>
+                  {selectedCharacter && (
+                    <div className="flex items-center mt-1">
+                      <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" /> Personagem: {selectedCharacter.name}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

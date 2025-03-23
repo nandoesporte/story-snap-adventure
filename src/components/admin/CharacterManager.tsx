@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Edit, Trash2, Plus, Image, AlertTriangle, RefreshCcw } from "lucide-react";
+import { Edit, Trash2, Plus, Image, AlertTriangle, RefreshCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import FileUpload from "@/components/FileUpload";
@@ -25,6 +25,7 @@ interface Character {
   is_active: boolean;
   created_at: string;
   creator_id?: string;
+  generation_prompt?: string;
 }
 
 const defaultCharacter: Omit<Character, 'id' | 'created_at'> = {
@@ -34,7 +35,8 @@ const defaultCharacter: Omit<Character, 'id' | 'created_at'> = {
   age: "",
   personality: "",
   is_premium: false,
-  is_active: true
+  is_active: true,
+  generation_prompt: ""
 };
 
 export const CharacterManager = () => {
@@ -69,8 +71,20 @@ export const CharacterManager = () => {
           is_active BOOLEAN DEFAULT true,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          creator_id UUID REFERENCES auth.users(id)
+          creator_id UUID REFERENCES auth.users(id),
+          generation_prompt TEXT
         );
+        
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'characters' AND column_name = 'generation_prompt'
+          ) THEN
+            ALTER TABLE public.characters ADD COLUMN generation_prompt TEXT;
+          END IF;
+        END
+        $$;
         
         DO $$
         BEGIN
@@ -188,7 +202,7 @@ export const CharacterManager = () => {
             is_premium BOOLEAN DEFAULT false,
             is_active BOOLEAN DEFAULT true,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME TIME DEFAULT NOW(),
             creator_id UUID REFERENCES auth.users(id)
           );
         `;
@@ -527,6 +541,7 @@ export const CharacterManager = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Idade</TableHead>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Prompt</TableHead>
                 <TableHead>Premium</TableHead>
                 <TableHead>Ativo</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
@@ -551,6 +566,16 @@ export const CharacterManager = () => {
                   <TableCell className="font-medium">{character.name}</TableCell>
                   <TableCell>{character.age}</TableCell>
                   <TableCell className="truncate max-w-xs">{character.description}</TableCell>
+                  <TableCell className="truncate max-w-xs">
+                    {character.generation_prompt ? (
+                      <div className="flex items-center">
+                        <Sparkles className="h-3 w-3 text-amber-500 mr-1" />
+                        <span className="text-xs">{character.generation_prompt.substring(0, 30)}...</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">Nenhum</span>
+                    )}
+                  </TableCell>
                   <TableCell>{character.is_premium ? "Sim" : "Não"}</TableCell>
                   <TableCell>{character.is_active ? "Sim" : "Não"}</TableCell>
                   <TableCell>
@@ -650,6 +675,21 @@ export const CharacterManager = () => {
                 placeholder="Personalidade do personagem"
                 rows={2}
               />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="generation_prompt" className="text-sm font-medium flex items-center gap-2">
+                Prompt para Geração <Sparkles className="h-4 w-4 text-amber-500" />
+              </label>
+              <Textarea
+                id="generation_prompt"
+                name="generation_prompt"
+                value={currentCharacter.generation_prompt || ""}
+                onChange={handleInputChange}
+                placeholder="Prompt para gerar imagens ou histórias com este personagem"
+                rows={3}
+              />
+              <p className="text-xs text-gray-500">Este prompt será utilizado na geração de histórias como referência para o personagem.</p>
             </div>
             
             <div className="space-y-2">
