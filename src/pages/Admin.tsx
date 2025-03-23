@@ -9,6 +9,7 @@ import { StoryManager } from "@/components/admin/StoryManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { CharacterManager } from "@/components/admin/CharacterManager";
+import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -189,6 +190,7 @@ const Admin = () => {
             <TabsTrigger value="characters">Personagens</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="themes">Temas e Configurações</TabsTrigger>
+            <TabsTrigger value="storybot">StoryBot</TabsTrigger>
           </TabsList>
           <TabsContent value="stories" className="mt-4">
             <StoryManager />
@@ -201,6 +203,9 @@ const Admin = () => {
           </TabsContent>
           <TabsContent value="themes" className="mt-4">
             <ThemeManager initialPageContents={indexPageContents || []} />
+          </TabsContent>
+          <TabsContent value="storybot" className="mt-4">
+            <StoryBotPromptManager />
           </TabsContent>
         </Tabs>
       </div>
