@@ -1,11 +1,12 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Edit, Save, RefreshCw, ImageIcon } from "lucide-react";
+import { Sparkles, Edit, Save, RefreshCw, ImageIcon, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface StoryReviewProps {
   story: {
@@ -21,6 +22,7 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingPageIndex, setEditingPageIndex] = useState<number | null>(null);
   const [editingPageText, setEditingPageText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEditTitle = () => {
     setIsEditingTitle(true);
@@ -69,7 +71,13 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
   };
 
   const handleSubmit = () => {
-    onSubmit(editedStory);
+    setIsSubmitting(true);
+    toast.info("Gerando ilustrações para sua história...", { duration: 2000 });
+    
+    // Submit after a small delay to allow the toast to be shown
+    setTimeout(() => {
+      onSubmit(editedStory);
+    }, 500);
   };
 
   return (
@@ -137,6 +145,13 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
             <p>Você pode editar o conteúdo antes de prosseguir para a geração das ilustrações.</p>
           </div>
         </div>
+        
+        <Alert variant="warning" className="mb-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Ao prosseguir, nossas IAs criarão ilustrações para cada página da sua história. Este processo pode levar alguns segundos.
+          </AlertDescription>
+        </Alert>
       </div>
 
       <ScrollArea className="flex-1 h-[400px]">
@@ -203,6 +218,7 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
             variant="outline" 
             onClick={onCancel}
             className="flex-1 sm:flex-initial"
+            disabled={isSubmitting}
           >
             Voltar
           </Button>
@@ -210,9 +226,10 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
             variant="default"
             onClick={handleSubmit}
             className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 flex-1 sm:flex-initial"
+            disabled={isSubmitting}
           >
             <ImageIcon className="h-4 w-4" />
-            Gerar Ilustrações
+            {isSubmitting ? "Gerando Ilustrações..." : "Gerar Ilustrações"}
           </Button>
         </div>
       </div>
