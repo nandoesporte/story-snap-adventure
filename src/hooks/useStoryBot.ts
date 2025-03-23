@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +12,8 @@ type Message = {
 
 // Leonardo AI API key (this is just for testing - in production, use environment variables)
 const LEONARDO_API_KEY = "02e45c13-5abe-4962-9c58-670683e91be0";
+// Fixed OpenAI API key - in production, this should be handled securely through env variables
+const OPENAI_API_KEY = "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";
 
 export const useStoryBot = () => {
   const { user } = useAuth();
@@ -19,7 +22,6 @@ export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState(true);
   const MAX_RETRIES = 2;
   const API_TIMEOUT = 30000; // Increased to 30 seconds
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
     setIsGenerating(true);
