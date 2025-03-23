@@ -38,7 +38,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
     return content ? content.content : defaultValue;
   };
 
-  // Default image if none provided
+  // Default image if none provided - only set after heroContents is loaded
   const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png");
   const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
 
@@ -121,29 +121,31 @@ const Hero = ({ customImageUrl }: HeroProps) => {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="w-full md:w-1/2 flex justify-center items-center relative z-0"
           >
-            <div className="relative w-full max-w-lg">
-              <img 
-                src={heroImage}
-                alt={imageAlt}
-                className="w-full h-auto z-10 drop-shadow-xl"
-              />
-              
-              {/* Animated elements */}
-              <motion.div
-                className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
-                animate={{
-                  y: [0, -15, 0],
-                  rotate: [0, 5, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <Wand2 className="w-full h-full" />
-              </motion.div>
-            </div>
+            {heroImage && (
+              <div className="relative w-full max-w-lg">
+                <img 
+                  src={heroImage}
+                  alt={imageAlt}
+                  className="w-full h-auto z-10 drop-shadow-xl"
+                />
+                
+                {/* Animated elements */}
+                <motion.div
+                  className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
+                  animate={{
+                    y: [0, -15, 0],
+                    rotate: [0, 5, 0],
+                  }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Wand2 className="w-full h-full" />
+                </motion.div>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
