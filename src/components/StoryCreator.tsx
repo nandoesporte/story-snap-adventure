@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Sparkles } from "lucide-react";
 import FileUpload from "./FileUpload";
 import StoryForm, { StoryFormData } from "./StoryForm";
 import { toast } from "sonner";
