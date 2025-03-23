@@ -224,9 +224,12 @@ export const CharacterManager = () => {
           `;
           
           // Attempt to create RLS policies, but don't fail if it doesn't work
-          await supabase.rpc('exec', { sql: rlsPolicies }).catch(err => {
+          // FIX: Use a try-catch block instead of .catch() on the PostgrestBuilder
+          try {
+            await supabase.rpc('exec', { sql: rlsPolicies });
+          } catch (err) {
             console.warn("Couldn't create RLS policies, but table was created:", err);
-          });
+          }
           
           queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
         }
