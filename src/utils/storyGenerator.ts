@@ -1,5 +1,6 @@
+
 import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 // Extended interface with new parameters
 interface StoryGenerationParams {
