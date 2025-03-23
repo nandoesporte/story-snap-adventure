@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -48,7 +51,7 @@ type StoryFormData = {
   settingName: string;
   length: string;
   style: string;
-  characterId: number;
+  characterId: string;
   readingLevel: string;
   language: string;
   audio: string;
@@ -58,19 +61,18 @@ type StoryFormData = {
   pages: string;
 };
 
-// Personagens pré-estabelecidos
-const characters = [
-  { id: 1, name: "Luna, a Coelha Aventureira", image: "/placeholder.svg", description: "Coelha curiosa que adora explorar florestas mágicas" },
-  { id: 2, name: "Leo, o Leãozinho Corajoso", image: "/placeholder.svg", description: "Pequeno leão que enfrenta seus medos com bravura" },
-  { id: 3, name: "Pingo, o Pinguim Inventor", image: "/placeholder.svg", description: "Pinguim genial que cria bugigangas incríveis" },
-  { id: 4, name: "Flora, a Fadinha das Flores", image: "/placeholder.svg", description: "Fada encantadora que cuida do jardim mágico" },
-  { id: 5, name: "Rex, o Dinossauro Amigável", image: "/placeholder.svg", description: "Dino gentil que adora fazer novos amigos" },
-  { id: 6, name: "Bolhas, o Peixinho Explorador", image: "/placeholder.svg", description: "Peixinho curioso que desvenda mistérios oceânicos" },
-  { id: 7, name: "Ziggy, o Dragão Colorido", image: "/placeholder.svg", description: "Dragãozinho que muda de cor conforme seu humor" },
-  { id: 8, name: "Mia, a Gatinha Astronauta", image: "/placeholder.svg", description: "Gata corajosa que viaja pelas estrelas" },
-  { id: 9, name: "Tuck, a Tartaruga Sábia", image: "/placeholder.svg", description: "Tartaruga milenar cheia de histórias e conselhos" },
-  { id: 10, name: "Zep, o Robozinho Curioso", image: "/placeholder.svg", description: "Robô adorável que aprende sobre emoções humanas" }
-];
+// Character interface for database
+interface Character {
+  id: string;
+  name: string;
+  description: string;
+  image_url?: string;
+  generation_prompt?: string;
+  age?: string;
+  personality?: string;
+  is_premium?: boolean;
+  is_active?: boolean;
+}
 
 // Available options
 const themes = [
@@ -143,7 +145,7 @@ type StoryPage = {
 const StoryCreationFlow = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>("character");
-  const [selectedCharacter, setSelectedCharacter] = useState<number | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData>({
     childName: "",
@@ -154,7 +156,7 @@ const StoryCreationFlow = () => {
     settingName: "Floresta Encantada",
     length: "medium",
     style: "cartoon",
-    characterId: 0,
+    characterId: "",
     readingLevel: "beginner",
     language: "pt-BR",
     audio: "none",
@@ -168,16 +170,37 @@ const StoryCreationFlow = () => {
   
   const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage } = useStoryBot();
 
-  const handleCharacterSelect = (characterId: number) => {
-    const character = characters.find(c => c.id === characterId);
+  // Fetch characters from the database
+  const { data: characters, isLoading: isLoadingCharacters } = useQuery({
+    queryKey: ["characters-for-story"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("characters")
+        .select("id, name, description, generation_prompt, image_url, age, personality")
+        .eq("is_active", true)
+        .order("name");
+        
+      if (error) {
+        console.error("Error fetching characters:", error);
+        return [] as Character[];
+      }
+      
+      return data as Character[];
+    },
+    staleTime: 60000, // 1 minute
+  });
+
+  const handleCharacterSelect = (characterId: string) => {
+    const character = characters?.find(c => c.id === characterId);
     if (character) {
       setSelectedCharacter(characterId);
-      setImagePreview(character.image);
+      setImagePreview(character.image_url || "/placeholder.svg");
       setFormData(prev => ({ 
         ...prev, 
         characterId: characterId,
-        childName: character.name.split(",")[0], // Use o primeiro nome do personagem
-        characterDescription: character.description
+        childName: character.name.split(",")[0], // Use the first name of the character
+        childAge: character.age || "",
+        characterDescription: character.description || ""
       }));
     }
   };
@@ -464,27 +487,48 @@ const StoryCreationFlow = () => {
               <p className="text-slate-500 mt-2">Selecione um personagem para ser o protagonista da história</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {characters.map((character) => (
-                <div 
-                  key={character.id}
-                  className={`story-option-card flex cursor-pointer transition-all ${selectedCharacter === character.id ? 'ring-2 ring-violet-500 bg-violet-50' : 'hover:bg-slate-50'}`}
-                  onClick={() => handleCharacterSelect(character.id)}
-                >
-                  <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0 bg-slate-200">
-                    <img 
-                      src={character.image} 
-                      alt={character.name}
-                      className="w-full h-full object-cover" 
-                    />
+            {isLoadingCharacters ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner size="md" />
+                <span className="ml-3 text-slate-500">Carregando personagens...</span>
+              </div>
+            ) : characters && characters.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {characters.map((character) => (
+                  <div 
+                    key={character.id}
+                    className={`story-option-card flex cursor-pointer transition-all ${selectedCharacter === character.id ? 'ring-2 ring-violet-500 bg-violet-50' : 'hover:bg-slate-50'}`}
+                    onClick={() => handleCharacterSelect(character.id)}
+                  >
+                    <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0 bg-slate-200">
+                      <img 
+                        src={character.image_url || "/placeholder.svg"} 
+                        alt={character.name}
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{character.name}</h4>
+                      <p className="text-sm text-slate-500">{character.description}</p>
+                      {character.generation_prompt && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-amber-500" />
+                          <span className="text-xs text-amber-600">Prompt disponível</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium">{character.name}</h4>
-                    <p className="text-sm text-slate-500">{character.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-slate-500">Nenhum personagem encontrado. Peça ao administrador para criar personagens.</p>
+              </div>
+            )}
             
             <div className="flex justify-end mt-6">
               <Button
