@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wand2, BookOpen, Globe, Award } from "lucide-react";
+import { Wand2, BookOpen, Globe, Award, ImageIcon } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface StoryBotPrompt {
   id: string;
@@ -42,7 +43,25 @@ Ajuste a complexidade do vocabulário e das sentenças de acordo com o nível de
 - Intermediário (7-9 anos): Frases mais elaboradas, vocabulário moderado
 - Avançado (10-12 anos): Estruturas mais complexas, vocabulário rico
 
+Para as imagens, forneça descrições visuais detalhadas após cada página da história. Estas descrições serão usadas pelo sistema Leonardo AI para gerar ilustrações. As descrições devem:
+1. Capturar o momento principal daquela parte da história
+2. Incluir detalhes sobre expressões dos personagens, cores, ambiente e ação
+3. Ser específicas sobre elementos visuais importantes
+4. Evitar elementos abstratos difíceis de representar visualmente
+5. Ter aproximadamente 100-150 palavras
+
 IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.`);
+
+  const [imagePromptTemplate] = useState<string>(`Crie ilustrações para um livro infantil no estilo {estilo_visual}, com um visual colorido, encantador e adequado para crianças. O protagonista da história é {personagem}, e cada imagem deve representar fielmente a cena descrita no texto. O cenário principal será {cenario}, que deve ser detalhado de forma vibrante e mágica. As ilustrações devem expressar emoções, ação e aventura, transmitindo a essência da história de forma visualmente envolvente. Garanta que os elementos do ambiente, cores e expressões dos personagens estejam bem definidos e alinhados ao tom infantil da narrativa.
+
+Texto da cena: "{texto_da_pagina}"
+
+Elementos importantes:
+- Personagem principal: {personagem}, {idade} anos
+- Cenário: {cenario}
+- Tema: {tema}
+- Estilo visual: {estilo_visual}
+- Tom: mágico, encantador, infantil`);
 
   // Query to fetch the current StoryBot prompt - now simplified to handle errors better
   const { data: promptData, isLoading } = useQuery({
@@ -169,17 +188,23 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
   const form = useForm({
     defaultValues: {
       prompt: promptData?.prompt || defaultPrompt,
+      imagePrompt: imagePromptTemplate,
     },
   });
 
   // Update form values when data is loaded
   useEffect(() => {
     if (promptData) {
-      form.reset({ prompt: promptData.prompt });
+      form.reset({ 
+        prompt: promptData.prompt,
+        imagePrompt: imagePromptTemplate, 
+      });
     }
-  }, [promptData, form]);
+  }, [promptData, form, imagePromptTemplate]);
 
-  const handleSubmit = (data: { prompt: string }) => {
+  const handleSubmit = (data: { prompt: string, imagePrompt: string }) => {
+    // We're currently only saving the main prompt to the database
+    // The image prompt template is provided as a reference
     updatePromptMutation.mutate(data.prompt);
   };
 
@@ -200,7 +225,7 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
           Configuração do StoryBot
         </CardTitle>
         <CardDescription>
-          Defina o prompt principal que orienta o comportamento do StoryBot ao gerar histórias infantis.
+          Defina o prompt principal que orienta o comportamento do StoryBot ao gerar histórias infantis e suas ilustrações.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -209,33 +234,67 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
             <BookOpen className="h-4 w-4 text-violet-500" />
             <Globe className="h-4 w-4 text-violet-500" />
             <Award className="h-4 w-4 text-violet-500" />
+            <ImageIcon className="h-4 w-4 text-violet-500" />
           </div>
           <AlertTitle>Novos recursos disponíveis</AlertTitle>
           <AlertDescription>
-            O StoryBot agora suporta configurações adicionais como nível de leitura, idioma e moral da história. 
-            Certifique-se de que o prompt incorpore essas novas funcionalidades.
+            O StoryBot agora suporta configurações adicionais como nível de leitura, idioma, moral da história, e integração com Leonardo AI para geração de ilustrações personalizadas.
           </AlertDescription>
         </Alert>
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Prompt do StoryBot</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Insira o prompt de sistema para o StoryBot..."
-                      className="min-h-[300px] font-mono text-sm"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <Tabs defaultValue="story">
+              <TabsList className="mb-4">
+                <TabsTrigger value="story">Prompt de História</TabsTrigger>
+                <TabsTrigger value="image">Template de Imagem</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="story">
+                <FormField
+                  control={form.control}
+                  name="prompt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prompt do StoryBot para Histórias</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Insira o prompt de sistema para o StoryBot..."
+                          className="min-h-[400px] font-mono text-sm"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+              
+              <TabsContent value="image">
+                <FormField
+                  control={form.control}
+                  name="imagePrompt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template para Geração de Ilustrações (Leonardo AI)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Insira o template para geração de ilustrações..."
+                          className="min-h-[400px] font-mono text-sm"
+                          {...field}
+                          disabled
+                        />
+                      </FormControl>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Este é o template de referência usado para a geração de ilustrações com Leonardo AI. 
+                        As variáveis entre chaves são substituídas pelos dados fornecidos pelo usuário.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
             
             <div className="flex justify-end">
               <Button 
@@ -251,7 +310,7 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
                 ) : (
                   <>
                     <Wand2 className="h-4 w-4" />
-                    <span>Salvar Prompt</span>
+                    <span>Salvar Configurações</span>
                   </>
                 )}
               </Button>
@@ -262,4 +321,3 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
     </Card>
   );
 };
-

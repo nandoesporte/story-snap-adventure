@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import StoryReview from "@/components/StoryReview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/lib/supabase";
 
 type StoryPage = {
   text: string;
@@ -54,6 +56,7 @@ const StoryCreator = () => {
   const [editingPage, setEditingPage] = useState<number | null>(null);
   const [editPageText, setEditPageText] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [characterDetails, setCharacterDetails] = useState<any>(null);
   
   // Function to clear generation state
   const resetGenerationState = useCallback(() => {
@@ -79,6 +82,11 @@ const StoryCreator = () => {
         const parsedData = JSON.parse(storedData);
         setStoryData(parsedData);
         
+        // Fetch character details if a character ID is provided
+        if (parsedData.characterId) {
+          fetchCharacterDetails(parsedData.characterId);
+        }
+        
         // Start story generation process
         resetGenerationState();
         generateStoryContent(parsedData);
@@ -99,6 +107,27 @@ const StoryCreator = () => {
       setCancelRequested(true);
     };
   }, [navigate, resetGenerationState]);
+  
+  // Fetch character details
+  const fetchCharacterDetails = async (characterId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("characters")
+        .select("*")
+        .eq("id", characterId)
+        .single();
+        
+      if (error) {
+        console.error("Error fetching character details:", error);
+        return;
+      }
+      
+      setCharacterDetails(data);
+      console.log("Character details loaded:", data);
+    } catch (error) {
+      console.error("Error in character fetch:", error);
+    }
+  };
   
   const updateProgress = (stage: string, percent: number) => {
     if (cancelRequested) return;
@@ -188,6 +217,10 @@ const StoryCreator = () => {
       updateProgress("gerando-capa", 60);
       const childImageBase64 = storyData.imagePreview || null;
       
+      // Get character generation prompt if available
+      const characterPrompt = characterDetails?.generation_prompt || null;
+      console.log("Using character prompt for image generation:", characterPrompt);
+      
       let coverImageUrl;
       try {
         coverImageUrl = await generateCoverImage(
@@ -195,7 +228,9 @@ const StoryCreator = () => {
           storyData.childName,
           storyData.theme,
           storyData.setting,
-          childImageBase64
+          childImageBase64,
+          storyData.style || "cartoon",
+          characterPrompt
         );
       } catch (error) {
         console.error("Failed to generate cover image:", error);
@@ -220,12 +255,9 @@ const StoryCreator = () => {
         const progressPercent = 70 + Math.floor((i / generatedStory.content.length) * 20);
         updateProgress(`ilustracao-${i+1}`, progressPercent);
         
-        let imageDescription = "";
-        let imageUrl = "";
-        
         try {
           // Generate image description
-          imageDescription = await generateImageDescription(
+          const imageDescription = await generateImageDescription(
             pageText + (storyData.characterName ? ` com o personagem ${storyData.characterName}` : ''),
             storyData.childName,
             storyData.childAge,
@@ -235,28 +267,35 @@ const StoryCreator = () => {
           
           if (cancelRequested) return;
           
-          // Generate image based on description
-          imageUrl = await generateImage(
+          // Generate image based on description with character prompt
+          const imageUrl = await generateImage(
             imageDescription,
             storyData.childName,
             storyData.theme,
             storyData.setting,
-            childImageBase64
+            childImageBase64,
+            storyData.style || "cartoon",
+            characterPrompt
           );
+          
+          pagesWithImages.push({
+            text: pageText,
+            imageUrl: imageUrl
+          });
         } catch (error) {
           console.error("Failed to generate page image:", error);
           
           if (cancelRequested) return;
           
           // Use fallback image based on theme
-          imageUrl = `/images/placeholders/${storyData.theme}.jpg`;
+          const fallbackUrl = `/images/placeholders/${storyData.theme}.jpg`;
           toast.warning(`Falha ao gerar ilustração para página ${i+1}. Usando imagem padrão.`);
+          
+          pagesWithImages.push({
+            text: pageText,
+            imageUrl: fallbackUrl
+          });
         }
-        
-        pagesWithImages.push({
-          text: pageText,
-          imageUrl: imageUrl
-        });
       }
       
       if (cancelRequested) return;

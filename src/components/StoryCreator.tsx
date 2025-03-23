@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -177,7 +178,7 @@ const StoryCreator = () => {
       let storyData;
       
       try {
-        const openaiApiKey = "sk-dummy-key";
+        const openaiApiKey = "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";
         storyData = await generateStoryWithGPT4({
           childName: formData.childName,
           childAge: formData.childAge,
@@ -211,12 +212,15 @@ const StoryCreator = () => {
       
       let coverImageUrl;
       try {
+        // Pass the character generation prompt to the cover image generation
         coverImageUrl = await generateCoverImage(
           storyContentWithPages.title,
           formData.childName,
           formData.theme,
           formData.setting,
-          childImageBase64
+          childImageBase64,
+          "cartoon",
+          selectedCharacter?.generation_prompt || null
         );
       } catch (error) {
         console.error("Failed to generate cover image:", error);
@@ -238,12 +242,15 @@ const StoryCreator = () => {
             formData.setting
           );
           
+          // Pass the character generation prompt to the image generation
           imageUrl = await generateImage(
             imageDescription,
             formData.childName,
             formData.theme,
             formData.setting,
-            childImageBase64
+            childImageBase64,
+            "cartoon",
+            selectedCharacter?.generation_prompt || null
           );
         } catch (error) {
           console.error("Failed to generate page image:", error);

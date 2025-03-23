@@ -41,10 +41,15 @@ Ajuste a complexidade do vocabulário e das sentenças de acordo com o nível de
 - Intermediário (7-9 anos): Frases mais elaboradas, vocabulário moderado
 - Avançado (10-12 anos): Estruturas mais complexas, vocabulário rico
 
+Para as imagens, forneça descrições visuais detalhadas após cada página da história. Estas descrições serão usadas pelo sistema Leonardo AI para gerar ilustrações. As descrições devem:
+1. Capturar o momento principal daquela parte da história
+2. Incluir detalhes sobre expressões dos personagens, cores, ambiente e ação
+3. Ser específicas sobre elementos visuais importantes
+4. Evitar elementos abstratos difíceis de representar visualmente
+5. Ter aproximadamente 100-150 palavras
+
 IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.'
     );
   END IF;
 END;
 $$ LANGUAGE plpgsql;
-
-

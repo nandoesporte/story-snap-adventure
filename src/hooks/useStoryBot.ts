@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +8,9 @@ type Message = {
   role: "user" | "assistant";
   content: string;
 };
+
+// Leonardo AI API key
+const LEONARDO_API_KEY = "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";
 
 export const useStoryBot = () => {
   const { user } = useAuth();
@@ -166,17 +168,18 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
     }
   };
   
-  // Generate an image for a story page based on description
+  // Generate an image for a story page based on description using Leonardo AI
   const generateImage = async (
     imageDescription: string,
     childName: string,
     theme: string,
     setting: string,
     childImageBase64: string | null,
-    style: string = "cartoon"
+    style: string = "cartoon",
+    characterPrompt: string | null = null
   ) => {
     try {
-      console.log("Generating image with description:", imageDescription);
+      console.log("Generating image with Leonardo AI:", imageDescription);
       
       // If API was previously marked as unavailable, return a themed placeholder
       if (!apiAvailable) {
@@ -191,7 +194,68 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
         return themeImages[theme as keyof typeof themeImages] || "https://via.placeholder.com/600x400?text=Story+Image";
       }
       
-      // For now, return a themed placeholder until Runware integration is implemented
+      // Enhance the prompt with character-specific details if available
+      let fullPrompt = imageDescription;
+      if (characterPrompt) {
+        fullPrompt = `${imageDescription}\n\nPersonagem: ${characterPrompt}`;
+      }
+      
+      // Leonardo AI Integration
+      try {
+        const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${LEONARDO_API_KEY}`
+          },
+          body: JSON.stringify({
+            prompt: fullPrompt,
+            modelId: "e316348f-7773-490e-adcd-46757c738eb7", // Dreamshaper v7 model
+            width: 768,
+            height: 512,
+            num_images: 1,
+            public: false,
+            promptMagic: true,
+            promptMagicVersion: "v2",
+            alchemy: true,
+            contrastRatio: 0.5,
+            expandedDomain: true,
+            guidanceScale: 7,
+            negativePrompt: "poorly drawn faces, poorly drawn hands, poorly drawn feet, poorly drawn legs, distorted, ugly, blurry, low quality",
+            nsfw: false,
+            photoReal: false,
+            presetStyle: "LEONARDO"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Leonardo AI API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Leonardo AI generation response:", data);
+        
+        // Check if we need to wait for generation to complete
+        if (data.sdGenerationJob && data.sdGenerationJob.generationId) {
+          const generationId = data.sdGenerationJob.generationId;
+          
+          // Poll for generated images
+          const imageUrl = await pollForGeneratedImages(generationId);
+          return imageUrl;
+        } else {
+          throw new Error("No generation ID returned from Leonardo AI");
+        }
+      } catch (error) {
+        console.error("Leonardo AI generation error:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+      setApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
+      localStorage.setItem("storybot_api_issue", "true");
+      
+      // Fallback to themed placeholders
       const themeImages = {
         adventure: "/images/placeholders/adventure.jpg",
         fantasy: "/images/placeholders/fantasy.jpg",
@@ -200,25 +264,69 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
         dinosaurs: "/images/placeholders/dinosaurs.jpg"
       };
       
-      return themeImages[theme as keyof typeof themeImages] || "https://via.placeholder.com/600x400?text=Story+Image";
-    } catch (error) {
-      console.error("Error generating image:", error);
-      setApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
-      localStorage.setItem("storybot_api_issue", "true");
-      
-      return "/placeholder.svg";
+      return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
     }
   };
   
-  // Generate a cover image for the story
+  // Poll Leonardo AI for generated images
+  const pollForGeneratedImages = async (generationId: string, maxAttempts = 30, delayMs = 2000): Promise<string> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        console.log(`Polling Leonardo AI for generation results (attempt ${attempt + 1}/${maxAttempts})`);
+        
+        const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${LEONARDO_API_KEY}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Leonardo AI API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Poll response:", data);
+        
+        // Check if generation is complete
+        if (data.generations_by_pk && data.generations_by_pk.status === "COMPLETE") {
+          // Get the first generated image URL
+          if (data.generations_by_pk.generated_images && data.generations_by_pk.generated_images.length > 0) {
+            return data.generations_by_pk.generated_images[0].url;
+          } else {
+            throw new Error("No generated images found");
+          }
+        } else if (data.generations_by_pk && data.generations_by_pk.status === "FAILED") {
+          throw new Error("Image generation failed");
+        }
+        
+        // Wait before polling again
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } catch (error) {
+        console.error(`Polling error (attempt ${attempt + 1}/${maxAttempts}):`, error);
+        
+        // For the last attempt, throw the error
+        if (attempt === maxAttempts - 1) {
+          throw error;
+        }
+        
+        // Otherwise wait and try again
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    
+    throw new Error("Max polling attempts reached");
+  };
+  
+  // Generate a cover image for the story using Leonardo AI
   const generateCoverImage = async (
     title: string,
     childName: string,
     theme: string,
     setting: string,
     childImageBase64: string | null,
-    style: string = "cartoon"
+    style: string = "cartoon",
+    characterPrompt: string | null = null
   ) => {
     try {
       console.log("Generating cover image for title:", title);
@@ -236,7 +344,70 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
         return themeCovers[theme as keyof typeof themeCovers] || `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
       }
       
-      // For now, return a themed placeholder until Runware integration is implemented
+      // Create a detailed cover image prompt
+      let coverPrompt = `Crie uma ilustração de capa para um livro infantil intitulado "${title}". A capa deve ser colorida, mágica e atraente para crianças, apresentando o protagonista ${childName} em um cenário de ${setting} com tema de ${theme}. A ilustração deve ter cores vibrantes, um estilo ${style} encantador, e capturar a essência da aventura.`;
+      
+      // Add character-specific details if available
+      if (characterPrompt) {
+        coverPrompt = `${coverPrompt}\n\nPersonagem: ${characterPrompt}`;
+      }
+      
+      // Leonardo AI Integration for cover
+      try {
+        const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${LEONARDO_API_KEY}`
+          },
+          body: JSON.stringify({
+            prompt: coverPrompt,
+            modelId: "e316348f-7773-490e-adcd-46757c738eb7", // Dreamshaper v7 model
+            width: 832,
+            height: 512,
+            num_images: 1,
+            public: false,
+            promptMagic: true,
+            promptMagicVersion: "v2",
+            alchemy: true,
+            contrastRatio: 0.5,
+            expandedDomain: true,
+            guidanceScale: 7,
+            negativePrompt: "poorly drawn faces, poorly drawn hands, distorted, ugly, blurry, low quality",
+            nsfw: false,
+            photoReal: false,
+            presetStyle: "LEONARDO"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Leonardo AI API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Leonardo AI cover generation response:", data);
+        
+        // Check if we need to wait for generation to complete
+        if (data.sdGenerationJob && data.sdGenerationJob.generationId) {
+          const generationId = data.sdGenerationJob.generationId;
+          
+          // Poll for generated images
+          const coverUrl = await pollForGeneratedImages(generationId);
+          return coverUrl;
+        } else {
+          throw new Error("No generation ID returned from Leonardo AI");
+        }
+      } catch (error) {
+        console.error("Leonardo AI cover generation error:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error generating cover image:", error);
+      setApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
+      localStorage.setItem("storybot_api_issue", "true");
+      
+      // Fallback to themed cover placeholders
       const themeCovers = {
         adventure: "/images/covers/adventure.jpg",
         fantasy: "/images/covers/fantasy.jpg",
@@ -245,14 +416,7 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
         dinosaurs: "/images/covers/dinosaurs.jpg"
       };
       
-      return themeCovers[theme as keyof typeof themeCovers] || `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
-    } catch (error) {
-      console.error("Error generating cover image:", error);
-      setApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
-      localStorage.setItem("storybot_api_issue", "true");
-      
-      return "/placeholder.svg";
+      return themeCovers[theme as keyof typeof themeCovers] || `/placeholder.svg`;
     }
   };
   
