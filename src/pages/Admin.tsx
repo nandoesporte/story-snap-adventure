@@ -2,19 +2,22 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
-import StoryManager from "@/components/admin/StoryManager";
-import UserManager from "@/components/admin/UserManager";
-import CharacterManager from "@/components/admin/CharacterManager";
-import ThemeManager from "@/components/admin/ThemeManager";
-import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
+import { StoryManager } from "@/components/admin/StoryManager";
+import { UserManager } from "@/components/admin/UserManager";
+import { CharacterManager } from "@/components/admin/CharacterManager";
+import { ThemeManager } from "@/components/admin/ThemeManager";
+import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const Admin = () => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("stories");
+  
+  // Check if user is admin by checking the localStorage for the admin role
+  const isAdmin = user && localStorage.getItem('user_role') === 'admin';
 
   // Redirect non-admin users
   React.useEffect(() => {
