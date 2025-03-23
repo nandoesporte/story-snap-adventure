@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -10,8 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Edit, Trash2, Plus, Image } from "lucide-react";
+import { Edit, Trash2, Plus, Image, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Character {
   id: string;
@@ -43,6 +43,7 @@ export const CharacterManager = () => {
   const [currentCharacter, setCurrentCharacter] = useState<Partial<Character>>(defaultCharacter);
   const [isEditing, setIsEditing] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { user } = useAuth();
 
   // Force refetch when component mounts
@@ -50,29 +51,46 @@ export const CharacterManager = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
   }, [queryClient]);
 
-  const { data: characters, isLoading } = useQuery({
+  const { data: characters, isLoading, error: queryError } = useQuery({
     queryKey: ["admin-characters"],
     queryFn: async () => {
       try {
+        setErrorMessage(null);
+        
         // First, try to create the characters table if it doesn't exist
         try {
+          console.log("Attempting to create characters table if it doesn't exist...");
           const { error: createError } = await supabase.rpc('create_characters_table_if_not_exists');
-          if (createError && !createError.message.includes('does not exist')) {
-            console.warn("Error creating characters table:", createError);
+          if (createError) {
+            console.error("Error creating characters table:", createError);
+            setErrorMessage(`Erro ao criar tabela de personagens: ${createError.message}`);
+            // Continue to try to fetch data even if table creation failed
+          } else {
+            console.log("Characters table check/creation completed");
           }
-        } catch (err) {
-          console.warn("Error calling create_characters_table_if_not_exists:", err);
+        } catch (err: any) {
+          console.error("Error calling create_characters_table_if_not_exists:", err);
+          setErrorMessage(`Erro ao verificar tabela de personagens: ${err.message || err}`);
+          // Continue to try to fetch data even if function call failed
         }
         
+        console.log("Fetching characters data...");
         const { data, error } = await supabase
           .from("characters")
           .select("*")
           .order("name");
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching characters:", error);
+          setErrorMessage(`Erro ao buscar personagens: ${error.message}`);
+          throw error;
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} characters`);
         return data as Character[];
       } catch (error: any) {
-        console.error("Error fetching characters:", error);
+        console.error("Error in query function:", error);
+        setErrorMessage(`Erro ao carregar personagens: ${error.message || "Ocorreu um erro desconhecido"}`);
         toast({
           title: "Erro ao carregar personagens",
           description: error.message || "Ocorreu um erro ao carregar os personagens",
@@ -88,19 +106,28 @@ export const CharacterManager = () => {
 
   const createCharacter = useMutation({
     mutationFn: async (character: Omit<Character, 'id' | 'created_at'>) => {
+      setErrorMessage(null);
+      
       // Add creator_id to character data
       const characterWithCreator = {
         ...character,
         creator_id: user?.id
       };
       
+      console.log("Creating character:", characterWithCreator);
       const { data, error } = await supabase
         .from("characters")
         .insert(characterWithCreator)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating character:", error);
+        setErrorMessage(`Erro ao criar personagem: ${error.message}`);
+        throw error;
+      }
+      
+      console.log("Character created successfully:", data);
       return data;
     },
     onSuccess: () => {
@@ -275,7 +302,6 @@ export const CharacterManager = () => {
     setIsDialogOpen(true);
   };
 
-  // Add timestamp to image URLs to prevent caching
   const getImageUrl = (url?: string) => {
     if (!url) return null;
     return `${url}?t=${Date.now()}`;
@@ -289,6 +315,14 @@ export const CharacterManager = () => {
           <Plus className="h-4 w-4" /> Novo Personagem
         </Button>
       </div>
+
+      {errorMessage && (
+        <Alert variant="destructive" className="my-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-8">
@@ -351,7 +385,6 @@ export const CharacterManager = () => {
         </div>
       )}
 
-      {/* Character Form Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

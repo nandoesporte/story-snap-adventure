@@ -62,24 +62,24 @@ BEGIN
             FOR DELETE
             USING (creator_id = auth.uid());
 
-        -- Create update function using dynamic SQL to avoid syntax issues
-        EXECUTE $$
+        -- Create the trigger function separately, avoiding nested dollar-quoting
+        EXECUTE format('
             CREATE OR REPLACE FUNCTION update_modified_column()
-            RETURNS TRIGGER AS $func$
+            RETURNS TRIGGER AS %s
             BEGIN
                 NEW.updated_at = NOW();
                 RETURN NEW;
             END;
-            $func$ LANGUAGE plpgsql;
-        $$;
+            %s LANGUAGE plpgsql;
+        ', '$modified_func$', '$modified_func$');
 
-        -- Create trigger using dynamic SQL to avoid syntax issues
-        EXECUTE $$
+        -- Create the trigger separately, avoiding nested dollar-quoting
+        EXECUTE format('
             CREATE TRIGGER update_characters_modified
             BEFORE UPDATE ON characters
             FOR EACH ROW
             EXECUTE FUNCTION update_modified_column();
-        $$;
+        ');
             
         -- Insert predefined characters
         INSERT INTO public.characters (name, description, personality, age, is_active)
