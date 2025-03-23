@@ -15,21 +15,32 @@ export const useStoryBot = () => {
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
     setIsGenerating(true);
     try {
-      // First, get the system prompt from the database
-      const { data: promptData, error: promptError } = await supabase
-        .from("storybot_prompts")
-        .select("prompt")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      // Try to get the system prompt from the database
+      let systemPrompt: string | null = null;
+      
+      try {
+        const { data: promptData, error: promptError } = await supabase
+          .from("storybot_prompts")
+          .select("prompt")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
-      if (promptError && promptError.code !== 'PGRST116') {
-        console.error("Error fetching StoryBot prompt:", promptError);
+        if (!promptError) {
+          systemPrompt = promptData?.prompt || null;
+        }
+      } catch (err) {
+        console.log("Error fetching prompt from database, will try localStorage:", err);
+      }
+      
+      // If database fetch failed, try localStorage
+      if (!systemPrompt) {
+        systemPrompt = localStorage.getItem('storybot_prompt');
       }
 
-      // Default system prompt if none exists in database
-      const systemPrompt = promptData?.prompt || 
-        `Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
+      // Default system prompt if none exists in database or localStorage
+      if (!systemPrompt) {
+        systemPrompt = `Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
 
 Suas respostas devem ser:
 1. Criativas e envolventes
@@ -39,6 +50,7 @@ Suas respostas devem ser:
 5. Bem estruturadas com começo, meio e fim
 
 Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.`;
+      }
 
       // Format conversation history for OpenAI
       const formattedMessages = [

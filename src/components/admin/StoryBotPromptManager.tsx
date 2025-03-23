@@ -22,36 +22,7 @@ export const StoryBotPromptManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Query to fetch the current StoryBot prompt
-  const { data: promptData, isLoading } = useQuery({
-    queryKey: ["storybot-prompt"],
-    queryFn: async () => {
-      try {
-        // First make sure the table exists
-        try {
-          const { error: functionError } = await supabase.rpc('create_storybot_prompt_if_not_exists');
-          if (functionError && !functionError.message.includes('already exists')) {
-            console.warn("Error creating storybot_prompts table:", functionError);
-          }
-        } catch (err) {
-          console.warn("Error calling create_storybot_prompt_if_not_exists:", err);
-        }
-
-        // Then get the prompt
-        const { data, error } = await supabase
-          .from("storybot_prompts")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // No prompt exists yet, create a default one
-            return {
-              id: 'new',
-              prompt: `Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
+  const [defaultPrompt] = useState<string>(`Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
 
 Suas respostas devem ser:
 1. Criativas e envolventes
@@ -60,32 +31,63 @@ Suas respostas devem ser:
 4. Livres de conteúdo assustador, violento ou inadequado
 5. Bem estruturadas com começo, meio e fim
 
-Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.`
-            };
-          }
-          throw error;
+Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados.`);
+
+  // Query to fetch the current StoryBot prompt - now simplified to handle errors better
+  const { data: promptData, isLoading } = useQuery({
+    queryKey: ["storybot-prompt"],
+    queryFn: async () => {
+      try {
+        // Skip trying to create the table since it's causing permission errors
+        // Just try to get the existing prompt
+        const { data, error } = await supabase
+          .from("storybot_prompts")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          // If table doesn't exist or any other error, use default prompt
+          console.log("Using default prompt due to error:", error.message);
+          return {
+            id: 'new',
+            prompt: defaultPrompt
+          };
         }
         
         return data as StoryBotPrompt;
       } catch (err) {
         console.error("Error fetching StoryBot prompt:", err);
-        toast({
-          title: "Erro ao carregar prompt",
-          description: "Não foi possível carregar o prompt do StoryBot.",
-          variant: "destructive",
-        });
-        return null;
+        // Use default prompt on any error
+        return {
+          id: 'new',
+          prompt: defaultPrompt
+        };
       }
     }
   });
 
-  // Mutation to update or create the StoryBot prompt
+  // Mutation to update or create the StoryBot prompt - now with better error handling
   const updatePromptMutation = useMutation({
     mutationFn: async (prompt: string) => {
       setIsSubmitting(true);
       
       try {
-        // Try to get the current prompt
+        // First check if the table exists by trying to select from it
+        const { error: checkError } = await supabase
+          .from("storybot_prompts")
+          .select("count")
+          .limit(1);
+          
+        // If the table doesn't exist, we'll save the prompt to localStorage as a fallback
+        if (checkError) {
+          console.log("Saving prompt to localStorage due to database error:", checkError.message);
+          localStorage.setItem('storybot_prompt', prompt);
+          return { id: 'local', prompt };
+        }
+        
+        // Table exists, proceed with saving to database
         const { data: existingPrompt, error: fetchError } = await supabase
           .from("storybot_prompts")
           .select("id")
@@ -102,7 +104,7 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
             .insert({ prompt })
             .select()
             .single();
-        } else {
+        } else if (existingPrompt) {
           // Update the existing prompt
           result = await supabase
             .from("storybot_prompts")
@@ -113,19 +115,33 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
             .eq("id", existingPrompt.id)
             .select()
             .single();
+        } else {
+          // Fallback case - create new prompt
+          result = await supabase
+            .from("storybot_prompts")
+            .insert({ prompt })
+            .select()
+            .single();
         }
         
-        if (result.error) throw result.error;
+        if (result.error) {
+          console.log("Saving prompt to localStorage due to update error:", result.error.message);
+          localStorage.setItem('storybot_prompt', prompt);
+          return { id: 'local', prompt };
+        }
+        
         return result.data;
       } finally {
         setIsSubmitting(false);
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["storybot-prompt"] });
       toast({
         title: "Prompt atualizado com sucesso",
-        description: "O prompt do StoryBot foi atualizado.",
+        description: data.id === 'local' 
+          ? "O prompt foi salvo localmente devido a um erro no banco de dados."
+          : "O prompt do StoryBot foi atualizado.",
         variant: "default",
       });
     },
@@ -141,7 +157,7 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
   // Form setup
   const form = useForm({
     defaultValues: {
-      prompt: promptData?.prompt || "",
+      prompt: promptData?.prompt || defaultPrompt,
     },
   });
 
