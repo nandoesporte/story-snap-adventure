@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +16,7 @@ export const useStoryBot = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
   const MAX_RETRIES = 2;
-  const API_TIMEOUT = 15000; // 15 seconds timeout
+  const API_TIMEOUT = 30000; // Increased to 30 seconds
   const OPENAI_API_KEY = "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";
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
@@ -85,12 +86,15 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         dangerouslyAllowBrowser: true
       });
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: formattedMessages,
-        temperature: 0.7,
-        max_tokens: 1000,
-      });
+      const response = await Promise.race([
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: formattedMessages,
+          temperature: 0.7,
+          max_tokens: 1500,
+        }),
+        timeoutPromise
+      ]) as any;
 
       setRetryCount(0);
       setApiAvailable(true);
@@ -130,13 +134,13 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     try {
       // If API was previously marked as unavailable, use simplified description
       if (!apiAvailable) {
-        return `Ilustração de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
+        return `Ilustração detalhada de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}. A cena mostra: ${pageText.substring(0, 100)}...`;
       }
       
       const messages: Message[] = [
         {
           role: "user",
-          content: `Por favor, crie uma descrição de imagem para esta cena de uma história infantil:
+          content: `Por favor, crie uma descrição detalhada para esta cena de uma história infantil:
             
             Texto da página: "${pageText}"
             
@@ -144,7 +148,7 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
             Tema da história: ${theme}
             Cenário: ${setting}
             
-            Descreva uma cena ilustrativa para esta parte da história em até 60 palavras, focando nos elementos visuais.`
+            Forneça uma descrição visual completa em até 150 palavras, focando nos elementos visuais principais desta cena. A descrição será usada para gerar uma ilustração. Enfatize as cores, expressões, ambiente e ação principal.`
         }
       ];
       
@@ -156,7 +160,7 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
       window.dispatchEvent(new CustomEvent("storybot_api_issue"));
       localStorage.setItem("storybot_api_issue", "true");
       
-      return `Ilustração de ${childName} em uma aventura no cenário de ${setting}.`;
+      return `Ilustração detalhada de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
     }
   };
   
@@ -184,9 +188,16 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         return themeImages[theme as keyof typeof themeImages] || "https://via.placeholder.com/600x400?text=Story+Image";
       }
       
-      // In a production app, you would call an image generation API here
-      // For now, return a placeholder image
-      return "https://via.placeholder.com/600x400?text=Story+Image";
+      // For now, return a themed placeholder until Runware integration is implemented
+      const themeImages = {
+        adventure: "/images/placeholders/adventure.jpg",
+        fantasy: "/images/placeholders/fantasy.jpg",
+        space: "/images/placeholders/space.jpg",
+        ocean: "/images/placeholders/ocean.jpg",
+        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      };
+      
+      return themeImages[theme as keyof typeof themeImages] || "https://via.placeholder.com/600x400?text=Story+Image";
     } catch (error) {
       console.error("Error generating image:", error);
       setApiAvailable(false);
@@ -221,9 +232,16 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         return themeCovers[theme as keyof typeof themeCovers] || `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
       }
       
-      // In a production app, you would call an image generation API here
-      // For now, return a placeholder image with the story title
-      return `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
+      // For now, return a themed placeholder until Runware integration is implemented
+      const themeCovers = {
+        adventure: "/images/covers/adventure.jpg",
+        fantasy: "/images/covers/fantasy.jpg",
+        space: "/images/covers/space.jpg",
+        ocean: "/images/covers/ocean.jpg",
+        dinosaurs: "/images/covers/dinosaurs.jpg"
+      };
+      
+      return themeCovers[theme as keyof typeof themeCovers] || `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
     } catch (error) {
       console.error("Error generating cover image:", error);
       setApiAvailable(false);
