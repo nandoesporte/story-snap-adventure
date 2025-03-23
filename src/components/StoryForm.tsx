@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -45,7 +46,7 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     characterId: "",
     characterName: "",
     characterPrompt: "",
-    style: "standard",
+    style: "cartoon", // Changed from "standard" to "cartoon" which is valid according to StoryStyle type
     length: "short",
     readingLevel: "intermediate",
     language: "portuguese",
@@ -111,6 +112,20 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     { id: "space", name: "Espaço Sideral" },
     { id: "underwater", name: "Mundo Submarino" },
     { id: "dinosaurland", name: "Terra dos Dinossauros" }
+  ];
+  
+  const styles = [
+    { id: "cartoon", name: "Desenho Animado" },
+    { id: "watercolor", name: "Aquarela" },
+    { id: "realistic", name: "Realista" },
+    { id: "childrenbook", name: "Livro Infantil Clássico" },
+    { id: "papercraft", name: "Papel e Recortes" }
+  ];
+  
+  const lengths = [
+    { id: "short", name: "Curta (5 páginas)" },
+    { id: "medium", name: "Média (10 páginas)" },
+    { id: "long", name: "Longa (15 páginas)" }
   ];
   
   const readingLevels = [
