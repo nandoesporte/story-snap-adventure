@@ -10,16 +10,17 @@ import CallToAction from "../components/home/CallToAction";
 import { useIndexPageContent } from "../components/home/ContentLoader";
 
 const Index = () => {
-  const { getContent } = useIndexPageContent();
+  const { getContent, isLoading } = useIndexPageContent();
 
   // Get hero section image content
   const heroImageUrl = getContent("hero", "image_url", "/lovable-uploads/4e6e784b-efbd-45e2-b83d-3704e80cddf5.png");
 
+  // Only render hero when the image is ready to avoid showing placeholders
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <Hero customImageUrl={heroImageUrl} />
+        {!isLoading && <Hero customImageUrl={heroImageUrl} />}
         <Features />
         <HowItWorks />
         <Testimonials />

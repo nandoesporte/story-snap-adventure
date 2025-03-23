@@ -39,7 +39,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   };
 
   // Default image if none provided - only set after heroContents is loaded
-  const heroImage = customImageUrl || getContent("image_url", "/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png");
+  const heroImage = customImageUrl || getContent("image_url", "");
   const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
 
   return (
@@ -127,6 +127,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
                   src={heroImage}
                   alt={imageAlt}
                   className="w-full h-auto z-10 drop-shadow-xl"
+                  loading="eager" // Add eager loading for the hero image
                 />
                 
                 {/* Animated elements */}
