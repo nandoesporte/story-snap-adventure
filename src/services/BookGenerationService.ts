@@ -1,6 +1,8 @@
+
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "./StoryBot";
+import { geminiAI } from "@/lib/openai";
 
 // Types
 export type StoryCharacter = {
@@ -261,37 +263,132 @@ export class BookGenerationService {
       // Determine page count based on length
       const pageCount = length === "short" ? 5 : (length === "medium" ? 10 : 15);
       
-      // Generate story using StoryBot
-      const storyParams = {
+      this.updateProgress("preparando-ia", 18);
+      
+      console.log("Generating story with Gemini AI...", {
         childName,
         childAge,
         theme,
         setting,
-        imageUrl: this.storyData.imagePreview,
-        characterPrompt: characterDetails?.generation_prompt,
-        readingLevel: readingLevel || "intermediate",
-        language: language || "portuguese",
-        moral: moral || "friendship",
-        pageCount
-      };
+        characterName: characterDetails?.name,
+        characterPrompt: characterDetails?.generation_prompt
+      });
       
-      // Try to use the AI-powered generator first
       try {
-        return await this.storyBot.generateStory(storyParams);
+        // Use Gemini AI for story generation
+        const genModel = geminiAI.getGenerativeModel({ 
+          model: "gemini-1.0-pro",
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2000,
+          }
+        });
+        
+        // Construct base prompt
+        let prompt = `Crie uma história infantil para ${childName}, de ${childAge} anos de idade.
+Tema: ${getThemeName(theme)}
+Cenário: ${getSettingName(setting)}
+Nível de leitura: ${readingLevel || "intermediate"}
+Idioma: ${language || "portuguese"}
+Moral da história: ${moral || "friendship"}
+Número de páginas: ${pageCount}
+
+`;
+
+        // Add character information if available
+        if (characterDetails) {
+          prompt += `Personagem principal: ${characterDetails.name}
+${characterDetails.description ? `Descrição: ${characterDetails.description}` : ''}
+${characterDetails.personality ? `Personalidade: ${characterDetails.personality}` : ''}
+${characterDetails.generation_prompt ? `\nInstruções adicionais: ${characterDetails.generation_prompt}` : ''}
+
+`;
+        }
+
+        // Instructions for formatting
+        prompt += `
+Por favor, formate a história da seguinte maneira:
+TITULO: [título da história]
+
+PAGINA 1: [texto da primeira página]
+PAGINA 2: [texto da segunda página]
+...
+
+Cada página deve ter aproximadamente 2-3 frases, adequadas para crianças de ${childAge} anos.
+Certifique-se de incluir o nome da criança (${childName}) como protagonista da história.
+Seja criativo, encantador e apropriado para a idade.`;
+
+        console.log("Sending prompt to Gemini:", prompt);
+        
+        const result = await genModel.generateContent(prompt);
+        const response = await result.response;
+        const responseText = response.text();
+        
+        console.log("Received response from Gemini:", responseText);
+        
+        // Parse the response to extract title and content
+        return this.parseStoryContent(responseText);
       } catch (error) {
-        console.log("Failed with AI generator, using fallback generator", error);
+        console.error("Error generating with Gemini:", error);
         
         if (this.isCancelled) return null;
         
-        // Fallback to local generator if AI fails
+        console.log("Falling back to local generator due to API error");
         toast.info("Usando gerador de histórias local devido a limitações da API.");
-        return await this.storyBot.generateStoryFallback(storyParams);
+        return await this.storyBot.generateStoryFallback({
+          childName,
+          childAge,
+          theme,
+          setting,
+          imageUrl: this.storyData.imagePreview,
+          characterPrompt: characterDetails?.generation_prompt,
+          readingLevel: readingLevel || "intermediate",
+          language: language || "portuguese",
+          moral: moral || "friendship",
+          pageCount
+        });
       }
     } catch (error) {
       console.error("Error generating story content:", error);
       this.handleError("Erro ao gerar conteúdo da história.");
       return null;
     }
+  }
+
+  private parseStoryContent(responseText: string): GeneratedStory {
+    const titleMatch = responseText.match(/TITULO:?\s*(.*?)(?:\r?\n|$)/i);
+    const title = titleMatch ? titleMatch[1].trim() : `História de ${this.storyData.childName}`;
+    
+    // Extract pages using regex
+    const pageMatches = responseText.match(/PAGINA\s*\d+:?\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
+    
+    let content: string[] = [];
+    if (pageMatches && pageMatches.length > 0) {
+      content = pageMatches.map(page => {
+        return page.replace(/PAGINA\s*\d+:?\s*/i, '').trim();
+      });
+    } else {
+      // Fallback parsing - split by paragraphs
+      console.log("Couldn't parse pages, falling back to paragraph splitting");
+      const paragraphs = responseText.split('\n\n').filter(para => 
+        para.trim().length > 0 && !para.match(/TITULO:/i)
+      );
+      
+      content = paragraphs;
+    }
+    
+    // If we don't have enough pages for the story length, add some
+    const pageCount = this.storyData.length === "short" ? 5 : (this.storyData.length === "medium" ? 10 : 15);
+    while (content.length < pageCount) {
+      content.push(`A aventura de ${this.storyData.childName} continua...`);
+    }
+    
+    // Ensure we have at most the requested page count
+    content = content.slice(0, pageCount);
+    
+    console.log("Parsed Story:", { title, pageCount: content.length });
+    
+    return { title, content };
   }
 
   private async generateCoverImage(title: string): Promise<string> {
