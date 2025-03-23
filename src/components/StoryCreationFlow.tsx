@@ -66,7 +66,6 @@ interface Character {
   name: string;
   description: string;
   image_url?: string;
-  generation_prompt?: string;
   age?: string;
   personality?: string;
   is_premium?: boolean;
@@ -173,9 +172,10 @@ const StoryCreationFlow = () => {
   const { data: characters, isLoading: isLoadingCharacters } = useQuery({
     queryKey: ["characters-for-story"],
     queryFn: async () => {
+      console.log("Fetching characters from database...");
       const { data, error } = await supabase
         .from("characters")
-        .select("id, name, description, generation_prompt, image_url, age, personality")
+        .select("id, name, description, image_url, age, personality, is_premium, is_active")
         .eq("is_active", true)
         .order("name");
         
@@ -184,6 +184,7 @@ const StoryCreationFlow = () => {
         return [] as Character[];
       }
       
+      console.log("Characters fetched:", data);
       return data as Character[];
     },
     staleTime: 60000, // 1 minute
@@ -192,6 +193,7 @@ const StoryCreationFlow = () => {
   const handleCharacterSelect = (characterId: string) => {
     const character = characters?.find(c => c.id === characterId);
     if (character) {
+      console.log("Selected character:", character);
       setSelectedCharacter(characterId);
       setImagePreview(character.image_url || "/placeholder.svg");
       setFormData(prev => ({ 
@@ -261,11 +263,9 @@ const StoryCreationFlow = () => {
     
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
-      // Fix: Ensure we're using the correct next step index
       const nextStep = stepOrder[currentIndex + 1];
       setCurrentStep(nextStep);
       
-      // If next step is chat, initialize StoryBot chat
       if (nextStep === "chat") {
         initializeChatWithStoryBot();
       }
@@ -513,10 +513,10 @@ const StoryCreationFlow = () => {
                     <div>
                       <h4 className="font-medium">{character.name}</h4>
                       <p className="text-sm text-slate-500">{character.description}</p>
-                      {character.generation_prompt && (
+                      {character.personality && (
                         <div className="mt-1 flex items-center gap-1">
                           <Sparkles className="h-3 w-3 text-amber-500" />
-                          <span className="text-xs text-amber-600">Prompt disponível</span>
+                          <span className="text-xs text-amber-600">Personalidade: {character.personality.substring(0, 30)}...</span>
                         </div>
                       )}
                     </div>
