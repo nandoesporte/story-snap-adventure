@@ -16,6 +16,7 @@ const StoryBotChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [characterPrompt, setCharacterPrompt] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { generateStoryBotResponse } = useStoryBot();
   
@@ -34,8 +35,37 @@ const StoryBotChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Extract character description from conversation
+  useEffect(() => {
+    if (messages.length > 2) {
+      // Try to extract character description from previous messages
+      const allText = messages.map(m => m.content).join(" ");
+      
+      // Look for descriptions in the conversation
+      const descriptionMatch = allText.match(/aparência.+?(cabelo|olhos|pele|roupa|veste)/i) || 
+                              allText.match(/personagem.+?(cabelo|olhos|pele|roupa|veste)/i) ||
+                              allText.match(/característica.+?(cabelo|olhos|pele|roupa|veste)/i);
+      
+      if (descriptionMatch && descriptionMatch[0] && !characterPrompt) {
+        // Get the sentence containing the description
+        const sentence = allText.substring(
+          Math.max(0, allText.indexOf(descriptionMatch[0]) - 30),
+          Math.min(allText.length, allText.indexOf(descriptionMatch[0]) + 150)
+        );
+        
+        setCharacterPrompt(sentence);
+        console.log("Character description extracted:", sentence);
+      }
+    }
+  }, [messages, characterPrompt]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
+    
+    // Check if this input contains character description
+    if (e.target.value.match(/aparência|personagem.+?(cabelo|olhos|pele|roupa|veste)/i)) {
+      setCharacterPrompt(e.target.value);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,8 +84,8 @@ const StoryBotChat = () => {
     setIsLoading(true);
     
     try {
-      // Get response from AI
-      const response = await generateStoryBotResponse(messages, inputValue);
+      // Get response from AI, passing the character prompt if available
+      const response = await generateStoryBotResponse(messages, inputValue, characterPrompt);
       
       // Add assistant message
       const assistantMessage: Message = {

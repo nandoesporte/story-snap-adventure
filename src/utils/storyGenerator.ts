@@ -1,4 +1,3 @@
-
 import { OpenAI } from "openai";
 
 interface StoryGenerationParams {
@@ -7,6 +6,7 @@ interface StoryGenerationParams {
   theme: string;
   setting: string;
   imageUrl: string;
+  characterPrompt?: string;
 }
 
 interface StoryData {
@@ -16,18 +16,19 @@ interface StoryData {
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: "sk-dummy-key", // This will be replaced by the user's key
+  apiKey: "sk-dummy-key",
   dangerouslyAllowBrowser: true
 });
 
 // Function to generate story using OpenAI's GPT-4
 export const generateStoryWithGPT4 = async (params: StoryGenerationParams, openaiKey: string): Promise<StoryData> => {
-  const { childName, childAge, theme, setting } = params;
+  const { childName, childAge, theme, setting, characterPrompt } = params;
   
   // Set the OpenAI API key
   openai.apiKey = openaiKey;
   
   try {
+    // Enhanced prompt that includes character description for consistency
     const prompt = `Create a children's story for ${childName}, who is ${childAge} old, with the following details:
     
     Theme: ${theme === 'adventure' ? 'Adventure' : 
@@ -42,12 +43,15 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
       setting === 'underwater' ? 'Underwater World' : 
       'Dinosaur Land'}
     
+    Character Description: ${characterPrompt || `${childName} is a child who loves adventures`}
+    
     Please create a story with:
     1. A creative title
     2. 10 short paragraphs (one for each page)
     3. A proper beginning, middle and end
     4. Age-appropriate content with a positive message
-    5. Using ${childName} as the main character
+    5. Using ${childName} as the main character with CONSISTENT appearance and personality throughout the story
+    6. Make sure to maintain a consistent visual description of ${childName} throughout all pages
     
     Format the response as follows:
     TITLE: [Story Title]
@@ -63,7 +67,7 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
       messages: [
         { 
           role: "system", 
-          content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive." 
+          content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive. You must maintain character consistency throughout the story, both in personality and physical appearance." 
         },
         { 
           role: "user", 
@@ -236,4 +240,3 @@ export const generateStory = async (params: StoryGenerationParams): Promise<Stor
     content: content
   };
 };
-

@@ -114,7 +114,10 @@ const CreateStory = () => {
             <Alert className="mb-6 bg-blue-50 border-blue-200">
               <Info className="h-4 w-4 text-blue-500" />
               <AlertDescription className="flex justify-between items-center">
-                <span>Escolha entre os personagens exclusivos para viver aventuras incríveis em histórias personalizadas.</span>
+                <span>
+                  Escolha entre os personagens exclusivos para viver aventuras incríveis em histórias personalizadas. 
+                  <strong> Cada personagem tem características visuais consistentes que serão mantidas em todas as páginas da história!</strong>
+                </span>
                 <button 
                   onClick={handleDismissCharacterInfo}
                   className="text-xs text-blue-500 hover:text-blue-700"
@@ -165,7 +168,7 @@ const CreateStory = () => {
                   <Bot className="w-12 h-12 text-violet-500 mb-4" />
                   <h3 className="text-xl font-bold mb-2">Crie com StoryBot</h3>
                   <p className="text-slate-600 text-center mb-6 max-w-lg">
-                    No modo avançado, você terá acesso completo ao StoryBot, onde poderá especificar exatamente como deseja que a história seja construída.
+                    No modo avançado, você terá acesso completo ao StoryBot, onde poderá especificar exatamente como deseja que a história seja construída, com personagens consistentes em todas as páginas.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl w-full mb-6">
                     <div className="bg-white p-4 rounded-lg shadow-sm border border-violet-100">
@@ -176,7 +179,7 @@ const CreateStory = () => {
                     <div className="bg-white p-4 rounded-lg shadow-sm border border-violet-100">
                       <Sparkles className="w-5 h-5 text-violet-500 mb-2" />
                       <h4 className="font-medium mb-1">Personalização Total</h4>
-                      <p className="text-sm text-slate-500">Controle cada detalhe da história</p>
+                      <p className="text-sm text-slate-500">Controle cada detalhe da história e dos personagens</p>
                     </div>
                   </div>
                   <Button 

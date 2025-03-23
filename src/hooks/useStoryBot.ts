@@ -166,18 +166,19 @@ Há algum personagem ou elemento específico que você gostaria de incluir na hi
     }
   };
 
-  const generateImageDescription = async (storyParagraph: string, childName: string, childAge: string, theme: string, setting: string): Promise<string> => {
+  const generateImageDescription = async (storyParagraph: string, childName: string, childAge: string, theme: string, setting: string, characterPrompt?: string): Promise<string> => {
     try {
       // Set the OpenAI API key
       openai.apiKey = openaiApiKey;
       
-      // Using GPT-4 to generate image descriptions
+      // Enhanced prompt with character details for consistency
       const prompt = `Create a detailed description for a children's book illustration based on this paragraph:
       
 "${storyParagraph}"
 
 Additional context:
 - Main character: ${childName}, age ${childAge}
+- Character description: ${characterPrompt || `A child with standard features`}
 - Theme: ${theme === 'adventure' ? 'Adventure' : 
   theme === 'fantasy' ? 'Fantasy and Magic' : 
   theme === 'space' ? 'Space Exploration' : 
@@ -189,12 +190,12 @@ Additional context:
   setting === 'underwater' ? 'Underwater World with vibrant corals and marine creatures' : 
   'Dinosaur Land with lush vegetation and volcanic elements'}
 
-The description should be concise, vivid, and suitable for generating a children's book illustration.`;
+The description should be concise, vivid, and suitable for generating a children's book illustration. MOST IMPORTANTLY, ensure the main character (${childName}) has CONSISTENT appearance across all illustrations - same facial features, hair style and color, clothing style and colors, etc.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: "You are an expert at creating descriptive prompts for AI image generation." },
+          { role: "system", content: "You are an expert at creating descriptive prompts for AI image generation with focus on character consistency across multiple images." },
           { role: "user", content: prompt }
         ],
         temperature: 0.6,
@@ -214,13 +215,26 @@ The description should be concise, vivid, and suitable for generating a children
     childName: string, 
     theme: string, 
     setting: string, 
-    childImageBase64?: string | null
+    characterPrompt?: string,
+    childImageBase64?: string | null,
+    pageNumber?: number
   ): Promise<string> => {
     try {
       console.log("Generating image with Leonardo AI");
       
+      // Character consistency enhancer - adds specific instructions based on page number
+      const characterConsistencyPrompt = (pageNum?: number) => {
+        if (!pageNum) return "";
+        
+        const isLaterPage = pageNum > 3;
+        return isLaterPage 
+          ? `, CRITICAL: main character MUST have IDENTICAL appearance to previous pages, same facial features, same hair style and color, same clothing, consistent character design throughout story`
+          : `, establish clear visual identity for main character that will be maintained throughout the story`;
+      };
+      
       // Enhance the prompt for better results with Leonardo AI
-      let enhancedPrompt = `Children's book illustration, ${description}, featuring ${childName} as the main character, 
+      let enhancedPrompt = `Children's book illustration, ${description}, featuring ${childName} as the main character with consistent appearance, 
+        ${characterPrompt ? `character description: ${characterPrompt},` : ''}
         ${theme === 'adventure' ? 'adventure theme' : 
         theme === 'fantasy' ? 'fantasy magical theme' : 
         theme === 'space' ? 'space exploration theme' : 
@@ -231,7 +245,7 @@ The description should be concise, vivid, and suitable for generating a children
         setting === 'space' ? 'space setting with colorful planets, stars and cosmic elements' : 
         setting === 'underwater' ? 'underwater setting with colorful coral reefs and sea creatures' : 
         'prehistoric landscape with friendly dinosaurs and volcanic elements'},
-        vibrant colors, charming style, high quality children's book, digital illustration, safe for children, clear composition`;
+        vibrant colors, charming style, high quality children's book${characterConsistencyPrompt(pageNumber)}, digital illustration, safe for children, clear composition`;
       
       // Use Leonardo.AI API for image generation
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
@@ -249,6 +263,8 @@ The description should be concise, vivid, and suitable for generating a children
           promptMagic: true,
           public: false,
           sd_version: "v2",
+          // Use consistent seed for character appearance if this isn't the first page
+          ...(pageNumber && pageNumber > 1 ? { seed: generateSeedFromName(childName) } : {})
         })
       });
 
@@ -273,8 +289,17 @@ The description should be concise, vivid, and suitable for generating a children
       toast.error("Erro ao gerar imagem com Leonardo AI. Usando gerador alternativo.");
       
       // Fallback to the original image generation method
-      return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+      return fallbackImageGeneration(description, childName, theme, setting, characterPrompt, childImageBase64, pageNumber);
     }
+  };
+
+  // Generate a consistent seed based on character name for visual consistency
+  const generateSeedFromName = (name: string): number => {
+    let seed = 0;
+    for (let i = 0; i < name.length; i++) {
+      seed += name.charCodeAt(i);
+    }
+    return seed * 1000; // Large enough number for seed
   };
 
   const pollForImageResults = async (generationId: string): Promise<string> => {
@@ -334,19 +359,22 @@ The description should be concise, vivid, and suitable for generating a children
     childName: string, 
     theme: string, 
     setting: string, 
-    childImageBase64?: string | null
+    characterPrompt?: string,
+    childImageBase64?: string | null,
+    pageNumber?: number
   ): Promise<string> => {
     try {
       // Enhanced prompt for better character consistency, especially for later pages
-      const pageNumber = description.length % 10; // Estimated page number based on text length
-      const isLaterPage = pageNumber >= 6; // Pages 7-10
+      const pageNum = pageNumber || (description.length % 10); // Estimated page number based on text length or provided page number
+      const isLaterPage = pageNum >= 6; // Pages 7-10
       
       // Prompt aprimorado para maior consistência de personagem e coerência com o texto
       let enhancedPrompt = `${description}, 
         highly detailed children's book illustration of ${childName} as the main character,
+        ${characterPrompt ? `character description: ${characterPrompt},` : ''}
         ${isLaterPage ? 'IMPORTANT: maintain EXACT SAME character appearance as previous pages,' : ''}
         child character with IDENTICAL appearance across all illustrations,
-        ${isLaterPage ? 'focus on facial features matching reference photo with high accuracy,' : ''}
+        ${isLaterPage ? 'focus on facial features maintaining high consistency,' : ''}
         ${theme === 'adventure' ? 'adventure story' : 
         theme === 'fantasy' ? 'fantasy magical world' : 
         theme === 'space' ? 'space exploration' : 
@@ -373,51 +401,15 @@ The description should be concise, vivid, and suitable for generating a children
         digital art, 
         no text`;
       
-      // Instruções específicas para manter as características faciais da foto da criança
-      if (childImageBase64) {
-        enhancedPrompt += `, child character with IDENTICAL facial features to the reference photo, 
-        maintain child's recognizable facial structure with high accuracy,
-        EXACT same character design across all images,
-        consistent child character appearance throughout all pages,
-        recognizable child character with identical design to reference,
-        SAME facial features, expressions, and proportions as in reference photo`;
-        
-        // Add extra emphasis for later pages
-        if (isLaterPage) {
-          enhancedPrompt += `, CRITICAL: this is page ${pageNumber + 1}, character must be IDENTICAL to previous pages,
-          HIGHEST priority on facial consistency with reference photo,
-          close-up view of character face when possible,
-          maintain EXACT same hair style, eye shape, and facial structure`;
-        }
-      }
-      
       // Gerar seed consistente baseado no nome da criança e no texto da história
       // para manter coerência visual entre as imagens
-      const generateConsistentSeed = (name: string, text: string): number => {
-        let seed = 0;
-        for (let i = 0; i < name.length; i++) {
-          seed += name.charCodeAt(i);
-        }
-        
-        // Adicionar uma porção do texto para diferenciar cada página
-        // mas manter consistência no estilo
-        const uniqueTextPart = text.slice(0, 10);
-        for (let i = 0; i < uniqueTextPart.length; i++) {
-          seed += uniqueTextPart.charCodeAt(i);
-        }
-        
-        return seed * 1000; // Multiplicar para obter um número maior
-      };
-      
-      const seed = generateConsistentSeed(childName, description);
+      const seed = generateSeedFromName(childName) + (pageNum * 10); // Slight variation per page but still consistent
       
       // Usando a API Pollinations para geração de imagem com seed consistente
       // Width e height maiores para melhor qualidade
-      const apiUrl = childImageBase64 
-        ? `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`
-        : `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`;
+      const apiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=1200&height=1200&nologo=1`;
 
-      console.log("Fallback: Generating image with Pollinations using seed:", seed, "for page:", pageNumber + 1);
+      console.log("Fallback: Generating image with Pollinations using seed:", seed, "for page:", pageNum);
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -441,12 +433,13 @@ The description should be concise, vivid, and suitable for generating a children
     }
   };
 
-  const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
+  const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, characterPrompt?: string, childImageBase64?: string | null): Promise<string> => {
     try {
       console.log("Generating cover image with Leonardo AI");
       
-      // Enhanced prompt specifically for book covers with Leonardo AI
+      // Enhanced prompt specifically for book covers with Leonardo AI and character consistency
       const coverPrompt = `Vibrant children's book cover illustration for "${title}", featuring ${childName} as the main character, 
+        ${characterPrompt ? `with these specific characteristics: ${characterPrompt},` : ''}
         ${theme === 'adventure' ? 'adventure theme with exploration elements' : 
         theme === 'fantasy' ? 'fantasy magical theme with spells and wonders' : 
         theme === 'space' ? 'space exploration theme with planets and stars' : 
@@ -459,9 +452,10 @@ The description should be concise, vivid, and suitable for generating a children
         'prehistoric landscape setting with lush vegetation and volcanoes'},
         portrait format, vertical composition, main character prominently featured, title space at top,
         professional children's book cover art, vibrant colors, eye-catching, digital art, highly detailed, no text,
-        charming style, high quality illustration, clear composition, safe for children`;
+        charming style, high quality illustration, clear composition, safe for children,
+        establish distinctive character appearance that will be maintained throughout the story`;
       
-      // Use Leonardo.AI API for cover image generation
+      // Use Leonardo.AI API for cover image generation with consistent seed
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
         headers: {
@@ -477,6 +471,7 @@ The description should be concise, vivid, and suitable for generating a children
           promptMagic: true,
           public: false,
           sd_version: "v2",
+          seed: generateSeedFromName(childName) // Use consistent seed for character appearance
         })
       });
 
@@ -501,11 +496,11 @@ The description should be concise, vivid, and suitable for generating a children
       toast.error("Erro ao gerar imagem de capa com Leonardo AI. Usando gerador alternativo.");
       
       // Fallback to the original cover image generation method
-      return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+      return fallbackCoverImageGeneration(title, childName, theme, setting, characterPrompt, childImageBase64);
     }
   };
 
-  const fallbackCoverImageGeneration = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
+  const fallbackCoverImageGeneration = async (title: string, childName: string, theme: string, setting: string, characterPrompt?: string, childImageBase64?: string | null): Promise<string> => {
     try {
       // Gerar seed consistente baseado no nome da criança e título
       const generateConsistentSeed = (name: string, title: string): number => {

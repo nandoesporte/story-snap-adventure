@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUserStories, deleteStory, Story } from "@/lib/supabase";
@@ -69,6 +68,7 @@ export const StoryManager = () => {
       theme: "",
       setting: "",
       style: "",
+      character_prompt: "",
     },
   });
 
@@ -241,6 +241,24 @@ export const StoryManager = () => {
                     <FormLabel>Estilo</FormLabel>
                     <FormControl>
                       <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="character_prompt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição do Personagem</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        {...field} 
+                        placeholder="Descreva detalhes físicos e personalidade do personagem para manter consistência nas imagens"
+                        rows={3}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
