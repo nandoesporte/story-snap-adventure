@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -9,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Edit, Trash2, Plus, Image, AlertTriangle } from "lucide-react";
+import { Edit, Trash2, Plus, Image, AlertTriangle, RefreshCcw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -44,35 +45,78 @@ export const CharacterManager = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   const { user } = useAuth();
+
+  // Initialize database structure
+  const initializeDatabase = async () => {
+    setIsInitializing(true);
+    setErrorMessage(null);
+    
+    try {
+      console.log("Initializing character table...");
+      
+      // First try to create the function if it doesn't exist
+      const { error: functionError } = await supabase.rpc('create_characters_table_if_not_exists');
+      
+      if (functionError) {
+        // If the function doesn't exist, we try to create it
+        console.log("Function doesn't exist yet, creating it...");
+        
+        // Get the SQL to create the function
+        const response = await fetch('/src/lib/characters_table.sql');
+        const sql = await response.text();
+        
+        // Execute the SQL to create the function
+        const { error: sqlError } = await supabase.rpc('exec_sql', { sql });
+        
+        if (sqlError) {
+          console.error("Error creating function:", sqlError);
+          setErrorMessage(`Erro ao criar função: ${sqlError.message}`);
+          throw sqlError;
+        }
+        
+        // Try to call the function again
+        const { error: retryError } = await supabase.rpc('create_characters_table_if_not_exists');
+        
+        if (retryError) {
+          console.error("Error creating characters table:", retryError);
+          setErrorMessage(`Erro ao criar tabela de personagens: ${retryError.message}`);
+          throw retryError;
+        }
+      }
+      
+      console.log("Character table initialization completed");
+      toast({
+        title: "Banco de dados inicializado",
+        description: "A estrutura do banco de dados foi inicializada com sucesso!",
+      });
+      
+      // Refresh character data
+      queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
+    } catch (error: any) {
+      console.error("Error initializing database:", error);
+      setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
+      toast({
+        title: "Erro ao inicializar banco de dados",
+        description: error.message || "Ocorreu um erro ao inicializar o banco de dados",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   // Force refetch when component mounts
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
   }, [queryClient]);
 
-  const { data: characters, isLoading, error: queryError } = useQuery({
+  const { data: characters, isLoading, error: queryError, refetch } = useQuery({
     queryKey: ["admin-characters"],
     queryFn: async () => {
       try {
         setErrorMessage(null);
-        
-        // First, try to create the characters table if it doesn't exist
-        try {
-          console.log("Attempting to create characters table if it doesn't exist...");
-          const { error: createError } = await supabase.rpc('create_characters_table_if_not_exists');
-          if (createError) {
-            console.error("Error creating characters table:", createError);
-            setErrorMessage(`Erro ao criar tabela de personagens: ${createError.message}`);
-            // Continue to try to fetch data even if table creation failed
-          } else {
-            console.log("Characters table check/creation completed");
-          }
-        } catch (err: any) {
-          console.error("Error calling create_characters_table_if_not_exists:", err);
-          setErrorMessage(`Erro ao verificar tabela de personagens: ${err.message || err}`);
-          // Continue to try to fetch data even if function call failed
-        }
         
         console.log("Fetching characters data...");
         const { data, error } = await supabase
@@ -91,14 +135,10 @@ export const CharacterManager = () => {
       } catch (error: any) {
         console.error("Error in query function:", error);
         setErrorMessage(`Erro ao carregar personagens: ${error.message || "Ocorreu um erro desconhecido"}`);
-        toast({
-          title: "Erro ao carregar personagens",
-          description: error.message || "Ocorreu um erro ao carregar os personagens",
-          variant: "destructive",
-        });
-        return [];
+        throw error;
       }
     },
+    retry: 1,
     staleTime: 0, // Don't cache the data
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -311,16 +351,39 @@ export const CharacterManager = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Gerenciar Personagens</h2>
-        <Button onClick={handleAddNew} className="gap-2">
-          <Plus className="h-4 w-4" /> Novo Personagem
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            onClick={initializeDatabase} 
+            variant="outline"
+            className="gap-2"
+            disabled={isInitializing}
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {isInitializing ? 'Inicializando...' : 'Inicializar Tabela'}
+          </Button>
+          <Button onClick={handleAddNew} className="gap-2">
+            <Plus className="h-4 w-4" /> Novo Personagem
+          </Button>
+        </div>
       </div>
 
       {errorMessage && (
         <Alert variant="destructive" className="my-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
+          <AlertDescription>
+            {errorMessage}
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={initializeDatabase}
+                disabled={isInitializing}
+              >
+                {isInitializing ? 'Inicializando...' : 'Inicializar Banco de Dados'}
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -380,8 +443,27 @@ export const CharacterManager = () => {
         </div>
       ) : (
         <div className="text-center p-8 bg-gray-50 rounded-lg">
-          <p className="text-gray-600 mb-4">Nenhum personagem encontrado.</p>
-          <Button onClick={handleAddNew}>Adicionar Personagem</Button>
+          <p className="text-gray-600 mb-4">
+            {queryError 
+              ? "Erro ao carregar personagens. Por favor, inicialize o banco de dados." 
+              : "Nenhum personagem encontrado."}
+          </p>
+          <div className="flex flex-col space-y-2 items-center">
+            <Button 
+              onClick={initializeDatabase} 
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={isInitializing}
+            >
+              {isInitializing ? 'Inicializando...' : 'Inicializar Banco de Dados'}
+            </Button>
+            <Button 
+              onClick={handleAddNew} 
+              className="w-full sm:w-auto"
+            >
+              Adicionar Personagem
+            </Button>
+          </div>
         </div>
       )}
 
