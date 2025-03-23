@@ -74,7 +74,7 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
       </div>
       
       {!apiAvailable && (
-        <Alert className="mb-6 border border-amber-200">
+        <Alert className="mb-6 border border-amber-200" variant="default">
           <AlertCircle className="h-4 w-4 text-amber-500" />
           <AlertDescription>
             <span className="font-semibold">Modo simplificado ativo:</span> Algumas opções avançadas podem não estar disponíveis.
@@ -177,23 +177,21 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
       </div>
       
       <div className="flex flex-col sm:flex-row justify-center gap-4">
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-          className="px-6 py-3 rounded-lg border border-violet-200 text-violet-700 font-medium hover:bg-violet-50 transition-colors"
+        <Button
+          variant="outline"
           onClick={onEdit}
+          className="px-6 py-3"
         >
           Editar Detalhes
-        </motion.button>
+        </Button>
         
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-          className="px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
+        <Button
+          variant="default"
           onClick={onConfirm}
+          className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
         >
           Gerar História com Ilustrações
-        </motion.button>
+        </Button>
       </div>
     </motion.div>
   );

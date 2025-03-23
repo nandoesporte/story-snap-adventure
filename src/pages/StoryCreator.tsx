@@ -12,51 +12,42 @@ import {
   CheckCircle,
   RefreshCw,
   AlertTriangle,
-  Edit, 
-  FileText,
+  Edit,
   Save
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import { useStoryBot } from "@/hooks/useStoryBot";
-import { generateStoryWithGPT4, generateStory } from "@/utils/storyGenerator";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import StoryReview from "@/components/StoryReview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/lib/supabase";
-
-type StoryPage = {
-  text: string;
-  imageUrl: string;
-};
+import { 
+  BookGenerationService, 
+  CompleteStory, 
+  StoryInputData, 
+  GeneratedStory 
+} from "@/services/BookGenerationService";
 
 const MAX_RETRY_ATTEMPTS = 3;
 
 const StoryCreator = () => {
   const navigate = useNavigate();
-  const [storyData, setStoryData] = useState<any>(null);
+  const [storyData, setStoryData] = useState<StoryInputData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState<string>("preparando");
-  const { generateImageDescription, generateImage, generateCoverImage, apiAvailable } = useStoryBot();
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showReview, setShowReview] = useState(false);
-  const [generatedStory, setGeneratedStory] = useState<{
-    title: string;
-    content: string[];
-  } | null>(null);
+  const [generatedStory, setGeneratedStory] = useState<GeneratedStory | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPage, setEditingPage] = useState<number | null>(null);
   const [editPageText, setEditPageText] = useState("");
   const [editTitle, setEditTitle] = useState("");
-  const [characterDetails, setCharacterDetails] = useState<any>(null);
+  const [bookGenerator, setBookGenerator] = useState<BookGenerationService | null>(null);
   
   // Function to clear generation state
   const resetGenerationState = useCallback(() => {
@@ -79,13 +70,8 @@ const StoryCreator = () => {
     const storedData = sessionStorage.getItem("create_story_data");
     if (storedData) {
       try {
-        const parsedData = JSON.parse(storedData);
+        const parsedData = JSON.parse(storedData) as StoryInputData;
         setStoryData(parsedData);
-        
-        // Fetch character details if a character ID is provided
-        if (parsedData.characterId) {
-          fetchCharacterDetails(parsedData.characterId);
-        }
         
         // Start story generation process
         resetGenerationState();
@@ -105,29 +91,11 @@ const StoryCreator = () => {
       // If we navigate away, make sure we clean up any pending processes
       setIsGenerating(false);
       setCancelRequested(true);
+      if (bookGenerator) {
+        bookGenerator.cancel();
+      }
     };
   }, [navigate, resetGenerationState]);
-  
-  // Fetch character details
-  const fetchCharacterDetails = async (characterId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("characters")
-        .select("*")
-        .eq("id", characterId)
-        .single();
-        
-      if (error) {
-        console.error("Error fetching character details:", error);
-        return;
-      }
-      
-      setCharacterDetails(data);
-      console.log("Character details loaded:", data);
-    } catch (error) {
-      console.error("Error in character fetch:", error);
-    }
-  };
   
   const updateProgress = (stage: string, percent: number) => {
     if (cancelRequested) return;
@@ -135,7 +103,7 @@ const StoryCreator = () => {
     setProgress(percent);
   };
   
-  const generateStoryContent = async (data: any) => {
+  const generateStoryContent = async (data: StoryInputData) => {
     if (cancelRequested) return;
     
     setIsGenerating(true);
@@ -144,50 +112,30 @@ const StoryCreator = () => {
     try {
       updateProgress("preparando", 10);
       
-      const childImageBase64 = data.imagePreview || null;
+      // Create the book generator service
+      const generator = new BookGenerationService(
+        data,
+        updateProgress,
+        (message) => {
+          setHasError(true);
+          setErrorMessage(message);
+          setIsGenerating(false);
+        }
+      );
+      
+      setBookGenerator(generator);
       
       // Start story generation
       updateProgress("gerando-historia", 20);
       
-      let storyResult;
-      try {
-        // Use the hardcoded API key directly with additional parameters
-        storyResult = await generateStoryWithGPT4({
-          childName: data.childName,
-          childAge: data.childAge,
-          theme: data.theme,
-          setting: data.setting,
-          imageUrl: data.imagePreview,
-          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined,
-          readingLevel: data.readingLevel || "intermediate",
-          language: data.language || "portuguese",
-          moral: data.moral || "friendship"
-        }, "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");
-        
-        updateProgress("historia-gerada", 40);
-      } catch (error) {
-        console.log("Failed to generate with GPT-4, falling back to local generator:", error);
-        
-        if (cancelRequested) return;
-        
-        // If GPT-4 fails, use local generator with additional parameters
-        storyResult = await generateStory({
-          childName: data.childName,
-          childAge: data.childAge,
-          theme: data.theme,
-          setting: data.setting,
-          imageUrl: data.imagePreview,
-          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined,
-          readingLevel: data.readingLevel || "intermediate",
-          language: data.language || "portuguese",
-          moral: data.moral || "friendship"
-        });
-        
-        toast.info("Usando gerador de histórias local devido a limitações da API.");
-        updateProgress("historia-gerada-local", 40);
-      }
+      // Generate story content with full structure
+      const storyResult = await generator.generateStoryContent();
       
       if (cancelRequested) return;
+      
+      if (!storyResult) {
+        throw new Error("Falha ao gerar o conteúdo da história");
+      }
       
       // After story generation, update state and show review screen
       setGeneratedStory(storyResult);
@@ -208,113 +156,21 @@ const StoryCreator = () => {
   };
   
   const continueWithImageGeneration = async () => {
-    if (!storyData || !generatedStory) return;
+    if (!storyData || !generatedStory || !bookGenerator) return;
     
     setShowReview(false);
     setIsGenerating(true);
     
     try {
-      updateProgress("gerando-capa", 60);
-      const childImageBase64 = storyData.imagePreview || null;
+      // Generate complete story with images
+      const completeStory = await bookGenerator.generateCompleteStory();
       
-      // Get character generation prompt if available
-      const characterPrompt = characterDetails?.generation_prompt || null;
-      console.log("Using character prompt for image generation:", characterPrompt);
-      
-      let coverImageUrl;
-      try {
-        coverImageUrl = await generateCoverImage(
-          generatedStory.title,
-          storyData.childName,
-          storyData.theme,
-          storyData.setting,
-          childImageBase64,
-          storyData.style || "cartoon",
-          characterPrompt
-        );
-      } catch (error) {
-        console.error("Failed to generate cover image:", error);
-        
-        if (cancelRequested) return;
-        
-        // Use fallback cover image based on theme
-        coverImageUrl = `/images/covers/${storyData.theme}.jpg`;
-        toast.warning("Não foi possível gerar a capa personalizada. Usando imagem padrão.");
-      }
-      
-      if (cancelRequested) return;
-      
-      // Generate images for each page
-      updateProgress("gerando-ilustracoes", 70);
-      const pagesWithImages: StoryPage[] = [];
-      
-      for (let i = 0; i < generatedStory.content.length; i++) {
-        if (cancelRequested) return;
-        
-        const pageText = generatedStory.content[i];
-        const progressPercent = 70 + Math.floor((i / generatedStory.content.length) * 20);
-        updateProgress(`ilustracao-${i+1}`, progressPercent);
-        
-        try {
-          // Generate image description
-          const imageDescription = await generateImageDescription(
-            pageText + (storyData.characterName ? ` com o personagem ${storyData.characterName}` : ''),
-            storyData.childName,
-            storyData.childAge,
-            storyData.theme,
-            storyData.setting
-          );
-          
-          if (cancelRequested) return;
-          
-          // Generate image based on description with character prompt
-          const imageUrl = await generateImage(
-            imageDescription,
-            storyData.childName,
-            storyData.theme,
-            storyData.setting,
-            childImageBase64,
-            storyData.style || "cartoon",
-            characterPrompt
-          );
-          
-          pagesWithImages.push({
-            text: pageText,
-            imageUrl: imageUrl
-          });
-        } catch (error) {
-          console.error("Failed to generate page image:", error);
-          
-          if (cancelRequested) return;
-          
-          // Use fallback image based on theme
-          const fallbackUrl = `/images/placeholders/${storyData.theme}.jpg`;
-          toast.warning(`Falha ao gerar ilustração para página ${i+1}. Usando imagem padrão.`);
-          
-          pagesWithImages.push({
-            text: pageText,
-            imageUrl: fallbackUrl
-          });
-        }
-      }
-      
-      if (cancelRequested) return;
+      if (cancelRequested || !completeStory) return;
       
       // Store complete story data in session storage
       updateProgress("finalizando", 95);
       
-      sessionStorage.setItem("storyData", JSON.stringify({
-        title: generatedStory.title,
-        coverImageUrl: coverImageUrl,
-        childImage: storyData.imagePreview,
-        childName: storyData.childName,
-        childAge: storyData.childAge,
-        theme: storyData.theme,
-        setting: storyData.setting,
-        characterId: storyData.characterId,
-        characterName: storyData.characterName,
-        pages: pagesWithImages
-      }));
+      sessionStorage.setItem("storyData", JSON.stringify(completeStory));
       
       updateProgress("concluido", 100);
       
@@ -357,6 +213,7 @@ const StoryCreator = () => {
       title: editTitle
     });
     
+    setIsEditing(false);
     toast.success("Título atualizado com sucesso!");
   };
   
@@ -397,6 +254,9 @@ const StoryCreator = () => {
   const handleCancelAndReturn = () => {
     setCancelRequested(true);
     setIsGenerating(false);
+    if (bookGenerator) {
+      bookGenerator.cancel();
+    }
     navigate("/create-story");
   };
   
@@ -410,7 +270,7 @@ const StoryCreator = () => {
       case "gerando-historia": 
       case "historia-gerada":
       case "historia-gerada-local": return <BookOpen className="h-12 w-12 text-indigo-500" />;
-      case "revisao-historia": return <FileText className="h-12 w-12 text-indigo-500" />;
+      case "revisao-historia": return <BookOpen className="h-12 w-12 text-indigo-500" />;
       case "gerando-capa": return <ImageIcon className="h-12 w-12 text-indigo-500" />;
       case "gerando-ilustracoes": return <Wand2 className="h-12 w-12 text-indigo-500" />;
       case "concluido": return <CheckCircle className="h-12 w-12 text-emerald-500" />;
@@ -667,10 +527,7 @@ const StoryCreator = () => {
               ) : (
                 <div className="text-center max-w-md">
                   <p className="text-sm text-slate-500">
-                    {!apiAvailable ? 
-                      "Usando gerador de histórias local para criar sua história rapidamente." :
-                      "Este processo pode levar alguns minutos enquanto criamos ilustrações personalizadas."
-                    }
+                    Este processo pode levar alguns minutos enquanto criamos ilustrações personalizadas.
                   </p>
                 </div>
               )}
