@@ -1,10 +1,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 
 // Custom hook to fetch page content for the index page
 export const useIndexPageContent = (section?: string) => {
-  const { data: pageContents = [], isLoading } = useQuery({
+  const [localIsLoading, setLocalIsLoading] = useState(true);
+
+  const { data: pageContents = [], isLoading: queryIsLoading } = useQuery({
     queryKey: ["page-contents", "index", section],
     queryFn: async () => {
       const query = supabase
@@ -35,5 +38,21 @@ export const useIndexPageContent = (section?: string) => {
     return content ? content.content : defaultValue;
   };
 
-  return { pageContents, isLoading, getContent };
+  // Set loading to false when query is done
+  useEffect(() => {
+    if (!queryIsLoading) {
+      // Add small delay to ensure content is processed
+      const timer = setTimeout(() => {
+        setLocalIsLoading(false);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [queryIsLoading]);
+
+  return { 
+    pageContents, 
+    isLoading: localIsLoading, 
+    getContent 
+  };
 };

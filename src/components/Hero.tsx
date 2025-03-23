@@ -5,12 +5,16 @@ import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface HeroProps {
   customImageUrl?: string;
 }
 
 const Hero = ({ customImageUrl }: HeroProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
   // Fetch hero content from the database with better error handling
   const { data: heroContents = [] } = useQuery({
     queryKey: ["page-contents", "index", "hero"],
@@ -41,6 +45,15 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   // Default image if none provided - only set after heroContents is loaded
   const heroImage = customImageUrl || getContent("image_url", "");
   const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
+
+  // Preload image
+  useEffect(() => {
+    if (heroImage) {
+      const img = new Image();
+      img.src = heroImage;
+      img.onload = () => setImageLoaded(true);
+    }
+  }, [heroImage]);
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
@@ -121,30 +134,42 @@ const Hero = ({ customImageUrl }: HeroProps) => {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="w-full md:w-1/2 flex justify-center items-center relative z-0"
           >
-            {heroImage && (
+            {heroImage ? (
               <div className="relative w-full max-w-lg">
+                {!imageLoaded && (
+                  <div className="flex justify-center items-center h-64">
+                    <LoadingSpinner size="lg" />
+                  </div>
+                )}
                 <img 
                   src={heroImage}
                   alt={imageAlt}
-                  className="w-full h-auto z-10 drop-shadow-xl"
-                  loading="eager" // Add eager loading for the hero image
+                  className={`w-full h-auto z-10 drop-shadow-xl ${!imageLoaded ? 'hidden' : ''}`}
+                  loading="eager"
+                  onLoad={() => setImageLoaded(true)}
                 />
                 
                 {/* Animated elements */}
-                <motion.div
-                  className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
-                  animate={{
-                    y: [0, -15, 0],
-                    rotate: [0, 5, 0],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <Wand2 className="w-full h-full" />
-                </motion.div>
+                {imageLoaded && (
+                  <motion.div
+                    className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
+                    animate={{
+                      y: [0, -15, 0],
+                      rotate: [0, 5, 0],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <Wand2 className="w-full h-full" />
+                  </motion.div>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-64">
+                <LoadingSpinner size="lg" />
               </div>
             )}
           </motion.div>
