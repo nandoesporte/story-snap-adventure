@@ -36,7 +36,7 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     characterPrompt: ""
   });
 
-  const { data: characters } = useQuery({
+  const { data: characters, isLoading } = useQuery({
     queryKey: ["characters-for-story"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -145,12 +145,18 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all appearance-none"
               >
-                <option value="">Selecione um personagem (opcional)</option>
-                {characters?.map(character => (
-                  <option key={character.id} value={character.id}>
-                    {character.name}
-                  </option>
-                ))}
+                <option value="">Selecione um personagem</option>
+                {isLoading ? (
+                  <option disabled>Carregando personagens...</option>
+                ) : characters && characters.length > 0 ? (
+                  characters.map(character => (
+                    <option key={character.id} value={character.id}>
+                      {character.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>Nenhum personagem encontrado</option>
+                )}
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

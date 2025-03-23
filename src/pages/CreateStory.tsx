@@ -114,7 +114,7 @@ const CreateStory = () => {
             <Alert className="mb-6 bg-blue-50 border-blue-200">
               <Info className="h-4 w-4 text-blue-500" />
               <AlertDescription className="flex justify-between items-center">
-                <span>Agora com 10 personagens encantadores e únicos! Escolha seu favorito para viver aventuras incríveis em histórias personalizadas.</span>
+                <span>Escolha entre os personagens exclusivos para viver aventuras incríveis em histórias personalizadas.</span>
                 <button 
                   onClick={handleDismissCharacterInfo}
                   className="text-xs text-blue-500 hover:text-blue-700"
