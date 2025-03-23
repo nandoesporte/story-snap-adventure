@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -8,17 +7,21 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StoryTheme, StorySetting, StoryStyle, StoryLength, ReadingLevel, StoryLanguage, StoryMoral } from "@/services/BookGenerationService";
 
 export interface StoryFormData {
   childName: string;
   childAge: string;
-  theme: string;
-  setting: string;
+  theme: StoryTheme;
+  setting: StorySetting;
   characterId?: string;
+  characterName?: string;
   characterPrompt?: string;
-  readingLevel?: string;
-  language?: string;
-  moral?: string;
+  style?: StoryStyle;
+  length?: StoryLength;
+  readingLevel?: ReadingLevel;
+  language?: StoryLanguage;
+  moral?: StoryMoral;
 }
 
 interface StoryFormProps {
@@ -40,7 +43,10 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     theme: "adventure",
     setting: "forest",
     characterId: "",
+    characterName: "",
     characterPrompt: "",
+    style: "standard",
+    length: "short",
     readingLevel: "intermediate",
     language: "portuguese",
     moral: "friendship"

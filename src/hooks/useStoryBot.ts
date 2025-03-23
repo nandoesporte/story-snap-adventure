@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -20,9 +19,9 @@ export const useStoryBot = () => {
   const storyBot = new StoryBot();
   
   // Update API availability status from the service
-  useState(() => {
+  useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
-  });
+  }, []);
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
     setIsGenerating(true);

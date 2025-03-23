@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -23,7 +22,17 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { StoryInputData, BookGenerationService } from "@/services/BookGenerationService";
+import { 
+  StoryInputData, 
+  BookGenerationService, 
+  StoryTheme, 
+  StorySetting, 
+  StoryStyle, 
+  StoryLength, 
+  ReadingLevel, 
+  StoryLanguage, 
+  StoryMoral 
+} from "@/services/BookGenerationService";
 import { useStoryBot } from "@/hooks/useStoryBot";
 
 type CreationStep = "photo" | "details" | "confirmation" | "generating";
@@ -43,7 +52,6 @@ const CreateStory = () => {
   const [cancelRequested, setCancelRequested] = useState(false);
   const { apiAvailable } = useStoryBot();
 
-  // Handle file selection
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     
@@ -58,13 +66,11 @@ const CreateStory = () => {
     }
   };
   
-  // Handle form submission
   const handleFormSubmit = (data: StoryFormData) => {
     setFormData(data);
     setStep("confirmation");
   };
   
-  // Handle story generation
   const handleGenerateStory = async () => {
     if (!formData) {
       toast.error("Dados da história incompletos");
@@ -76,56 +82,48 @@ const CreateStory = () => {
     setHasError(false);
     setCancelRequested(false);
     
-    // Prepare input data for the story generation service
     const storyInputData: StoryInputData = {
       childName: formData.childName,
       childAge: formData.childAge,
-      theme: formData.theme,
-      setting: formData.setting,
+      theme: formData.theme as StoryTheme,
+      setting: formData.setting as StorySetting,
       characterId: formData.characterId,
       characterName: formData.characterName,
-      style: formData.style,
-      length: formData.length,
+      style: formData.style as StoryStyle,
+      length: formData.length as StoryLength,
       imagePreview: imagePreview,
-      readingLevel: formData.readingLevel,
-      language: formData.language,
-      moral: formData.moral
+      readingLevel: formData.readingLevel as ReadingLevel,
+      language: formData.language as StoryLanguage,
+      moral: formData.moral as StoryMoral
     };
     
-    // Store data in session storage for access during generation
     sessionStorage.setItem("create_story_data", JSON.stringify(storyInputData));
     
-    // Navigate to story generator page to handle the generation process
     navigate("/story-creator");
   };
   
-  // Update progress (This would be used if we were generating directly on this page)
   const updateProgress = (stage: string, percent: number) => {
     if (cancelRequested) return;
     setCurrentStage(stage);
     setProgress(percent);
   };
   
-  // Handle cancellation
   const handleCancel = () => {
     setCancelRequested(true);
     setIsGenerating(false);
     
     if (step === "photo" || step === "details" || step === "confirmation") {
-      // For early steps, just reset form data
       if (step === "details") {
         setStep("photo");
       } else if (step === "confirmation") {
         setStep("details");
       }
     } else {
-      // For generation step, stop generation process and navigate back
       navigate("/");
       toast.info("Geração de história cancelada");
     }
   };
   
-  // Get an icon based on the current stage
   const getStageIcon = () => {
     if (hasError) {
       return <AlertTriangle className="h-12 w-12 text-amber-500" />;
@@ -141,7 +139,6 @@ const CreateStory = () => {
     }
   };
   
-  // Get a text description for the current stage
   const getStageName = () => {
     if (hasError) {
       return "Encontramos um problema";
@@ -163,7 +160,6 @@ const CreateStory = () => {
     }
   };
   
-  // Render appropriate step UI
   const renderStep = () => {
     switch (step) {
       case "photo":
@@ -298,7 +294,6 @@ const CreateStory = () => {
                   onClick={() => {
                     setHasError(false);
                     setRetryCount(prev => prev + 1);
-                    // Retry logic would go here
                   }}
                   variant="default"
                   className="gap-2"
@@ -320,7 +315,6 @@ const CreateStory = () => {
     }
   };
   
-  // Helper functions from BookGenerationService
   const getThemeName = (theme: string): string => {
     const themeMap: Record<string, string> = {
       adventure: "Aventura",

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "./StoryBot";
@@ -254,7 +253,7 @@ export class BookGenerationService {
     }
   }
 
-  private async generateStoryContent(): Promise<GeneratedStory | null> {
+  public async generateStoryContent(): Promise<GeneratedStory | null> {
     try {
       const { theme, setting, childName, childAge, characterDetails, readingLevel, language, moral, length } = this.storyData;
       
@@ -298,7 +297,7 @@ export class BookGenerationService {
     if (this.isCancelled) return "";
     
     try {
-      const { theme, childName, setting, style, characterDetails } = this.storyData;
+      const { theme, childName, setting, style, characterDetails, moral } = this.storyData;
       const childImage = this.storyData.imagePreview;
       const characterPrompt = characterDetails?.generation_prompt || null;
       
@@ -309,7 +308,7 @@ export class BookGenerationService {
         this.storyData.childAge,
         theme,
         setting,
-        moral || "friendship"
+        this.storyData.moral || "friendship"
       );
       
       if (this.isCancelled) return "";
@@ -335,7 +334,7 @@ export class BookGenerationService {
     if (this.isCancelled) return [];
     
     const pagesWithImages: StoryPage[] = [];
-    const { theme, childName, setting, style, characterDetails } = this.storyData;
+    const { theme, childName, setting, style, characterDetails, moral } = this.storyData;
     const childImage = this.storyData.imagePreview;
     const characterPrompt = characterDetails?.generation_prompt || null;
     
@@ -354,7 +353,7 @@ export class BookGenerationService {
           this.storyData.childAge,
           theme,
           setting,
-          moral || "friendship"
+          this.storyData.moral || "friendship"
         );
         
         if (this.isCancelled) break;
