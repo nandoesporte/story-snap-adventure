@@ -384,7 +384,7 @@ The description should be concise, vivid, and suitable for generating a children
         setting === 'castle' ? 'magical castle setting' : 
         setting === 'space' ? 'space setting with planets and stars' : 
         setting === 'underwater' ? 'colorful underwater coral reef setting' : 
-        'prehistoric landscape with lush vegetation and volcanoes'}, 
+        'prehistoric landscape setting with lush vegetation and volcanoes'}, 
         professional children's book illustration, 
         Pixar/Disney style, 
         high quality, 
@@ -446,9 +446,9 @@ The description should be concise, vivid, and suitable for generating a children
         theme === 'ocean' ? 'underwater adventure theme with sea creatures' : 
         'dinosaur prehistoric theme with friendly dinosaurs'},
         ${setting === 'forest' ? 'enchanted forest setting with magical trees' : 
-        setting === 'castle' ? 'magical castle setting with towers and flags' : 
-        setting === 'space' ? 'outer space setting with distant planets and nebulas' : 
-        setting === 'underwater' ? 'underwater kingdom setting with coral reefs' : 
+        setting === 'castle' ? 'magnificent magical castle with towers and flags' : 
+        setting === 'space' ? 'colorful space scene with distant planets and nebulas' : 
+        setting === 'underwater' ? 'colorful underwater kingdom with coral reefs' : 
         'prehistoric landscape setting with lush vegetation and volcanoes'},
         portrait format, vertical composition, main character prominently featured, title space at top,
         professional children's book cover art, vibrant colors, eye-catching, digital art, highly detailed, no text,

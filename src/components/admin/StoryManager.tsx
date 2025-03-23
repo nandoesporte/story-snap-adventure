@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUserStories, deleteStory, Story } from "@/lib/supabase";
+import { getUserStories, deleteStory, Story, updateStory } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -45,6 +46,27 @@ export const StoryManager = () => {
     },
   });
 
+  // Update story mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: string; updates: Partial<Story> }) => 
+      updateStory(data.id, data.updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-stories"] });
+      setIsEditDialogOpen(false);
+      toast({
+        title: "História atualizada com sucesso",
+        variant: "default",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar história",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handle story deletion
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir esta história?")) {
@@ -79,6 +101,16 @@ export const StoryManager = () => {
       ...story,
     });
     setIsEditDialogOpen(true);
+  };
+
+  // Handle form submission
+  const handleSubmit = (data: Story) => {
+    if (editingStory?.id) {
+      updateMutation.mutate({
+        id: editingStory.id,
+        updates: data
+      });
+    }
   };
 
   return (
@@ -158,7 +190,7 @@ export const StoryManager = () => {
             <DialogTitle>Editar História</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
               <FormField
                 control={form.control}
                 name="title"
@@ -255,7 +287,7 @@ export const StoryManager = () => {
                     <FormLabel>Descrição do Personagem</FormLabel>
                     <FormControl>
                       <Textarea 
-                        {...field} 
+                        {...field}
                         placeholder="Descreva detalhes físicos e personalidade do personagem para manter consistência nas imagens"
                         rows={3}
                       />
@@ -264,14 +296,15 @@ export const StoryManager = () => {
                   </FormItem>
                 )}
               />
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} type="button">
+                  Cancelar
+                </Button>
+                <Button type="submit">Salvar Alterações</Button>
+              </DialogFooter>
             </form>
           </Form>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit">Salvar Alterações</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

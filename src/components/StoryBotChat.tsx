@@ -84,8 +84,8 @@ const StoryBotChat = () => {
     setIsLoading(true);
     
     try {
-      // Get response from AI, passing the character prompt if available
-      const response = await generateStoryBotResponse(messages, inputValue, characterPrompt);
+      // Get response from AI, passing only the required arguments
+      const response = await generateStoryBotResponse(messages, inputValue);
       
       // Add assistant message
       const assistantMessage: Message = {

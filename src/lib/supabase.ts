@@ -277,6 +277,7 @@ export type Story = {
   theme: string;
   setting: string;
   style: string;
+  character_prompt?: string;
   pages: StoryPage[];
   created_at?: string;
 };
