@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,6 @@ const StoryBotChat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { generateStoryBotResponse } = useStoryBot();
   
-  // Initial assistant message when the component mounts
   useEffect(() => {
     const initialMessage: Message = {
       role: "assistant",
@@ -30,24 +28,19 @@ const StoryBotChat = () => {
     setMessages([initialMessage]);
   }, []);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Extract character description from conversation
   useEffect(() => {
     if (messages.length > 2) {
-      // Try to extract character description from previous messages
       const allText = messages.map(m => m.content).join(" ");
       
-      // Look for descriptions in the conversation
       const descriptionMatch = allText.match(/aparência.+?(cabelo|olhos|pele|roupa|veste)/i) || 
                               allText.match(/personagem.+?(cabelo|olhos|pele|roupa|veste)/i) ||
                               allText.match(/característica.+?(cabelo|olhos|pele|roupa|veste)/i);
       
       if (descriptionMatch && descriptionMatch[0] && !characterPrompt) {
-        // Get the sentence containing the description
         const sentence = allText.substring(
           Math.max(0, allText.indexOf(descriptionMatch[0]) - 30),
           Math.min(allText.length, allText.indexOf(descriptionMatch[0]) + 150)
@@ -62,7 +55,6 @@ const StoryBotChat = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
     
-    // Check if this input contains character description
     if (e.target.value.match(/aparência|personagem.+?(cabelo|olhos|pele|roupa|veste)/i)) {
       setCharacterPrompt(e.target.value);
     }
@@ -73,7 +65,6 @@ const StoryBotChat = () => {
     
     if (!inputValue.trim()) return;
     
-    // Add user message
     const userMessage: Message = {
       role: "user",
       content: inputValue
@@ -84,10 +75,8 @@ const StoryBotChat = () => {
     setIsLoading(true);
     
     try {
-      // Get response from AI, passing only the required arguments
       const response = await generateStoryBotResponse(messages, inputValue);
       
-      // Add assistant message
       const assistantMessage: Message = {
         role: "assistant",
         content: response

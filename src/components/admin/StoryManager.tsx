@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUserStories, deleteStory, Story, updateStory } from "@/lib/supabase";
@@ -21,13 +20,11 @@ export const StoryManager = () => {
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  // Fetch stories
   const { data: stories = [], isLoading, error } = useQuery({
     queryKey: ["admin-stories"],
     queryFn: getUserStories,
   });
 
-  // Delete story mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteStory(id),
     onSuccess: () => {
@@ -46,7 +43,6 @@ export const StoryManager = () => {
     },
   });
 
-  // Update story mutation
   const updateMutation = useMutation({
     mutationFn: (data: { id: string; updates: Partial<Story> }) => 
       updateStory(data.id, data.updates),
@@ -67,21 +63,18 @@ export const StoryManager = () => {
     },
   });
 
-  // Handle story deletion
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir esta história?")) {
       deleteMutation.mutate(id);
     }
   };
 
-  // Filter stories by search term
   const filteredStories = stories.filter(
     (story) =>
       story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       story.character_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Form for editing story
   const form = useForm<Story>({
     defaultValues: {
       title: "",
@@ -94,7 +87,6 @@ export const StoryManager = () => {
     },
   });
 
-  // Set form values when editing a story
   const handleEdit = (story: Story) => {
     setEditingStory(story);
     form.reset({
@@ -103,7 +95,6 @@ export const StoryManager = () => {
     setIsEditDialogOpen(true);
   };
 
-  // Handle form submission
   const handleSubmit = (data: Story) => {
     if (editingStory?.id) {
       updateMutation.mutate({
@@ -183,7 +174,6 @@ export const StoryManager = () => {
         </div>
       )}
 
-      {/* Edit Story Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -290,6 +280,7 @@ export const StoryManager = () => {
                         {...field}
                         placeholder="Descreva detalhes físicos e personalidade do personagem para manter consistência nas imagens"
                         rows={3}
+                        value={field.value as string}
                       />
                     </FormControl>
                     <FormMessage />
