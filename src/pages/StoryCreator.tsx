@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -102,8 +101,7 @@ const StoryCreator = () => {
       
       let storyResult;
       try {
-        // Try to generate with GPT-4 first
-        const openaiApiKey = "sk-dummy-key"; // This will be replaced by your actual API key in production
+        // Use the hardcoded API key directly
         storyResult = await generateStoryWithGPT4({
           childName: data.childName,
           childAge: data.childAge,
@@ -111,7 +109,7 @@ const StoryCreator = () => {
           setting: data.setting,
           imageUrl: data.imagePreview,
           characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined
-        }, openaiApiKey);
+        }, "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");
         
         updateProgress("historia-gerada", 40);
       } catch (error) {

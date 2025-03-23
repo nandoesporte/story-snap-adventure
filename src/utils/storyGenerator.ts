@@ -16,9 +16,9 @@ interface StoryData {
   content: string[];
 }
 
-// Initialize OpenAI client with a placeholder API key
+// Initialize OpenAI client with the provided API key
 let openai = new OpenAI({
-  apiKey: "sk-dummy-key",
+  apiKey: "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",
   dangerouslyAllowBrowser: true
 });
 
@@ -27,9 +27,9 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
   const { childName, childAge, theme, setting, characterPrompt } = params;
   
   try {
-    // Set the OpenAI API key
+    // Set the OpenAI API key (using the provided key instead of the parameter)
     openai = new OpenAI({
-      apiKey: openaiKey,
+      apiKey: "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",
       dangerouslyAllowBrowser: true
     });
     
@@ -67,7 +67,7 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
     
     And so on until PAGE 10.`;
     
-    console.log("Sending prompt to OpenAI...");
+    console.log("Sending prompt to OpenAI with valid API key...");
     
     // Define timeout for the API call
     const timeout = 30000; // 30 seconds

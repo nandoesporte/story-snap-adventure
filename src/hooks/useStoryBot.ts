@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +15,7 @@ export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState(true);
   const MAX_RETRIES = 2;
   const API_TIMEOUT = 15000; // 15 seconds timeout
+  const OPENAI_API_KEY = "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";
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
     setIsGenerating(true);
@@ -74,43 +74,24 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         setTimeout(() => reject(new Error("Request timeout")), API_TIMEOUT);
       });
 
-      // Make API call to your backend or directly to OpenAI with your API key
-      const apiPromise = fetch("/api/storybot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: formattedMessages,
-          userId: user?.id || "anonymous",
-        }),
+      // Make API call to OpenAI directly with the provided API key
+      const { OpenAI } = await import("openai");
+      const openai = new OpenAI({
+        apiKey: OPENAI_API_KEY,
+        dangerouslyAllowBrowser: true
       });
 
-      // Race the API call against the timeout
-      const apiResponse = await Promise.race([apiPromise, timeoutPromise]) as Response;
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
 
-      if (!apiResponse.ok) {
-        const errorData = await apiResponse.json().catch(() => null);
-        console.error("API error response:", errorData);
-        
-        // Check if we can retry
-        if (currentRetry < MAX_RETRIES) {
-          console.log(`Retrying request (${currentRetry + 1}/${MAX_RETRIES})...`);
-          setRetryCount(currentRetry + 1);
-          
-          // Wait a moment before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return await generateStoryBotResponse(messages, userPrompt);
-        }
-        
-        throw new Error(errorData?.error || "Failed to generate response");
-      }
-
-      // Reset retry count on success
       setRetryCount(0);
       setApiAvailable(true);
-      const data = await apiResponse.json();
-      return data.response || "Desculpe, não consegui gerar uma resposta.";
+      return response.choices[0]?.message.content || "Desculpe, não consegui gerar uma resposta.";
+      
     } catch (error) {
       console.error("Error generating StoryBot response:", error);
       // Mark API as unavailable
