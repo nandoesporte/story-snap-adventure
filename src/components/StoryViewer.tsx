@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,13 @@ import {
   Share2Icon, 
   VolumeIcon, 
   BookmarkIcon,
-  HeartIcon
+  HeartIcon,
+  Settings
 } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
+import LeonardoWebhookConfig from "./LeonardoWebhookConfig";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
-// Define the story data structure
 interface StoryData {
   title: string;
   coverImageUrl: string;
@@ -40,15 +41,15 @@ interface StoryData {
 
 const StoryViewer = () => {
   const [storyData, setStoryData] = useState<StoryData | null>(null);
-  const [currentPage, setCurrentPage] = useState(-1); // -1 for cover page
+  const [currentPage, setCurrentPage] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [pageDirection, setPageDirection] = useState<"left" | "right">("right");
   const storyBookRef = useRef<HTMLDivElement>(null);
   const controls = useAnimationControls();
-  
-  // Load story data from session storage on component mount
+  const [showSettings, setShowSettings] = useState(false);
+
   useEffect(() => {
     const storedData = sessionStorage.getItem("storyData");
     if (storedData) {
@@ -56,16 +57,14 @@ const StoryViewer = () => {
       setStoryData(parsedData);
     }
   }, []);
-  
-  // Function to navigate to the previous page
+
   const prevPage = () => {
     if (currentPage > -1) {
       setPageDirection("left");
       setCurrentPage(currentPage - 1);
     }
   };
-  
-  // Function to navigate to the next page
+
   const nextPage = () => {
     const maxPages = storyData ? storyData.pages.length - 1 : -1;
     if (currentPage < maxPages) {
@@ -74,11 +73,9 @@ const StoryViewer = () => {
     }
   };
 
-  // Function to toggle audio narration
   const toggleAudio = () => {
     setIsAudioPlaying(!isAudioPlaying);
     if (!isAudioPlaying) {
-      // Speech synthesis for narration
       if (storyData && 'speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(
           currentPage === -1 
@@ -86,7 +83,7 @@ const StoryViewer = () => {
             : storyData.pages[currentPage]?.text || ""
         );
         utterance.lang = storyData.language === 'english' ? 'en-US' : 'pt-BR';
-        utterance.rate = 0.9; // slightly slower for children
+        utterance.rate = 0.9;
         window.speechSynthesis.speak(utterance);
       }
       toast.info("Narração de áudio iniciada");
@@ -95,8 +92,7 @@ const StoryViewer = () => {
       toast.info("Narração de áudio pausada");
     }
   };
-  
-  // Function to share the story
+
   const shareStory = () => {
     if (navigator.share && storyData) {
       navigator.share({
@@ -110,14 +106,12 @@ const StoryViewer = () => {
         toast.error("Não foi possível compartilhar a história");
       });
     } else {
-      // Fallback for browsers that don't support Web Share API
       navigator.clipboard.writeText(window.location.href)
         .then(() => toast.success("Link copiado para a área de transferência!"))
         .catch(() => toast.error("Não foi possível copiar o link"));
     }
   };
-  
-  // Function to generate a PDF of the storybook
+
   const generatePdf = async () => {
     if (!storyData) return;
     
@@ -125,17 +119,13 @@ const StoryViewer = () => {
     toast.info("Gerando PDF, por favor aguarde...");
     
     try {
-      // Create a new PDF document
       const pdfDoc = await PDFDocument.create();
       
-      // Add cover page first
       const originalPage = currentPage;
-      setCurrentPage(-1); // Set to cover page
+      setCurrentPage(-1);
       
-      // Wait for the UI to update
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Capture cover page
       if (storyBookRef.current) {
         const canvas = await html2canvas(storyBookRef.current, {
           scale: 2,
@@ -147,10 +137,8 @@ const StoryViewer = () => {
         const pngData = canvas.toDataURL('image/png');
         const pngImage = await pdfDoc.embedPng(pngData);
         
-        // Add a page to the PDF for cover
         const coverPage = pdfDoc.addPage([800, 600]);
         
-        // Draw the PNG image to fill the page
         const { width, height } = pngImage.size();
         const aspectRatio = width / height;
         
@@ -170,10 +158,8 @@ const StoryViewer = () => {
         });
       }
       
-      // Get all content pages
       for (let i = 0; i < storyData.pages.length; i++) {
         setCurrentPage(i);
-        // Wait for the UI to update
         await new Promise(resolve => setTimeout(resolve, 100));
         
         if (storyBookRef.current) {
@@ -187,10 +173,8 @@ const StoryViewer = () => {
           const pngData = canvas.toDataURL('image/png');
           const pngImage = await pdfDoc.embedPng(pngData);
           
-          // Add a page to the PDF
           const page = pdfDoc.addPage([800, 600]);
           
-          // Draw the PNG image to fill the page
           const { width, height } = pngImage.size();
           const aspectRatio = width / height;
           
@@ -211,13 +195,10 @@ const StoryViewer = () => {
         }
       }
       
-      // Reset to original page
       setCurrentPage(originalPage);
       
-      // Save the PDF
       const pdfBytes = await pdfDoc.save();
       
-      // Create a download link
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -235,8 +216,7 @@ const StoryViewer = () => {
       setIsPdfGenerating(false);
     }
   };
-  
-  // If no story data is available, show a message
+
   if (!storyData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white rounded-2xl shadow-lg">
@@ -248,12 +228,10 @@ const StoryViewer = () => {
       </div>
     );
   }
-  
-  // Determine what content to show based on current page
+
   const isCoverPage = currentPage === -1;
   const pageData = isCoverPage ? null : storyData.pages[currentPage];
-  
-  // Page turning animation variants
+
   const pageVariants = {
     enter: (direction: "left" | "right") => ({
       x: direction === "right" ? 1000 : -1000,
@@ -279,20 +257,19 @@ const StoryViewer = () => {
       }
     })
   };
-  
+
   return (
     <div ref={storyBookRef} className="story-viewer-container story-book-style">
-      {/* Story header with title and actions */}
       <div className="story-header">
         <div className="story-avatar">
           <img 
-            src={storyData.coverImageUrl || '/placeholder.svg'} 
-            alt={storyData.title}
+            src={storyData?.coverImageUrl || '/placeholder.svg'} 
+            alt={storyData?.title}
             className="rounded-full object-cover border-4 border-white shadow-md"
           />
         </div>
 
-        <h1 className="story-title">{storyData.title}</h1>
+        <h1 className="story-title">{storyData?.title}</h1>
         
         <div className="story-actions">
           <Button 
@@ -324,6 +301,22 @@ const StoryViewer = () => {
             <HeartIcon className="h-5 w-5 text-white" />
           </Button>
           
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="story-action-btn"
+                title="Configurações"
+              >
+                <Settings className="h-5 w-5 text-white" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <LeonardoWebhookConfig />
+            </DialogContent>
+          </Dialog>
+          
           <Button 
             variant="ghost" 
             size="icon" 
@@ -350,7 +343,6 @@ const StoryViewer = () => {
         </div>
       </div>
       
-      {/* Main story content */}
       <div className="story-content-container">
         <AnimatePresence mode="wait" custom={pageDirection}>
           <motion.div
@@ -364,22 +356,21 @@ const StoryViewer = () => {
           >
             <div className="story-page-inner">
               {isCoverPage ? (
-                /* Cover page */
                 <div className="story-cover">
                   <div className="story-cover-image-container">
                     <img 
-                      src={storyData.coverImageUrl}
-                      alt={`Capa: ${storyData.title}`}
+                      src={storyData?.coverImageUrl}
+                      alt={`Capa: ${storyData?.title}`}
                       className="story-cover-image"
                     />
                   </div>
                   <div className="story-cover-details">
-                    <h2 className="story-cover-title">{storyData.title}</h2>
+                    <h2 className="story-cover-title">{storyData?.title}</h2>
                     <div className="story-cover-subtitle">
-                      {storyData.characterName ? (
-                        <p>Uma aventura com {storyData.characterName}</p>
+                      {storyData?.characterName ? (
+                        <p>Uma aventura com {storyData?.characterName}</p>
                       ) : (
-                        <p>Uma história para {storyData.childName}</p>
+                        <p>Uma história para {storyData?.childName}</p>
                       )}
                     </div>
                     <div className="story-cover-decoration">
@@ -390,7 +381,6 @@ const StoryViewer = () => {
                   </div>
                 </div>
               ) : (
-                /* Story page content */
                 <>
                   <div className="story-image-container">
                     <img 
@@ -399,7 +389,6 @@ const StoryViewer = () => {
                       className="story-image"
                     />
                     
-                    {/* Progress bar */}
                     <div className="progress-bar-container">
                       <div className="progress-bar">
                         <div 
@@ -422,12 +411,10 @@ const StoryViewer = () => {
           </motion.div>
         </AnimatePresence>
         
-        {/* Page corner (for page turning effect) */}
         <div className="page-corner page-corner-right" onClick={nextPage}></div>
         <div className="page-corner page-corner-left" onClick={prevPage}></div>
       </div>
       
-      {/* Navigation buttons */}
       <div className="page-navigation">
         <Button
           variant="outline"
@@ -450,16 +437,15 @@ const StoryViewer = () => {
         </Button>
       </div>
       
-      {/* Story metadata and author info */}
       <div className="story-metadata">
         <div className="metadata-section">
           <h3 className="metadata-title">Sobre a história</h3>
           <p className="metadata-content">
-            Esta história foi criada especialmente {storyData.characterName ? 
-            `com o personagem ${storyData.characterName}` : 
-            `para ${storyData.childName}, ${storyData.childAge} anos`}.
-            Tema: {storyData.theme}. Cenário: {storyData.setting}.
-            {storyData.moral && ` Moral: ${storyData.moral}.`}
+            Esta história foi criada especialmente {storyData?.characterName ? 
+            `com o personagem ${storyData?.characterName}` : 
+            `para ${storyData?.childName}, ${storyData?.childAge} anos`}.
+            Tema: {storyData?.theme}. Cenário: {storyData?.setting}.
+            {storyData?.moral && ` Moral: ${storyData?.moral}.`}
           </p>
         </div>
         
@@ -485,7 +471,6 @@ const StoryViewer = () => {
         </div>
       </div>
       
-      {/* Mobile action button for PDF download */}
       <div className="mobile-action-button sm:hidden">
         <Button
           className="w-full"
@@ -506,7 +491,6 @@ const StoryViewer = () => {
         </Button>
       </div>
       
-      {/* CSS for the story viewer */}
       <style>
         {`
         .story-viewer-container {
@@ -893,7 +877,6 @@ const StoryViewer = () => {
           bottom: 0;
         }
         
-        /* Additional styling for mobile optimization */
         @media (max-width: 640px) {
           .story-header {
             padding: 1rem;

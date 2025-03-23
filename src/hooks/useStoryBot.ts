@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -15,9 +16,12 @@ export const useStoryBot = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
+  const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(
+    localStorage.getItem("leonardo_webhook_url")
+  );
   
   // Create an instance of the StoryBot service
-  const storyBot = new StoryBot();
+  const storyBot = new StoryBot(leonardoWebhookUrl);
   
   // Update API availability status from the service
   useEffect(() => {
@@ -190,6 +194,20 @@ export const useStoryBot = () => {
     }
   };
 
+  // Set Leonardo Webhook URL
+  const setLeonardoWebhook = (url: string) => {
+    if (url && url.startsWith('http')) {
+      localStorage.setItem("leonardo_webhook_url", url);
+      setLeonardoWebhookUrl(url);
+      storyBot.setLeonardoWebhookUrl(url);
+      toast.success("URL de webhook do Leonardo AI configurada com sucesso!");
+      return true;
+    } else {
+      toast.error("URL de webhook inválida. Por favor, insira uma URL completa começando com http:// ou https://");
+      return false;
+    }
+  };
+
   // Reset Leonardo API availability status for testing
   const resetLeonardoApiStatus = () => {
     localStorage.removeItem("leonardo_api_issue");
@@ -206,6 +224,8 @@ export const useStoryBot = () => {
     convertImageToBase64,
     apiAvailable,
     leonardoApiAvailable,
-    resetLeonardoApiStatus
+    resetLeonardoApiStatus,
+    setLeonardoWebhook,
+    leonardoWebhookUrl
   };
 };
