@@ -97,37 +97,7 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
       console.log("Received response from OpenAI");
       
       // Parse the response to extract title and content
-      const titleMatch = responseText.match(/TITLE:\s*(.*?)(?:\r?\n|$)/i);
-      const title = titleMatch ? titleMatch[1].trim() : `${childName}'s Adventure`;
-      
-      const pageMatches = responseText.match(/PAGE\s*\d+:\s*([\s\S]*?)(?=PAGE\s*\d+:|$)/gi);
-      
-      let content: string[] = [];
-      if (pageMatches && pageMatches.length > 0) {
-        content = pageMatches.map(page => {
-          return page.replace(/PAGE\s*\d+:\s*/i, '').trim();
-        });
-      } else {
-        // Fallback if page format isn't found
-        const paragraphs = responseText.split('\n\n').filter(para => 
-          para.trim().length > 0 && !para.match(/TITLE:/i)
-        );
-        
-        content = paragraphs;
-      }
-      
-      // Ensure we have exactly 10 pages
-      while (content.length < 10) {
-        content.push(`${childName} continued on the adventure, discovering new wonders at every turn...`);
-      }
-      
-      // Limit to 10 pages if there are more
-      content = content.slice(0, 10);
-      
-      return {
-        title,
-        content
-      };
+      return parseStoryResponse(responseText, childName);
     } catch (error) {
       clearTimeout(timeoutId);
       console.error("OpenAI API call failed:", error);
@@ -148,14 +118,50 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
   }
 };
 
+// Parse the response from the API or use for the local generator
+export const parseStoryResponse = (responseText: string, childName: string): StoryData => {
+  // Parse the response to extract title and content
+  const titleMatch = responseText.match(/TITLE:\s*(.*?)(?:\r?\n|$)/i);
+  const title = titleMatch ? titleMatch[1].trim() : `${childName}'s Adventure`;
+  
+  const pageMatches = responseText.match(/PAGE\s*\d+:\s*([\s\S]*?)(?=PAGE\s*\d+:|$)/gi);
+  
+  let content: string[] = [];
+  if (pageMatches && pageMatches.length > 0) {
+    content = pageMatches.map(page => {
+      return page.replace(/PAGE\s*\d+:\s*/i, '').trim();
+    });
+  } else {
+    // Fallback if page format isn't found
+    const paragraphs = responseText.split('\n\n').filter(para => 
+      para.trim().length > 0 && !para.match(/TITLE:/i)
+    );
+    
+    content = paragraphs;
+  }
+  
+  // Ensure we have exactly 10 pages
+  while (content.length < 10) {
+    content.push(`${childName} continued on the adventure, discovering new wonders at every turn...`);
+  }
+  
+  // Limit to 10 pages if there are more
+  content = content.slice(0, 10);
+  
+  return {
+    title,
+    content
+  };
+};
+
 // Esta é uma versão simulada do gerador de histórias que será usada como fallback
 // Em uma implementação real, você faria uma chamada à API de IA
 export const generateStory = async (params: StoryGenerationParams): Promise<StoryData> => {
   try {
     // Simula um atraso de API
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const { childName, childAge, theme, setting } = params;
+    const { childName, childAge, theme, setting, characterPrompt } = params;
     
     // Temas e configurações para personalizar as histórias com descrições mais detalhadas
     const themeDetails: Record<string, {title: string, intro: string}> = {
@@ -192,12 +198,18 @@ export const generateStory = async (params: StoryGenerationParams): Promise<Stor
       dinosaurland: `Na Terra dos Dinossauros, com florestas densas de samambaias gigantes e vulcões ativos expelindo fumaça no horizonte, ${childName} fez amizade com um pequeno Triceratops de pele verde-azulada e olhos curiosos.`
     };
     
+    // Apply character prompt if available
+    let characterDescription = "";
+    if (characterPrompt) {
+      characterDescription = `\n\n${childName} ${characterPrompt.includes(childName) ? "" : characterPrompt}`;
+    }
+    
     // Default to forest if setting is not recognized
     const selectedSetting = settingDetails[setting] || settingDetails.forest;
     
     // História em formato de páginas com descrições mais vívidas
     const content = [
-      selectedTheme.intro,
+      selectedTheme.intro + characterDescription,
       
       selectedSetting,
       

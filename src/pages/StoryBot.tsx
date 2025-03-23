@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StoryBotChat from "../components/StoryBotChat";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Wand2, BookText, Download } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Wand2, BookText, Download, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,15 +13,18 @@ import { toast } from "sonner";
 const StoryBot = () => {
   const navigate = useNavigate();
   const [showApiAlert, setShowApiAlert] = useState(false);
+  const [localGeneratorMode, setLocalGeneratorMode] = useState(false);
   
   useEffect(() => {
     // Check localStorage to see if we've already detected API issues
     const hasApiIssue = localStorage.getItem("storybot_api_issue") === "true";
     setShowApiAlert(hasApiIssue);
+    setLocalGeneratorMode(hasApiIssue);
     
     // Listen for API issues
     const handleApiIssue = () => {
       setShowApiAlert(true);
+      setLocalGeneratorMode(true);
       localStorage.setItem("storybot_api_issue", "true");
     };
     
@@ -33,8 +36,21 @@ const StoryBot = () => {
   }, []);
   
   const handleGenerateStory = () => {
-    toast.info("Esta funcionalidade ainda está em desenvolvimento");
+    if (localGeneratorMode) {
+      toast.info("Gerando história usando o gerador local");
+    } else {
+      toast.info("Gerando história personalizada");
+    }
     navigate("/view-story");
+  };
+  
+  const clearApiIssueStatus = () => {
+    // Reset API issue status for testing purposes
+    localStorage.removeItem("storybot_api_issue");
+    setShowApiAlert(false);
+    setLocalGeneratorMode(false);
+    toast.success("Status da API reiniciado");
+    window.location.reload();
   };
   
   return (
@@ -58,11 +74,27 @@ const StoryBot = () => {
           </motion.div>
           
           {showApiAlert && (
-            <Alert variant="destructive" className="mb-6">
+            <Alert variant={localGeneratorMode ? "destructive" : "default"} className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Estamos com limitações técnicas no momento. Se encontrar dificuldades, tente ser mais específico em suas solicitações ou use o gerador guiado de histórias.
+                {localGeneratorMode 
+                  ? "Usando gerador de histórias local devido a limitações da API. A experiência será simplificada, mas ainda funcional."
+                  : "Estamos com limitações técnicas no momento. Se encontrar dificuldades, tente ser mais específico em suas solicitações ou use o gerador guiado de histórias."}
               </AlertDescription>
+            </Alert>
+          )}
+          
+          {localGeneratorMode && (
+            <Alert className="mb-6 bg-amber-50 border-amber-200 text-amber-800">
+              <Info className="h-4 w-4 text-amber-500" />
+              <div>
+                <AlertTitle>Modo de gerador local ativado</AlertTitle>
+                <AlertDescription>
+                  O StoryBot está funcionando com recursos locais limitados. As histórias serão geradas usando um modelo simplificado, 
+                  mas ainda assim oferecem uma experiência divertida. Para uma experiência completa, volte mais tarde quando nossos 
+                  serviços estiverem totalmente disponíveis.
+                </AlertDescription>
+              </div>
             </Alert>
           )}
           
@@ -110,12 +142,26 @@ const StoryBot = () => {
                   <div className="pt-2">
                     <Button 
                       onClick={handleGenerateStory}
-                      className="w-full bg-storysnap-blue hover:bg-storysnap-blue/90 text-white"
+                      className={`w-full ${localGeneratorMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-storysnap-blue hover:bg-storysnap-blue/90'} text-white`}
                     >
                       <Wand2 className="w-4 h-4 mr-2" />
-                      Criar História Completa
+                      {localGeneratorMode ? "Criar História com Gerador Local" : "Criar História Completa"}
                     </Button>
                   </div>
+                  
+                  {localGeneratorMode && (
+                    <div className="mt-4 pt-4 border-t border-amber-200">
+                      <p className="text-xs text-amber-700 mb-2">
+                        O gerador local cria histórias simplificadas mas divertidas, usando recursos do seu dispositivo.
+                      </p>
+                      <button 
+                        onClick={clearApiIssueStatus}
+                        className="text-xs text-amber-600 hover:text-amber-800 underline"
+                      >
+                        Tentar usar a API novamente
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
