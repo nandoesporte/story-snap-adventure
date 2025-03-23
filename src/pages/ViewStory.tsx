@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -21,13 +20,11 @@ const ViewStory = () => {
   const [isNarrating, setIsNarrating] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
   
-  // Add custom scrollbar and fonts
   useEffect(() => {
     const styleElement = document.createElement("style");
     styleElement.textContent = customScrollbarStyles;
     document.head.appendChild(styleElement);
 
-    // Add children's fonts from Google
     const linkElement = document.createElement("link");
     linkElement.rel = "stylesheet";
     linkElement.href = "https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Bubblegum+Sans&family=Patrick+Hand&family=Schoolbell&display=swap";
@@ -39,14 +36,12 @@ const ViewStory = () => {
     };
   }, []);
 
-  // Load story data from session storage
   useEffect(() => {
     const data = sessionStorage.getItem("storyData");
     if (data) {
       setStoryData(JSON.parse(data));
     }
     
-    // Add a small delay to ensure transitions work smoothly
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1000);
@@ -69,7 +64,6 @@ const ViewStory = () => {
   };
 
   const handleShare = () => {
-    // In a real implementation, this would open a sharing dialog
     const shareData = {
       title: storyData?.title || "História Personalizada",
       text: "Confira esta história incrível que eu criei!",
@@ -81,7 +75,6 @@ const ViewStory = () => {
         .then(() => console.log("Shared successfully"))
         .catch(err => console.log("Error sharing:", err));
     } else {
-      // Fallback for browsers that don't support the Share API
       navigator.clipboard.writeText(window.location.href)
         .then(() => toast.success("Link copiado para a área de transferência!"))
         .catch(() => toast.error("Não foi possível copiar o link"));
@@ -99,12 +92,10 @@ const ViewStory = () => {
       
       if (!storyElement) return;
       
-      // Add cover page first
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(24);
       pdf.text(storyData.title, 105, 30, { align: "center" });
       
-      // Add cover image if available
       if (storyData.coverImageUrl) {
         const coverImg = document.createElement("img");
         coverImg.src = storyData.coverImageUrl;
@@ -121,8 +112,7 @@ const ViewStory = () => {
         
         const imgData = canvas.toDataURL("image/jpeg", 0.75);
         
-        // Calculate ratio to fit on the PDF page
-        const maxWidth = 170; // mm
+        const maxWidth = 170;
         const ratio = maxWidth / coverImg.width;
         const imgWidth = coverImg.width * ratio;
         const imgHeight = coverImg.height * ratio;
@@ -133,7 +123,6 @@ const ViewStory = () => {
       pdf.setFontSize(12);
       pdf.text(`Uma história sobre ${storyData.childName || storyData.characterName}`, 105, 200, { align: "center" });
       
-      // Add each page content
       for (let i = 0; i < storyData.pages.length; i++) {
         pdf.addPage();
         
@@ -143,14 +132,12 @@ const ViewStory = () => {
         pdf.setFontSize(12);
         pdf.text(`Página ${i + 1}`, 105, 20, { align: "center" });
         
-        // Add page text
         pdf.setFontSize(14);
         pdf.text(page.text, 20, 40, {
           maxWidth: 170,
           align: "left"
         });
         
-        // Add page image if available
         if (page.imageUrl) {
           const img = document.createElement("img");
           img.src = page.imageUrl;
@@ -167,8 +154,7 @@ const ViewStory = () => {
           
           const imgData = canvas.toDataURL("image/jpeg", 0.75);
           
-          // Calculate ratio to fit on the PDF page
-          const maxWidth = 170; // mm
+          const maxWidth = 170;
           const ratio = maxWidth / img.width;
           const imgWidth = img.width * ratio;
           const imgHeight = img.height * ratio;
@@ -177,7 +163,6 @@ const ViewStory = () => {
         }
       }
       
-      // Add final page with credits
       pdf.addPage();
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(18);
@@ -189,7 +174,6 @@ const ViewStory = () => {
       pdf.text(`Personagem principal: ${storyData.childName || storyData.characterName}`, 105, 60, { align: "center" });
       pdf.text(`Data de criação: ${new Date().toLocaleDateString()}`, 105, 70, { align: "center" });
       
-      // Save the PDF
       pdf.save(`${storyData.title}.pdf`);
       toast.success("PDF gerado com sucesso!");
     } catch (error) {
@@ -198,7 +182,6 @@ const ViewStory = () => {
     }
   };
 
-  // Toggle narrative audio
   const toggleNarration = () => {
     if (!storyData) return;
     
@@ -231,7 +214,6 @@ const ViewStory = () => {
     }
   };
 
-  // Toggle navigation controls visibility
   const toggleControls = () => {
     setShowControls(prev => !prev);
   };
@@ -276,7 +258,6 @@ const ViewStory = () => {
   const isLastPage = storyData && currentPage === storyData.pages.length;
   const progress = storyData ? (currentPage / (storyData.pages.length + 1)) * 100 : 0;
 
-  // Page turning animation variants
   const pageVariants = {
     enter: (direction: "left" | "right") => ({
       x: direction === "right" ? 1000 : -1000,
@@ -314,7 +295,6 @@ const ViewStory = () => {
       
       <main className="flex-1 pt-8 md:pt-16 pb-12 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Animated stars background */}
           {Array.from({ length: 20 }).map((_, i) => (
             <motion.div
               key={i}
@@ -340,12 +320,10 @@ const ViewStory = () => {
         </div>
         
         <div id="story-container" className="container mx-auto max-w-5xl px-4">
-          {/* Story progress bar */}
           <div className="mb-6 bg-white/20 p-2 rounded-full">
             <Progress value={progress} className="h-2" />
           </div>
           
-          {/* Story book with page turning effect */}
           <div 
             ref={bookRef}
             className="bg-white rounded-2xl shadow-2xl overflow-hidden book-container perspective-1000"
@@ -361,10 +339,8 @@ const ViewStory = () => {
                 exit="exit"
                 className="w-full"
               >
-                {/* Cover page */}
                 {currentPage === 0 && (
                   <div className="relative">
-                    {/* Cover image */}
                     <div className="w-full aspect-[4/3] md:aspect-[16/9] bg-gradient-to-b from-indigo-100 to-purple-100 relative overflow-hidden">
                       {storyData.coverImageUrl && (
                         <img 
@@ -375,7 +351,6 @@ const ViewStory = () => {
                       )}
                     </div>
                     
-                    {/* Cover info */}
                     <div className="p-6 md:p-10">
                       <h1 className="text-3xl md:text-4xl font-bold mb-4 font-['Bubblegum_Sans']">
                         {storyData.title}
@@ -433,10 +408,8 @@ const ViewStory = () => {
                   </div>
                 )}
                 
-                {/* Story pages */}
                 {currentPage > 0 && currentPage <= storyData.pages.length && (
                   <div className="grid md:grid-cols-2">
-                    {/* Image side */}
                     <div className="bg-gradient-to-b from-indigo-50 to-purple-50 p-4 md:p-8 flex items-center justify-center">
                       <img 
                         src={storyData.pages[currentPage - 1].imageUrl} 
@@ -445,7 +418,6 @@ const ViewStory = () => {
                       />
                     </div>
                     
-                    {/* Text side */}
                     <div className="p-6 md:p-10 flex flex-col">
                       <div className="mb-2 text-sm text-purple-600 font-medium">
                         Página {currentPage} de {storyData.pages.length}
@@ -461,7 +433,6 @@ const ViewStory = () => {
                         </p>
                       </div>
                       
-                      {/* Page navigation */}
                       <div className="flex justify-between">
                         <Button 
                           onClick={handlePrevPage}
@@ -484,7 +455,6 @@ const ViewStory = () => {
                   </div>
                 )}
                 
-                {/* End page */}
                 {currentPage > storyData.pages.length && (
                   <div className="p-8 md:p-16 text-center">
                     <div className="max-w-md mx-auto">
@@ -544,7 +514,6 @@ const ViewStory = () => {
               </motion.div>
             </AnimatePresence>
             
-            {/* Page corners for page turning effect */}
             {currentPage > 0 && currentPage <= storyData.pages.length && (
               <>
                 <div 
@@ -565,7 +534,6 @@ const ViewStory = () => {
             )}
           </div>
           
-          {/* Floating controls */}
           {showControls && (
             <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg z-10">
               <button 
@@ -580,7 +548,7 @@ const ViewStory = () => {
               </button>
               
               <div className="px-2 flex items-center text-sm font-medium">
-                {currentPage} / {storyData.pages.length}
+                {currentPage} / {storyData?.pages.length}
               </div>
               
               <button 
@@ -610,8 +578,8 @@ const ViewStory = () => {
       
       <Footer />
       
-      {/* Add custom styles for page turning effect */}
-      <style jsx>{`
+      <style>
+        {`
         .perspective-1000 {
           perspective: 1000px;
         }
@@ -660,7 +628,8 @@ const ViewStory = () => {
           position: relative;
           transform-style: preserve-3d;
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };

@@ -146,7 +146,7 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
           </div>
         </div>
         
-        <Alert variant="warning" className="mb-2">
+        <Alert variant="destructive" className="mb-2">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             Ao prosseguir, nossas IAs criarão ilustrações para cada página da sua história. Este processo pode levar alguns segundos.
