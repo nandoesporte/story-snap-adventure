@@ -5,10 +5,20 @@
 -- Create extension for UUID generation if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create the characters table if it doesn't exist
+-- Check if the characters table already exists and create it if it doesn't
 DO $$
+DECLARE
+    table_exists BOOLEAN;
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'characters') THEN
+    -- Check if table exists
+    SELECT EXISTS (
+        SELECT FROM pg_tables 
+        WHERE schemaname = 'public' 
+        AND tablename = 'characters'
+    ) INTO table_exists;
+
+    -- If table doesn't exist, create it and set up everything
+    IF NOT table_exists THEN
         -- Create the characters table
         CREATE TABLE public.characters (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
