@@ -62,19 +62,24 @@ BEGIN
             FOR DELETE
             USING (creator_id = auth.uid());
 
-        -- Create trigger function for updating the updated_at timestamp
-        CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+        -- Create trigger function with correctly formatted syntax
+        EXECUTE '
+        CREATE OR REPLACE FUNCTION public.update_modified_column()
         RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = NOW();
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
+        ';
 
-        -- Add trigger to update updated_at
-        CREATE TRIGGER update_characters_updated_at
-            BEFORE UPDATE ON public.characters
-            FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+        -- Add trigger to update updated_at with proper function reference
+        EXECUTE '
+        CREATE TRIGGER update_characters_modified
+        BEFORE UPDATE ON public.characters
+        FOR EACH ROW
+        EXECUTE FUNCTION public.update_modified_column();
+        ';
             
         -- Insert predefined characters
         INSERT INTO public.characters (name, description, personality, age, is_active)
