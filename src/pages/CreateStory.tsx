@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -55,7 +54,6 @@ const styleOptions = [
   { id: "storybook", name: "Livro Infantil", icon: "📕", description: "Estilo clássico de ilustração de livros infantis" }
 ];
 
-// Interface para os dados da história
 interface StoryData {
   childName: string;
   childAge: string;
@@ -82,20 +80,16 @@ const CreateStory = () => {
   const { apiAvailable } = useStoryBot();
 
   useEffect(() => {
-    // Check localStorage to see if we've already detected API issues
     const hasApiIssue = localStorage.getItem("storybot_api_issue") === "true";
     setShowApiAlert(hasApiIssue);
 
-    // Check if we've already shown the Character info
     const characterInfoShown = localStorage.getItem("character_info_shown") === "true";
     setShowCharacterInfo(!characterInfoShown);
     
-    // If showing for the first time, mark as shown
     if (!characterInfoShown) {
       localStorage.setItem("character_info_shown", "true");
     }
 
-    // Listen for API issues
     const handleApiIssue = () => {
       setShowApiAlert(true);
       localStorage.setItem("storybot_api_issue", "true");
@@ -113,16 +107,11 @@ const CreateStory = () => {
   };
 
   const handleCreationComplete = (data: any) => {
-    // Find theme name
     const theme = themes.find(t => t.id === data.theme);
-    // Find setting name
     const setting = settings.find(s => s.id === data.setting);
-    // Find style name
     const style = styleOptions.find(s => s.id === data.style);
-    // Find length name
     const length = lengthOptions.find(l => l.id === data.length);
     
-    // Create story data object
     const completeStoryData: StoryData = {
       ...data,
       themeName: theme?.name || "Aventura",
@@ -141,10 +130,7 @@ const CreateStory = () => {
 
   const handleConfirmStory = () => {
     if (storyData) {
-      // Store story data in session storage to be used by StoryCreator
       sessionStorage.setItem("create_story_data", JSON.stringify(storyData));
-      
-      // Navigate to StoryCreator page
       navigate("/story-creator");
     } else {
       toast.error("Dados da história incompletos. Por favor, tente novamente.");
