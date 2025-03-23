@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -26,6 +26,12 @@ interface StoryData {
   childAge: string;
   theme: string;
   setting: string;
+  characterId?: string;
+  characterName?: string;
+  style?: string; 
+  readingLevel?: string;
+  language?: string;
+  moral?: string;
   pages: Array<{
     text: string;
     imageUrl: string;
@@ -34,11 +40,13 @@ interface StoryData {
 
 const StoryViewer = () => {
   const [storyData, setStoryData] = useState<StoryData | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(-1); // -1 for cover page
   const [isLoading, setIsLoading] = useState(false);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [pageDirection, setPageDirection] = useState<"left" | "right">("right");
   const storyBookRef = useRef<HTMLDivElement>(null);
+  const controls = useAnimationControls();
   
   // Load story data from session storage on component mount
   useEffect(() => {
@@ -51,15 +59,17 @@ const StoryViewer = () => {
   
   // Function to navigate to the previous page
   const prevPage = () => {
-    if (currentPage > 0) {
+    if (currentPage > -1) {
+      setPageDirection("left");
       setCurrentPage(currentPage - 1);
     }
   };
   
   // Function to navigate to the next page
   const nextPage = () => {
-    const maxPages = storyData ? storyData.pages.length : 0;
-    if (currentPage < maxPages - 1) {
+    const maxPages = storyData ? storyData.pages.length - 1 : -1;
+    if (currentPage < maxPages) {
+      setPageDirection("right");
       setCurrentPage(currentPage + 1);
     }
   };
@@ -68,8 +78,20 @@ const StoryViewer = () => {
   const toggleAudio = () => {
     setIsAudioPlaying(!isAudioPlaying);
     if (!isAudioPlaying) {
+      // Speech synthesis for narration
+      if (storyData && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(
+          currentPage === -1 
+            ? `${storyData.title}. Uma história para ${storyData.childName}.` 
+            : storyData.pages[currentPage]?.text || ""
+        );
+        utterance.lang = storyData.language === 'english' ? 'en-US' : 'pt-BR';
+        utterance.rate = 0.9; // slightly slower for children
+        window.speechSynthesis.speak(utterance);
+      }
       toast.info("Narração de áudio iniciada");
     } else {
+      window.speechSynthesis?.cancel();
       toast.info("Narração de áudio pausada");
     }
   };
@@ -106,7 +128,14 @@ const StoryViewer = () => {
       // Create a new PDF document
       const pdfDoc = await PDFDocument.create();
       
-      // Use html2canvas to capture the current view as an image
+      // Add cover page first
+      const originalPage = currentPage;
+      setCurrentPage(-1); // Set to cover page
+      
+      // Wait for the UI to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Capture cover page
       if (storyBookRef.current) {
         const canvas = await html2canvas(storyBookRef.current, {
           scale: 2,
@@ -118,71 +147,72 @@ const StoryViewer = () => {
         const pngData = canvas.toDataURL('image/png');
         const pngImage = await pdfDoc.embedPng(pngData);
         
-        // Add a page to the PDF
-        const page = pdfDoc.addPage([800, 600]);
+        // Add a page to the PDF for cover
+        const coverPage = pdfDoc.addPage([800, 600]);
         
         // Draw the PNG image to fill the page
         const { width, height } = pngImage.size();
         const aspectRatio = width / height;
         
-        let drawWidth = page.getWidth() - 50;
+        let drawWidth = coverPage.getWidth() - 50;
         let drawHeight = drawWidth / aspectRatio;
         
-        if (drawHeight > page.getHeight() - 50) {
-          drawHeight = page.getHeight() - 50;
+        if (drawHeight > coverPage.getHeight() - 50) {
+          drawHeight = coverPage.getHeight() - 50;
           drawWidth = drawHeight * aspectRatio;
         }
         
-        page.drawImage(pngImage, {
-          x: (page.getWidth() - drawWidth) / 2,
-          y: (page.getHeight() - drawHeight) / 2,
+        coverPage.drawImage(pngImage, {
+          x: (coverPage.getWidth() - drawWidth) / 2,
+          y: (coverPage.getHeight() - drawHeight) / 2,
           width: drawWidth,
           height: drawHeight
         });
       }
       
-      // Get more pages
+      // Get all content pages
       for (let i = 0; i < storyData.pages.length; i++) {
-        if (i !== currentPage) {
-          setCurrentPage(i);
-          // Wait for the UI to update
-          await new Promise(resolve => setTimeout(resolve, 100));
+        setCurrentPage(i);
+        // Wait for the UI to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (storyBookRef.current) {
+          const canvas = await html2canvas(storyBookRef.current, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            allowTaint: true
+          });
           
-          if (storyBookRef.current) {
-            const canvas = await html2canvas(storyBookRef.current, {
-              scale: 2,
-              useCORS: true,
-              logging: false,
-              allowTaint: true
-            });
-            
-            const pngData = canvas.toDataURL('image/png');
-            const pngImage = await pdfDoc.embedPng(pngData);
-            
-            // Add a page to the PDF
-            const page = pdfDoc.addPage([800, 600]);
-            
-            // Draw the PNG image to fill the page
-            const { width, height } = pngImage.size();
-            const aspectRatio = width / height;
-            
-            let drawWidth = page.getWidth() - 50;
-            let drawHeight = drawWidth / aspectRatio;
-            
-            if (drawHeight > page.getHeight() - 50) {
-              drawHeight = page.getHeight() - 50;
-              drawWidth = drawHeight * aspectRatio;
-            }
-            
-            page.drawImage(pngImage, {
-              x: (page.getWidth() - drawWidth) / 2,
-              y: (page.getHeight() - drawHeight) / 2,
-              width: drawWidth,
-              height: drawHeight
-            });
+          const pngData = canvas.toDataURL('image/png');
+          const pngImage = await pdfDoc.embedPng(pngData);
+          
+          // Add a page to the PDF
+          const page = pdfDoc.addPage([800, 600]);
+          
+          // Draw the PNG image to fill the page
+          const { width, height } = pngImage.size();
+          const aspectRatio = width / height;
+          
+          let drawWidth = page.getWidth() - 50;
+          let drawHeight = drawWidth / aspectRatio;
+          
+          if (drawHeight > page.getHeight() - 50) {
+            drawHeight = page.getHeight() - 50;
+            drawWidth = drawHeight * aspectRatio;
           }
+          
+          page.drawImage(pngImage, {
+            x: (page.getWidth() - drawWidth) / 2,
+            y: (page.getHeight() - drawHeight) / 2,
+            width: drawWidth,
+            height: drawHeight
+          });
         }
       }
+      
+      // Reset to original page
+      setCurrentPage(originalPage);
       
       // Save the PDF
       const pdfBytes = await pdfDoc.save();
@@ -219,11 +249,39 @@ const StoryViewer = () => {
     );
   }
   
-  // Current page data
-  const pageData = storyData.pages[currentPage];
+  // Determine what content to show based on current page
+  const isCoverPage = currentPage === -1;
+  const pageData = isCoverPage ? null : storyData.pages[currentPage];
+  
+  // Page turning animation variants
+  const pageVariants = {
+    enter: (direction: "left" | "right") => ({
+      x: direction === "right" ? 1000 : -1000,
+      opacity: 0,
+      rotateY: direction === "right" ? -15 : 15,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      rotateY: 0,
+      transition: {
+        x: { type: "spring", stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 }
+      }
+    },
+    exit: (direction: "left" | "right") => ({
+      x: direction === "right" ? -1000 : 1000,
+      opacity: 0,
+      rotateY: direction === "right" ? 15 : -15,
+      transition: {
+        x: { type: "spring", stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 }
+      }
+    })
+  };
   
   return (
-    <div ref={storyBookRef} className="story-viewer-container">
+    <div ref={storyBookRef} className="story-viewer-container story-book-style">
       {/* Story header with title and actions */}
       <div className="story-header">
         <div className="story-avatar">
@@ -294,65 +352,102 @@ const StoryViewer = () => {
       
       {/* Main story content */}
       <div className="story-content-container">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={pageDirection}>
           <motion.div
             key={currentPage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            custom={pageDirection}
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             className="story-page"
           >
             <div className="story-page-inner">
-              <div className="story-image-container">
-                <img 
-                  src={pageData.imageUrl}
-                  alt={`Ilustração página ${currentPage + 1}`}
-                  className="story-image"
-                />
-                
-                {/* Progress bar */}
-                <div className="progress-bar-container">
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-bar-filled" 
-                      style={{ width: `${((currentPage + 1) / storyData.pages.length) * 100}%` }}
-                    ></div>
+              {isCoverPage ? (
+                /* Cover page */
+                <div className="story-cover">
+                  <div className="story-cover-image-container">
+                    <img 
+                      src={storyData.coverImageUrl}
+                      alt={`Capa: ${storyData.title}`}
+                      className="story-cover-image"
+                    />
                   </div>
-                  <span className="progress-text">
-                    {currentPage + 1} / {storyData.pages.length}
-                  </span>
+                  <div className="story-cover-details">
+                    <h2 className="story-cover-title">{storyData.title}</h2>
+                    <div className="story-cover-subtitle">
+                      {storyData.characterName ? (
+                        <p>Uma aventura com {storyData.characterName}</p>
+                      ) : (
+                        <p>Uma história para {storyData.childName}</p>
+                      )}
+                    </div>
+                    <div className="story-cover-decoration">
+                      <div className="story-cover-line"></div>
+                      <BookOpenIcon className="h-8 w-8 text-purple-500 mx-4" />
+                      <div className="story-cover-line"></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="story-text-container">
-                <p className="story-text">{pageData.text}</p>
-                
-                <div className="page-navigation">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={prevPage}
-                    disabled={currentPage === 0}
-                    className="nav-button"
-                  >
-                    <ChevronLeftIcon className="h-6 w-6" />
-                  </Button>
+              ) : (
+                /* Story page content */
+                <>
+                  <div className="story-image-container">
+                    <img 
+                      src={pageData?.imageUrl}
+                      alt={`Ilustração página ${currentPage + 1}`}
+                      className="story-image"
+                    />
+                    
+                    {/* Progress bar */}
+                    <div className="progress-bar-container">
+                      <div className="progress-bar">
+                        <div 
+                          className="progress-bar-filled" 
+                          style={{ width: `${((currentPage + 1) / storyData.pages.length) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="progress-text">
+                        {currentPage + 1} / {storyData.pages.length}
+                      </span>
+                    </div>
+                  </div>
                   
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={nextPage}
-                    disabled={currentPage === storyData.pages.length - 1}
-                    className="nav-button"
-                  >
-                    <ChevronRightIcon className="h-6 w-6" />
-                  </Button>
-                </div>
-              </div>
+                  <div className="story-text-container">
+                    <p className="story-text">{pageData?.text}</p>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>
+        
+        {/* Page corner (for page turning effect) */}
+        <div className="page-corner page-corner-right" onClick={nextPage}></div>
+        <div className="page-corner page-corner-left" onClick={prevPage}></div>
+      </div>
+      
+      {/* Navigation buttons */}
+      <div className="page-navigation">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={prevPage}
+          disabled={currentPage === -1}
+          className="nav-button"
+        >
+          <ChevronLeftIcon className="h-6 w-6" />
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={nextPage}
+          disabled={currentPage === storyData.pages.length - 1}
+          className="nav-button"
+        >
+          <ChevronRightIcon className="h-6 w-6" />
+        </Button>
       </div>
       
       {/* Story metadata and author info */}
@@ -360,8 +455,11 @@ const StoryViewer = () => {
         <div className="metadata-section">
           <h3 className="metadata-title">Sobre a história</h3>
           <p className="metadata-content">
-            Esta história foi criada especialmente para {storyData.childName}, {storyData.childAge} anos.
+            Esta história foi criada especialmente {storyData.characterName ? 
+            `com o personagem ${storyData.characterName}` : 
+            `para ${storyData.childName}, ${storyData.childAge} anos`}.
             Tema: {storyData.theme}. Cenário: {storyData.setting}.
+            {storyData.moral && ` Moral: ${storyData.moral}.`}
           </p>
         </div>
         
@@ -419,6 +517,16 @@ const StoryViewer = () => {
           overflow: hidden;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
           margin-bottom: 2rem;
+          position: relative;
+        }
+        
+        .story-book-style {
+          background: #f8f5f0;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 
+                      0 0 5px rgba(0, 0, 0, 0.1), 
+                      0 -5px 10px rgba(0, 0, 0, 0.1) inset;
+          border-radius: 0.5rem;
+          padding: 0.5rem;
         }
         
         .story-header {
@@ -428,6 +536,9 @@ const StoryViewer = () => {
           background-color: rgba(124, 58, 237, 0.9);
           position: relative;
           flex-wrap: wrap;
+          border-radius: 0.5rem 0.5rem 0 0;
+          background-image: linear-gradient(to right, #8b5cf6, #6366f1);
+          border-bottom: 4px solid #7c3aed;
         }
         
         .story-avatar {
@@ -476,16 +587,26 @@ const StoryViewer = () => {
         
         .story-content-container {
           position: relative;
-          flex: 1;
+          min-height: 500px;
+          background: #fff;
+          border-left: 1px solid #e5e7eb;
+          border-right: 1px solid #e5e7eb;
+          overflow: hidden;
+          perspective: 1500px;
         }
         
         .story-page {
           width: 100%;
+          height: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
         }
         
         .story-page-inner {
           display: flex;
           flex-direction: column;
+          height: 100%;
         }
         
         @media (min-width: 768px) {
@@ -493,6 +614,91 @@ const StoryViewer = () => {
             flex-direction: row;
             min-height: 500px;
           }
+        }
+        
+        .story-cover {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          padding: 2rem;
+          background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+          position: relative;
+        }
+        
+        .story-cover::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: 0;
+          background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23a78bfa' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+          opacity: 0.5;
+          pointer-events: none;
+        }
+        
+        .story-cover-image-container {
+          width: 100%;
+          max-width: 350px;
+          margin-bottom: 2rem;
+          position: relative;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), 0 5px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .story-cover-image-container::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+          pointer-events: none;
+        }
+        
+        .story-cover-image {
+          width: 100%;
+          height: auto;
+          display: block;
+          object-fit: cover;
+        }
+        
+        .story-cover-details {
+          text-align: center;
+          max-width: 500px;
+        }
+        
+        .story-cover-title {
+          font-family: 'Bubblegum Sans', cursive;
+          font-size: 2.5rem;
+          color: #7c3aed;
+          margin-bottom: 0.5rem;
+          text-shadow: 2px 2px 0px rgba(255,255,255,0.5);
+        }
+        
+        .story-cover-subtitle {
+          font-family: 'Patrick Hand', cursive;
+          font-size: 1.25rem;
+          color: #6b7280;
+          margin-bottom: 1.5rem;
+        }
+        
+        .story-cover-decoration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 2rem;
+        }
+        
+        .story-cover-line {
+          height: 2px;
+          flex: 1;
+          background: linear-gradient(to right, rgba(167, 139, 250, 0), rgba(167, 139, 250, 0.5), rgba(167, 139, 250, 0));
         }
         
         .story-image-container {
@@ -504,6 +710,7 @@ const StoryViewer = () => {
           align-items: center;
           justify-content: center;
           background-color: #f9f7ff;
+          border-right: 1px solid #e5e7eb;
         }
         
         .story-image {
@@ -512,6 +719,7 @@ const StoryViewer = () => {
           object-fit: contain;
           border-radius: 0.5rem;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          border: 4px solid white;
         }
         
         .story-text-container {
@@ -529,16 +737,16 @@ const StoryViewer = () => {
           line-height: 1.6;
           color: #4b5563;
           flex: 1;
-          margin-bottom: 4rem;
         }
         
         .page-navigation {
           display: flex;
           justify-content: space-between;
-          position: absolute;
-          bottom: 1.5rem;
-          left: 1.5rem;
-          right: 1.5rem;
+          padding: 1rem;
+          background-color: #f9f7ff;
+          border-top: 1px solid #e5e7eb;
+          border-radius: 0 0 0.5rem 0.5rem;
+          z-index: 10;
         }
         
         .nav-button {
@@ -586,10 +794,40 @@ const StoryViewer = () => {
           font-weight: 500;
         }
         
+        .page-corner {
+          position: absolute;
+          width: 50px;
+          height: 50px;
+          z-index: 10;
+          cursor: pointer;
+        }
+        
+        .page-corner-right {
+          bottom: 0;
+          right: 0;
+          background: linear-gradient(135deg, transparent 50%, rgba(139, 92, 246, 0.1) 50%);
+        }
+        
+        .page-corner-right:hover {
+          background: linear-gradient(135deg, transparent 50%, rgba(139, 92, 246, 0.2) 50%);
+        }
+        
+        .page-corner-left {
+          bottom: 0;
+          left: 0;
+          background: linear-gradient(225deg, transparent 50%, rgba(139, 92, 246, 0.1) 50%);
+        }
+        
+        .page-corner-left:hover {
+          background: linear-gradient(225deg, transparent 50%, rgba(139, 92, 246, 0.2) 50%);
+        }
+        
         .story-metadata {
           padding: 1.5rem;
           background-color: #f9f7ff;
           border-top: 1px solid #e5e7eb;
+          margin-top: auto;
+          border-radius: 0 0 0.5rem 0.5rem;
         }
         
         .metadata-section {
@@ -678,10 +916,16 @@ const StoryViewer = () => {
             padding: 1rem;
           }
           
+          .story-cover-title {
+            font-size: 1.75rem;
+          }
+          
+          .story-cover-subtitle {
+            font-size: 1rem;
+          }
+          
           .page-navigation {
-            left: 1rem;
-            right: 1rem;
-            bottom: 1rem;
+            padding: 0.75rem;
           }
         }
         `}

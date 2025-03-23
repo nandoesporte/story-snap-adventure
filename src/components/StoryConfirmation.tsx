@@ -1,3 +1,4 @@
+
 import React from "react";
 import { motion } from "framer-motion";
 import { Sparkles, AlertCircle } from "lucide-react";
@@ -59,7 +60,12 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
   apiAvailable
 }) => {
   return (
-    <div className="max-w-3xl mx-auto">
+    <motion.div 
+      className="max-w-3xl mx-auto"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Confirmar Detalhes da História</h2>
         <p className="text-slate-600">
@@ -76,8 +82,8 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
         </Alert>
       )}
       
-      <div className="bg-violet-50 border border-violet-100 rounded-xl overflow-hidden mb-6">
-        <div className="bg-violet-500 text-white p-4">
+      <div className="bg-violet-50 border border-violet-100 rounded-xl overflow-hidden mb-6 shadow-sm">
+        <div className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white p-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
             Detalhes da História
@@ -86,44 +92,44 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
         
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-sm font-semibold text-violet-700 mb-1">Personagem</h4>
-              <p className="text-slate-700">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <h4 className="text-sm font-semibold text-violet-700 mb-1">Personagem Principal</h4>
+              <p className="text-slate-700 font-medium">
                 {storyDetails.characterName || "Sem personagem específico"}
               </p>
             </div>
             
-            <div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
               <h4 className="text-sm font-semibold text-violet-700 mb-1">Nome da Criança</h4>
-              <p className="text-slate-700">{storyDetails.childName}</p>
+              <p className="text-slate-700 font-medium">{storyDetails.childName}</p>
             </div>
             
-            <div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
               <h4 className="text-sm font-semibold text-violet-700 mb-1">Idade</h4>
-              <p className="text-slate-700">{storyDetails.childAge}</p>
+              <p className="text-slate-700 font-medium">{storyDetails.childAge}</p>
             </div>
             
-            <div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
               <h4 className="text-sm font-semibold text-violet-700 mb-1">Tema</h4>
-              <p className="text-slate-700">{storyDetails.themeName}</p>
+              <p className="text-slate-700 font-medium">{storyDetails.themeName}</p>
             </div>
             
-            <div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
               <h4 className="text-sm font-semibold text-violet-700 mb-1">Cenário</h4>
-              <p className="text-slate-700">{storyDetails.settingName}</p>
+              <p className="text-slate-700 font-medium">{storyDetails.settingName}</p>
             </div>
             
             {storyDetails.style && (
-              <div>
+              <div className="bg-white p-4 rounded-lg shadow-sm">
                 <h4 className="text-sm font-semibold text-violet-700 mb-1">Estilo</h4>
-                <p className="text-slate-700">{storyDetails.styleName}</p>
+                <p className="text-slate-700 font-medium">{storyDetails.styleName}</p>
               </div>
             )}
             
             {storyDetails.length && (
-              <div>
+              <div className="bg-white p-4 rounded-lg shadow-sm">
                 <h4 className="text-sm font-semibold text-violet-700 mb-1">Tamanho</h4>
-                <p className="text-slate-700">{storyDetails.lengthName}</p>
+                <p className="text-slate-700 font-medium">{storyDetails.lengthName}</p>
               </div>
             )}
           </div>
@@ -133,23 +139,23 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
               <h4 className="text-md font-semibold text-violet-700 mb-3">Opções Avançadas</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {storyDetails.readingLevel && (
-                  <div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
                     <h5 className="text-sm font-semibold text-violet-700 mb-1">Nível de Leitura</h5>
-                    <p className="text-slate-700">{readingLevelMap[storyDetails.readingLevel] || storyDetails.readingLevel}</p>
+                    <p className="text-slate-700 font-medium">{readingLevelMap[storyDetails.readingLevel] || storyDetails.readingLevel}</p>
                   </div>
                 )}
                 
                 {storyDetails.language && (
-                  <div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
                     <h5 className="text-sm font-semibold text-violet-700 mb-1">Idioma</h5>
-                    <p className="text-slate-700">{languageMap[storyDetails.language] || storyDetails.language}</p>
+                    <p className="text-slate-700 font-medium">{languageMap[storyDetails.language] || storyDetails.language}</p>
                   </div>
                 )}
                 
                 {storyDetails.moral && (
-                  <div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
                     <h5 className="text-sm font-semibold text-violet-700 mb-1">Moral da História</h5>
-                    <p className="text-slate-700">{moralMap[storyDetails.moral] || storyDetails.moral}</p>
+                    <p className="text-slate-700 font-medium">{moralMap[storyDetails.moral] || storyDetails.moral}</p>
                   </div>
                 )}
               </div>
@@ -157,8 +163,7 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
           )}
           
           {storyDetails.imagePreview && (
-            <div className="mt-4 pt-4 border-t border-violet-100">
-              <h4 className="text-sm font-semibold text-violet-700 mb-3">Imagem da Criança</h4>
+            <div className="mt-4 pt-4 border-t border-violet-100 flex justify-center">
               <div className="relative w-32 h-32 mx-auto border-4 border-white rounded-full shadow-md overflow-hidden">
                 <img 
                   src={storyDetails.imagePreview} 
@@ -172,23 +177,25 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
       </div>
       
       <div className="flex flex-col sm:flex-row justify-center gap-4">
-        <Button
-          variant="outline"
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-6 py-3 rounded-lg border border-violet-200 text-violet-700 font-medium hover:bg-violet-50 transition-colors"
           onClick={onEdit}
-          className="sm:flex-1 sm:max-w-40"
         >
           Editar Detalhes
-        </Button>
+        </motion.button>
         
-        <Button 
-          variant="default" 
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
           onClick={onConfirm}
-          className="sm:flex-1 sm:max-w-40 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
         >
-          Gerar História
-        </Button>
+          Gerar História com Ilustrações
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

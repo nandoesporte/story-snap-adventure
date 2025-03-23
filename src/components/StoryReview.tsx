@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Edit, Save, RefreshCw } from "lucide-react";
+import { Sparkles, Edit, Save, RefreshCw, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -73,7 +73,12 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
   };
 
   return (
-    <div className="flex flex-col">
+    <motion.div 
+      className="flex flex-col bg-white rounded-xl shadow-lg overflow-hidden"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="border-b border-violet-100 p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
@@ -197,20 +202,21 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
           <Button 
             variant="outline" 
             onClick={onCancel}
+            className="flex-1 sm:flex-initial"
           >
-            Cancelar
+            Voltar
           </Button>
           <Button 
             variant="default"
             onClick={handleSubmit}
-            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
+            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 flex-1 sm:flex-initial"
           >
-            <Sparkles className="h-4 w-4" />
-            Continuar com ilustrações
+            <ImageIcon className="h-4 w-4" />
+            Gerar Ilustrações
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

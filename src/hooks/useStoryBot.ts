@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -130,20 +131,21 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
   // Generate an image description for a story page
   const generateImageDescription = async (
     pageText: string,
-    childName: string,
+    characterName: string,
     childAge: string,
     theme: string,
     setting: string,
-    style: string = "cartoon"
+    style: string = "cartoon",
+    moralTheme: string = ""
   ) => {
     try {
       // If API was previously marked as unavailable, use simplified description
       if (!apiAvailable) {
-        return `Ilustração detalhada de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}. A cena mostra: ${pageText.substring(0, 100)}...`;
+        return `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}. A cena mostra: ${pageText.substring(0, 100)}...`;
       }
       
       // Enhanced image description prompt
-      const imagePrompt = `Crie uma descrição detalhada para ilustração de livro infantil no estilo ${style}, com um visual colorido, encantador e adequado para crianças. O protagonista da história é ${childName}, e a imagem deve representar fielmente a cena descrita no texto abaixo. O cenário é ${setting}, que deve ser detalhado de forma vibrante e mágica. A ilustração deve expressar emoções, ação e aventura, transmitindo a essência da história de forma visualmente envolvente. Garanta que os elementos do ambiente, cores e expressões dos personagens estejam bem definidos e alinhados ao tom infantil da narrativa.
+      const imagePrompt = `Crie uma descrição detalhada para ilustração de livro infantil no estilo ${style}, com um visual colorido, encantador e adequado para crianças. O protagonista da história é ${characterName}, e a imagem deve representar fielmente a cena descrita no texto abaixo. O cenário é ${setting}, que deve ser detalhado de forma vibrante e mágica. A ilustração deve expressar emoções, ação e aventura, transmitindo a essência da história de forma visualmente envolvente. Garanta que os elementos do ambiente, cores e expressões dos personagens estejam bem definidos e alinhados ao tom infantil da narrativa.${moralTheme ? ` A ilustração deve refletir a moral: ${moralTheme}.` : ""}
 
 Texto da cena: "${pageText}"
 
@@ -164,14 +166,14 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
       window.dispatchEvent(new CustomEvent("storybot_api_issue"));
       localStorage.setItem("storybot_api_issue", "true");
       
-      return `Ilustração detalhada de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
+      return `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
     }
   };
   
   // Generate an image for a story page based on description using Leonardo AI
   const generateImage = async (
     imageDescription: string,
-    childName: string,
+    characterName: string,
     theme: string,
     setting: string,
     childImageBase64: string | null,
@@ -321,7 +323,7 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
   // Generate a cover image for the story using Leonardo AI
   const generateCoverImage = async (
     title: string,
-    childName: string,
+    characterName: string,
     theme: string,
     setting: string,
     childImageBase64: string | null,
@@ -345,7 +347,7 @@ Forneça uma descrição visual completa em até 150 palavras, focando nos eleme
       }
       
       // Create a detailed cover image prompt
-      let coverPrompt = `Crie uma ilustração de capa para um livro infantil intitulado "${title}". A capa deve ser colorida, mágica e atraente para crianças, apresentando o protagonista ${childName} em um cenário de ${setting} com tema de ${theme}. A ilustração deve ter cores vibrantes, um estilo ${style} encantador, e capturar a essência da aventura.`;
+      let coverPrompt = `Crie uma ilustração de capa para um livro infantil intitulado "${title}". A capa deve ser colorida, mágica e atraente para crianças, apresentando o protagonista ${characterName} em um cenário de ${setting} com tema de ${theme}. A ilustração deve ter cores vibrantes, um estilo ${style} encantador, e capturar a essência da aventura.`;
       
       // Add character-specific details if available
       if (characterPrompt) {
