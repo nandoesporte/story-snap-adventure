@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
+import { CharacterManager } from "@/components/admin/CharacterManager";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -185,11 +186,15 @@ const Admin = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full md:w-auto">
             <TabsTrigger value="stories">Histórias</TabsTrigger>
+            <TabsTrigger value="characters">Personagens</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="themes">Temas e Configurações</TabsTrigger>
           </TabsList>
           <TabsContent value="stories" className="mt-4">
             <StoryManager />
+          </TabsContent>
+          <TabsContent value="characters" className="mt-4">
+            <CharacterManager />
           </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UserManager />

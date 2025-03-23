@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import MyStories from "./pages/MyStories";
+import Characters from "./pages/Characters";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-stories" element={<MyStories />} />
+          <Route path="/characters" element={<Characters />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AnimatePresence>
