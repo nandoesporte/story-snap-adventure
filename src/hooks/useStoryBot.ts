@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 type Message = {
   role: "user" | "assistant";
@@ -63,10 +64,13 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         console.log("Using default prompt");
       }
 
-      // Format conversation history for OpenAI
-      const formattedMessages = [
+      // Format conversation history for OpenAI with correct types
+      const formattedMessages: ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
-        ...messages,
+        ...messages.map(msg => ({
+          role: msg.role === "user" ? "user" as const : "assistant" as const,
+          content: msg.content
+        }))
       ];
 
       // Create a timeout promise to limit API request time
@@ -129,9 +133,9 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
         return `Ilustração de ${childName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
       }
       
-      const messages = [
+      const messages: Message[] = [
         {
-          role: "user" as const,
+          role: "user",
           content: `Por favor, crie uma descrição de imagem para esta cena de uma história infantil:
             
             Texto da página: "${pageText}"

@@ -1,6 +1,7 @@
 
 import { OpenAI } from "openai";
 import { toast } from "sonner";
+import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 interface StoryGenerationParams {
   childName: string;
@@ -75,18 +76,21 @@ export const generateStoryWithGPT4 = async (params: StoryGenerationParams, opena
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     try {
+      // Create properly typed messages for the API call
+      const messages: ChatCompletionMessageParam[] = [
+        { 
+          role: "system", 
+          content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive. You must maintain character consistency throughout the story, both in personality and physical appearance." 
+        },
+        { 
+          role: "user", 
+          content: prompt 
+        }
+      ];
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive. You must maintain character consistency throughout the story, both in personality and physical appearance." 
-          },
-          { 
-            role: "user", 
-            content: prompt 
-          }
-        ],
+        messages: messages,
         temperature: 0.7,
         max_tokens: 1500,
       });
