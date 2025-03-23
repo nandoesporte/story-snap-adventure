@@ -6,48 +6,35 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create the characters table if it doesn't exist
-CREATE TABLE IF NOT EXISTS public.characters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    image_url TEXT,
-    age TEXT,
-    personality TEXT,
-    is_premium BOOLEAN DEFAULT false,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    creator_id UUID REFERENCES auth.users(id)
-);
-
--- Enable Row Level Security (RLS) if not already enabled
 DO $$
 BEGIN
-    EXECUTE 'ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY';
-EXCEPTION
-    WHEN undefined_table THEN
-        RAISE NOTICE 'Table does not exist yet, skipping RLS enable';
-    WHEN others THEN
-        RAISE NOTICE 'Error enabling RLS: %', SQLERRM;
-END$$;
+    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'characters') THEN
+        -- Create the characters table
+        CREATE TABLE public.characters (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            image_url TEXT,
+            age TEXT,
+            personality TEXT,
+            is_premium BOOLEAN DEFAULT false,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            creator_id UUID REFERENCES auth.users(id)
+        );
 
--- Create RLS policies if they don't exist
-DO $$
-BEGIN
-    -- Anyone can view active characters
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'characters' AND policyname = 'Anyone can view active characters'
-    ) THEN
+        -- Enable Row Level Security (RLS)
+        ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
+
+        -- Create RLS policies
+        -- Anyone can view active characters
         CREATE POLICY "Anyone can view active characters" 
             ON public.characters 
             FOR SELECT 
             USING (is_active = true);
-    END IF;
 
-    -- Admin users can manage all characters
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'characters' AND policyname = 'Admin users can manage characters'
-    ) THEN
+        -- Admin users can manage all characters
         CREATE POLICY "Admin users can manage characters" 
             ON public.characters 
             FOR ALL
@@ -58,80 +45,39 @@ BEGIN
                     AND user_profiles.is_admin = true
                 )
             );
-    END IF;
             
-    -- Users can create their own characters
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'characters' AND policyname = 'Users can insert their own characters'
-    ) THEN
+        -- Users can create their own characters
         CREATE POLICY "Users can insert their own characters"
             ON public.characters
             FOR INSERT
             WITH CHECK (auth.uid() IS NOT NULL);
-    END IF;
             
-    -- Users can update and delete their own characters
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'characters' AND policyname = 'Users can update their own characters'
-    ) THEN
+        -- Users can update and delete their own characters
         CREATE POLICY "Users can update their own characters"
             ON public.characters
             FOR UPDATE
             USING (creator_id = auth.uid());
-    END IF;
-    
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'characters' AND policyname = 'Users can delete their own characters'
-    ) THEN
+            
         CREATE POLICY "Users can delete their own characters"
             ON public.characters
             FOR DELETE
             USING (creator_id = auth.uid());
-    END IF;
-EXCEPTION
-    WHEN undefined_table THEN
-        RAISE NOTICE 'Table does not exist yet, skipping policy creation';
-    WHEN others THEN
-        RAISE NOTICE 'Error creating policies: %', SQLERRM;
-END$$;
 
--- Create trigger for updated_at if it doesn't exist
-DO $$
-BEGIN
-    -- First create the function if it doesn't exist
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_proc 
-        WHERE proname = 'update_characters_modified'
-    ) THEN
-        CREATE FUNCTION update_characters_modified()
+        -- Create trigger for updated_at
+        CREATE OR REPLACE FUNCTION update_characters_modified()
         RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = NOW();
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
-    END IF;
 
-    -- Then create the trigger if it doesn't exist
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger 
-        WHERE tgname = 'characters_updated_at'
-    ) THEN
+        -- Create the trigger
         CREATE TRIGGER characters_updated_at
         BEFORE UPDATE ON public.characters
         FOR EACH ROW EXECUTE FUNCTION update_characters_modified();
-    END IF;
-EXCEPTION
-    WHEN undefined_table THEN
-        RAISE NOTICE 'Table does not exist yet, skipping trigger creation';
-    WHEN others THEN
-        RAISE NOTICE 'Error creating trigger: %', SQLERRM;
-END$$;
-
--- Insert predefined characters if the table is empty
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM public.characters LIMIT 1) THEN
+            
+        -- Insert predefined characters
         INSERT INTO public.characters (name, description, personality, age, is_active)
         VALUES 
             ('Pingo, o Pinguim Inventor', 'Pinguim genial que cria bugigangas incríveis', 'Curioso, inteligente e sempre pensando em novas invenções', '8 anos', true),
@@ -143,9 +89,5 @@ BEGIN
             ('Tuck, a Tartaruga Sábia', 'Tartaruga milenar cheia de histórias e conselhos', 'Paciente, sábia e com grande senso de humor', '500 anos', true),
             ('Zep, o Robozinho Curioso', 'Robô adorável que aprende sobre emoções humanas', 'Analítico, inocente e sempre fazendo perguntas', '2 anos', true);
     END IF;
-EXCEPTION
-    WHEN undefined_table THEN
-        RAISE NOTICE 'Table does not exist yet, skipping data insertion';
-    WHEN others THEN
-        RAISE NOTICE 'Error inserting data: %', SQLERRM;
-END$$;
+END
+$$;

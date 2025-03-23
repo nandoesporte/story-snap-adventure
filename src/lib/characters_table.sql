@@ -1,7 +1,8 @@
 
--- Function to create characters table if it doesn't exist
-CREATE OR REPLACE FUNCTION create_characters_table_if_not_exists()
-RETURNS void AS $$
+-- This file defines the function to create the characters table and its dependencies
+-- The function is wrapped in a DO block to create a single transaction
+
+DO $$
 BEGIN
     -- Check if the table already exists
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'characters') THEN
@@ -88,5 +89,5 @@ BEGIN
             ('Tuck, a Tartaruga Sábia', 'Tartaruga milenar cheia de histórias e conselhos', 'Paciente, sábia e com grande senso de humor', '500 anos', true),
             ('Zep, o Robozinho Curioso', 'Robô adorável que aprende sobre emoções humanas', 'Analítico, inocente e sempre fazendo perguntas', '2 anos', true);
     END IF;
-END;
-$$ LANGUAGE plpgsql;
+END
+$$;
