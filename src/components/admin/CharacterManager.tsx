@@ -54,39 +54,34 @@ export const CharacterManager = () => {
     setErrorMessage(null);
     
     try {
-      console.log("Initializing character table...");
+      console.log("Loading initialization SQL script...");
+      // Fetch the SQL initialization script
+      const response = await fetch('/src/lib/init-database.sql');
+      if (!response.ok) {
+        throw new Error(`Failed to load SQL script: ${response.status} ${response.statusText}`);
+      }
       
-      // First try to create the function if it doesn't exist
-      const { error: functionError } = await supabase.rpc('create_characters_table_if_not_exists');
+      const sqlScript = await response.text();
+      console.log("SQL script loaded, executing...");
       
-      if (functionError) {
-        // If the function doesn't exist, we try to create it
-        console.log("Function doesn't exist yet, creating it...");
+      // Execute the SQL script directly using Supabase's REST API
+      const { error } = await supabase.rpc('exec', { sql: sqlScript });
+      
+      if (error) {
+        console.error("Error executing SQL script:", error);
         
-        // Get the SQL to create the function
-        const response = await fetch('/src/lib/characters_table.sql');
-        const sql = await response.text();
+        // Fallback to execute as superuser if available
+        console.log("Attempting fallback initialization...");
+        const { error: fallbackError } = await supabase.functions.invoke('initialize-database', {
+          body: { script: sqlScript }
+        });
         
-        // Execute the SQL to create the function
-        const { error: sqlError } = await supabase.rpc('exec_sql', { sql });
-        
-        if (sqlError) {
-          console.error("Error creating function:", sqlError);
-          setErrorMessage(`Erro ao criar função: ${sqlError.message}`);
-          throw sqlError;
-        }
-        
-        // Try to call the function again
-        const { error: retryError } = await supabase.rpc('create_characters_table_if_not_exists');
-        
-        if (retryError) {
-          console.error("Error creating characters table:", retryError);
-          setErrorMessage(`Erro ao criar tabela de personagens: ${retryError.message}`);
-          throw retryError;
+        if (fallbackError) {
+          throw new Error(fallbackError.message || "Failed to initialize database");
         }
       }
       
-      console.log("Character table initialization completed");
+      console.log("Database initialization completed successfully");
       toast({
         title: "Banco de dados inicializado",
         description: "A estrutura do banco de dados foi inicializada com sucesso!",
@@ -96,12 +91,58 @@ export const CharacterManager = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
     } catch (error: any) {
       console.error("Error initializing database:", error);
-      setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
-      toast({
-        title: "Erro ao inicializar banco de dados",
-        description: error.message || "Ocorreu um erro ao inicializar o banco de dados",
-        variant: "destructive",
-      });
+      
+      // Try one more approach - directly creating the table
+      try {
+        console.log("Attempting direct table creation...");
+        const { error: directError } = await supabase.from('characters').select('count(*)');
+        
+        if (directError && directError.code === '42P01') { // relation does not exist
+          const createTableSQL = `
+            CREATE TABLE IF NOT EXISTS public.characters (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              name TEXT NOT NULL,
+              description TEXT NOT NULL,
+              image_url TEXT,
+              age TEXT,
+              personality TEXT,
+              is_premium BOOLEAN DEFAULT false,
+              is_active BOOLEAN DEFAULT true,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              creator_id UUID REFERENCES auth.users(id)
+            );
+          `;
+          
+          const { error: createError } = await supabase.rpc('exec', { sql: createTableSQL });
+          
+          if (createError) {
+            setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
+            toast({
+              title: "Erro ao inicializar banco de dados",
+              description: "Tente fazer login novamente ou contate o administrador do sistema.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Tabela criada com sucesso",
+              description: "A tabela de personagens foi criada, mas sem as políticas RLS.",
+              variant: "default",
+            });
+            queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
+          }
+        } else {
+          setErrorMessage(`Erro ao inicializar banco de dados: ${error.message || "Erro desconhecido"}`);
+          toast({
+            title: "Erro ao inicializar banco de dados",
+            description: error.message || "Ocorreu um erro ao inicializar o banco de dados",
+            variant: "destructive",
+          });
+        }
+      } catch (fallbackError: any) {
+        console.error("All initialization attempts failed:", fallbackError);
+        setErrorMessage(`Todos os métodos de inicialização falharam. Por favor, contate o administrador.`);
+      }
     } finally {
       setIsInitializing(false);
     }
@@ -126,8 +167,27 @@ export const CharacterManager = () => {
         
         if (error) {
           console.error("Error fetching characters:", error);
-          setErrorMessage(`Erro ao buscar personagens: ${error.message}`);
-          throw error;
+          // If the error indicates that the table doesn't exist, we can auto-initialize
+          if (error.code === '42P01') { // relation does not exist
+            console.log("Table doesn't exist, auto-initializing...");
+            await initializeDatabase();
+            
+            // Try again after initialization
+            const { data: retryData, error: retryError } = await supabase
+              .from("characters")
+              .select("*")
+              .order("name");
+              
+            if (retryError) {
+              setErrorMessage(`Erro ao buscar personagens após inicialização: ${retryError.message}`);
+              throw retryError;
+            }
+            
+            return retryData as Character[];
+          } else {
+            setErrorMessage(`Erro ao buscar personagens: ${error.message}`);
+            throw error;
+          }
         }
         
         console.log(`Successfully fetched ${data?.length || 0} characters`);
@@ -359,7 +419,7 @@ export const CharacterManager = () => {
             disabled={isInitializing}
           >
             <RefreshCcw className="h-4 w-4" />
-            {isInitializing ? 'Inicializando...' : 'Inicializar Tabela'}
+            {isInitializing ? 'Inicializando...' : 'Inicializar Banco de Dados'}
           </Button>
           <Button onClick={handleAddNew} className="gap-2">
             <Plus className="h-4 w-4" /> Novo Personagem
