@@ -5,12 +5,16 @@ import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 
 interface HeroProps {
   customImageUrl?: string;
 }
 
 const Hero = ({ customImageUrl }: HeroProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [preloadedImage, setPreloadedImage] = useState<HTMLImageElement | null>(null);
+  
   // Fetch hero content from the database with better error handling
   const { data: heroContents = [] } = useQuery({
     queryKey: ["page-contents", "index", "hero"],
@@ -28,6 +32,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
       
       return data;
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes to improve performance
   });
 
   // Helper function to get content by key
@@ -41,6 +46,22 @@ const Hero = ({ customImageUrl }: HeroProps) => {
   // Default image if none provided - only set after heroContents is loaded
   const heroImage = customImageUrl || getContent("image_url", "");
   const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
+
+  // Preload the hero image
+  useEffect(() => {
+    if (heroImage) {
+      const img = new Image();
+      img.src = heroImage;
+      img.onload = () => {
+        setImageLoaded(true);
+        setPreloadedImage(img);
+      };
+      // Set a timeout to show content even if image is slow
+      const timeout = setTimeout(() => setImageLoaded(true), 1000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [heroImage]);
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
@@ -118,17 +139,21 @@ const Hero = ({ customImageUrl }: HeroProps) => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
             className="w-full md:w-1/2 flex justify-center items-center relative z-0"
           >
             {heroImage && (
               <div className="relative w-full max-w-lg">
-                <img 
-                  src={heroImage}
-                  alt={imageAlt}
-                  className="w-full h-auto z-10 drop-shadow-xl"
-                  loading="eager" // Add eager loading for the hero image
-                />
+                {imageLoaded ? (
+                  <img 
+                    src={heroImage}
+                    alt={imageAlt}
+                    className="w-full h-auto z-10 drop-shadow-xl"
+                    loading="eager" 
+                  />
+                ) : (
+                  <div className="w-full aspect-square bg-indigo-100 animate-pulse rounded-lg" />
+                )}
                 
                 {/* Animated elements */}
                 <motion.div
@@ -155,7 +180,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
         className="w-full bg-indigo-700 py-4 mt-8"
       >
         <div className="container mx-auto px-4">
