@@ -44,14 +44,6 @@ BEGIN
         CREATE TRIGGER update_characters_updated_at
             BEFORE UPDATE ON public.characters
             FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-        -- Insert some default characters
-        INSERT INTO public.characters (name, description, age, personality, is_premium)
-        VALUES 
-            ('Luna', 'Uma garotinha muito curiosa que adora explorar o mundo ao seu redor', '7 anos', 'Curiosa, aventureira e amigável', false),
-            ('Max', 'Um menino corajoso que sonha em ser astronauta', '9 anos', 'Corajoso, inteligente e sonhador', false),
-            ('Bella', 'Uma gatinha mágica que pode falar e tem poderes especiais', 'Desconhecida', 'Misteriosa, sábia e protetora', true),
-            ('Rex', 'Um cachorrinho leal que está sempre pronto para ajudar seus amigos', '3 anos', 'Leal, brincalhão e protetor', false);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
