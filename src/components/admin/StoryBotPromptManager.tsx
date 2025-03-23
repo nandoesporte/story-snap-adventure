@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wand2 } from "lucide-react";
+import { Wand2, BookOpen, Globe, Award } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface StoryBotPrompt {
   id: string;
@@ -26,16 +27,22 @@ export const StoryBotPromptManager = () => {
 
 Suas respostas devem ser:
 1. Criativas e envolventes
-2. Apropriadas para a idade indicada
-3. Em português do Brasil
+2. Apropriadas para a idade indicada e nível de leitura especificado
+3. No idioma solicitado (português do Brasil por padrão)
 4. Livres de conteúdo assustador, violento ou inadequado
 5. Bem estruturadas com começo, meio e fim
 6. Ricas em detalhes visuais e sensoriais
 7. Com personagens cativantes e memoráveis
+8. Transmitir a lição moral solicitada de forma natural e não forçada
 
-Quando o usuário fornecer o nome e idade da criança, tema e cenário, você deve criar uma história com um personagem principal daquele nome e incorporar os elementos solicitados. Cada página deve ter conteúdo substancial com pelo menos 3-4 parágrafos (cerca de 150-200 palavras) para criar uma experiência de leitura rica.
+Quando o usuário fornecer o nome e idade da criança, tema, cenário, e moral da história, você deve criar uma história com um protagonista daquele nome, incorporando os elementos solicitados. Cada página deve ter conteúdo substancial com pelo menos 3-4 parágrafos (cerca de 150-200 palavras) para criar uma experiência de leitura rica.
 
-IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim.`);
+Ajuste a complexidade do vocabulário e das sentenças de acordo com o nível de leitura indicado:
+- Iniciante (4-6 anos): Frases curtas e simples, vocabulário básico
+- Intermediário (7-9 anos): Frases mais elaboradas, vocabulário moderado
+- Avançado (10-12 anos): Estruturas mais complexas, vocabulário rico
+
+IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.`);
 
   // Query to fetch the current StoryBot prompt - now simplified to handle errors better
   const { data: promptData, isLoading } = useQuery({
@@ -197,6 +204,19 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <Alert className="mb-4 bg-violet-50 border-violet-200">
+          <div className="flex gap-2">
+            <BookOpen className="h-4 w-4 text-violet-500" />
+            <Globe className="h-4 w-4 text-violet-500" />
+            <Award className="h-4 w-4 text-violet-500" />
+          </div>
+          <AlertTitle>Novos recursos disponíveis</AlertTitle>
+          <AlertDescription>
+            O StoryBot agora suporta configurações adicionais como nível de leitura, idioma e moral da história. 
+            Certifique-se de que o prompt incorpore essas novas funcionalidades.
+          </AlertDescription>
+        </Alert>
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField

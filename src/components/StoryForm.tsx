@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Sparkles, ChevronDown, ChevronUp, Settings } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, Settings, BookOpen, Globe, Award } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -212,33 +212,23 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
             />
           </div>
           
-          <Collapsible
-            open={showAdvancedOptions}
-            onOpenChange={setShowAdvancedOptions}
-            className="w-full"
-          >
-            <div className="flex items-center justify-between py-2">
-              <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-violet-700 hover:text-violet-900 transition-colors">
-                <Settings className="h-4 w-4" />
-                Opções Avançadas
-                {showAdvancedOptions ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </CollapsibleTrigger>
-            </div>
+          <div className="bg-violet-50 p-4 rounded-lg border border-violet-100 mt-6 mb-2">
+            <h3 className="text-sm font-medium text-violet-900 mb-3 flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Opções Adicionais
+            </h3>
             
-            <CollapsibleContent className="mt-2 bg-violet-50 p-4 rounded-lg border border-violet-100 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="readingLevel" className="text-sm font-medium mb-1">
+                <Label htmlFor="readingLevel" className="text-sm font-medium mb-1 flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-violet-600" />
                   Nível de Leitura
                 </Label>
                 <Select
                   value={formData.readingLevel}
                   onValueChange={(value) => handleSelectChange("readingLevel", value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-white">
                     <SelectValue placeholder="Selecione o nível de leitura" />
                   </SelectTrigger>
                   <SelectContent>
@@ -250,14 +240,15 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
               </div>
               
               <div>
-                <Label htmlFor="language" className="text-sm font-medium mb-1">
+                <Label htmlFor="language" className="text-sm font-medium mb-1 flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-violet-600" />
                   Idioma
                 </Label>
                 <Select
                   value={formData.language}
                   onValueChange={(value) => handleSelectChange("language", value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-white">
                     <SelectValue placeholder="Selecione o idioma" />
                   </SelectTrigger>
                   <SelectContent>
@@ -269,14 +260,15 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
               </div>
               
               <div>
-                <Label htmlFor="moral" className="text-sm font-medium mb-1">
+                <Label htmlFor="moral" className="text-sm font-medium mb-1 flex items-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-violet-600" />
                   Moral da História
                 </Label>
                 <Select
                   value={formData.moral}
                   onValueChange={(value) => handleSelectChange("moral", value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-white">
                     <SelectValue placeholder="Selecione a moral" />
                   </SelectTrigger>
                   <SelectContent>
@@ -286,8 +278,8 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
                   </SelectContent>
                 </Select>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
+          </div>
           
           <div>
             <label htmlFor="theme" className="block text-sm font-medium mb-1">
