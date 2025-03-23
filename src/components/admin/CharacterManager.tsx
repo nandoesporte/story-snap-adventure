@@ -12,7 +12,6 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Edit, Trash2, Plus, Image, AlertTriangle, RefreshCcw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import StorageConfigAlert from "@/components/StorageConfigAlert";
 import FileUpload from "@/components/FileUpload";
 
 interface Character {
@@ -47,7 +46,6 @@ export const CharacterManager = () => {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [storageError, setStorageError] = useState<string | null>(null);
   const { user } = useAuth();
 
   const initializeDatabase = async () => {
@@ -394,68 +392,36 @@ export const CharacterManager = () => {
     }
   });
 
-  const uploadImage = async (file: File): Promise<string> => {
+  const handleFileUploadComplete = (file: File) => {
     setIsImageUploading(true);
-    setStorageError(null);
     
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `character-images/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, file);
-        
-      if (uploadError) {
-        console.error("Error uploading image:", uploadError);
-        
-        if (uploadError.message === "Bucket not found") {
-          setStorageError("storage_bucket_missing");
-          throw new Error("O bucket 'public' não existe no Storage. Configure o Storage no painel do Supabase.");
-        }
-        
-        throw uploadError;
-      }
-      
-      const { data } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
-        
-      return data.publicUrl;
-    } catch (error: any) {
-      console.error("Error uploading image:", error);
+    if (file.size > 2 * 1024 * 1024) { // Limit to 2MB
       toast({
-        title: "Erro ao fazer upload da imagem",
-        description: error.message || "Ocorreu um erro ao fazer upload da imagem",
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 2MB",
         variant: "destructive",
       });
-      throw error;
-    } finally {
       setIsImageUploading(false);
+      return;
     }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
     
-    try {
-      const imageUrl = await uploadImage(file);
-      setCurrentCharacter(prev => ({ ...prev, image_url: imageUrl }));
-    } catch (error) {
-      console.error("Error uploading image:", error);
-    }
-  };
-
-  const handleFileUploadComplete = (file: File) => {
-    try {
-      uploadImage(file).then(imageUrl => {
-        setCurrentCharacter(prev => ({ ...prev, image_url: imageUrl }));
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64String = e.target?.result as string;
+      setCurrentCharacter(prev => ({ ...prev, image_url: base64String }));
+      setIsImageUploading(false);
+    };
+    
+    reader.onerror = () => {
+      toast({
+        title: "Erro ao processar imagem",
+        description: "Não foi possível processar a imagem selecionada",
+        variant: "destructive",
       });
-    } catch (error) {
-      // Error is handled in uploadImage
-    }
+      setIsImageUploading(false);
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -508,11 +474,6 @@ export const CharacterManager = () => {
     setIsDialogOpen(true);
   };
 
-  const getImageUrl = (url?: string) => {
-    if (!url) return null;
-    return `${url}?t=${Date.now()}`;
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -532,10 +493,6 @@ export const CharacterManager = () => {
           </Button>
         </div>
       </div>
-
-      {storageError === "storage_bucket_missing" && (
-        <StorageConfigAlert compact className="mb-4" />
-      )}
 
       {errorMessage && (
         <Alert variant="destructive" className="my-4">
@@ -581,7 +538,7 @@ export const CharacterManager = () => {
                   <TableCell>
                     {character.image_url ? (
                       <img 
-                        src={getImageUrl(character.image_url)} 
+                        src={character.image_url} 
                         alt={character.name} 
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -698,36 +655,32 @@ export const CharacterManager = () => {
             <div className="space-y-2">
               <label htmlFor="image_upload" className="text-sm font-medium">Imagem do Personagem</label>
               
-              {storageError === "storage_bucket_missing" ? (
-                <StorageConfigAlert compact className="mb-2" />
-              ) : (
-                <div className="mt-2">
-                  {currentCharacter.image_url ? (
-                    <div className="flex items-center space-x-4 mb-4">
-                      <img 
-                        src={getImageUrl(currentCharacter.image_url)} 
-                        alt={currentCharacter.name || "Prévia"} 
-                        className="w-16 h-16 rounded-full object-cover" 
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        type="button" 
-                        onClick={() => setCurrentCharacter(prev => ({ ...prev, image_url: "" }))}
-                      >
-                        Remover Imagem
-                      </Button>
-                    </div>
-                  ) : (
-                    <FileUpload 
-                      onFileSelect={handleFileUploadComplete}
-                      uploadType="image"
+              <div className="mt-2">
+                {currentCharacter.image_url ? (
+                  <div className="flex items-center space-x-4 mb-4">
+                    <img 
+                      src={currentCharacter.image_url} 
+                      alt={currentCharacter.name || "Prévia"} 
+                      className="w-16 h-16 rounded-full object-cover" 
                     />
-                  )}
-                </div>
-              )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      type="button" 
+                      onClick={() => setCurrentCharacter(prev => ({ ...prev, image_url: "" }))}
+                    >
+                      Remover Imagem
+                    </Button>
+                  </div>
+                ) : (
+                  <FileUpload 
+                    onFileSelect={handleFileUploadComplete}
+                    uploadType="image"
+                  />
+                )}
+              </div>
               
-              {isImageUploading && <p className="text-sm text-blue-500">Enviando imagem...</p>}
+              {isImageUploading && <p className="text-sm text-blue-500">Processando imagem...</p>}
               
               <div className="mt-2">
                 <label htmlFor="image_url" className="text-sm font-medium">Ou informe a URL da imagem</label>

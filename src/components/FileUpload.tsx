@@ -33,10 +33,6 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       if (onFileSelect) {
         onFileSelect(e.dataTransfer.files[0]);
       }
-      
-      if (onUploadComplete) {
-        await handleFileUpload(e.dataTransfer.files[0]);
-      }
     }
   };
 
@@ -45,59 +41,6 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
       if (onFileSelect) {
         onFileSelect(e.target.files[0]);
       }
-      
-      if (onUploadComplete) {
-        await handleFileUpload(e.target.files[0]);
-      }
-    }
-  };
-
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const handleFileUpload = async (file: File) => {
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "Erro ao fazer upload",
-        description: "O arquivo é muito grande. Tamanho máximo: 5MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      
-      // Convert file to base64 string for persistent storage
-      const base64String = await convertFileToBase64(file);
-      
-      // Simular um pequeno atraso para mostrar o loading
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      if (onUploadComplete) {
-        onUploadComplete(base64String);
-      }
-      
-      toast({
-        title: "Upload concluído",
-        description: "Arquivo enviado com sucesso",
-      });
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      
-      toast({
-        title: "Erro ao fazer upload",
-        description: "Não foi possível carregar o arquivo.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -166,13 +109,13 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
         
         <div className="text-center">
           <h3 className="text-lg font-medium mb-1">
-            {imagePreview ? 'Alterar foto' : 'Adicionar foto da criança'}
+            {imagePreview ? 'Alterar foto' : 'Adicionar foto do personagem'}
           </h3>
           <p className="text-sm text-slate-500 mb-2">
             {imagePreview ? 'Clique para escolher outra imagem' : 'Arraste e solte ou clique para selecionar'}
           </p>
           <p className="text-xs text-slate-400">
-            JPG, PNG ou GIF (máx. 5MB)
+            JPG, PNG ou GIF (máx. 2MB)
           </p>
         </div>
         
