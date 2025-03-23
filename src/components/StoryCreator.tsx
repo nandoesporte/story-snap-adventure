@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +10,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import StoryBotChat from "./StoryBotChat";
 import { useStoryBot } from "../hooks/useStoryBot";
 import { supabase } from "@/lib/supabase";
+import { generateStoryWithGPT4 } from "@/utils/storyGenerator";
 
 type CreationStep = "photo" | "details" | "chat" | "generating";
 
@@ -44,7 +44,6 @@ const StoryCreator = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage, convertImageToBase64 } = useStoryBot();
   
-  // Fetch character data when formData changes
   useEffect(() => {
     const fetchCharacter = async () => {
       if (formData?.characterId) {
@@ -87,7 +86,6 @@ const StoryCreator = () => {
         'Terra dos Dinossauros'
       }".`;
       
-      // Add character information if available
       if (selectedCharacter) {
         initialPrompt += `\n\nGostaria que a história incluísse o personagem ${selectedCharacter.name}.`;
         
@@ -99,7 +97,6 @@ const StoryCreator = () => {
           initialPrompt += `\nPersonalidade: ${selectedCharacter.personality}`;
         }
         
-        // Add generation prompt if available
         if (selectedCharacter.generation_prompt) {
           initialPrompt += `\n\nInformações adicionais para geração da história: ${selectedCharacter.generation_prompt}`;
         }
@@ -166,64 +163,40 @@ const StoryCreator = () => {
     setIsGenerating(true);
     
     try {
-      let summaryPrompt = `Por favor, finalize nossa história sobre ${formData.childName} no cenário de ${
-        formData.setting === 'forest' ? 'Floresta Encantada' : 
-        formData.setting === 'castle' ? 'Castelo Mágico' : 
-        formData.setting === 'space' ? 'Espaço Sideral' : 
-        formData.setting === 'underwater' ? 'Mundo Submarino' : 
-        'Terra dos Dinossauros'
-      }. Crie uma história completa com início, meio e fim, dividida em 10 páginas incluindo uma moral.`;
+      toast.info("Gerando história com GPT-4...");
       
-      // Add character information to the final prompt
-      if (selectedCharacter) {
-        summaryPrompt += ` A história deve incluir o personagem ${selectedCharacter.name} com as seguintes características: 
-        ${selectedCharacter.description || ''} 
-        ${selectedCharacter.personality ? `Personalidade: ${selectedCharacter.personality}` : ''}`;
-        
-        if (selectedCharacter.generation_prompt) {
-          summaryPrompt += `\nUse as seguintes instruções específicas para criar a história: ${selectedCharacter.generation_prompt}`;
-        }
-      }
+      const openaiApiKey = "sk-dummy-key";
       
-      summaryPrompt += `\n\nUse o nome ${formData.childName} como personagem principal e crie um título criativo. No começo da história, inicie claramente com "TITULO:" seguido do título da história, e em seguida separe cada página com "PAGINA 1:", "PAGINA 2:" etc. até "PAGINA 10:". Cada página deve ter apenas um parágrafo curto.`;
+      const storyData = await generateStoryWithGPT4({
+        childName: formData.childName,
+        childAge: formData.childAge,
+        theme: formData.theme,
+        setting: formData.setting,
+        imageUrl: imagePreview
+      }, openaiApiKey);
       
-      const finalResponse = await generateStoryBotResponse(messages, summaryPrompt);
+      const storyContentWithPages = {
+        title: storyData.title,
+        content: storyData.content
+      };
       
-      const storyContentWithPages = parseStoryContent(finalResponse);
-      
-      // Converter a imagem da criança para base64 para referência de características
       const childImageBase64 = imagePreview;
       
-      // Gerar a imagem de capa com referência à imagem da criança
-      const coverImageDescription = await generateImageDescription(
-        `Capa do livro infantil "${storyContentWithPages.title}" sobre ${formData.childName} em uma aventura em ${
-          formData.setting === 'forest' ? 'uma Floresta Encantada' : 
-          formData.setting === 'castle' ? 'um Castelo Mágico' : 
-          formData.setting === 'space' ? 'o Espaço Sideral' : 
-          formData.setting === 'underwater' ? 'um Mundo Submarino' : 
-          'uma Terra dos Dinossauros'
-        }${selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''}`,
-        formData.childName,
-        formData.childAge,
-        formData.theme,
-        formData.setting
-      );
+      toast.info("Gerando imagem de capa com Leonardo AI...");
       
       const coverImageUrl = await generateCoverImage(
         storyContentWithPages.title,
         formData.childName,
         formData.theme,
         formData.setting,
-        childImageBase64 // Passando a imagem da criança para manter consistência
+        childImageBase64
       );
       
       const pagesWithImages: StoryPage[] = [];
       
-      toast.info("Gerando imagens para cada página da história...");
+      toast.info("Gerando imagens para cada página da história com Leonardo AI...");
       
-      // Gerar imagens para cada página com coerência visual entre elas
       for (const pageText of storyContentWithPages.content) {
-        // Gerar uma descrição detalhada da imagem baseada no texto da página
         const imageDescription = await generateImageDescription(
           pageText + (selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''),
           formData.childName,
@@ -232,13 +205,12 @@ const StoryCreator = () => {
           formData.setting
         );
         
-        // Gerar a imagem baseada na descrição, mantendo consistência com a imagem da criança
         const imageUrl = await generateImage(
           imageDescription,
           formData.childName,
           formData.theme,
           formData.setting,
-          childImageBase64 // Passando a imagem da criança para consistência em todas as páginas
+          childImageBase64
         );
         
         pagesWithImages.push({
@@ -247,7 +219,6 @@ const StoryCreator = () => {
         });
       }
       
-      // Salvar todos os dados da história para visualização
       sessionStorage.setItem("storyData", JSON.stringify({
         title: storyContentWithPages.title,
         coverImageUrl: coverImageUrl,

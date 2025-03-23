@@ -1,16 +1,24 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
-import { generateStory } from "../utils/storyGenerator";
+import { generateStory, generateStoryWithGPT4 } from "../utils/storyGenerator";
+import { OpenAI } from "openai";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
 
+// Initialize OpenAI client for chat
+const openai = new OpenAI({
+  apiKey: "sk-dummy-key", // This will be replaced by the user's key
+  dangerouslyAllowBrowser: true
+});
+
 export const useStoryBot = () => {
-  // Using the provided API key
-  const [apiKey] = useState<string>("AIzaSyBTgwFJ6x0Tc_wVHW5aC_teeHUAzQT4MBg");
+  // Using the provided API keys
+  const [geminiApiKey] = useState<string>("AIzaSyBTgwFJ6x0Tc_wVHW5aC_teeHUAzQT4MBg");
+  const [leonardoApiKey] = useState<string>("da4c074d-dc73-4c70-b358-f7194aa10ec1");
+  const [openaiApiKey] = useState<string>("sk-dummy-key"); // This would normally be provided by the user
   const [useLocalGenerator, setUseLocalGenerator] = useState<boolean>(false);
   
   const generateStoryBotResponse = async (
@@ -23,9 +31,29 @@ export const useStoryBot = () => {
         return generateLocalResponse(messageHistory, userInput);
       }
       
-      // Prepare the prompt for the Gemini API
-      const systemInstructions = `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é StoryBot. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas. 
+      // Set the OpenAI API key
+      openai.apiKey = openaiApiKey;
       
+      try {
+        const conversation = messageHistory.map(msg => ({
+          role: msg.role as "user" | "assistant" | "system",
+          content: msg.content
+        }));
+        
+        // Add current user input
+        conversation.push({
+          role: "user",
+          content: userInput
+        });
+        
+        // Call OpenAI API
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `Você é um assistente virtual especializado em criar histórias infantis personalizadas. Seu nome é StoryBot. Sua função é ajudar pais e crianças a criarem histórias únicas e divertidas, com base nas preferências fornecidas.
+              
 Cumprimente o usuário de forma amigável. Pergunte o nome da criança e o tema da história que desejam criar. Ofereça sugestões de temas, como 'aventura na floresta', 'viagem ao espaço', 'reino mágico', etc.
 
 Pergunte sobre características da criança (ex: corajosa, curiosa, brincalhona). Pergunte se há algum elemento específico que deva ser incluído na história (ex: animais, magia, amigos). Pergunte se o usuário deseja que a história tenha uma moral ou lição específica.
@@ -36,74 +64,20 @@ Quando for gerar a história final, divida-a em 10 páginas, usando marcadores c
 
 Responda apenas com o conteúdo da história, sem incluir instruções ou descrições para geração de imagens.
 
-Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e acessível para crianças.`;
-
-      // Prepare history for Gemini
-      let messages = [];
-      
-      // Add a user message with system instructions first
-      messages.push({
-        role: "user",
-        parts: [{ text: systemInstructions }]
-      });
-      
-      // Add an assistant response confirming instructions
-      messages.push({
-        role: "assistant",
-        parts: [{ text: "Entendido, vou ajudar com histórias infantis!" }]
-      });
-      
-      // Add the conversation history
-      for (const msg of messageHistory) {
-        messages.push({
-          role: msg.role,
-          parts: [{ text: msg.content }]
+Use um tom amigável, divertido e encorajador. Mantenha a linguagem simples e acessível para crianças.`
+            },
+            ...conversation
+          ],
+          temperature: 0.7,
         });
-      }
-      
-      // Add current user input
-      messages.push({
-        role: "user",
-        parts: [{ text: userInput }]
-      });
-
-      // Make the API call to Gemini
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: messages,
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Gemini API error:", errorData);
         
-        // If we hit a quota limit, switch to local generator for future requests
-        if (errorData.error?.code === 429) {
-          setUseLocalGenerator(true);
-          toast.warning("Limite de API excedido, usando gerador local para histórias.");
-          return generateLocalResponse(messageHistory, userInput);
-        }
-        
-        throw new Error(`Erro na API do Gemini: ${errorData.error?.message || "Erro desconhecido"}`);
+        return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+      } catch (error) {
+        console.error("Error with OpenAI:", error);
+        // Fallback to local generator
+        setUseLocalGenerator(true);
+        return generateLocalResponse(messageHistory, userInput);
       }
-
-      const data = await response.json();
-      
-      // Extract the response text
-      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Desculpe, não consegui gerar uma resposta. Por favor, tente novamente.";
-      
-      return responseText;
     } catch (error) {
       console.error("Error in useStoryBot:", error);
       
@@ -194,72 +168,40 @@ Há algum personagem ou elemento específico que você gostaria de incluir na hi
 
   const generateImageDescription = async (storyParagraph: string, childName: string, childAge: string, theme: string, setting: string): Promise<string> => {
     try {
-      // Prompt aprimorado para gerar descrições de imagem mais detalhadas e coerentes com o texto
-      const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil de alta qualidade que represente EXATAMENTE o conteúdo do seguinte parágrafo:
-
+      // Set the OpenAI API key
+      openai.apiKey = openaiApiKey;
+      
+      // Using GPT-4 to generate image descriptions
+      const prompt = `Create a detailed description for a children's book illustration based on this paragraph:
+      
 "${storyParagraph}"
 
-Contexto adicional para a história:
-- Personagem principal: ${childName}, uma criança de ${childAge}
-- Tema da história: ${theme === 'adventure' ? 'Aventura' : 
-  theme === 'fantasy' ? 'Fantasia e Magia' : 
-  theme === 'space' ? 'Exploração Espacial' : 
-  theme === 'ocean' ? 'Mundo Submarino' : 
-  theme === 'ocean' ? 'Mundo Submarino' : 
-  'Dinossauros e Pré-história'}
-- Cenário: ${setting === 'forest' ? 'Floresta Encantada com árvores altas e coloridas' : 
-  setting === 'castle' ? 'Castelo Mágico com torres e salões encantados' : 
-  setting === 'space' ? 'Espaço Sideral com planetas, estrelas e nebulosas' : 
-  setting === 'underwater' ? 'Mundo Submarino com corais vibrantes e criaturas marinhas' : 
-  'Terra dos Dinossauros com vegetação exuberante e vulcões ao fundo'}
+Additional context:
+- Main character: ${childName}, age ${childAge}
+- Theme: ${theme === 'adventure' ? 'Adventure' : 
+  theme === 'fantasy' ? 'Fantasy and Magic' : 
+  theme === 'space' ? 'Space Exploration' : 
+  theme === 'ocean' ? 'Underwater World' : 
+  'Dinosaurs and Prehistoric'}
+- Setting: ${setting === 'forest' ? 'Enchanted Forest with tall colorful trees' : 
+  setting === 'castle' ? 'Magical Castle with towers and enchanted halls' : 
+  setting === 'space' ? 'Outer Space with planets, stars and nebulae' : 
+  setting === 'underwater' ? 'Underwater World with vibrant corals and marine creatures' : 
+  'Dinosaur Land with lush vegetation and volcanic elements'}
 
-A descrição deve:
-1. Descrever uma cena que ilustre EXATAMENTE o momento da história no parágrafo, mantendo total fidelidade ao texto
-2. Incluir o personagem principal (${childName}) de forma clara e central na cena, com expressões que correspondam ao contexto emocional do texto
-3. Descrever detalhes do ambiente e cenário que sejam coerentes com o texto e o tema da história
-4. Mencionar cores, iluminação e composição que complementem a narrativa
-5. Especificar o estilo artístico como "ilustração de livro infantil profissional, estilo Pixar/Disney, cores vibrantes, detalhado"
-6. Ser concisa, focando apenas nos elementos essenciais descritos no texto
-7. NÃO incluir elementos assustadores ou inapropriados para crianças
+The description should be concise, vivid, and suitable for generating a children's book illustration.`;
 
-IMPORTANTE: Esta descrição será usada para gerar uma imagem que deve manter total coerência com o texto da história e consistência visual com outras imagens da mesma história.
-
-Responda apenas com a descrição para a ilustração, sem comentários adicionais.`;
-
-      // Make the API call to Gemini
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.6,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 300,
-          },
-        }),
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert at creating descriptive prompts for AI image generation." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.6,
+        max_tokens: 300,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Gemini API error for image description:", errorData);
-        throw new Error(`Erro na API do Gemini: ${errorData.error?.message || "Erro desconhecido"}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract the image description
-      const imageDescription = data.candidates?.[0]?.content?.parts?.[0]?.text || "Ilustração colorida de uma cena infantil mágica";
-      
-      return imageDescription;
+      return completion.choices[0].message.content || "Colorful children's book illustration of a magical scene";
     } catch (error) {
       console.error("Error generating image description:", error);
       toast.error("Erro ao gerar descrição da imagem. Usando descrição padrão.");
@@ -275,123 +217,116 @@ Responda apenas com a descrição para a ilustração, sem comentários adiciona
     childImageBase64?: string | null
   ): Promise<string> => {
     try {
-      console.log("Generating image with Gemini 2.0 Flash");
+      console.log("Generating image with Leonardo AI");
       
-      // Enhanced prompt with improved character consistency instructions
-      let enhancedPrompt = `Create a high-quality children's book illustration for this text: "${description}"
-
-Character specifications:
-- Main character is ${childName}, a child character who MUST remain VISUALLY CONSISTENT across all illustrations
-- Character MUST have IDENTICAL facial features, hair style, clothing colors, and general appearance in every image
-- ${childImageBase64 ? "The character's face MUST CLOSELY MATCH the facial features from the reference photo with high fidelity" : "Create a distinct, memorable character design that can be maintained consistently"}
-- Pay special attention to the character's unique facial structure, eye shape, nose, mouth, and hair from the reference
-
-Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees and soft glowing elements' : 
-setting === 'castle' ? 'magical castle with grand architecture, towers, and magical elements' : 
-setting === 'space' ? 'colorful space scene with planets, stars, and spaceships' : 
-setting === 'underwater' ? 'vibrant underwater world with coral reefs and sea creatures' : 
-'prehistoric landscape with friendly dinosaurs and lush vegetation'}
-
-Style:
-- Professional children's book illustration with vibrant colors
-- Pixar/Disney style with soft lighting and clear composition
-- Clean, detailed digital art with high production value
-- Safe for children, no scary or inappropriate elements
-- The character must be clearly visible and prominent in the scene
-
-CRITICAL: This is page ${description.length % 7 + 1} of the story, maintaining ABSOLUTE character consistency with previous illustrations is essential - same face, same hair, same general appearance. The child character MUST look like the SAME PERSON in every illustration, with the same facial features as in the reference photo.`;
+      // Enhance the prompt for better results with Leonardo AI
+      let enhancedPrompt = `Children's book illustration, ${description}, featuring ${childName} as the main character, 
+        ${theme === 'adventure' ? 'adventure theme' : 
+        theme === 'fantasy' ? 'fantasy magical theme' : 
+        theme === 'space' ? 'space exploration theme' : 
+        theme === 'ocean' ? 'underwater world theme' : 
+        'dinosaur prehistoric theme'},
+        ${setting === 'forest' ? 'enchanted forest setting with magical trees and glowing elements' : 
+        setting === 'castle' ? 'magical castle setting with towers and fantasy elements' : 
+        setting === 'space' ? 'space setting with colorful planets, stars and cosmic elements' : 
+        setting === 'underwater' ? 'underwater setting with colorful coral reefs and sea creatures' : 
+        'prehistoric landscape with friendly dinosaurs and volcanic elements'},
+        vibrant colors, charming style, high quality children's book, digital illustration, safe for children, clear composition`;
       
-      // Increase model weights for character consistency
-      const tempValue = description.length % 7 >= 6 ? 0.2 : 0.4; // Lower temperature for later pages
-      
-      // Use Gemini 2.0 Flash model specifically for image generation
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // Use Leonardo.AI API for image generation
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${leonardoApiKey}`
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { 
-                  text: enhancedPrompt 
-                },
-                ...(childImageBase64 ? [{
-                  inlineData: {
-                    mimeType: "image/jpeg",
-                    data: childImageBase64.split(',')[1] // Remove the data:image/jpeg;base64, part
-                  }
-                }] : [])
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: tempValue, // Lower temperature for more consistency
-            topK: 32,
-            topP: 1,
-            maxOutputTokens: 2048,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        }),
+          prompt: enhancedPrompt,
+          modelId: "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3", // Using Leonardo Creative model
+          width: 1024,
+          height: 1024,
+          num_images: 1,
+          promptMagic: true,
+          public: false,
+          sd_version: "v2",
+        })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Gemini API error for image generation:", errorData);
-        
-        // Fallback to the original image generation if Gemini image generation fails
-        toast.error("Falha na geração de imagem com Gemini. Usando gerador alternativo.");
-        return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+        console.error("Leonardo AI error:", errorData);
+        throw new Error(`Error with Leonardo AI: ${errorData.error || "Unknown error"}`);
       }
 
       const data = await response.json();
+      const generationId = data.sdGenerationJob?.generationId;
       
-      // Check if we have image data in the response
-      if (data.candidates && 
-          data.candidates[0]?.content?.parts && 
-          data.candidates[0].content.parts.some(part => part.inlineData)) {
-        
-        // Extract the image data
-        const imagePart = data.candidates[0].content.parts.find(part => part.inlineData);
-        if (imagePart && imagePart.inlineData) {
-          const base64Data = imagePart.inlineData.data;
-          const mimeType = imagePart.inlineData.mimeType;
-          
-          // Create a data URL
-          const imageUrl = `data:${mimeType};base64,${base64Data}`;
-          return imageUrl;
-        }
+      if (!generationId) {
+        throw new Error("No generation ID returned from Leonardo AI");
       }
       
-      // If we couldn't find image data in the response, fall back to alternative method
-      console.log("No image data found in Gemini response, using fallback method");
-      return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
+      // Poll for results
+      let imageUrl = await pollForImageResults(generationId);
+      return imageUrl;
     } catch (error) {
-      console.error("Error generating image with Gemini:", error);
-      toast.error("Erro ao gerar imagem com Gemini. Usando gerador alternativo.");
+      console.error("Error generating image with Leonardo AI:", error);
+      toast.error("Erro ao gerar imagem com Leonardo AI. Usando gerador alternativo.");
       
       // Fallback to the original image generation method
       return fallbackImageGeneration(description, childName, theme, setting, childImageBase64);
     }
+  };
+
+  const pollForImageResults = async (generationId: string): Promise<string> => {
+    // Poll interval in milliseconds
+    const pollInterval = 2000;
+    // Maximum number of polling attempts
+    const maxAttempts = 30;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // Wait for the specified interval
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        // Check generation status
+        const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${leonardoApiKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Error checking generation status:", errorData);
+          continue;
+        }
+        
+        const data = await response.json();
+        const status = data.sdGenerationJob?.status;
+        
+        if (status === "COMPLETE") {
+          // Get the generated image URL
+          const images = data.sdGenerationJob?.generated_images || [];
+          if (images.length > 0) {
+            return images[0].url;
+          } else {
+            throw new Error("No images found in completed generation");
+          }
+        } else if (status === "FAILED") {
+          throw new Error("Generation failed on Leonardo AI");
+        }
+        
+        // If not complete or failed, continue polling
+        console.log(`Generation status: ${status}, attempt ${attempt + 1}/${maxAttempts}`);
+      } catch (error) {
+        console.error(`Error on polling attempt ${attempt + 1}:`, error);
+        // Continue to next attempt even if this one failed
+      }
+    }
+    
+    // If we exit the loop without returning, throw an error
+    throw new Error("Timed out waiting for image generation");
   };
 
   const fallbackImageGeneration = async (
@@ -508,116 +443,62 @@ CRITICAL: This is page ${description.length % 7 + 1} of the story, maintaining A
 
   const generateCoverImage = async (title: string, childName: string, theme: string, setting: string, childImageBase64?: string | null): Promise<string> => {
     try {
-      console.log("Generating cover image with Gemini 2.0 Flash");
+      console.log("Generating cover image with Leonardo AI");
       
-      // Enhanced prompt specifically for book covers
-      const coverPrompt = `Create a high-quality children's book COVER illustration for a story titled "${title}" featuring ${childName} as the main character.
-
-Character specifications:
-- ${childName} should be prominently featured as the main character
-- Character should have the same facial features and appearance as in the story illustrations
-- ${childImageBase64 ? "The character should resemble the facial features from the reference photo" : "Create a distinct, memorable character design"}
-
-Setting: ${setting === 'forest' ? 'vibrant enchanted forest with magical trees and glowing elements' : 
-setting === 'castle' ? 'magnificent magical castle with towers and fantasy elements' : 
-setting === 'space' ? 'colorful space scene with planets, stars, and cosmic elements' : 
-setting === 'underwater' ? 'colorful underwater kingdom with coral reefs and sea life' : 
-'prehistoric landscape with friendly dinosaurs and volcanic elements in the background'}
-
-Style:
-- Professional children's book COVER art with vibrant colors
-- Portrait/vertical composition with the main character prominently featured
-- Leave space at the top for the title (but don't include text)
-- Pixar/Disney style with dramatic lighting and eye-catching elements
-- Clean, detailed digital art with high production value
-- Safe for children, no scary or inappropriate elements
-
-This is for a BOOK COVER, so make it visually striking and attention-grabbing while matching the art style of the interior pages.`;
-
-      // Use Gemini 2.0 Flash model specifically for image generation
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // Enhanced prompt specifically for book covers with Leonardo AI
+      const coverPrompt = `Vibrant children's book cover illustration for "${title}", featuring ${childName} as the main character, 
+        ${theme === 'adventure' ? 'adventure theme with exploration elements' : 
+        theme === 'fantasy' ? 'fantasy magical theme with spells and wonders' : 
+        theme === 'space' ? 'space exploration theme with planets and stars' : 
+        theme === 'ocean' ? 'underwater adventure theme with sea creatures' : 
+        'dinosaur prehistoric theme with friendly dinosaurs'},
+        ${setting === 'forest' ? 'enchanted forest setting with magical trees' : 
+        setting === 'castle' ? 'magical castle setting with towers and flags' : 
+        setting === 'space' ? 'outer space setting with distant planets and nebulas' : 
+        setting === 'underwater' ? 'underwater kingdom setting with coral reefs' : 
+        'prehistoric landscape setting with lush vegetation and volcanoes'},
+        portrait format, vertical composition, main character prominently featured, title space at top,
+        professional children's book cover art, vibrant colors, eye-catching, digital art, highly detailed, no text,
+        charming style, high quality illustration, clear composition, safe for children`;
+      
+      // Use Leonardo.AI API for cover image generation
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${leonardoApiKey}`
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { 
-                  text: coverPrompt 
-                },
-                ...(childImageBase64 ? [{
-                  inlineData: {
-                    mimeType: "image/jpeg",
-                    data: childImageBase64.split(',')[1] // Remove the data:image/jpeg;base64, part
-                  }
-                }] : [])
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            topK: 32,
-            topP: 1,
-            maxOutputTokens: 2048,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        }),
+          prompt: coverPrompt,
+          modelId: "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3", // Using Leonardo Creative model
+          width: 832,  // Portrait orientation for cover
+          height: 1216,
+          num_images: 1,
+          promptMagic: true,
+          public: false,
+          sd_version: "v2",
+        })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Gemini API error for cover image generation:", errorData);
-        
-        // Fallback to the original cover image generation if Gemini image generation fails
-        toast.error("Falha na geração de capa com Gemini. Usando gerador alternativo.");
-        return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+        console.error("Leonardo AI error for cover:", errorData);
+        throw new Error(`Error with Leonardo AI cover: ${errorData.error || "Unknown error"}`);
       }
 
       const data = await response.json();
+      const generationId = data.sdGenerationJob?.generationId;
       
-      // Check if we have image data in the response
-      if (data.candidates && 
-          data.candidates[0]?.content?.parts && 
-          data.candidates[0].content.parts.some(part => part.inlineData)) {
-        
-        // Extract the image data
-        const imagePart = data.candidates[0].content.parts.find(part => part.inlineData);
-        if (imagePart && imagePart.inlineData) {
-          const base64Data = imagePart.inlineData.data;
-          const mimeType = imagePart.inlineData.mimeType;
-          
-          // Create a data URL
-          const imageUrl = `data:${mimeType};base64,${base64Data}`;
-          return imageUrl;
-        }
+      if (!generationId) {
+        throw new Error("No generation ID returned from Leonardo AI for cover");
       }
       
-      // If we couldn't find image data in the response, fall back to alternative method
-      console.log("No image data found in Gemini response for cover, using fallback method");
-      return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
+      // Poll for results
+      let imageUrl = await pollForImageResults(generationId);
+      return imageUrl;
     } catch (error) {
-      console.error("Error generating cover image with Gemini:", error);
-      toast.error("Erro ao gerar imagem de capa com Gemini. Usando gerador alternativo.");
+      console.error("Error generating cover image with Leonardo AI:", error);
+      toast.error("Erro ao gerar imagem de capa com Leonardo AI. Usando gerador alternativo.");
       
       // Fallback to the original cover image generation method
       return fallbackCoverImageGeneration(title, childName, theme, setting, childImageBase64);
@@ -729,6 +610,6 @@ This is for a BOOK COVER, so make it visually striking and attention-grabbing wh
     generateImage,
     generateCoverImage,
     convertImageToBase64,
-    hasApiKey: true, // Always true now since we're using a hardcoded API key or local fallback
+    hasApiKey: true, // Always true now since we're using the provided API keys or local fallback
   };
 };

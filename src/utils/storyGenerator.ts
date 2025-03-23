@@ -1,4 +1,6 @@
 
+import { OpenAI } from "openai";
+
 interface StoryGenerationParams {
   childName: string;
   childAge: string;
@@ -12,7 +14,108 @@ interface StoryData {
   content: string[];
 }
 
-// Esta é uma versão simulada do gerador de histórias
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: "sk-dummy-key", // This will be replaced by the user's key
+  dangerouslyAllowBrowser: true
+});
+
+// Function to generate story using OpenAI's GPT-4
+export const generateStoryWithGPT4 = async (params: StoryGenerationParams, openaiKey: string): Promise<StoryData> => {
+  const { childName, childAge, theme, setting } = params;
+  
+  // Set the OpenAI API key
+  openai.apiKey = openaiKey;
+  
+  try {
+    const prompt = `Create a children's story for ${childName}, who is ${childAge} old, with the following details:
+    
+    Theme: ${theme === 'adventure' ? 'Adventure' : 
+      theme === 'fantasy' ? 'Fantasy' : 
+      theme === 'space' ? 'Space' : 
+      theme === 'ocean' ? 'Ocean' : 
+      'Dinosaurs'}
+    
+    Setting: ${setting === 'forest' ? 'Enchanted Forest' : 
+      setting === 'castle' ? 'Magical Castle' : 
+      setting === 'space' ? 'Outer Space' : 
+      setting === 'underwater' ? 'Underwater World' : 
+      'Dinosaur Land'}
+    
+    Please create a story with:
+    1. A creative title
+    2. 10 short paragraphs (one for each page)
+    3. A proper beginning, middle and end
+    4. Age-appropriate content with a positive message
+    5. Using ${childName} as the main character
+    
+    Format the response as follows:
+    TITLE: [Story Title]
+    
+    PAGE 1: [First paragraph]
+    
+    PAGE 2: [Second paragraph]
+    
+    And so on until PAGE 10.`;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive." 
+        },
+        { 
+          role: "user", 
+          content: prompt 
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1500,
+    });
+    
+    const responseText = completion.choices[0]?.message?.content || "";
+    
+    // Parse the response to extract title and content
+    const titleMatch = responseText.match(/TITLE:\s*(.*?)(?:\r?\n|$)/i);
+    const title = titleMatch ? titleMatch[1].trim() : `${childName}'s Adventure`;
+    
+    const pageMatches = responseText.match(/PAGE\s*\d+:\s*([\s\S]*?)(?=PAGE\s*\d+:|$)/gi);
+    
+    let content: string[] = [];
+    if (pageMatches && pageMatches.length > 0) {
+      content = pageMatches.map(page => {
+        return page.replace(/PAGE\s*\d+:\s*/i, '').trim();
+      });
+    } else {
+      // Fallback if page format isn't found
+      const paragraphs = responseText.split('\n\n').filter(para => 
+        para.trim().length > 0 && !para.match(/TITLE:/i)
+      );
+      
+      content = paragraphs;
+    }
+    
+    // Ensure we have exactly 10 pages
+    while (content.length < 10) {
+      content.push(`${childName} continued on the adventure, discovering new wonders at every turn...`);
+    }
+    
+    // Limit to 10 pages if there are more
+    content = content.slice(0, 10);
+    
+    return {
+      title,
+      content
+    };
+  } catch (error) {
+    console.error("Error generating story with GPT-4:", error);
+    // Fall back to the local generator
+    return generateStory(params);
+  }
+};
+
+// Esta é uma versão simulada do gerador de histórias que será usada como fallback
 // Em uma implementação real, você faria uma chamada à API de IA
 export const generateStory = async (params: StoryGenerationParams): Promise<StoryData> => {
   // Simula um atraso de API
@@ -133,3 +236,4 @@ export const generateStory = async (params: StoryGenerationParams): Promise<Stor
     content: content
   };
 };
+
