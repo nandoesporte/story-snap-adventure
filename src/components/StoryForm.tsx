@@ -3,7 +3,11 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, Settings } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface StoryFormData {
   childName: string;
@@ -12,6 +16,9 @@ export interface StoryFormData {
   setting: string;
   characterId?: string;
   characterPrompt?: string;
+  readingLevel?: string;
+  language?: string;
+  moral?: string;
 }
 
 interface StoryFormProps {
@@ -33,8 +40,13 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     theme: "adventure",
     setting: "forest",
     characterId: "",
-    characterPrompt: ""
+    characterPrompt: "",
+    readingLevel: "intermediate",
+    language: "portuguese",
+    moral: "friendship"
   });
+  
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   const { data: characters, isLoading } = useQuery({
     queryKey: ["characters-for-story"],
@@ -69,6 +81,10 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
+  
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +106,27 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     { id: "underwater", name: "Mundo Submarino" },
     { id: "dinosaurland", name: "Terra dos Dinossauros" }
   ];
+  
+  const readingLevels = [
+    { id: "beginner", name: "Iniciante (4-6 anos)" },
+    { id: "intermediate", name: "Intermediário (7-9 anos)" },
+    { id: "advanced", name: "Avançado (10-12 anos)" }
+  ];
+  
+  const languages = [
+    { id: "portuguese", name: "Português" },
+    { id: "english", name: "Inglês" },
+    { id: "spanish", name: "Espanhol" }
+  ];
+  
+  const morals = [
+    { id: "friendship", name: "Amizade e Cooperação" },
+    { id: "courage", name: "Coragem e Superação" },
+    { id: "respect", name: "Respeito às Diferenças" },
+    { id: "environment", name: "Cuidado com o Meio Ambiente" },
+    { id: "honesty", name: "Honestidade e Verdade" },
+    { id: "perseverance", name: "Perseverança e Esforço" }
+  ];
 
   return (
     <motion.form 
@@ -101,38 +138,6 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     >
       <div className="space-y-6">
         <div className="space-y-4">
-          <div>
-            <label htmlFor="childName" className="block text-sm font-medium mb-1">
-              Nome da criança
-            </label>
-            <input
-              id="childName"
-              name="childName"
-              type="text"
-              required
-              value={formData.childName}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
-              placeholder="Ex: Sofia"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="childAge" className="block text-sm font-medium mb-1">
-              Idade
-            </label>
-            <input
-              id="childAge"
-              name="childAge"
-              type="text"
-              required
-              value={formData.childAge}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
-              placeholder="Ex: 5 anos"
-            />
-          </div>
-          
           <div>
             <label htmlFor="characterId" className="block text-sm font-medium mb-1 flex items-center gap-2">
               Personagem Principal <Sparkles className="h-4 w-4 text-amber-500" />
@@ -174,6 +179,115 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
               </div>
             )}
           </div>
+        
+          <div>
+            <label htmlFor="childName" className="block text-sm font-medium mb-1">
+              Nome da criança
+            </label>
+            <input
+              id="childName"
+              name="childName"
+              type="text"
+              required
+              value={formData.childName}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
+              placeholder="Ex: Sofia"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="childAge" className="block text-sm font-medium mb-1">
+              Idade
+            </label>
+            <input
+              id="childAge"
+              name="childAge"
+              type="text"
+              required
+              value={formData.childAge}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
+              placeholder="Ex: 5 anos"
+            />
+          </div>
+          
+          <Collapsible
+            open={showAdvancedOptions}
+            onOpenChange={setShowAdvancedOptions}
+            className="w-full"
+          >
+            <div className="flex items-center justify-between py-2">
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-violet-700 hover:text-violet-900 transition-colors">
+                <Settings className="h-4 w-4" />
+                Opções Avançadas
+                {showAdvancedOptions ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </CollapsibleTrigger>
+            </div>
+            
+            <CollapsibleContent className="mt-2 bg-violet-50 p-4 rounded-lg border border-violet-100 space-y-4">
+              <div>
+                <Label htmlFor="readingLevel" className="text-sm font-medium mb-1">
+                  Nível de Leitura
+                </Label>
+                <Select
+                  value={formData.readingLevel}
+                  onValueChange={(value) => handleSelectChange("readingLevel", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o nível de leitura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {readingLevels.map(level => (
+                      <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="language" className="text-sm font-medium mb-1">
+                  Idioma
+                </Label>
+                <Select
+                  value={formData.language}
+                  onValueChange={(value) => handleSelectChange("language", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o idioma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languages.map(language => (
+                      <SelectItem key={language.id} value={language.id}>{language.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="moral" className="text-sm font-medium mb-1">
+                  Moral da História
+                </Label>
+                <Select
+                  value={formData.moral}
+                  onValueChange={(value) => handleSelectChange("moral", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a moral" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {morals.map(moral => (
+                      <SelectItem key={moral.id} value={moral.id}>{moral.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
           
           <div>
             <label htmlFor="theme" className="block text-sm font-medium mb-1">

@@ -1,302 +1,199 @@
+import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 
-import { OpenAI } from "openai";
-import { toast } from "sonner";
-import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-
+// Extended interface with new parameters
 interface StoryGenerationParams {
   childName: string;
   childAge: string;
   theme: string;
   setting: string;
-  imageUrl: string;
+  imageUrl?: string | null;
   characterPrompt?: string;
+  readingLevel?: string;
+  language?: string;
+  moral?: string;
 }
 
-interface StoryData {
-  title: string;
-  content: string[];
+export async function generateStoryWithGPT4(params: StoryGenerationParams, apiKey: string): Promise<{ title: string; content: string[] }> {
+  const {
+    childName,
+    childAge,
+    theme,
+    setting,
+    imageUrl,
+    characterPrompt,
+    readingLevel = "intermediate",
+    language = "portuguese",
+    moral = "friendship"
+  } = params;
+
+  const openai = new OpenAI({
+    apiKey,
+  });
+
+  // Create a translation for readingLevel, language and moral to include in the prompt
+  const readingLevelMap: { [key: string]: string } = {
+    beginner: "simples, frases curtas, vocabulário básico (4-6 anos)",
+    intermediate: "moderado, frases mais elaboradas, vocabulário adequado (7-9 anos)",
+    advanced: "avançado, frases complexas, vocabulário rico (10-12 anos)"
+  };
+
+  const languageMap: { [key: string]: string } = {
+    portuguese: "Português",
+    english: "Inglês",
+    spanish: "Espanhol"
+  };
+
+  const moralMap: { [key: string]: string } = {
+    friendship: "amizade e cooperação",
+    courage: "coragem e superação",
+    respect: "respeito às diferenças",
+    environment: "cuidado com o meio ambiente",
+    honesty: "honestidade e verdade",
+    perseverance: "perseverança e esforço"
+  };
+
+  const readingLevelDesc = readingLevelMap[readingLevel] || readingLevelMap.intermediate;
+  const languageDesc = languageMap[language] || languageMap.portuguese;
+  const moralDesc = moralMap[moral] || moralMap.friendship;
+
+  const systemPrompt = `Você é um escritor de histórias infantis criativas e cativantes. 
+Crie uma história com 5 páginas para ${childName}, que tem ${childAge}.
+A história deve ser sobre ${theme} e se passar em ${setting}.
+${characterPrompt ? `Inclua o seguinte personagem na história: ${characterPrompt}.` : ''}
+
+Nível de leitura: ${readingLevelDesc}
+Idioma: ${languageDesc}
+Moral da história: ${moralDesc}
+
+Retorne a resposta em formato JSON com a seguinte estrutura:
+{
+  "title": "Título da História",
+  "content": ["Texto da página 1", "Texto da página 2", "Texto da página 3", "Texto da página 4", "Texto da página 5"]
 }
 
-// Initialize OpenAI client with the provided API key
-let openai = new OpenAI({
-  apiKey: "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",
-  dangerouslyAllowBrowser: true
-});
+O título deve ser criativo e atraente para crianças. 
+Cada página deve ter aproximadamente 2-3 parágrafos curtos.
+A história deve ser independente e completa, com início, meio e fim.
+Evite referências a marcas, personagens protegidos por direitos autorais ou temas adultos.`;
 
-// Function to generate story using OpenAI's GPT-4
-export const generateStoryWithGPT4 = async (params: StoryGenerationParams, openaiKey: string): Promise<StoryData> => {
-  const { childName, childAge, theme, setting, characterPrompt } = params;
-  
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: `Por favor, crie uma história infantil para ${childName} sobre ${theme} em ${setting}${characterPrompt ? ` com ${characterPrompt}` : ''}.` }
+  ];
+
   try {
-    // Set the OpenAI API key (using the provided key instead of the parameter)
-    openai = new OpenAI({
-      apiKey: "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",
-      dangerouslyAllowBrowser: true
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      temperature: 0.8,
+      max_tokens: 2000,
     });
+
+    const responseText = response.choices[0]?.message.content || '';
+    const jsonStartIndex = responseText.indexOf('{');
+    const jsonEndIndex = responseText.lastIndexOf('}') + 1;
     
-    // Enhanced prompt that includes character description for consistency
-    const prompt = `Create a children's story for ${childName}, who is ${childAge} old, with the following details:
-    
-    Theme: ${theme === 'adventure' ? 'Adventure' : 
-      theme === 'fantasy' ? 'Fantasy' : 
-      theme === 'space' ? 'Space' : 
-      theme === 'ocean' ? 'Ocean' : 
-      'Dinosaurs'}
-    
-    Setting: ${setting === 'forest' ? 'Enchanted Forest' : 
-      setting === 'castle' ? 'Magical Castle' : 
-      setting === 'space' ? 'Outer Space' : 
-      setting === 'underwater' ? 'Underwater World' : 
-      'Dinosaur Land'}
-    
-    Character Description: ${characterPrompt || `${childName} is a child who loves adventures`}
-    
-    Please create a story with:
-    1. A creative title
-    2. 10 short paragraphs (one for each page)
-    3. A proper beginning, middle and end
-    4. Age-appropriate content with a positive message
-    5. Using ${childName} as the main character with CONSISTENT appearance and personality throughout the story
-    6. Make sure to maintain a consistent visual description of ${childName} throughout all pages
-    
-    Format the response as follows:
-    TITLE: [Story Title]
-    
-    PAGE 1: [First paragraph]
-    
-    PAGE 2: [Second paragraph]
-    
-    And so on until PAGE 10.`;
-    
-    console.log("Sending prompt to OpenAI with valid API key...");
-    
-    // Define timeout for the API call
-    const timeout = 30000; // 30 seconds
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
-    try {
-      // Create properly typed messages for the API call
-      const messages: ChatCompletionMessageParam[] = [
-        { 
-          role: "system", 
-          content: "You are a children's story writer creating personalized stories for young children. Your stories are engaging, age-appropriate, and positive. You must maintain character consistency throughout the story, both in personality and physical appearance." 
-        },
-        { 
-          role: "user", 
-          content: prompt 
-        }
-      ];
+    if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
+      const jsonStr = responseText.substring(jsonStartIndex, jsonEndIndex);
+      const jsonResponse = JSON.parse(jsonStr);
       
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 1500,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      const responseText = completion.choices[0]?.message?.content || "";
-      console.log("Received response from OpenAI");
-      
-      // Parse the response to extract title and content
-      return parseStoryResponse(responseText, childName);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error("OpenAI API call failed:", error);
-      throw error;
+      return {
+        title: jsonResponse.title || "Uma Aventura Mágica",
+        content: jsonResponse.content || ["Não foi possível gerar a história. Por favor, tente novamente."]
+      };
+    } else {
+      throw new Error("Formato de resposta inválido");
     }
   } catch (error) {
     console.error("Error generating story with GPT-4:", error);
-    
-    // Trigger API issue event
-    window.dispatchEvent(new Event("storybot_api_issue"));
-    
-    // Fall back to the local generator with an explanatory toast
-    toast.error("Erro na API externa. Usando gerador local.", {
-      duration: 3000,
-    });
-    
-    return generateStory(params);
+    throw error;
   }
-};
+}
 
-// Parse the response from the API or use for the local generator
-export const parseStoryResponse = (responseText: string, childName: string): StoryData => {
-  // Parse the response to extract title and content
-  const titleMatch = responseText.match(/TITLE:\s*(.*?)(?:\r?\n|$)/i);
-  const title = titleMatch ? titleMatch[1].trim() : `${childName}'s Adventure`;
+export async function generateStory(params: StoryGenerationParams): Promise<{ title: string; content: string[] }> {
+  const {
+    childName,
+    childAge,
+    theme,
+    setting,
+    characterPrompt,
+    readingLevel = "intermediate",
+    language = "portuguese",
+    moral = "friendship"
+  } = params;
+
+  // Local story generator fallback
+  console.log(`Generating local story for ${childName} with theme ${theme} in ${setting}`);
+  console.log(`Reading level: ${readingLevel}, Language: ${language}, Moral: ${moral}`);
   
-  const pageMatches = responseText.match(/PAGE\s*\d+:\s*([\s\S]*?)(?=PAGE\s*\d+:|$)/gi);
-  
+  // Create some title based on theme and setting
+  let title = "";
   let content: string[] = [];
-  if (pageMatches && pageMatches.length > 0) {
-    content = pageMatches.map(page => {
-      return page.replace(/PAGE\s*\d+:\s*/i, '').trim();
-    });
-  } else {
-    // Fallback if page format isn't found
-    const paragraphs = responseText.split('\n\n').filter(para => 
-      para.trim().length > 0 && !para.match(/TITLE:/i)
+  
+  switch (theme) {
+    case "adventure":
+      title = `A Grande Aventura de ${childName}`;
+      content = [
+        `${childName} estava muito animado(a) para explorar a ${setting} com seus amigos. Era um dia perfeito para uma grande aventura!`,
+        `Enquanto caminhavam pela ${setting}, ${childName} encontrou um mapa misterioso escondido atrás de uma árvore.`,
+        `O mapa os levou até uma caverna secreta, onde eles descobriram um baú brilhante.`,
+        `Dentro do baú havia um conjunto de chaves mágicas que podiam abrir qualquer porta na ${setting}.`,
+        `${childName} e seus amigos usaram as chaves para ajudar os animais perdidos a voltarem para casa, aprendendo sobre ${moralMap[moral]} no processo.`
+      ];
+      break;
+    case "fantasy":
+      title = `${childName} e a Magia da ${setting}`;
+      content = [
+        `Era uma vez, na mágica ${setting}, vivia ${childName}, uma criança muito especial que adorava histórias fantásticas.`,
+        `Um dia, ${childName} encontrou uma varinha mágica que começou a brilhar assim que a tocou.`,
+        `A varinha revelou que ${childName} havia sido escolhido(a) para restaurar a magia que estava desaparecendo da ${setting}.`,
+        `Com a ajuda de novos amigos mágicos, ${childName} enfrentou desafios que testaram sua coragem e bondade.`,
+        `No final, ${childName} descobriu que a verdadeira magia estava em seu coração, e a lição de ${moralMap[moral]} foi compartilhada com todos.`
+      ];
+      break;
+    // More cases for other themes...
+    default:
+      title = `A Incrível Jornada de ${childName}`;
+      content = [
+        `${childName}, uma criança de ${childAge}, estava pronta para viver uma experiência incrível na ${setting}.`,
+        `Junto com seu fiel companheiro, ${childName} descobriu segredos nunca antes revelados.`,
+        `Os desafios eram muitos, mas a determinação de ${childName} era ainda maior.`,
+        `Após muitas aventuras, ${childName} encontrou o tesouro que todos procuravam.`,
+        `No final, todos aprenderam que o verdadeiro tesouro era a amizade e as lições sobre ${moralMap[moral]} que descobriram juntos.`
+      ];
+  }
+  
+  // Add character if specified
+  if (characterPrompt) {
+    const characterName = characterPrompt.split(":")[1]?.trim() || "o amigo especial";
+    content = content.map(page => 
+      page.replace("seus amigos", characterName)
+           .replace("amigos", characterName)
+           .replace("fiel companheiro", characterName)
     );
-    
-    content = paragraphs;
   }
   
-  // Ensure we have exactly 10 pages
-  while (content.length < 10) {
-    content.push(`${childName} continued on the adventure, discovering new wonders at every turn...`);
+  // Adjust reading level if necessary
+  if (readingLevel === "beginner") {
+    content = content.map(page => {
+      // Simplify sentences for beginners
+      return page.split(". ").map(sentence => sentence.replace(/,/g, "").trim()).join(". ");
+    });
+  } else if (readingLevel === "advanced") {
+    // For advanced, we could add more complex vocabulary or longer sentences
+    // But for this simple example, we'll keep it as is
   }
-  
-  // Limit to 10 pages if there are more
-  content = content.slice(0, 10);
-  
-  return {
-    title,
-    content
-  };
-};
 
-// Esta é uma versão simulada do gerador de histórias que será usada como fallback
-// Em uma implementação real, você faria uma chamada à API de IA
-export const generateStory = async (params: StoryGenerationParams): Promise<StoryData> => {
-  try {
-    // Simula um atraso de API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const { childName, childAge, theme, setting, characterPrompt } = params;
-    
-    // Temas e configurações para personalizar as histórias com descrições mais detalhadas
-    const themeDetails: Record<string, {title: string, intro: string}> = {
-      adventure: {
-        title: `A Grande Aventura de ${childName}`,
-        intro: `Era uma vez, ${childName}, uma criança de ${childAge} cheia de coragem e curiosidade, sempre pronta para explorar o mundo ao seu redor.`
-      },
-      fantasy: {
-        title: `${childName} e o Reino Mágico`,
-        intro: `Em um mundo cheio de magia e encantamentos, vivia ${childName}, uma criança de ${childAge} com poderes especiais que ainda não havia descoberto completamente.`
-      },
-      space: {
-        title: `${childName} e a Viagem Espacial`,
-        intro: `Entre as estrelas e planetas coloridos, ${childName}, uma criança astronauta de ${childAge}, embarcou em uma missão espacial incrível a bordo de sua nave reluzente.`
-      },
-      ocean: {
-        title: `${childName} e os Mistérios do Oceano`,
-        intro: `Nas profundezas do oceano cristalino, ${childName}, uma criança de ${childAge} com habilidades especiais de comunicação com criaturas marinhas, descobriu um mundo secreto e encantador.`
-      },
-      dinosaurs: {
-        title: `${childName} e os Dinossauros`,
-        intro: `Há milhões de anos, quando os dinossauros gigantes dominavam a Terra verdejante, ${childName}, uma corajosa criança de ${childAge}, fez uma viagem no tempo incrível através de um portal mágico.`
-      }
-    };
-    
-    // Default to adventure if theme is not recognized
-    const selectedTheme = themeDetails[theme] || themeDetails.adventure;
-    
-    const settingDetails: Record<string, string> = {
-      forest: `Na Floresta Encantada, onde as árvores altíssimas falavam em sussurros e os animais coloridos cantavam melodias doces, ${childName} encontrou um mapa misterioso escondido entre raízes brilhantes.`,
-      castle: `No Castelo Mágico, com torres majestosas que chegavam às nuvens fofas e salões decorados com cristais que refletiam arco-íris, ${childName} conheceu a Rainha das Fadas com sua coroa cintilante.`,
-      space: `Na vasta imensidão do espaço estrelado, a bordo da nave Estrela Brilhante com seus painéis coloridos e janelas de observação, ${childName} avistou um planeta nunca antes explorado envolto em uma aura azul brilhante.`,
-      underwater: `No colorido Reino Submarino, cercado de corais vibrantes que formavam estruturas como castelos e peixes amigáveis com escamas reluzentes, ${childName} descobriu uma caverna secreta escondida atrás de uma grande anêmona rosa.`,
-      dinosaurland: `Na Terra dos Dinossauros, com florestas densas de samambaias gigantes e vulcões ativos expelindo fumaça no horizonte, ${childName} fez amizade com um pequeno Triceratops de pele verde-azulada e olhos curiosos.`
-    };
-    
-    // Apply character prompt if available
-    let characterDescription = "";
-    if (characterPrompt) {
-      characterDescription = `\n\n${childName} ${characterPrompt.includes(childName) ? "" : characterPrompt}`;
-    }
-    
-    // Default to forest if setting is not recognized
-    const selectedSetting = settingDetails[setting] || settingDetails.forest;
-    
-    // História em formato de páginas com descrições mais vívidas
-    const content = [
-      selectedTheme.intro + characterDescription,
-      
-      selectedSetting,
-      
-      `Um dia ensolarado, enquanto ${childName} explorava ${theme === 'space' ? 'o universo repleto de estrelas cintilantes' : 
-                                                 theme === 'ocean' ? 'o oceano com suas águas cristalinas' : 
-                                                 theme === 'dinosaurs' ? 'o vale verdejante dos dinossauros' : 
-                                                 'o local mágico'}, 
-      algo verdadeiramente incrível aconteceu. Uma luz brilhante e colorida apareceu diante de seus olhos, revelando um amigo mágico com aparência gentil que precisava desesperadamente de ajuda.`,
-      
-      `"Olá, ${childName}," disse o amigo com voz melodiosa e olhos brilhantes. "Preciso da sua ajuda para encontrar o tesouro perdido da ${
-        theme === 'adventure' ? 'Coragem, um medalhão dourado que dá força aos corajosos' : 
-        theme === 'fantasy' ? 'Magia, uma varinha cintilante que restaura encantamentos perdidos' : 
-        theme === 'space' ? 'Galáxia, uma estrela de cristal que mantém os planetas em harmonia' : 
-        theme === 'ocean' ? 'Atlântida, um tridente de coral que acalma as tempestades marinhas' : 
-        'Era dos Dinossauros, um ovo reluzente que trará paz entre todas as espécies'
-      }."`,
-      
-      `${childName}, sempre ${childAge.includes('ano') ? 'disposto' : 'disposta'} a ajudar e com um sorriso determinado no rosto, aceitou o desafio sem hesitar. 
-      Juntos, eles atravessaram ${
-        theme === 'adventure' ? 'montanhas altas cobertas de neve e rios caudalosos com águas cristalinas' : 
-        theme === 'fantasy' ? 'portais mágicos reluzentes e nuvens fofas de algodão-doce multicolorido' : 
-        theme === 'space' ? 'cinturões de asteroides flutuantes e nuvens cintilantes de poeira estelar dourada' : 
-        theme === 'ocean' ? 'recifes de coral vibrantes com peixes coloridos e florestas densas de algas marinhas dançantes' : 
-        'vales profundos cobertos de vegetação exuberante e montanhas vulcânicas com lava borbulhante'
-      }.`,
-      
-      `Durante sua jornada, ${childName} encontrou criaturas amigáveis que ofereceram pistas importantes. Uma ${
-        theme === 'adventure' ? 'raposa falante de pelo alaranjado' : 
-        theme === 'fantasy' ? 'fada minúscula com asas cintilantes' : 
-        theme === 'space' ? 'criatura alienígena de pele azul e antenas brilhantes' : 
-        theme === 'ocean' ? 'tartaruga marinha sábia com casco decorado' : 
-        'pequena pterodáctilo de asas coloridas'
-      } mostrou o caminho secreto que ninguém mais conhecia.`,
-      
-      `Após superar diversos obstáculos com inteligência e trabalho em equipe, ${childName} finalmente chegou a uma ${
-        theme === 'adventure' ? 'caverna escondida iluminada por cristais multicoloridos' : 
-        theme === 'fantasy' ? 'torre antiga envolta em vinhas floridas e borboletas' : 
-        theme === 'space' ? 'estação espacial abandonada com luzes piscando' : 
-        theme === 'ocean' ? 'gruta submarina com paredes de pérolas brilhantes' : 
-        'clareira secreta cercada por ovos de dinossauros fosforescentes'
-      }. Ali, brilhando intensamente, estava o tesouro!`,
-      
-      `Depois de muitas aventuras emocionantes, ${childName} encontrou o tesouro! Não era ouro nem diamantes, mas sim ${
-        theme === 'adventure' ? 'um mapa mágico para novas aventuras que mostrava caminhos que só os verdadeiramente corajosos podiam ver' : 
-        theme === 'fantasy' ? 'um livro de feitiços mágicos com páginas que brilhavam como estrelas quando tocadas' : 
-        theme === 'space' ? 'uma coleção de estrelas brilhantes que dançavam e contavam histórias de galáxias distantes' : 
-        theme === 'ocean' ? 'pérolas luminosas que concediam desejos quando seguradas por corações puros' : 
-        'ovos coloridos de dinossauro prestes a chocar, cada um emanando uma aura de cores diferentes'
-      }.`,
-      
-      `"Você é realmente incrível, ${childName}!" exclamou o amigo mágico com os olhos cheios de alegria. "Sua coragem, bondade e inteligência salvaram o dia. Graças a você, ${
-        theme === 'adventure' ? 'a coragem voltará aos corações de todos que precisam dela' : 
-        theme === 'fantasy' ? 'a magia retornará ao reino e trará felicidade a todos' : 
-        theme === 'space' ? 'as galáxias permanecerão em harmonia por muitos anos' : 
-        theme === 'ocean' ? 'os oceanos estarão protegidos e as criaturas marinhas viverão em paz' : 
-        'os dinossauros viverão em harmonia e os filhotes crescerão felizes'
-      }!"`,
-      
-      `${childName} voltou para casa, ${childAge.includes('ano') ? 'cansado' : 'cansada'} mas extremamente feliz pelo que havia conquistado. Agora, sempre que olha para as ${
-        theme === 'adventure' ? 'montanhas majestosas ao longe com seus picos nevados' : 
-        theme === 'fantasy' ? 'estrelas cintilantes no céu noturno' : 
-        theme === 'space' ? 'estrelas brilhantes que pontilham o céu escuro' : 
-        theme === 'ocean' ? 'ondas azuis do mar que quebram suavemente na praia' : 
-        'nuvens fofas em formato de dinossauros brincalhões'
-      }, ${childName} sorri com olhos brilhantes, sabendo que uma nova aventura sempre espera por ${childAge.includes('ano') ? 'ele' : 'ela'} além do horizonte.`,
-      
-      `E assim termina esta história mágica, mas as aventuras de ${childName} continuam para sempre no mundo da imaginação. A lição que aprendemos é que com coragem, amizade e bondade, podemos superar qualquer desafio que a vida nos apresente. Fim.`
-    ];
-    
-    return {
-      title: selectedTheme.title,
-      content: content
-    };
-  } catch (error) {
-    console.error("Error in local story generator:", error);
-    
-    // Even our fallback failed, provide a very basic story
-    const basicTitle = `A História de ${params.childName}`;
-    const basicContent = Array(10).fill(`Esta é a história de ${params.childName}, uma criança maravilhosa que vive aventuras incríveis.`);
-    
-    return {
-      title: basicTitle,
-      content: basicContent
-    };
-  }
+  return { title, content };
+}
+
+// Helper mapping for the local generator
+const moralMap: { [key: string]: string } = {
+  friendship: "amizade e cooperação",
+  courage: "coragem e superação",
+  respect: "respeito às diferenças",
+  environment: "cuidado com o meio ambiente",
+  honesty: "honestidade e verdade",
+  perseverance: "perseverança e esforço"
 };

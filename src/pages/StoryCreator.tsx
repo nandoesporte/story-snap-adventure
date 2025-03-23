@@ -122,14 +122,17 @@ const StoryCreator = () => {
       
       let storyResult;
       try {
-        // Use the hardcoded API key directly
+        // Use the hardcoded API key directly with additional parameters
         storyResult = await generateStoryWithGPT4({
           childName: data.childName,
           childAge: data.childAge,
           theme: data.theme,
           setting: data.setting,
           imageUrl: data.imagePreview,
-          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined
+          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined,
+          readingLevel: data.readingLevel || "intermediate",
+          language: data.language || "portuguese",
+          moral: data.moral || "friendship"
         }, "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");
         
         updateProgress("historia-gerada", 40);
@@ -138,14 +141,17 @@ const StoryCreator = () => {
         
         if (cancelRequested) return;
         
-        // If GPT-4 fails, use local generator
+        // If GPT-4 fails, use local generator with additional parameters
         storyResult = await generateStory({
           childName: data.childName,
           childAge: data.childAge,
           theme: data.theme,
           setting: data.setting,
           imageUrl: data.imagePreview,
-          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined
+          characterPrompt: data.characterId ? `Personagem: ${data.characterName}` : undefined,
+          readingLevel: data.readingLevel || "intermediate",
+          language: data.language || "portuguese",
+          moral: data.moral || "friendship"
         });
         
         toast.info("Usando gerador de histórias local devido a limitações da API.");

@@ -68,6 +68,9 @@ interface StoryData {
   characterId?: string;
   characterName?: string;
   imagePreview?: string | null;
+  readingLevel?: string;
+  language?: string;
+  moral?: string;
 }
 
 const CreateStory = () => {
@@ -117,7 +120,10 @@ const CreateStory = () => {
       themeName: theme?.name || "Aventura",
       settingName: setting?.name || "Floresta Encantada",
       styleName: style?.name || "Desenho Animado",
-      lengthName: length?.name || "Média"
+      lengthName: length?.name || "Média",
+      readingLevel: data.readingLevel || "intermediate",
+      language: data.language || "portuguese",
+      moral: data.moral || "friendship"
     };
     
     setStoryData(completeStoryData);
