@@ -1,6 +1,8 @@
 
 -- This file defines the function to create the characters table and its dependencies
--- The function is wrapped in a DO block to create a single transaction
+
+-- Create extension for UUID generation if it doesn't exist
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DO $$
 DECLARE
@@ -15,9 +17,6 @@ BEGIN
 
     -- If table doesn't exist, create it and set up everything
     IF NOT table_exists THEN
-        -- Create extension for UUID generation if it doesn't exist
-        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        
         -- Create the characters table
         CREATE TABLE public.characters (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -72,7 +71,7 @@ BEGIN
             FOR DELETE
             USING (creator_id = auth.uid());
 
-        -- Create trigger for updated_at
+        -- Create trigger function for updated_at
         CREATE OR REPLACE FUNCTION update_characters_modified()
         RETURNS TRIGGER AS $$
         BEGIN

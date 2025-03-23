@@ -5,7 +5,6 @@
 -- Create extension for UUID generation if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Check if the characters table already exists and create it if it doesn't
 DO $$
 DECLARE
     table_exists BOOLEAN;
