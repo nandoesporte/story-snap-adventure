@@ -1,4 +1,5 @@
-import { openai } from '@/lib/openai';
+
+import { openai, geminiAI } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
 type Message = {
@@ -81,7 +82,7 @@ export class StoryBot {
       ];
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -148,7 +149,7 @@ export class StoryBot {
       ];
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 500,
@@ -275,7 +276,7 @@ export class StoryBot {
       ];
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 2500,
