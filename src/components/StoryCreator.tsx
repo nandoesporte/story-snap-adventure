@@ -10,7 +10,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import StoryBotChat from "./StoryBotChat";
 import { useStoryBot } from "../hooks/useStoryBot";
 import { supabase } from "@/lib/supabase";
-import { generateStoryWithGPT4 } from "@/utils/storyGenerator";
+import { generateStoryWithGPT4, generateStory } from "@/utils/storyGenerator";
 
 type CreationStep = "photo" | "details" | "chat" | "generating";
 
@@ -56,12 +56,14 @@ const StoryCreator = () => {
             
           if (error) {
             console.error("Error fetching character:", error);
+            toast.error("Não foi possível carregar o personagem selecionado.");
             return;
           }
           
           setSelectedCharacter(data as Character);
         } catch (error) {
           console.error("Error fetching character:", error);
+          toast.error("Erro ao buscar informações do personagem.");
         }
       } else {
         setSelectedCharacter(null);
@@ -148,6 +150,13 @@ const StoryCreator = () => {
       console.error("Error generating story bot response:", error);
       toast.error("Erro ao processar sua solicitação. Por favor, tente novamente.");
       
+      const errorAssistantMessage: Message = {
+        role: "assistant",
+        content: "Desculpe, tive um problema ao gerar uma resposta. Vamos tentar algo diferente?"
+      };
+      
+      setMessages(prev => [...prev, errorAssistantMessage]);
+      
       const apiIssueEvent = new Event("storybot_api_issue");
       window.dispatchEvent(apiIssueEvent);
     }
@@ -163,17 +172,33 @@ const StoryCreator = () => {
     setIsGenerating(true);
     
     try {
-      toast.info("Gerando história com GPT-4...");
+      toast.info("Gerando história personalizada...");
       
-      const openaiApiKey = "sk-dummy-key";
+      let storyData;
       
-      const storyData = await generateStoryWithGPT4({
-        childName: formData.childName,
-        childAge: formData.childAge,
-        theme: formData.theme,
-        setting: formData.setting,
-        imageUrl: imagePreview
-      }, openaiApiKey);
+      try {
+        const openaiApiKey = "sk-dummy-key";
+        storyData = await generateStoryWithGPT4({
+          childName: formData.childName,
+          childAge: formData.childAge,
+          theme: formData.theme,
+          setting: formData.setting,
+          imageUrl: imagePreview,
+          characterPrompt: selectedCharacter?.generation_prompt
+        }, openaiApiKey);
+      } catch (error) {
+        console.log("Failed to generate with GPT-4, falling back to local generator:", error);
+        storyData = await generateStory({
+          childName: formData.childName,
+          childAge: formData.childAge,
+          theme: formData.theme,
+          setting: formData.setting,
+          imageUrl: imagePreview,
+          characterPrompt: selectedCharacter?.generation_prompt
+        });
+        
+        toast.info("Usando gerador de histórias local devido a limitações da API.");
+      }
       
       const storyContentWithPages = {
         title: storyData.title,
@@ -182,36 +207,48 @@ const StoryCreator = () => {
       
       const childImageBase64 = imagePreview;
       
-      toast.info("Gerando imagem de capa com Leonardo AI...");
+      toast.info("Gerando imagens para a história...");
       
-      const coverImageUrl = await generateCoverImage(
-        storyContentWithPages.title,
-        formData.childName,
-        formData.theme,
-        formData.setting,
-        childImageBase64
-      );
-      
-      const pagesWithImages: StoryPage[] = [];
-      
-      toast.info("Gerando imagens para cada página da história com Leonardo AI...");
-      
-      for (const pageText of storyContentWithPages.content) {
-        const imageDescription = await generateImageDescription(
-          pageText + (selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''),
-          formData.childName,
-          formData.childAge,
-          formData.theme,
-          formData.setting
-        );
-        
-        const imageUrl = await generateImage(
-          imageDescription,
+      let coverImageUrl;
+      try {
+        coverImageUrl = await generateCoverImage(
+          storyContentWithPages.title,
           formData.childName,
           formData.theme,
           formData.setting,
           childImageBase64
         );
+      } catch (error) {
+        console.error("Failed to generate cover image:", error);
+        coverImageUrl = "/placeholder.svg";
+        toast.error("Não foi possível gerar a capa. Usando imagem padrão.");
+      }
+      
+      const pagesWithImages: StoryPage[] = [];
+      
+      for (const pageText of storyContentWithPages.content) {
+        let imageDescription, imageUrl;
+        
+        try {
+          imageDescription = await generateImageDescription(
+            pageText + (selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''),
+            formData.childName,
+            formData.childAge,
+            formData.theme,
+            formData.setting
+          );
+          
+          imageUrl = await generateImage(
+            imageDescription,
+            formData.childName,
+            formData.theme,
+            formData.setting,
+            childImageBase64
+          );
+        } catch (error) {
+          console.error("Failed to generate page image:", error);
+          imageUrl = "/placeholder.svg";
+        }
         
         pagesWithImages.push({
           text: pageText,
@@ -232,10 +269,15 @@ const StoryCreator = () => {
         pages: pagesWithImages
       }));
       
+      toast.success("História gerada com sucesso!");
       navigate("/view-story");
     } catch (error) {
       console.error("Error generating final story:", error);
       toast.error("Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
+      setStep("chat");
+      
+      const apiIssueEvent = new Event("storybot_api_issue");
+      window.dispatchEvent(apiIssueEvent);
     } finally {
       setIsGenerating(false);
     }

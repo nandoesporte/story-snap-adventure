@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,18 @@ const StoryBotChat = () => {
     } catch (error) {
       console.error("Error generating response:", error);
       toast.error("Não foi possível gerar uma resposta. Tente novamente.");
+      
+      // Add a fallback message in case of error
+      const errorAssistantMessage: Message = {
+        role: "assistant",
+        content: "Desculpe, estou tendo dificuldades para processar sua solicitação. Poderia tentar novamente com outras palavras?"
+      };
+      
+      setMessages(prev => [...prev, errorAssistantMessage]);
+      
+      // Trigger API issue event
+      const apiIssueEvent = new Event("storybot_api_issue");
+      window.dispatchEvent(apiIssueEvent);
     } finally {
       setIsLoading(false);
     }

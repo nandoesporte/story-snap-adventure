@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 type Message = {
   role: "user" | "assistant";
@@ -71,21 +72,25 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
       });
 
       if (!apiResponse.ok) {
-        throw new Error("Failed to generate response");
+        const errorData = await apiResponse.json().catch(() => null);
+        console.error("API error response:", errorData);
+        throw new Error(errorData?.error || "Failed to generate response");
       }
 
       const data = await apiResponse.json();
       return data.response || "Desculpe, não consegui gerar uma resposta.";
     } catch (error) {
       console.error("Error generating StoryBot response:", error);
+      // Trigger API issue event
+      const apiIssueEvent = new Event("storybot_api_issue");
+      window.dispatchEvent(apiIssueEvent);
       throw error;
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Add the missing functions that are being called in StoryCreationFlow and StoryCreator
-  
+  // Generate an image description for a story page
   const generateImageDescription = async (
     pageText: string,
     childName: string,
@@ -113,10 +118,12 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
       return description;
     } catch (error) {
       console.error("Error generating image description:", error);
+      toast.error("Não foi possível gerar descrição da imagem. Usando descrição padrão.");
       return `Ilustração de ${childName} em uma aventura no cenário de ${setting}.`;
     }
   };
   
+  // Generate an image for a story page based on description
   const generateImage = async (
     imageDescription: string,
     childName: string,
@@ -125,18 +132,19 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     childImageBase64: string | null
   ) => {
     try {
-      // Mock implementation since we don't have the actual implementation
-      // In a real implementation, this would call an API to generate an image
       console.log("Generating image with description:", imageDescription);
       
-      // Return a placeholder image URL
-      return "https://placeholder.com/600x400";
+      // In a production app, you would call an image generation API here
+      // For now, return a placeholder image
+      return "https://via.placeholder.com/600x400?text=Story+Image";
     } catch (error) {
       console.error("Error generating image:", error);
+      toast.error("Não foi possível gerar a imagem. Usando imagem padrão.");
       return "/placeholder.svg";
     }
   };
   
+  // Generate a cover image for the story
   const generateCoverImage = async (
     title: string,
     childName: string,
@@ -145,17 +153,19 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     childImageBase64: string | null
   ) => {
     try {
-      // Mock implementation
       console.log("Generating cover image for title:", title);
       
-      // Return a placeholder image URL
-      return "https://placeholder.com/800x600";
+      // In a production app, you would call an image generation API here
+      // For now, return a placeholder image with the story title
+      return `https://via.placeholder.com/800x600?text=${encodeURIComponent(title)}`;
     } catch (error) {
       console.error("Error generating cover image:", error);
+      toast.error("Não foi possível gerar a capa. Usando imagem padrão.");
       return "/placeholder.svg";
     }
   };
   
+  // Utility to convert an image URL to base64
   const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
     try {
       const response = await fetch(imageUrl);
@@ -169,6 +179,7 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
       });
     } catch (error) {
       console.error("Error converting image to base64:", error);
+      toast.error("Erro ao processar imagem.");
       return "";
     }
   };
