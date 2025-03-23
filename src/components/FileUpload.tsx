@@ -30,17 +30,64 @@ const FileUpload = ({ onFileSelect, onUploadComplete, imagePreview, uploadType =
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      if (onFileSelect) {
-        onFileSelect(e.dataTransfer.files[0]);
-      }
+      const file = e.dataTransfer.files[0];
+      handleFile(file);
     }
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      if (onFileSelect) {
-        onFileSelect(e.target.files[0]);
-      }
+      const file = e.target.files[0];
+      handleFile(file);
+    }
+  };
+
+  const handleFile = (file: File) => {
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check file type for images
+    if (uploadType === "image" && !file.type.startsWith('image/')) {
+      toast({
+        title: "Formato inválido",
+        description: "Por favor, selecione um arquivo de imagem (JPG, PNG, GIF, etc)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (onFileSelect) {
+      onFileSelect(file);
+    }
+
+    // If direct file handling is needed
+    if (onUploadComplete) {
+      setIsUploading(true);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64String = e.target?.result as string;
+        onUploadComplete(base64String);
+        setIsUploading(false);
+      };
+      
+      reader.onerror = () => {
+        toast({
+          title: "Erro ao processar arquivo",
+          description: "Não foi possível processar o arquivo selecionado",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+      };
+      
+      reader.readAsDataURL(file);
     }
   };
 

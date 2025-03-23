@@ -54,6 +54,11 @@ const Characters = () => {
     refetch();
   }, [refetch]);
 
+  // Function to check if the image URL is a base64 string
+  const isBase64Image = (url: string) => {
+    return url && url.startsWith('data:image');
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -83,7 +88,7 @@ const Characters = () => {
                   <div className="aspect-square relative overflow-hidden bg-gray-100">
                     {character.image_url ? (
                       <img
-                        src={`${character.image_url}?${new Date().getTime()}`} 
+                        src={isBase64Image(character.image_url) ? character.image_url : `${character.image_url}?${new Date().getTime()}`}
                         alt={character.name}
                         className="object-cover w-full h-full"
                       />
