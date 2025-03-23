@@ -147,16 +147,24 @@ export class BookGenerationService {
   private onProgressUpdate?: (stage: string, percent: number) => void;
   private onError?: (message: string) => void;
   private isCancelled: boolean = false;
+  private customGeminiApiKey: string | null = null;
 
   constructor(
     storyData: StoryInputData, 
     onProgressUpdate?: (stage: string, percent: number) => void,
-    onError?: (message: string) => void
+    onError?: (message: string) => void,
+    customApiKey?: string | null
   ) {
     this.storyBot = new StoryBot();
     this.storyData = storyData;
     this.onProgressUpdate = onProgressUpdate;
     this.onError = onError;
+    this.customGeminiApiKey = customApiKey || import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || null;
+    
+    // Store API key in localStorage if provided
+    if (customApiKey) {
+      localStorage.setItem('gemini_api_key', customApiKey);
+    }
   }
 
   public cancel() {
@@ -175,6 +183,15 @@ export class BookGenerationService {
       this.onError(message);
     }
     console.error(message);
+  }
+
+  public setGeminiApiKey(apiKey: string) {
+    this.customGeminiApiKey = apiKey;
+    localStorage.setItem('gemini_api_key', apiKey);
+  }
+
+  public static getGeminiApiKey(): string | null {
+    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || null;
   }
 
   public async fetchCharacterDetails(characterId: string): Promise<StoryCharacter | null> {
@@ -202,6 +219,11 @@ export class BookGenerationService {
     
     try {
       this.updateProgress("preparando", 5);
+      
+      // Check for API key
+      if (!this.customGeminiApiKey) {
+        throw new Error("Chave da API Gemini não configurada. Configure a chave nas configurações.");
+      }
       
       // Fetch character details if needed
       if (this.storyData.characterId && !this.storyData.characterDetails) {
@@ -245,13 +267,41 @@ export class BookGenerationService {
         pages: pagesWithImages
       };
       
+      // Save the story to Supabase
+      try {
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        
+        if (userId) {
+          const { error } = await supabase.from('stories').insert({
+            user_id: userId,
+            title: completeStory.title,
+            cover_image_url: completeStory.coverImageUrl,
+            character_name: completeStory.childName,
+            character_age: completeStory.childAge,
+            theme: completeStory.theme,
+            setting: completeStory.setting,
+            style: this.storyData.style || 'cartoon',
+            pages: completeStory.pages
+          });
+          
+          if (error) {
+            console.error("Error saving story to database:", error);
+          } else {
+            console.log("Story saved successfully to database");
+          }
+        }
+      } catch (saveError) {
+        console.error("Error attempting to save story:", saveError);
+      }
+      
       this.updateProgress("concluido", 100);
       console.log("Complete story generated with correct format for ViewStory component");
       return completeStory;
       
     } catch (error) {
       console.error("Error generating complete story:", error);
-      this.handleError("Ocorreu um erro ao gerar a história. Por favor, tente novamente.");
+      const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro ao gerar a história. Por favor, tente novamente.";
+      this.handleError(errorMessage);
       return null;
     }
   }
@@ -275,8 +325,11 @@ export class BookGenerationService {
       });
       
       try {
+        // Create a new Gemini instance with custom API key
+        const customGemini = new window.GoogleGenerativeAI(this.customGeminiApiKey || '');
+        
         // Use Gemini AI for story generation
-        const genModel = geminiAI.getGenerativeModel({ 
+        const genModel = customGemini.getGenerativeModel({ 
           model: "gemini-1.0-pro",
           generationConfig: {
             temperature: 0.7,
