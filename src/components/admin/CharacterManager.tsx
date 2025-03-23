@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +12,8 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Edit, Trash2, Plus, Image, AlertTriangle, RefreshCcw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import StorageConfigAlert from "@/components/StorageConfigAlert";
+import FileUpload from "@/components/FileUpload";
 
 interface Character {
   id: string;
@@ -46,9 +47,9 @@ export const CharacterManager = () => {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Initialize database structure
   const initializeDatabase = async () => {
     setIsInitializing(true);
     setErrorMessage(null);
@@ -56,7 +57,6 @@ export const CharacterManager = () => {
     try {
       console.log("Loading initialization SQL script...");
       
-      // Try a direct approach - create the table using a simple SQL command
       const createTableSQL = `
         CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         
@@ -74,7 +74,6 @@ export const CharacterManager = () => {
           creator_id UUID REFERENCES auth.users(id)
         );
         
-        -- Only create policies if they don't exist
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -117,7 +116,6 @@ export const CharacterManager = () => {
         END
         $$;
         
-        -- Create trigger function if it doesn't exist
         CREATE OR REPLACE FUNCTION update_characters_modified()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -126,7 +124,6 @@ export const CharacterManager = () => {
         END;
         $$ LANGUAGE plpgsql;
         
-        -- Create the trigger if it doesn't exist
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -140,7 +137,6 @@ export const CharacterManager = () => {
         END
         $$;
         
-        -- Insert sample data only if the table is empty
         INSERT INTO public.characters (name, description, personality, age, is_active)
         SELECT 
           'Pingo, o Pinguim Inventor', 
@@ -175,12 +171,10 @@ export const CharacterManager = () => {
         description: "A estrutura do banco de dados foi inicializada com sucesso!",
       });
       
-      // Refresh character data
       queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
     } catch (error: any) {
       console.error("Error initializing database:", error);
       
-      // Try with an even simpler approach as a last resort
       try {
         console.log("Attempting simplest table creation as last resort...");
         const simpleCreateTable = `
@@ -213,7 +207,6 @@ export const CharacterManager = () => {
             variant: "default",
           });
           
-          // Now try to create the RLS policies separately
           const rlsPolicies = `
             ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
             
@@ -223,8 +216,6 @@ export const CharacterManager = () => {
                 USING (is_active = true);
           `;
           
-          // Attempt to create RLS policies, but don't fail if it doesn't work
-          // FIX: Use a try-catch block instead of .catch() on the PostgrestBuilder
           try {
             await supabase.rpc('exec', { sql: rlsPolicies });
           } catch (err) {
@@ -247,7 +238,6 @@ export const CharacterManager = () => {
     }
   };
 
-  // Force refetch when component mounts
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["admin-characters"] });
   }, [queryClient]);
@@ -266,12 +256,10 @@ export const CharacterManager = () => {
         
         if (error) {
           console.error("Error fetching characters:", error);
-          // If the error indicates that the table doesn't exist, we can auto-initialize
-          if (error.code === '42P01') { // relation does not exist
+          if (error.code === '42P01') {
             console.log("Table doesn't exist, auto-initializing...");
             await initializeDatabase();
             
-            // Try again after initialization
             const { data: retryData, error: retryError } = await supabase
               .from("characters")
               .select("*")
@@ -298,7 +286,7 @@ export const CharacterManager = () => {
       }
     },
     retry: 1,
-    staleTime: 0, // Don't cache the data
+    staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
@@ -307,7 +295,6 @@ export const CharacterManager = () => {
     mutationFn: async (character: Omit<Character, 'id' | 'created_at'>) => {
       setErrorMessage(null);
       
-      // Add creator_id to character data
       const characterWithCreator = {
         ...character,
         creator_id: user?.id
@@ -409,8 +396,9 @@ export const CharacterManager = () => {
 
   const uploadImage = async (file: File): Promise<string> => {
     setIsImageUploading(true);
+    setStorageError(null);
+    
     try {
-      // Generate a unique file name to avoid conflicts
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `character-images/${fileName}`;
@@ -419,15 +407,24 @@ export const CharacterManager = () => {
         .from('public')
         .upload(filePath, file);
         
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        
+        if (uploadError.message === "Bucket not found") {
+          setStorageError("storage_bucket_missing");
+          throw new Error("O bucket 'public' não existe no Storage. Configure o Storage no painel do Supabase.");
+        }
+        
+        throw uploadError;
+      }
       
-      // Get the public URL
       const { data } = supabase.storage
         .from('public')
         .getPublicUrl(filePath);
         
       return data.publicUrl;
     } catch (error: any) {
+      console.error("Error uploading image:", error);
       toast({
         title: "Erro ao fazer upload da imagem",
         description: error.message || "Ocorreu um erro ao fazer upload da imagem",
@@ -448,6 +445,16 @@ export const CharacterManager = () => {
       setCurrentCharacter(prev => ({ ...prev, image_url: imageUrl }));
     } catch (error) {
       console.error("Error uploading image:", error);
+    }
+  };
+
+  const handleFileUploadComplete = (file: File) => {
+    try {
+      uploadImage(file).then(imageUrl => {
+        setCurrentCharacter(prev => ({ ...prev, image_url: imageUrl }));
+      });
+    } catch (error) {
+      // Error is handled in uploadImage
     }
   };
 
@@ -525,6 +532,10 @@ export const CharacterManager = () => {
           </Button>
         </div>
       </div>
+
+      {storageError === "storage_bucket_missing" && (
+        <StorageConfigAlert compact className="mb-4" />
+      )}
 
       {errorMessage && (
         <Alert variant="destructive" className="my-4">
@@ -686,33 +697,49 @@ export const CharacterManager = () => {
             
             <div className="space-y-2">
               <label htmlFor="image_upload" className="text-sm font-medium">Imagem do Personagem</label>
-              <div className="flex items-center space-x-4">
-                {currentCharacter.image_url && (
-                  <img 
-                    src={getImageUrl(currentCharacter.image_url)} 
-                    alt={currentCharacter.name || "Prévia"} 
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
-                )}
-                <div className="flex-1">
-                  <Input
-                    id="image_upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={isImageUploading}
-                  />
+              
+              {storageError === "storage_bucket_missing" ? (
+                <StorageConfigAlert compact className="mb-2" />
+              ) : (
+                <div className="mt-2">
+                  {currentCharacter.image_url ? (
+                    <div className="flex items-center space-x-4 mb-4">
+                      <img 
+                        src={getImageUrl(currentCharacter.image_url)} 
+                        alt={currentCharacter.name || "Prévia"} 
+                        className="w-16 h-16 rounded-full object-cover" 
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        type="button" 
+                        onClick={() => setCurrentCharacter(prev => ({ ...prev, image_url: "" }))}
+                      >
+                        Remover Imagem
+                      </Button>
+                    </div>
+                  ) : (
+                    <FileUpload 
+                      onFileSelect={handleFileUploadComplete}
+                      uploadType="image"
+                    />
+                  )}
                 </div>
-              </div>
+              )}
+              
               {isImageUploading && <p className="text-sm text-blue-500">Enviando imagem...</p>}
-              <Input
-                id="image_url"
-                name="image_url"
-                value={currentCharacter.image_url || ""}
-                onChange={handleInputChange}
-                placeholder="ou insira a URL da imagem"
-                className="mt-2"
-              />
+              
+              <div className="mt-2">
+                <label htmlFor="image_url" className="text-sm font-medium">Ou informe a URL da imagem</label>
+                <Input
+                  id="image_url"
+                  name="image_url"
+                  value={currentCharacter.image_url || ""}
+                  onChange={handleInputChange}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  className="mt-1"
+                />
+              </div>
             </div>
             
             <div className="flex items-center space-x-2">
