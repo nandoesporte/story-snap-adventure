@@ -1,7 +1,6 @@
-
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
-import { geminiAI, isOpenAIKeyValid, reinitializeGeminiAI } from '@/lib/openai';
+import { reinitializeGeminiAI } from '@/lib/openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Type definitions that are needed in other components
@@ -122,6 +121,7 @@ export class BookGenerationService {
         content: result.pages.map(page => page.text)
       };
     } catch (error: any) {
+      console.error("Error in generateStoryContent:", error);
       this.errorCallback?.(error.message);
       return null;
     }

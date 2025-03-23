@@ -1,9 +1,9 @@
-
 import React from "react";
 import { motion } from "framer-motion";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BookGenerationService } from "@/services/BookGenerationService";
 
 interface StoryDetails {
   childName: string;
@@ -31,7 +31,6 @@ interface StoryConfirmationProps {
   apiAvailable: boolean;
 }
 
-// Reading level, language, and moral in Portuguese
 const readingLevelMap: { [key: string]: string } = {
   beginner: "Iniciante (4-6 anos)",
   intermediate: "Intermediário (7-9 anos)",
@@ -59,6 +58,8 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
   onEdit,
   apiAvailable
 }) => {
+  const isApiAvailable = apiAvailable || BookGenerationService.isGeminiApiKeyValid();
+
   return (
     <motion.div 
       className="max-w-3xl mx-auto"
@@ -73,11 +74,11 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
         </p>
       </div>
       
-      {!apiAvailable && (
+      {!isApiAvailable && (
         <Alert className="mb-6 border border-amber-200" variant="default">
           <AlertCircle className="h-4 w-4 text-amber-500" />
           <AlertDescription>
-            <span className="font-semibold">Modo simplificado ativo:</span> Algumas opções avançadas podem não estar disponíveis.
+            <span className="font-semibold">Modo simplificado ativo:</span> Configure uma chave API válida nas configurações para ativar todos os recursos.
           </AlertDescription>
         </Alert>
       )}

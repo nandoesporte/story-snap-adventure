@@ -12,6 +12,7 @@ import StoryBotChat from "./StoryBotChat";
 import { useStoryBot } from "../hooks/useStoryBot";
 import { supabase } from "@/lib/supabase";
 import { generateStoryWithGPT4, generateStory } from "@/utils/storyGenerator";
+import { BookGenerationService, StoryInputData } from "@/services/BookGenerationService";
 
 type CreationStep = "photo" | "details" | "chat" | "generating";
 
@@ -44,6 +45,7 @@ const StoryCreator = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage, convertImageToBase64 } = useStoryBot();
+  const [bookGenerator, setBookGenerator] = useState<BookGenerationService | null>(null);
   
   useEffect(() => {
     const fetchCharacter = async () => {
@@ -175,37 +177,40 @@ const StoryCreator = () => {
     try {
       toast.info("Gerando história personalizada...");
       
-      let storyData;
-      
-      try {
-        const openaiApiKey = "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";
-        storyData = await generateStoryWithGPT4({
-          childName: formData.childName,
-          childAge: formData.childAge,
-          theme: formData.theme,
-          setting: formData.setting,
-          imageUrl: imagePreview,
-          characterPrompt: selectedCharacter?.generation_prompt
-        }, openaiApiKey);
-      } catch (error) {
-        console.log("Failed to generate with GPT-4, falling back to local generator:", error);
-        storyData = await generateStory({
-          childName: formData.childName,
-          childAge: formData.childAge,
-          theme: formData.theme,
-          setting: formData.setting,
-          imageUrl: imagePreview,
-          characterPrompt: selectedCharacter?.generation_prompt
-        });
-        
-        toast.info("Usando gerador de histórias local devido a limitações da API.");
-      }
-      
-      const storyContentWithPages = {
-        title: storyData.title,
-        content: storyData.content
+      // Set up the story input data
+      const storyInputData: StoryInputData = {
+        childName: formData.childName,
+        childAge: formData.childAge,
+        theme: formData.theme as any, // Type casting since we know it matches
+        setting: formData.setting as any,
+        characterId: formData.characterId,
+        characterName: selectedCharacter?.name,
+        imagePreview: imagePreview
       };
       
+      // Create a new BookGenerationService instance
+      const generator = new BookGenerationService(
+        storyInputData,
+        (stage, percent) => {
+          console.log(`Story generation progress: ${stage} - ${percent}%`);
+          // You could update UI based on progress here
+        },
+        (errorMessage) => {
+          console.error("Story generation error:", errorMessage);
+          toast.error(errorMessage || "Erro ao gerar história");
+        }
+      );
+      
+      setBookGenerator(generator);
+      
+      // Try to generate the story
+      const storyData = await generator.generateStoryContent();
+      
+      if (!storyData) {
+        throw new Error("Falha ao gerar a história. Por favor, tente novamente.");
+      }
+      
+      // Now try to generate images for each page
       const childImageBase64 = imagePreview;
       
       toast.info("Gerando imagens para a história...");
@@ -214,7 +219,7 @@ const StoryCreator = () => {
       try {
         // Pass the character generation prompt to the cover image generation
         coverImageUrl = await generateCoverImage(
-          storyContentWithPages.title,
+          storyData.title,
           formData.childName,
           formData.theme,
           formData.setting,
@@ -230,7 +235,7 @@ const StoryCreator = () => {
       
       const pagesWithImages: StoryPage[] = [];
       
-      for (const pageText of storyContentWithPages.content) {
+      for (const pageText of storyData.content) {
         let imageDescription, imageUrl;
         
         try {
@@ -264,7 +269,7 @@ const StoryCreator = () => {
       }
       
       sessionStorage.setItem("storyData", JSON.stringify({
-        title: storyContentWithPages.title,
+        title: storyData.title,
         coverImageUrl: coverImageUrl,
         childImage: imagePreview,
         childName: formData.childName,
@@ -278,9 +283,9 @@ const StoryCreator = () => {
       
       toast.success("História gerada com sucesso!");
       navigate("/view-story");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating final story:", error);
-      toast.error("Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
+      toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       setStep("chat");
       
       const apiIssueEvent = new Event("storybot_api_issue");
