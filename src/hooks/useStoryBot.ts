@@ -72,5 +72,101 @@ Quando o usuário fornecer o nome e idade da criança, tema e cenário, você de
     }
   };
 
-  return { generateStoryBotResponse, isGenerating };
+  // Add the missing functions that are being called in StoryCreationFlow and StoryCreator
+  
+  const generateImageDescription = async (
+    pageText: string,
+    childName: string,
+    childAge: string,
+    theme: string,
+    setting: string
+  ) => {
+    try {
+      const messages = [
+        {
+          role: "user" as const,
+          content: `Por favor, crie uma descrição de imagem para esta cena de uma história infantil:
+            
+            Texto da página: "${pageText}"
+            
+            Personagem principal: ${childName}, ${childAge}
+            Tema da história: ${theme}
+            Cenário: ${setting}
+            
+            Descreva uma cena ilustrativa para esta parte da história em até 60 palavras, focando nos elementos visuais.`
+        }
+      ];
+      
+      const description = await generateStoryBotResponse(messages, "");
+      return description;
+    } catch (error) {
+      console.error("Error generating image description:", error);
+      return `Ilustração de ${childName} em uma aventura no cenário de ${setting}.`;
+    }
+  };
+  
+  const generateImage = async (
+    imageDescription: string,
+    childName: string,
+    theme: string,
+    setting: string,
+    childImageBase64: string | null
+  ) => {
+    try {
+      // Mock implementation since we don't have the actual implementation
+      // In a real implementation, this would call an API to generate an image
+      console.log("Generating image with description:", imageDescription);
+      
+      // Return a placeholder image URL
+      return "https://placeholder.com/600x400";
+    } catch (error) {
+      console.error("Error generating image:", error);
+      return "/placeholder.svg";
+    }
+  };
+  
+  const generateCoverImage = async (
+    title: string,
+    childName: string,
+    theme: string,
+    setting: string,
+    childImageBase64: string | null
+  ) => {
+    try {
+      // Mock implementation
+      console.log("Generating cover image for title:", title);
+      
+      // Return a placeholder image URL
+      return "https://placeholder.com/800x600";
+    } catch (error) {
+      console.error("Error generating cover image:", error);
+      return "/placeholder.svg";
+    }
+  };
+  
+  const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error("Error converting image to base64:", error);
+      return "";
+    }
+  };
+
+  return { 
+    generateStoryBotResponse, 
+    isGenerating,
+    generateImageDescription,
+    generateImage,
+    generateCoverImage,
+    convertImageToBase64
+  };
 };
