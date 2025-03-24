@@ -26,10 +26,10 @@ const NavbarUser = () => {
   if (!user) {
     return (
       <div className="flex items-center gap-4">
-        <Link to="/login" className="text-violet-800 hover:text-violet-600 font-medium text-sm hidden md:block">
+        <Link to="/auth" className="text-violet-800 hover:text-violet-600 font-medium text-sm hidden md:block">
           Entrar
         </Link>
-        <Link to="/register">
+        <Link to="/auth">
           <Button variant="storyPrimary">Inscreva-se gratuitamente</Button>
         </Link>
       </div>

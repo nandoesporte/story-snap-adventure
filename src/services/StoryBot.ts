@@ -1,3 +1,4 @@
+
 import { openai, geminiAI } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
@@ -80,9 +81,8 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
-      // Use the updated model name gemini-1.5-pro
       const completion = await openai.chat.completions.create({
-        model: "gemini-1.5-pro",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -148,9 +148,8 @@ export class StoryBot {
         }
       ];
       
-      // Use the updated model name gemini-1.5-pro
       const completion = await openai.chat.completions.create({
-        model: "gemini-1.5-pro",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 500,
@@ -276,9 +275,8 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
-      // Use the updated model name gemini-1.5-pro
       const completion = await openai.chat.completions.create({
-        model: "gemini-1.5-pro",
+        model: "gemini-pro",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 2500,

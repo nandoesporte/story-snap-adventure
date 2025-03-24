@@ -2,30 +2,16 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
 const getGeminiApiKey = () => {
-  const key = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
-  return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
+  return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
 };
 
 // Initialize Gemini API client with API key
-export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey() || 'invalid-key-placeholder');
+export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey());
 
 // Function to reinitialize Gemini with a new API key
 export const reinitializeGeminiAI = (apiKey: string) => {
-  if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
-    console.error('Tentativa de inicializar Gemini com chave inválida:', apiKey);
-    return null;
-  }
-  
-  try {
-    console.log(`Inicializando API Gemini com chave: ${apiKey.substring(0, 5)}...`);
-    const trimmedKey = apiKey.trim();
-    localStorage.setItem('gemini_api_key', trimmedKey);
-    const newClient = new GoogleGenerativeAI(trimmedKey);
-    return newClient;
-  } catch (error) {
-    console.error('Erro ao reinicializar Gemini:', error);
-    return null;
-  }
+  localStorage.setItem('gemini_api_key', apiKey);
+  return new GoogleGenerativeAI(apiKey);
 };
 
 // Keep OpenAI interface for backward compatibility
@@ -49,9 +35,10 @@ export const openai = {
             parts: [{ text: msg.content }]
           }));
 
-          // Use gemini-1.5-pro model with the correct API version
+          // Get appropriate model from Gemini
+          const modelName = model.includes('gpt-4') ? 'gemini-pro' : 'gemini-1.0-pro';
           const geminiModel = currentGeminiAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro",
+            model: modelName,
             generationConfig: {
               temperature: temperature || 0.7,
               maxOutputTokens: max_tokens || 1000,
@@ -80,9 +67,6 @@ export const openai = {
           };
         } catch (error) {
           console.error("Error using Gemini API:", error);
-          // Dispatch an event to inform components about API issues
-          window.dispatchEvent(new CustomEvent('storybot_api_issue'));
-          localStorage.setItem('storybot_api_issue', 'true');
           throw error;
         }
       }
@@ -93,5 +77,5 @@ export const openai = {
 // For development without API keys, we can detect if the API key is valid
 export const isOpenAIKeyValid = () => {
   const apiKey = getGeminiApiKey();
-  return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
+  return apiKey && apiKey.length > 0 && !apiKey.includes('your-api-key');
 };
