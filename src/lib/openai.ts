@@ -1,3 +1,4 @@
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
@@ -20,6 +21,10 @@ export const reinitializeGeminiAI = (apiKey: string) => {
     console.log(`Inicializando API Gemini com chave: ${apiKey.substring(0, 5)}...`);
     const trimmedKey = apiKey.trim();
     localStorage.setItem('gemini_api_key', trimmedKey);
+    
+    // Clear any previous API issues
+    localStorage.removeItem("storybot_api_issue");
+    
     const newClient = new GoogleGenerativeAI(trimmedKey);
     return newClient;
   } catch (error) {
@@ -49,7 +54,7 @@ export const openai = {
             parts: [{ text: msg.content }]
           }));
 
-          // Use gemini-1.5-pro model with the correct API version
+          // Always use gemini-1.5-pro model
           const geminiModel = currentGeminiAI.getGenerativeModel({ 
             model: "gemini-1.5-pro",
             generationConfig: {
@@ -58,26 +63,45 @@ export const openai = {
             }
           });
 
-          // Create chat session
-          const chat = geminiModel.startChat({
-            history: geminiMessages.slice(0, -1) // Exclude the last message
-          });
+          try {
+            // Create chat session - not all Gemini models support chat
+            const chat = geminiModel.startChat({
+              history: geminiMessages.slice(0, -1) // Exclude the last message
+            });
 
-          // Generate response
-          const lastMessage = geminiMessages[geminiMessages.length - 1];
-          const result = await chat.sendMessage(lastMessage.parts[0].text);
-          const responseText = result.response.text();
+            // Generate response
+            const lastMessage = geminiMessages[geminiMessages.length - 1];
+            const result = await chat.sendMessage(lastMessage.parts[0].text);
+            const responseText = result.response.text();
 
-          // Format response to match OpenAI structure
-          return {
-            choices: [
-              {
-                message: {
-                  content: responseText
+            // Format response to match OpenAI structure
+            return {
+              choices: [
+                {
+                  message: {
+                    content: responseText
+                  }
                 }
-              }
-            ]
-          };
+              ]
+            };
+          } catch (error) {
+            // If chat fails, try with direct generation
+            console.warn("Chat failed, trying direct content generation:", error);
+            
+            const lastMessage = geminiMessages[geminiMessages.length - 1];
+            const result = await geminiModel.generateContent(lastMessage.parts[0].text);
+            const responseText = result.response.text();
+            
+            return {
+              choices: [
+                {
+                  message: {
+                    content: responseText
+                  }
+                }
+              ]
+            };
+          }
         } catch (error) {
           console.error("Error using Gemini API:", error);
           // Dispatch an event to inform components about API issues

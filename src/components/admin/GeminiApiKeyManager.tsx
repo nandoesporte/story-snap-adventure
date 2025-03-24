@@ -16,7 +16,7 @@ const GeminiApiKeyManager = () => {
   const [debugInfo, setDebugInfo] = useState<string>("");
 
   useEffect(() => {
-    const savedKey = BookGenerationService.getGeminiApiKey() || "";
+    const savedKey = localStorage.getItem('gemini_api_key') || "";
     setApiKey(savedKey);
   }, []);
 

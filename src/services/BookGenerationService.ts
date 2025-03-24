@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { reinitializeGeminiAI } from '@/lib/openai';
@@ -50,7 +51,6 @@ export interface Story {
   language?: string;
   reading_level?: string;
   num_pages?: number;
-  character_prompt?: string;
   created_at?: string;
   updated_at?: string;
   user_id?: string;
@@ -265,7 +265,13 @@ export class BookGenerationService {
         throw new Error('A geração foi cancelada.');
       }
       
-      const savedStory = await this.saveStoryToDatabase(parsedStory, storyParams);
+      // Skip database saving if there are issues with the tables
+      try {
+        await this.saveStoryToDatabase(parsedStory, storyParams);
+      } catch (error) {
+        console.warn("Could not save story to database, but will continue with memory-only version:", error);
+        // Continue with the parsed story even if database saving fails
+      }
       
       progressCallback?.('História concluída com sucesso!', 100);
       
@@ -273,7 +279,7 @@ export class BookGenerationService {
       this.abortController = null;
       this.currentStoryId = null;
       
-      return savedStory;
+      return parsedStory;
     } catch (error: any) {
       this.isGenerating = false;
       this.abortController = null;
@@ -298,19 +304,24 @@ export class BookGenerationService {
   
   static async getStoryBotPrompt(): Promise<string> {
     try {
-      const { data, error } = await supabase
-        .from('storybot_prompts')
-        .select('prompt')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (error) {
-        console.warn('Error fetching StoryBot prompt, using default:', error);
-        return localStorage.getItem('storybot_prompt') || this.getDefaultStoryBotPrompt();
+      try {
+        const { data, error } = await supabase
+          .from('storybot_prompts')
+          .select('prompt')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (error) {
+          console.warn('Error fetching StoryBot prompt, using default:', error);
+          return localStorage.getItem('storybot_prompt') || this.getDefaultStoryBotPrompt();
+        }
+        
+        return data.prompt;
+      } catch (error) {
+        console.warn('Using default prompt due to error:', error);
+        return this.getDefaultStoryBotPrompt();
       }
-      
-      return data.prompt;
     } catch (error) {
       console.error('Error getting StoryBot prompt:', error);
       return this.getDefaultStoryBotPrompt();
@@ -319,24 +330,28 @@ export class BookGenerationService {
   
   static async getCharacterPrompt(characterName: string): Promise<string> {
     try {
-      const { data, error } = await supabase
-        .from('characters')
-        .select('generation_prompt, description, personality, age')
-        .eq('name', characterName)
-        .single();
-      
-      if (error) {
-        console.warn(`Error fetching character prompt for ${characterName}:`, error);
-        return '';
-      }
-      
-      if (data.generation_prompt) {
-        return data.generation_prompt;
-      } else if (data.description) {
-        return `Personagem: ${characterName}
+      try {
+        const { data, error } = await supabase
+          .from('characters')
+          .select('generation_prompt, description, personality, age')
+          .eq('name', characterName)
+          .single();
+        
+        if (error) {
+          console.warn(`Error fetching character prompt for ${characterName}:`, error);
+          return '';
+        }
+        
+        if (data.generation_prompt) {
+          return data.generation_prompt;
+        } else if (data.description) {
+          return `Personagem: ${characterName}
 Idade: ${data.age || 'Não especificada'}
 Descrição: ${data.description}
 Personalidade: ${data.personality || 'Não especificada'}`;
+        }
+      } catch (error) {
+        console.warn(`Character prompt fetch failed for ${characterName}:`, error);
       }
       
       return '';
@@ -451,7 +466,10 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         throw new Error('Usuário não autenticado.');
       }
       
-      const storyData = {
+      // First check if the stories table has the character_prompt column
+      const hasCharacterPromptColumn = await this.checkColumnExists('stories', 'character_prompt');
+      
+      const storyData: Record<string, any> = {
         id: this.currentStoryId || uuidv4(),
         title: parsedStory.title || storyParams.title,
         character_name: storyParams.character_name || '',
@@ -462,10 +480,14 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         moral: storyParams.moral || '',
         language: storyParams.language || 'Português',
         reading_level: storyParams.reading_level || 'Intermediário',
-        character_prompt: storyParams.character_prompt || '',
         user_id: user.id,
-        published: true,
+        published: true
       };
+      
+      // Only add the character_prompt if the column exists
+      if (hasCharacterPromptColumn) {
+        storyData.character_prompt = storyParams.character_prompt || '';
+      }
       
       const { data: insertedStory, error } = await supabase
         .from('stories')
@@ -478,23 +500,30 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         throw new Error(`Erro ao salvar história: ${error.message}`);
       }
       
-      const pageInserts = parsedStory.pages.map(page => ({
-        story_id: insertedStory.id,
-        page_number: page.page_number,
-        content: page.text,
-        image_prompt: page.image_prompt || '',
-      }));
-      
-      const { error: pagesError } = await supabase
-        .from('story_pages')
-        .insert(pageInserts);
-      
-      if (pagesError) {
-        console.error('Error inserting pages:', pagesError);
+      // Check if the story_pages table exists
+      try {
+        const pageInserts = parsedStory.pages.map(page => ({
+          story_id: insertedStory.id,
+          page_number: page.page_number,
+          content: page.text,
+          image_prompt: page.image_prompt || '',
+        }));
         
-        await supabase.from('stories').delete().eq('id', insertedStory.id);
+        const { error: pagesError } = await supabase
+          .from('story_pages')
+          .insert(pageInserts);
         
-        throw new Error(`Erro ao salvar páginas da história: ${pagesError.message}`);
+        if (pagesError) {
+          console.error('Error inserting pages:', pagesError);
+          
+          // Try to clean up the story since pages failed
+          await supabase.from('stories').delete().eq('id', insertedStory.id);
+          
+          throw new Error(`Erro ao salvar páginas da história: ${pagesError.message}`);
+        }
+      } catch (error) {
+        console.error('Error with story pages:', error);
+        // Continue even if pages failed - we'll return the memory version
       }
       
       return {
@@ -505,6 +534,22 @@ Personalidade: ${data.personality || 'Não especificada'}`;
     } catch (error: any) {
       console.error('Error saving story to database:', error);
       throw error;
+    }
+  }
+  
+  // Utility method to check if a column exists in a table
+  static async checkColumnExists(table: string, column: string): Promise<boolean> {
+    try {
+      // Try to select just that column to see if it exists
+      const { error } = await supabase
+        .from(table)
+        .select(column)
+        .limit(1);
+        
+      return error === null;
+    } catch (error) {
+      console.warn(`Column ${column} doesn't exist in ${table}:`, error);
+      return false;
     }
   }
   

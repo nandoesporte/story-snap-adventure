@@ -1,3 +1,4 @@
+
 import { openai, geminiAI } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
@@ -61,18 +62,21 @@ export class StoryBot {
     
     try {
       // Get StoryBot system prompt from Supabase
-      const { data: promptData, error: promptError } = await supabase
-        .from('storybot_prompts')
-        .select('*')
-        .eq('id', 'story_creation_prompt')
-        .single();
-        
-      if (promptError) {
-        console.error("Error fetching StoryBot prompt:", promptError);
-        throw new Error("Failed to fetch StoryBot prompt");
-      }
+      let systemPrompt = "Você é o StoryBot, um assistente que ajuda a criar histórias infantis personalizadas.";
       
-      const systemPrompt = promptData?.prompt || "Você é o StoryBot, um assistente que ajuda a criar histórias infantis personalizadas.";
+      try {
+        const { data: promptData, error: promptError } = await supabase
+          .from('storybot_prompts')
+          .select('*')
+          .eq('id', 'story_creation_prompt')
+          .single();
+          
+        if (!promptError && promptData?.prompt) {
+          systemPrompt = promptData.prompt;
+        }
+      } catch (error) {
+        console.warn("Error fetching StoryBot prompt, using default system prompt");
+      }
       
       const formattedMessages: Message[] = [
         { role: "system", content: systemPrompt },
@@ -90,9 +94,9 @@ export class StoryBot {
       
       return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
     } catch (error) {
+      console.error("Error in StoryBot generateStoryBotResponse:", error);
       this.apiAvailable = false;
       localStorage.setItem("storybot_api_issue", "true");
-      console.error("Error in StoryBot generateStoryBotResponse:", error);
       throw error;
     }
   }
@@ -110,20 +114,23 @@ export class StoryBot {
     }
     
     try {
-      // Get image description prompt from Supabase
-      const { data: promptData, error: promptError } = await supabase
-        .from('storybot_prompts')
-        .select('*')
-        .eq('id', 'image_description_prompt')
-        .single();
-        
-      if (promptError) {
-        console.error("Error fetching image description prompt:", promptError);
-        throw new Error("Failed to fetch image description prompt");
-      }
+      // Default image description prompt
+      let imagePrompt = "Crie uma descrição detalhada para uma ilustração infantil baseada no seguinte texto. A descrição deve ser rica em detalhes visuais, incluindo cores, expressões e elementos de cenário.";
       
-      const imagePrompt = promptData?.prompt || 
-        "Crie uma descrição detalhada para uma ilustração infantil baseada no seguinte texto. A descrição deve ser rica em detalhes visuais, incluindo cores, expressões e elementos de cenário.";
+      // Try to get image description prompt from Supabase
+      try {
+        const { data: promptData, error: promptError } = await supabase
+          .from('storybot_prompts')
+          .select('*')
+          .eq('id', 'image_description_prompt')
+          .single();
+          
+        if (!promptError && promptData?.prompt) {
+          imagePrompt = promptData.prompt;
+        }
+      } catch (error) {
+        console.warn("Error fetching image description prompt, using default");
+      }
       
       const formattedMessages: Message[] = [
         { 
@@ -159,9 +166,9 @@ export class StoryBot {
       return completion.choices[0].message.content || 
         `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
     } catch (error) {
+      console.error("Error in StoryBot generateImageDescription:", error);
       this.apiAvailable = false;
       localStorage.setItem("storybot_api_issue", "true");
-      console.error("Error in StoryBot generateImageDescription:", error);
       throw error;
     }
   }
@@ -232,20 +239,23 @@ export class StoryBot {
     }
     
     try {
-      // Get story generation prompt from Supabase
-      const { data: promptData, error: promptError } = await supabase
-        .from('storybot_prompts')
-        .select('*')
-        .eq('id', 'story_generation_prompt')
-        .single();
-        
-      if (promptError) {
-        console.error("Error fetching story generation prompt:", promptError);
-        throw new Error("Failed to fetch story generation prompt");
-      }
+      // Default system prompt
+      let systemPrompt = "Você é um assistente especializado em criar histórias infantis personalizadas.";
       
-      const systemPrompt = promptData?.prompt || 
-        "Você é um assistente especializado em criar histórias infantis personalizadas.";
+      // Try to get story generation prompt from Supabase
+      try {
+        const { data: promptData, error: promptError } = await supabase
+          .from('storybot_prompts')
+          .select('*')
+          .eq('id', 'story_generation_prompt')
+          .single();
+          
+        if (!promptError && promptData?.prompt) {
+          systemPrompt = promptData.prompt;
+        }
+      } catch (error) {
+        console.warn("Error fetching story generation prompt, using default");
+      }
       
       // Construct the user prompt with all parameters
       const userPrompt = `
@@ -289,9 +299,9 @@ export class StoryBot {
       // Parse the story into title and pages
       return this.parseStoryContent(storyText, params.childName);
     } catch (error) {
+      console.error("Error in StoryBot generateStory:", error);
       this.apiAvailable = false;
       localStorage.setItem("storybot_api_issue", "true");
-      console.error("Error in StoryBot generateStory:", error);
       throw error;
     }
   }
