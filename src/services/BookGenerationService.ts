@@ -1,8 +1,8 @@
-
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "./StoryBot";
 import { geminiAI } from "@/lib/openai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Types
 export type StoryCharacter = {
@@ -326,7 +326,7 @@ export class BookGenerationService {
       
       try {
         // Create a new Gemini instance with custom API key
-        const customGemini = new window.GoogleGenerativeAI(this.customGeminiApiKey || '');
+        const customGemini = new GoogleGenerativeAI(this.customGeminiApiKey || '');
         
         // Use Gemini AI for story generation
         const genModel = customGemini.getGenerativeModel({ 

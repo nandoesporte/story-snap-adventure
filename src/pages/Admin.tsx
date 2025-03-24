@@ -7,7 +7,7 @@ import { UserManager } from "@/components/admin/UserManager";
 import CharacterManager from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
-import { GeminiApiKeyManager } from "@/components/admin/GeminiApiKeyManager";
+import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 

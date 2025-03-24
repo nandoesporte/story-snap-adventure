@@ -87,4 +87,6 @@ const GeminiApiKeyManager = () => {
   );
 };
 
+// Add both default and named exports to support both import styles
 export default GeminiApiKeyManager;
+export { GeminiApiKeyManager };
