@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
@@ -50,10 +49,9 @@ export const openai = {
             parts: [{ text: msg.content }]
           }));
 
-          // Get appropriate model from Gemini - updated model names
-          const modelName = model.includes('gpt-4') ? 'gemini-pro' : 'gemini-pro';
+          // Use gemini-1.5-pro model with the correct API version
           const geminiModel = currentGeminiAI.getGenerativeModel({ 
-            model: modelName,
+            model: "gemini-1.5-pro",
             generationConfig: {
               temperature: temperature || 0.7,
               maxOutputTokens: max_tokens || 1000,
