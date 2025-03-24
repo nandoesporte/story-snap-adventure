@@ -1,19 +1,50 @@
+
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
-import StoryManager from "@/components/admin/StoryManager";
-import UserManager from "@/components/admin/UserManager";
+import { StoryManager } from "@/components/admin/StoryManager";
+import { UserManager } from "@/components/admin/UserManager";
 import CharacterManager from "@/components/admin/CharacterManager";
-import ThemeManager from "@/components/admin/ThemeManager";
-import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
-import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
+import { ThemeManager } from "@/components/admin/ThemeManager";
+import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
+import { GeminiApiKeyManager } from "@/components/admin/GeminiApiKeyManager";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const Admin = () => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("stories");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  React.useEffect(() => {
+    // Check if user is admin
+    if (user?.email === 'nandoesporte1@gmail.com') {
+      setIsAdmin(true);
+    } else if (user) {
+      // This logic mirrors what's in AdminLink.tsx
+      const checkAdmin = async () => {
+        try {
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.rpc('create_user_profiles_if_not_exists');
+          
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single();
+            
+          if (!error) {
+            setIsAdmin(data?.is_admin || false);
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+        }
+      };
+      
+      checkAdmin();
+    }
+  }, [user]);
 
   React.useEffect(() => {
     if (user === null) {
