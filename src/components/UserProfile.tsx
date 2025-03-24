@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -19,41 +20,56 @@ const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // For simplicity, just check if it's the target email
-    // This avoids the circular reference in RLS policies
-    if (user?.email === 'nandoesporte1@gmail.com') {
-      setIsAdmin(true);
-      return;
-    }
-    
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
-    
     const checkAdminStatus = async () => {
+      setLoading(true);
+      
+      if (!user) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      
       try {
-        // Try to initialize the table structure first
-        await supabase.rpc('create_user_profiles_if_not_exists');
-        
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
+        // For simplicity, first check via direct email match
+        if (user.email === 'nandoesporte1@gmail.com') {
+          console.log("Admin dropdown visible: Direct email match");
+          localStorage.setItem('user_role', 'admin');
+          setIsAdmin(true);
+          setLoading(false);
           return;
         }
         
-        setIsAdmin(data?.is_admin || false);
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
+        // Second check: database
+        try {
+          // Try to initialize the table structure first
+          await supabase.rpc('create_user_profiles_if_not_exists');
+          
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } else if (data?.is_admin) {
+            console.log("Admin dropdown visible: Database check");
+            localStorage.setItem('user_role', 'admin');
+            setIsAdmin(true);
+          } else {
+            localStorage.setItem('user_role', 'user');
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        }
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -63,6 +79,8 @@ const UserProfile = () => {
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
+      // Clear admin status on logout
+      localStorage.removeItem('user_role');
       await signOut();
       toast.success('Você saiu da sua conta com sucesso');
     } catch (error: any) {
@@ -125,7 +143,7 @@ const UserProfile = () => {
         </DropdownMenuItem>
         
         {/* Admin link for admin users */}
-        {isAdmin && (
+        {!loading && isAdmin && (
           <DropdownMenuItem asChild>
             <Link to="/admin" className="flex items-center cursor-pointer text-violet-600 font-medium">
               <Shield className="mr-2 h-4 w-4" />

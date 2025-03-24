@@ -10,12 +10,15 @@ import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager"
 import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("stories");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // Parse query parameters
   useEffect(() => {
@@ -26,19 +29,82 @@ const Admin = () => {
     }
   }, [location]);
   
-  // Check if user is admin by checking the localStorage for the admin role
-  const isAdmin = user && localStorage.getItem('user_role') === 'admin';
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      setLoading(true);
+      
+      if (!user) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // First check: If it's the target admin email (hardcoded check for reliability)
+        if (user.email === 'nandoesporte1@gmail.com') {
+          console.log("Admin access granted: Direct email match");
+          localStorage.setItem('user_role', 'admin');
+          setIsAdmin(true);
+          setLoading(false);
+          return;
+        }
+        
+        // Second check: Check database
+        try {
+          // Initialize the database structure if needed
+          await supabase.rpc('create_user_profiles_if_not_exists');
+          
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } else if (data?.is_admin) {
+            console.log("Admin access granted: Database check");
+            localStorage.setItem('user_role', 'admin');
+            setIsAdmin(true);
+          } else {
+            console.log("Admin access denied: Not an admin in database");
+            localStorage.setItem('user_role', 'user');
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error('Error during admin check:', error);
+          setIsAdmin(false);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
 
   // Redirect non-admin users
-  React.useEffect(() => {
-    if (user === null) {
-      navigate("/auth");
-      toast.error("Faça login para acessar esta página");
-    } else if (user && !isAdmin) {
-      navigate("/");
-      toast.error("Você não tem permissão para acessar esta página");
+  useEffect(() => {
+    if (!loading) {
+      if (user === null) {
+        navigate("/auth");
+        toast.error("Faça login para acessar esta página");
+      } else if (user && !isAdmin) {
+        navigate("/");
+        toast.error("Você não tem permissão para acessar esta página");
+      }
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto my-8 p-4">
+        <h1 className="text-2xl font-bold">Verificando permissões...</h1>
+      </div>
+    );
+  }
 
   if (!user || !isAdmin) {
     return (
