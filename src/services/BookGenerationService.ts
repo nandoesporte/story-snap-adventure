@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { reinitializeGeminiAI } from '@/lib/openai';
@@ -25,6 +24,7 @@ export interface StoryInputData {
   readingLevel?: ReadingLevel;
   language?: StoryLanguage;
   moral?: StoryMoral;
+  character_prompt?: string; // Add this to ensure it's available in the input data
 }
 
 export interface GeneratedStory {
@@ -56,6 +56,7 @@ export interface Story {
   user_id?: string;
   cover_image?: string;
   published?: boolean;
+  character_prompt?: string; // Add this property to fix the first error
 }
 
 export interface CompleteStory extends Story {
@@ -97,7 +98,8 @@ export class BookGenerationService {
         moral: this.data.moral,
         language: this.data.language,
         reading_level: this.data.readingLevel,
-        num_pages: this.getNumPagesFromLength(this.data.length)
+        num_pages: this.getNumPagesFromLength(this.data.length),
+        character_prompt: this.data.character_prompt // Add this to include the character_prompt
       };
       
       const result = await BookGenerationService.generateStory(
@@ -530,6 +532,8 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         ...storyData,
         pages: parsedStory.pages,
         id: insertedStory.id,
+        title: parsedStory.title, // Ensure title is included
+        character_name: storyParams.character_name || '' // Ensure character_name is included
       };
     } catch (error: any) {
       console.error('Error saving story to database:', error);
