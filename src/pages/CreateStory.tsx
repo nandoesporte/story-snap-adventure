@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +12,8 @@ import {
   FileText, 
   CheckCircle,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -19,6 +21,7 @@ import FileUpload from "@/components/FileUpload";
 import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import StoryConfirmation from "@/components/StoryConfirmation";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import StoryPromptInput from "@/components/StoryPromptInput";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -35,13 +38,14 @@ import {
 } from "@/services/BookGenerationService";
 import { useStoryBot } from "@/hooks/useStoryBot";
 
-type CreationStep = "photo" | "details" | "confirmation" | "generating";
+type CreationStep = "photo" | "prompt" | "details" | "confirmation" | "generating";
 
 const CreateStory = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<CreationStep>("photo");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -64,6 +68,78 @@ const CreateStory = () => {
     } else {
       setImagePreview(null);
     }
+  };
+  
+  const handlePromptSubmit = (prompt: string) => {
+    setStoryPrompt(prompt);
+    setStep("details");
+    
+    // Pre-fill the form with suggestions based on the prompt
+    const suggestedTheme = getSuggestedTheme(prompt);
+    const suggestedSetting = getSuggestedSetting(prompt);
+    
+    setFormData(prevData => ({
+      ...prevData,
+      theme: suggestedTheme,
+      setting: suggestedSetting,
+    } as StoryFormData));
+  };
+  
+  const getSuggestedTheme = (prompt: string): StoryTheme => {
+    const lowercasePrompt = prompt.toLowerCase();
+    
+    if (lowercasePrompt.includes("espaço") || lowercasePrompt.includes("planeta") || 
+        lowercasePrompt.includes("foguete") || lowercasePrompt.includes("astronauta") ||
+        lowercasePrompt.includes("espacial") || lowercasePrompt.includes("estrela")) {
+      return "space";
+    } else if (lowercasePrompt.includes("dinossauro") || lowercasePrompt.includes("dino") || 
+               lowercasePrompt.includes("pré-histórico") || lowercasePrompt.includes("tiranossauro") ||
+               lowercasePrompt.includes("jurássico")) {
+      return "dinosaurs";
+    } else if (lowercasePrompt.includes("oceano") || lowercasePrompt.includes("mar") || 
+               lowercasePrompt.includes("sereia") || lowercasePrompt.includes("praia") ||
+               lowercasePrompt.includes("nadar") || lowercasePrompt.includes("peixe") ||
+               lowercasePrompt.includes("submarino")) {
+      return "ocean";
+    } else if (lowercasePrompt.includes("magia") || lowercasePrompt.includes("fada") || 
+               lowercasePrompt.includes("dragão") || lowercasePrompt.includes("mágico") ||
+               lowercasePrompt.includes("princesa") || lowercasePrompt.includes("feiticeiro") ||
+               lowercasePrompt.includes("encantado")) {
+      return "fantasy";
+    }
+    
+    // Default to adventure if no specific theme is detected
+    return "adventure";
+  };
+  
+  const getSuggestedSetting = (prompt: string): StorySetting => {
+    const lowercasePrompt = prompt.toLowerCase();
+    
+    if (lowercasePrompt.includes("floresta") || lowercasePrompt.includes("bosque") || 
+        lowercasePrompt.includes("árvore") || lowercasePrompt.includes("plantas") ||
+        lowercasePrompt.includes("selva")) {
+      return "forest";
+    } else if (lowercasePrompt.includes("castelo") || lowercasePrompt.includes("palácio") || 
+               lowercasePrompt.includes("reino") || lowercasePrompt.includes("rei") ||
+               lowercasePrompt.includes("rainha") || lowercasePrompt.includes("príncipe") ||
+               lowercasePrompt.includes("princesa")) {
+      return "castle";
+    } else if (lowercasePrompt.includes("espaço") || lowercasePrompt.includes("planeta") || 
+               lowercasePrompt.includes("foguete") || lowercasePrompt.includes("astronauta") ||
+               lowercasePrompt.includes("espacial") || lowercasePrompt.includes("estrela")) {
+      return "space";
+    } else if (lowercasePrompt.includes("oceano") || lowercasePrompt.includes("mar") || 
+               lowercasePrompt.includes("submerso") || lowercasePrompt.includes("submarino") ||
+               lowercasePrompt.includes("sereia") || lowercasePrompt.includes("água")) {
+      return "underwater";
+    } else if (lowercasePrompt.includes("dinossauro") || lowercasePrompt.includes("dino") || 
+               lowercasePrompt.includes("pré-histórico") || lowercasePrompt.includes("tiranossauro") ||
+               lowercasePrompt.includes("jurássico")) {
+      return "dinosaurland";
+    }
+    
+    // Default to forest if no specific setting is detected
+    return "forest";
   };
   
   const handleFormSubmit = (data: StoryFormData) => {
@@ -94,7 +170,8 @@ const CreateStory = () => {
       imagePreview: imagePreview,
       readingLevel: formData.readingLevel as ReadingLevel,
       language: formData.language as StoryLanguage,
-      moral: formData.moral as StoryMoral
+      moral: formData.moral as StoryMoral,
+      character_prompt: storyPrompt // Pass the user's prompt to the story generator
     };
     
     sessionStorage.setItem("create_story_data", JSON.stringify(storyInputData));
@@ -112,9 +189,11 @@ const CreateStory = () => {
     setCancelRequested(true);
     setIsGenerating(false);
     
-    if (step === "photo" || step === "details" || step === "confirmation") {
-      if (step === "details") {
+    if (step === "photo" || step === "prompt" || step === "details" || step === "confirmation") {
+      if (step === "prompt") {
         setStep("photo");
+      } else if (step === "details") {
+        setStep("prompt");
       } else if (step === "confirmation") {
         setStep("details");
       }
@@ -180,7 +259,7 @@ const CreateStory = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => imagePreview ? setStep("details") : toast.error("Por favor, adicione uma foto para continuar.")}
+                onClick={() => imagePreview ? setStep("prompt") : toast.error("Por favor, adicione uma foto para continuar.")}
                 className="px-6 py-2 bg-storysnap-blue text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:bg-storysnap-blue/90 transition-all flex items-center gap-2"
               >
                 <Camera className="h-4 w-4" />
@@ -188,6 +267,14 @@ const CreateStory = () => {
               </motion.button>
             </div>
           </motion.div>
+        );
+        
+      case "prompt":
+        return (
+          <StoryPromptInput 
+            onSubmit={handlePromptSubmit} 
+            onBack={() => setStep("photo")}
+          />
         );
         
       case "details":
@@ -200,13 +287,26 @@ const CreateStory = () => {
             <h2 className="text-2xl font-bold mb-6 text-center">
               Personalize a história
             </h2>
-            <StoryForm onSubmit={handleFormSubmit} />
+            
+            {storyPrompt && (
+              <div className="mb-6 p-4 bg-violet-50 rounded-lg border border-violet-100">
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="h-5 w-5 text-violet-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-violet-800 mb-1">Sua descrição</p>
+                    <p className="text-sm text-violet-700">{storyPrompt}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
             
             <div className="mt-8 flex justify-between">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setStep("photo")}
+                onClick={() => setStep("prompt")}
                 className="px-6 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg shadow-sm hover:shadow hover:bg-slate-50 transition-all"
               >
                 Voltar
@@ -236,7 +336,8 @@ const CreateStory = () => {
               imagePreview: imagePreview,
               readingLevel: formData.readingLevel,
               language: formData.language,
-              moral: formData.moral
+              moral: formData.moral,
+              storyPrompt: storyPrompt
             }}
             onConfirm={handleGenerateStory}
             onEdit={() => setStep("details")}

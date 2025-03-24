@@ -1,66 +1,75 @@
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { Award, BookOpen, Globe } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Sparkles, ChevronDown, ChevronUp, Settings, BookOpen, Globe, Award } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { StoryTheme, StorySetting, StoryStyle, StoryLength, ReadingLevel, StoryLanguage, StoryMoral } from "@/services/BookGenerationService";
+import { ReadingLevel, StoryLanguage, StoryLength, StoryMoral, StoryStyle, StoryTheme, StorySetting } from "@/services/BookGenerationService";
+
+interface Character {
+  id: string;
+  name: string;
+  description: string;
+  image_url?: string;
+}
 
 export interface StoryFormData {
   childName: string;
   childAge: string;
   theme: StoryTheme;
   setting: StorySetting;
-  characterId?: string;
-  characterName?: string;
-  characterPrompt?: string;
-  style?: StoryStyle;
-  length?: StoryLength;
-  readingLevel?: ReadingLevel;
-  language?: StoryLanguage;
-  moral?: StoryMoral;
+  style: StoryStyle;
+  length: StoryLength;
+  characterId: string;
+  characterName: string;
+  readingLevel: ReadingLevel;
+  language: StoryLanguage;
+  moral: StoryMoral;
 }
 
 interface StoryFormProps {
   onSubmit: (data: StoryFormData) => void;
+  initialData?: StoryFormData | null;
 }
 
-interface Character {
-  id: string;
-  name: string;
-  description: string;
-  generation_prompt?: string;
-  image_url?: string;
-}
-
-const StoryForm = ({ onSubmit }: StoryFormProps) => {
-  const [formData, setFormData] = useState<StoryFormData>({
-    childName: "",
-    childAge: "",
-    theme: "adventure",
-    setting: "forest",
-    characterId: "",
-    characterName: "",
-    characterPrompt: "",
-    style: "cartoon", // Changed from "standard" to "cartoon" which is valid according to StoryStyle type
-    length: "short",
-    readingLevel: "intermediate",
-    language: "portuguese",
-    moral: "friendship"
-  });
+const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
+  // Form state
+  const [childName, setChildName] = useState("");
+  const [childAge, setChildAge] = useState("");
+  const [theme, setTheme] = useState<StoryTheme>("adventure");
+  const [setting, setSetting] = useState<StorySetting>("forest");
+  const [style, setStyle] = useState<StoryStyle>("cartoon");
+  const [length, setLength] = useState<StoryLength>("medium");
+  const [characterId, setCharacterId] = useState("");
+  const [readingLevel, setReadingLevel] = useState<ReadingLevel>("intermediate");
+  const [language, setLanguage] = useState<StoryLanguage>("portuguese");
+  const [moral, setMoral] = useState<StoryMoral>("friendship");
   
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-
+  // Initialize form with initial data if provided
+  useEffect(() => {
+    if (initialData) {
+      setChildName(initialData.childName || "");
+      setChildAge(initialData.childAge || "");
+      setTheme(initialData.theme || "adventure");
+      setSetting(initialData.setting || "forest");
+      setStyle(initialData.style || "cartoon");
+      setLength(initialData.length || "medium");
+      setCharacterId(initialData.characterId || "");
+      setReadingLevel(initialData.readingLevel || "intermediate");
+      setLanguage(initialData.language || "portuguese");
+      setMoral(initialData.moral || "friendship");
+    }
+  }, [initialData]);
+  
+  // Fetch characters from the database
   const { data: characters, isLoading } = useQuery({
-    queryKey: ["characters-for-story"],
+    queryKey: ["characters"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("characters")
-        .select("id, name, description, generation_prompt, image_url")
+        .select("id, name, description, image_url")
         .eq("is_active", true)
         .order("name");
         
@@ -71,42 +80,48 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
       
       return data as Character[];
     },
-    staleTime: 60000, // 1 minute
   });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === "characterId" && value) {
-      const selectedCharacter = characters?.find(char => char.id === value);
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: value,
-        characterPrompt: selectedCharacter?.generation_prompt || ""
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
   
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    if (!childName.trim()) {
+      alert("Por favor, informe o nome da criança");
+      return;
+    }
+    
+    if (!childAge.trim()) {
+      alert("Por favor, informe a idade da criança");
+      return;
+    }
+    
+    const selectedCharacter = characters?.find(char => char.id === characterId);
+    const characterName = selectedCharacter?.name || "";
+    
+    onSubmit({
+      childName,
+      childAge,
+      theme,
+      setting,
+      style,
+      length,
+      characterId,
+      characterName,
+      readingLevel,
+      language,
+      moral
+    });
   };
-
-  const themes = [
+  
+  const themes: { id: StoryTheme; name: string }[] = [
     { id: "adventure", name: "Aventura" },
     { id: "fantasy", name: "Fantasia" },
     { id: "space", name: "Espaço" },
     { id: "ocean", name: "Oceano" },
     { id: "dinosaurs", name: "Dinossauros" }
   ];
-
-  const settings = [
+  
+  const settings: { id: StorySetting; name: string }[] = [
     { id: "forest", name: "Floresta Encantada" },
     { id: "castle", name: "Castelo Mágico" },
     { id: "space", name: "Espaço Sideral" },
@@ -114,7 +129,7 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     { id: "dinosaurland", name: "Terra dos Dinossauros" }
   ];
   
-  const styles = [
+  const styles: { id: StoryStyle; name: string }[] = [
     { id: "cartoon", name: "Desenho Animado" },
     { id: "watercolor", name: "Aquarela" },
     { id: "realistic", name: "Realista" },
@@ -122,25 +137,25 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     { id: "papercraft", name: "Papel e Recortes" }
   ];
   
-  const lengths = [
+  const lengths: { id: StoryLength; name: string }[] = [
     { id: "short", name: "Curta (5 páginas)" },
     { id: "medium", name: "Média (10 páginas)" },
     { id: "long", name: "Longa (15 páginas)" }
   ];
   
-  const readingLevels = [
+  const readingLevels: { id: ReadingLevel; name: string }[] = [
     { id: "beginner", name: "Iniciante (4-6 anos)" },
     { id: "intermediate", name: "Intermediário (7-9 anos)" },
     { id: "advanced", name: "Avançado (10-12 anos)" }
   ];
   
-  const languages = [
+  const languages: { id: StoryLanguage; name: string }[] = [
     { id: "portuguese", name: "Português" },
     { id: "english", name: "Inglês" },
     { id: "spanish", name: "Espanhol" }
   ];
   
-  const morals = [
+  const morals: { id: StoryMoral; name: string }[] = [
     { id: "friendship", name: "Amizade e Cooperação" },
     { id: "courage", name: "Coragem e Superação" },
     { id: "respect", name: "Respeito às Diferenças" },
@@ -148,223 +163,216 @@ const StoryForm = ({ onSubmit }: StoryFormProps) => {
     { id: "honesty", name: "Honestidade e Verdade" },
     { id: "perseverance", name: "Perseverança e Esforço" }
   ];
-
+  
   return (
-    <motion.form 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      onSubmit={handleSubmit}
-      className="w-full"
-    >
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="characterId" className="block text-sm font-medium mb-1 flex items-center gap-2">
-              Personagem Principal <Sparkles className="h-4 w-4 text-amber-500" />
-            </label>
-            <div className="relative">
-              <select
-                id="characterId"
-                name="characterId"
-                value={formData.characterId}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all appearance-none"
-              >
-                <option value="">Selecione um personagem</option>
-                {isLoading ? (
-                  <option disabled>Carregando personagens...</option>
-                ) : characters && characters.length > 0 ? (
-                  characters.map(character => (
-                    <option key={character.id} value={character.id}>
-                      {character.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>Nenhum personagem encontrado</option>
-                )}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </div>
-            {formData.characterId && formData.characterPrompt && (
-              <div className="mt-2 p-2 bg-amber-50 rounded-md border border-amber-100">
-                <div className="flex items-center gap-1 text-xs text-amber-700 mb-1">
-                  <Sparkles className="h-3 w-3" />
-                  <span>Prompt de geração disponível para este personagem</span>
-                </div>
-                <p className="text-xs text-gray-600">{formData.characterPrompt}</p>
-              </div>
-            )}
-          </div>
-        
-          <div>
-            <label htmlFor="childName" className="block text-sm font-medium mb-1">
-              Nome da criança
-            </label>
-            <input
-              id="childName"
-              name="childName"
-              type="text"
-              required
-              value={formData.childName}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
-              placeholder="Ex: Sofia"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="childAge" className="block text-sm font-medium mb-1">
-              Idade
-            </label>
-            <input
-              id="childAge"
-              name="childAge"
-              type="text"
-              required
-              value={formData.childAge}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all"
-              placeholder="Ex: 5 anos"
-            />
-          </div>
-          
-          <div className="bg-violet-50 p-4 rounded-lg border border-violet-100 mt-6 mb-2">
-            <h3 className="text-sm font-medium text-violet-900 mb-3 flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Opções Adicionais
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="readingLevel" className="text-sm font-medium mb-1 flex items-center gap-1.5">
-                  <BookOpen className="h-3.5 w-3.5 text-violet-600" />
-                  Nível de Leitura
-                </Label>
-                <Select
-                  value={formData.readingLevel}
-                  onValueChange={(value) => handleSelectChange("readingLevel", value)}
-                >
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Selecione o nível de leitura" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {readingLevels.map(level => (
-                      <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="language" className="text-sm font-medium mb-1 flex items-center gap-1.5">
-                  <Globe className="h-3.5 w-3.5 text-violet-600" />
-                  Idioma
-                </Label>
-                <Select
-                  value={formData.language}
-                  onValueChange={(value) => handleSelectChange("language", value)}
-                >
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Selecione o idioma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languages.map(language => (
-                      <SelectItem key={language.id} value={language.id}>{language.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="moral" className="text-sm font-medium mb-1 flex items-center gap-1.5">
-                  <Award className="h-3.5 w-3.5 text-violet-600" />
-                  Moral da História
-                </Label>
-                <Select
-                  value={formData.moral}
-                  onValueChange={(value) => handleSelectChange("moral", value)}
-                >
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Selecione a moral" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {morals.map(moral => (
-                      <SelectItem key={moral.id} value={moral.id}>{moral.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label htmlFor="theme" className="block text-sm font-medium mb-1">
-              Tema da história
-            </label>
-            <div className="relative">
-              <select
-                id="theme"
-                name="theme"
-                value={formData.theme}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all appearance-none"
-              >
-                {themes.map(theme => (
-                  <option key={theme.id} value={theme.id}>
-                    {theme.name}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label htmlFor="setting" className="block text-sm font-medium mb-1">
-              Cenário
-            </label>
-            <div className="relative">
-              <select
-                id="setting"
-                name="setting"
-                value={formData.setting}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-storysnap-blue/50 transition-all appearance-none"
-              >
-                {settings.map(setting => (
-                  <option key={setting.id} value={setting.id}>
-                    {setting.name}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </div>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="childName">Nome da criança</Label>
+          <Input
+            id="childName"
+            value={childName}
+            onChange={(e) => setChildName(e.target.value)}
+            placeholder="Ex: Sofia"
+            className="mt-1"
+          />
         </div>
         
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          type="submit"
-          className="w-full py-3 px-4 bg-storysnap-blue text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:bg-storysnap-blue/90 transition-all"
-        >
-          Gerar História
-        </motion.button>
+        <div>
+          <Label htmlFor="childAge">Idade</Label>
+          <Input
+            id="childAge"
+            value={childAge}
+            onChange={(e) => setChildAge(e.target.value)}
+            placeholder="Ex: 5 anos"
+            className="mt-1"
+          />
+        </div>
       </div>
-    </motion.form>
+      
+      <div>
+        <Label htmlFor="character">Personagem</Label>
+        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          {isLoading ? (
+            <div className="col-span-full p-4 text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-600 mx-auto"></div>
+              <p className="mt-2 text-sm text-slate-500">Carregando personagens...</p>
+            </div>
+          ) : (
+            characters?.map((character) => (
+              <div
+                key={character.id}
+                onClick={() => setCharacterId(character.id)}
+                className={`
+                  border rounded-lg p-3 cursor-pointer flex items-center gap-3 transition-colors
+                  ${characterId === character.id 
+                    ? 'border-violet-400 bg-violet-50' 
+                    : 'border-slate-200 hover:border-violet-200 hover:bg-violet-50/50'}
+                `}
+              >
+                {character.image_url ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden border border-violet-100 flex-shrink-0">
+                    <img 
+                      src={character.image_url} 
+                      alt={character.name} 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg text-violet-600">
+                      {character.name.charAt(0)}
+                    </span>
+                  </div>
+                )}
+                
+                <span className="font-medium text-sm truncate flex-1">
+                  {character.name}
+                </span>
+                
+                <div className={`w-4 h-4 rounded-full border ${
+                  characterId === character.id 
+                    ? 'border-violet-500 bg-violet-500' 
+                    : 'border-slate-300'
+                } flex-shrink-0`}>
+                  {characterId === character.id && (
+                    <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M7 13L10 16L17 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="theme">Tema</Label>
+          <Select value={theme} onValueChange={(value) => setTheme(value as StoryTheme)}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Selecione um tema" />
+            </SelectTrigger>
+            <SelectContent>
+              {themes.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Label htmlFor="setting">Cenário</Label>
+          <Select value={setting} onValueChange={(value) => setSetting(value as StorySetting)}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Selecione um cenário" />
+            </SelectTrigger>
+            <SelectContent>
+              {settings.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="style">Estilo Visual</Label>
+          <Select value={style} onValueChange={(value) => setStyle(value as StoryStyle)}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Selecione um estilo" />
+            </SelectTrigger>
+            <SelectContent>
+              {styles.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Label htmlFor="length">Tamanho</Label>
+          <Select value={length} onValueChange={(value) => setLength(value as StoryLength)}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Selecione um tamanho" />
+            </SelectTrigger>
+            <SelectContent>
+              {lengths.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      <div className="p-4 bg-violet-50 rounded-lg border border-violet-100">
+        <h3 className="font-medium mb-4 flex items-center gap-1.5">Opções Adicionais</h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="readingLevel" className="flex items-center gap-1.5 mb-1">
+              <BookOpen className="h-3.5 w-3.5 text-violet-600" />
+              Nível de Leitura
+            </Label>
+            <Select value={readingLevel} onValueChange={(value) => setReadingLevel(value as ReadingLevel)}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Selecione o nível" />
+              </SelectTrigger>
+              <SelectContent>
+                {readingLevels.map(level => (
+                  <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <Label htmlFor="language" className="flex items-center gap-1.5 mb-1">
+              <Globe className="h-3.5 w-3.5 text-violet-600" />
+              Idioma
+            </Label>
+            <Select value={language} onValueChange={(value) => setLanguage(value as StoryLanguage)}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Selecione o idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map(lang => (
+                  <SelectItem key={lang.id} value={lang.id}>{lang.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <Label htmlFor="moral" className="flex items-center gap-1.5 mb-1">
+              <Award className="h-3.5 w-3.5 text-violet-600" />
+              Moral da História
+            </Label>
+            <Select value={moral} onValueChange={(value) => setMoral(value as StoryMoral)}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Selecione a moral" />
+              </SelectTrigger>
+              <SelectContent>
+                {morals.map(m => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-6">
+        <button
+          type="submit"
+          className="w-full px-6 py-3 bg-storysnap-blue text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:bg-storysnap-blue/90 transition-all"
+        >
+          Continuar
+        </button>
+      </div>
+    </form>
   );
 };
 
