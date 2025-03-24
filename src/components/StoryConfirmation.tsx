@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, AlertCircle, Info } from "lucide-react";
+import { Sparkles, AlertCircle, Info, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BookGenerationService } from "@/services/BookGenerationService";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 interface StoryDetails {
   childName: string;
@@ -62,29 +63,34 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
 }) => {
   const [isApiAvailable, setIsApiAvailable] = useState(apiAvailable);
   const [apiKeyMessage, setApiKeyMessage] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
   
+  // Check API key status on component mount and when props change
   useEffect(() => {
-    // Check if the API key is available
-    const checkApiKey = () => {
-      const isGeminiAvailable = BookGenerationService.isGeminiApiKeyValid();
-      setIsApiAvailable(isGeminiAvailable);
-      
-      if (!isGeminiAvailable) {
-        const apiKey = BookGenerationService.getGeminiApiKey();
-        if (!apiKey) {
-          setApiKeyMessage("Nenhuma chave API Gemini configurada. Configure nas configurações para ativar todos os recursos.");
-        } else if (apiKey === 'undefined' || apiKey === 'null') {
-          setApiKeyMessage("Chave API Gemini inválida. Verifique as configurações.");
-        } else {
-          setApiKeyMessage("Erro ao conectar com a API Gemini. Verifique se a chave é válida nas configurações.");
-        }
-      } else {
-        setApiKeyMessage(null);
-      }
-    };
-    
     checkApiKey();
   }, [apiAvailable]);
+  
+  // Function to check API key status
+  const checkApiKey = () => {
+    const isGeminiAvailable = BookGenerationService.isGeminiApiKeyValid();
+    setIsApiAvailable(isGeminiAvailable);
+    
+    // Get the API key to display in UI 
+    const key = BookGenerationService.getGeminiApiKey();
+    setApiKey(key);
+    
+    if (!isGeminiAvailable) {
+      if (!key) {
+        setApiKeyMessage("Nenhuma chave API Gemini configurada. Configure nas configurações para ativar todos os recursos.");
+      } else if (key === 'undefined' || key === 'null') {
+        setApiKeyMessage("Chave API Gemini inválida. Verifique as configurações.");
+      } else {
+        setApiKeyMessage("Erro ao conectar com a API Gemini. Verifique se a chave é válida nas configurações.");
+      }
+    } else {
+      setApiKeyMessage(null);
+    }
+  };
   
   const handleConfirm = () => {
     if (!isApiAvailable) {
@@ -94,6 +100,20 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
       return;
     }
     onConfirm();
+  };
+
+  const handleSaveApiKey = () => {
+    if (apiKey && apiKey.trim()) {
+      const success = BookGenerationService.setGeminiApiKey(apiKey);
+      if (success) {
+        toast.success("Chave da API Gemini salva com sucesso");
+        checkApiKey(); // Re-check API key status
+      } else {
+        toast.error("Erro ao salvar a chave da API");
+      }
+    } else {
+      toast.error("Por favor, insira uma chave de API válida");
+    }
   };
 
   return (
@@ -113,8 +133,24 @@ const StoryConfirmation: React.FC<StoryConfirmationProps> = ({
       {!isApiAvailable && (
         <Alert className="mb-6 border border-amber-200" variant="default">
           <AlertCircle className="h-4 w-4 text-amber-500" />
-          <AlertDescription>
+          <AlertDescription className="flex flex-col gap-2">
             <span className="font-semibold">Modo simplificado ativo:</span> {apiKeyMessage || "Configure uma chave API válida nas configurações para ativar todos os recursos."}
+            
+            <div className="flex items-center gap-2 mt-1">
+              <Link to="/admin?tab=config" className="text-sm text-amber-700 hover:text-amber-900 underline flex items-center gap-1">
+                <Settings className="h-3 w-3" /> 
+                Ir para configurações
+              </Link>
+              <span className="text-sm text-slate-500">ou</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs border-amber-300 text-amber-700 hover:text-amber-900 hover:bg-amber-50"
+                onClick={handleSaveApiKey}
+              >
+                Usar esta chave: {apiKey}
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}

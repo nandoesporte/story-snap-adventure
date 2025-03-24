@@ -10,6 +10,7 @@ import { reinitializeGeminiAI } from '@/lib/openai';
 const GeminiApiKeyManager = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     // Load API key from localStorage on component mount
@@ -29,12 +30,32 @@ const GeminiApiKeyManager = () => {
       localStorage.setItem('gemini_api_key', apiKey);
       
       // Reinitialize Gemini with the new API key
-      reinitializeGeminiAI(apiKey);
+      const newClient = reinitializeGeminiAI(apiKey);
       
-      toast.success("Chave da API Gemini salva com sucesso");
+      if (newClient) {
+        toast.success("Chave da API Gemini salva com sucesso");
+        
+        // Test the connection
+        setTestStatus('testing');
+        try {
+          // Make a simple test request to verify the API key works
+          const model = newClient.getGenerativeModel({ model: "gemini-1.0-pro" });
+          await model.generateContent("Test connection to Gemini API");
+          setTestStatus('success');
+          toast.success("Conexão com a API Gemini testada com sucesso!");
+        } catch (error) {
+          console.error("Error testing Gemini API:", error);
+          setTestStatus('error');
+          toast.error("A chave foi salva, mas não foi possível testar a conexão. Verifique se a chave é válida.");
+        }
+      } else {
+        toast.error("Erro ao inicializar o cliente Gemini. Verifique a chave da API.");
+        setTestStatus('error');
+      }
     } catch (error) {
       console.error("Error saving Gemini API key:", error);
       toast.error("Erro ao salvar a chave da API");
+      setTestStatus('error');
     } finally {
       setIsSaving(false);
     }
@@ -72,15 +93,27 @@ const GeminiApiKeyManager = () => {
               Google AI Studio
             </a>
           </p>
+          
+          {testStatus === 'success' && (
+            <p className="text-xs text-green-600 mt-2">
+              ✓ Conexão com a API Gemini estabelecida com sucesso
+            </p>
+          )}
+          
+          {testStatus === 'error' && (
+            <p className="text-xs text-red-600 mt-2">
+              ✗ Erro ao testar a conexão com a API Gemini
+            </p>
+          )}
         </div>
       </CardContent>
       <CardFooter>
         <Button 
           onClick={handleSaveApiKey} 
-          disabled={isSaving}
+          disabled={isSaving || testStatus === 'testing'}
           className="w-full"
         >
-          {isSaving ? "Salvando..." : "Salvar Chave da API"}
+          {isSaving || testStatus === 'testing' ? "Salvando e testando..." : "Salvar e Testar Chave da API"}
         </Button>
       </CardFooter>
     </Card>

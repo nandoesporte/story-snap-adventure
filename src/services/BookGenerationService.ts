@@ -185,10 +185,21 @@ export class BookGenerationService {
   /**
    * Set the Gemini API key in localStorage
    */
-  static setGeminiApiKey(apiKey: string): void {
-    localStorage.setItem('gemini_api_key', apiKey);
-    // Reinitialize the Gemini API with the new key
-    reinitializeGeminiAI(apiKey);
+  static setGeminiApiKey(apiKey: string): boolean {
+    try {
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('Tentativa de salvar chave vazia');
+        return false;
+      }
+      
+      localStorage.setItem('gemini_api_key', apiKey);
+      // Reinitialize the Gemini API with the new key
+      const newClient = reinitializeGeminiAI(apiKey);
+      return newClient !== null;
+    } catch (error) {
+      console.error('Erro ao definir chave da API Gemini:', error);
+      return false;
+    }
   }
 
   /**
@@ -196,7 +207,7 @@ export class BookGenerationService {
    */
   static isGeminiApiKeyValid(): boolean {
     const apiKey = this.getGeminiApiKey();
-    return !!apiKey && apiKey.length > 0 && apiKey !== 'undefined';
+    return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'undefined' && apiKey !== 'null' && apiKey.startsWith('AIza'));
   }
 
   /**
@@ -205,7 +216,9 @@ export class BookGenerationService {
   static async generateStory(storyParams: Story, progressCallback?: (message: string, progress: number) => void): Promise<CompleteStory> {
     // Check if we have an API key first
     if (!this.isGeminiApiKeyValid()) {
-      throw new Error('API key não encontrada. Configure a chave da API Gemini nas configurações.');
+      // Dispatch an event to notify components about API issues
+      window.dispatchEvent(new CustomEvent('storybot_api_issue'));
+      throw new Error('API key não encontrada ou inválida. Configure a chave da API Gemini nas configurações.');
     }
     
     try {
