@@ -39,7 +39,7 @@ const defaultCharacter: Omit<Character, 'id' | 'created_at'> = {
   generation_prompt: ""
 };
 
-const CharacterManager = () => {
+export const CharacterManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -767,6 +767,3 @@ const CharacterManager = () => {
     </div>
   );
 };
-
-export default CharacterManager;
-export { CharacterManager };

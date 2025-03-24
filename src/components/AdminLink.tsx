@@ -12,49 +12,68 @@ export const AdminLink = () => {
   const location = useLocation();
   const isOnAdminPage = location.pathname.startsWith('/admin');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // For simplicity, just check if it's the target email
-    // This avoids the circular reference in RLS policies
-    if (user?.email === 'nandoesporte1@gmail.com') {
-      setIsAdmin(true);
-      return;
-    }
-    
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
-    
     const checkAdminStatus = async () => {
+      setLoading(true);
+      
+      if (!user) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      
       try {
-        // Try to initialize the table structure first
-        await supabase.rpc('create_user_profiles_if_not_exists');
+        console.log("AdminLink: Checking admin status for", user.email);
         
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
+        // First check: direct email match
+        if (user.email === 'nandoesporte1@gmail.com') {
+          console.log("Admin link visible: Direct email match for", user.email);
+          localStorage.setItem('user_role', 'admin');
+          setIsAdmin(true);
+          setLoading(false);
           return;
         }
         
-        setIsAdmin(data?.is_admin || false);
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
+        // Second check: database
+        try {
+          // Try to initialize the table structure first
+          await supabase.rpc('create_user_profiles_if_not_exists');
+          
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single();
+          
+          console.log("AdminLink: Database check result:", { data, error });
+            
+          if (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } else if (data?.is_admin) {
+            console.log("Admin link visible: Database check");
+            localStorage.setItem('user_role', 'admin');
+            setIsAdmin(true);
+          } else {
+            localStorage.setItem('user_role', 'user');
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        }
+      } finally {
+        setLoading(false);
       }
     };
     
     checkAdminStatus();
   }, [user]);
 
-  // Don't show the admin link if not logged in or definitely not an admin
-  if (!user || !isAdmin) {
+  // Don't show the admin link if not logged in, loading, or definitely not an admin
+  if (!user || loading || !isAdmin) {
     return null;
   }
 

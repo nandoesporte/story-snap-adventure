@@ -1,544 +1,623 @@
-import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
-import { StoryBot } from "./StoryBot";
-import { geminiAI } from "@/lib/openai";
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { reinitializeGeminiAI } from '@/lib/openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Types
-export type StoryCharacter = {
-  id?: string;
-  name: string;
-  description?: string;
-  personality?: string;
-  image_url?: string;
-  generation_prompt?: string;
-};
+// Type definitions that are needed in other components
+export type StoryTheme = 'adventure' | 'fantasy' | 'space' | 'ocean' | 'dinosaurs';
+export type StorySetting = 'forest' | 'castle' | 'space' | 'underwater' | 'dinosaurland';
+export type StoryStyle = 'cartoon' | 'watercolor' | 'realistic' | 'childrenbook' | 'papercraft';
+export type StoryLength = 'short' | 'medium' | 'long';
+export type ReadingLevel = 'beginner' | 'intermediate' | 'advanced';
+export type StoryLanguage = 'portuguese' | 'english' | 'spanish';
+export type StoryMoral = 'friendship' | 'courage' | 'respect' | 'environment' | 'honesty' | 'perseverance';
 
-export type StoryTheme = 
-  | "adventure" 
-  | "fantasy" 
-  | "space" 
-  | "ocean" 
-  | "dinosaurs";
-
-export type StorySetting = 
-  | "forest" 
-  | "castle" 
-  | "space" 
-  | "underwater" 
-  | "dinosaurland";
-
-export type StoryStyle = 
-  | "cartoon" 
-  | "watercolor" 
-  | "realistic" 
-  | "childrenbook" 
-  | "papercraft";
-
-export type StoryLength = 
-  | "short" 
-  | "medium" 
-  | "long";
-
-export type ReadingLevel = 
-  | "beginner" 
-  | "intermediate" 
-  | "advanced";
-
-export type StoryLanguage = 
-  | "portuguese" 
-  | "english" 
-  | "spanish";
-
-export type StoryMoral = 
-  | "friendship" 
-  | "courage" 
-  | "respect" 
-  | "environment" 
-  | "honesty" 
-  | "perseverance";
-
-export type StoryPage = {
-  text: string;
-  imageUrl: string;
-  imagePrompt?: string;
-};
-
-export type StoryInputData = {
+export interface StoryInputData {
   childName: string;
   childAge: string;
   theme: StoryTheme;
   setting: StorySetting;
   characterId?: string;
   characterName?: string;
-  characterDetails?: StoryCharacter;
   style?: StoryStyle;
   length?: StoryLength;
   imagePreview?: string | null;
   readingLevel?: ReadingLevel;
   language?: StoryLanguage;
   moral?: StoryMoral;
-};
+}
 
-export type GeneratedStory = {
+export interface GeneratedStory {
   title: string;
   content: string[];
-};
+}
 
-export type CompleteStory = {
+export interface StoryPage {
+  text: string;
+  page_number: number;
+  image_prompt?: string;
+  image_url?: string;
+}
+
+export interface Story {
+  id?: string;
   title: string;
-  coverImageUrl: string;
-  childImage: string | null;
-  childName: string;
-  childAge: string;
-  theme: string;
-  setting: string;
-  characterId?: string;
-  characterName?: string;
+  character_name: string;
+  character_age?: string;
+  theme?: string;
+  setting?: string;
+  style?: string;
+  moral?: string;
+  language?: string;
+  reading_level?: string;
+  num_pages?: number;
+  character_prompt?: string;
+  created_at?: string;
+  updated_at?: string;
+  user_id?: string;
+  cover_image?: string;
+  published?: boolean;
+}
+
+export interface CompleteStory extends Story {
   pages: StoryPage[];
-};
-
-// Mapping functions for UI display
-export const getThemeName = (theme: StoryTheme): string => {
-  const themeMap: Record<StoryTheme, string> = {
-    adventure: "Aventura",
-    fantasy: "Fantasia",
-    space: "Espaço",
-    ocean: "Oceano",
-    dinosaurs: "Dinossauros"
-  };
-  return themeMap[theme] || theme;
-};
-
-export const getSettingName = (setting: StorySetting): string => {
-  const settingMap: Record<StorySetting, string> = {
-    forest: "Floresta Encantada",
-    castle: "Castelo Mágico",
-    space: "Espaço Sideral",
-    underwater: "Mundo Submarino",
-    dinosaurland: "Terra dos Dinossauros"
-  };
-  return settingMap[setting] || setting;
-};
-
-export const getStyleName = (style: StoryStyle): string => {
-  const styleMap: Record<StoryStyle, string> = {
-    cartoon: "Desenho Animado",
-    watercolor: "Aquarela",
-    realistic: "Realista",
-    childrenbook: "Livro Infantil Clássico",
-    papercraft: "Papel e Recortes"
-  };
-  return styleMap[style] || style;
-};
-
-export const getLengthName = (length: StoryLength): string => {
-  const lengthMap: Record<StoryLength, string> = {
-    short: "Curta (5 páginas)",
-    medium: "Média (10 páginas)",
-    long: "Longa (15 páginas)"
-  };
-  return lengthMap[length] || length;
-};
+}
 
 export class BookGenerationService {
-  private storyBot: StoryBot;
-  private storyData: StoryInputData;
-  private onProgressUpdate?: (stage: string, percent: number) => void;
-  private onError?: (message: string) => void;
-  private isCancelled: boolean = false;
-  private customGeminiApiKey: string | null = null;
-
+  // Global tracking for generation
+  static currentStoryId: string | null = null;
+  static isGenerating: boolean = false;
+  static abortController: AbortController | null = null;
+  
+  // Instance properties for the instance-based approach
+  private data: StoryInputData;
+  private progressCallback?: (stage: string, percent: number) => void;
+  private errorCallback?: (message: string) => void;
+  
   constructor(
-    storyData: StoryInputData, 
-    onProgressUpdate?: (stage: string, percent: number) => void,
-    onError?: (message: string) => void,
-    customApiKey?: string | null
+    data: StoryInputData,
+    progressCallback?: (stage: string, percent: number) => void,
+    errorCallback?: (message: string) => void
   ) {
-    this.storyBot = new StoryBot();
-    this.storyData = storyData;
-    this.onProgressUpdate = onProgressUpdate;
-    this.onError = onError;
-    this.customGeminiApiKey = customApiKey || import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || null;
-    
-    // Store API key in localStorage if provided
-    if (customApiKey) {
-      localStorage.setItem('gemini_api_key', customApiKey);
-    }
+    this.data = data;
+    this.progressCallback = progressCallback;
+    this.errorCallback = errorCallback;
   }
-
-  public cancel() {
-    this.isCancelled = true;
+  
+  public cancel(): void {
+    BookGenerationService.cancelGeneration();
   }
-
-  private updateProgress(stage: string, percent: number) {
-    if (this.isCancelled) return;
-    if (this.onProgressUpdate) {
-      this.onProgressUpdate(stage, percent);
-    }
-  }
-
-  private handleError(message: string) {
-    if (this.onError) {
-      this.onError(message);
-    }
-    console.error(message);
-  }
-
-  public setGeminiApiKey(apiKey: string) {
-    this.customGeminiApiKey = apiKey;
-    localStorage.setItem('gemini_api_key', apiKey);
-  }
-
-  public static getGeminiApiKey(): string | null {
-    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || null;
-  }
-
-  public async fetchCharacterDetails(characterId: string): Promise<StoryCharacter | null> {
-    try {
-      const { data, error } = await supabase
-        .from("characters")
-        .select("*")
-        .eq("id", characterId)
-        .single();
-        
-      if (error) {
-        console.error("Error fetching character:", error);
-        return null;
-      }
-      
-      return data as StoryCharacter;
-    } catch (error) {
-      console.error("Error in character fetch:", error);
-      return null;
-    }
-  }
-
-  public async generateCompleteStory(): Promise<CompleteStory | null> {
-    if (this.isCancelled) return null;
-    
-    try {
-      this.updateProgress("preparando", 5);
-      
-      // Check for API key
-      if (!this.customGeminiApiKey) {
-        throw new Error("Chave da API Gemini não configurada. Configure a chave nas configurações.");
-      }
-      
-      // Fetch character details if needed
-      if (this.storyData.characterId && !this.storyData.characterDetails) {
-        const characterDetails = await this.fetchCharacterDetails(this.storyData.characterId);
-        if (characterDetails) {
-          this.storyData.characterDetails = characterDetails;
-          this.storyData.characterName = characterDetails.name;
-        }
-      }
-      
-      // Generate story content
-      this.updateProgress("gerando-historia", 15);
-      const storyContent = await this.generateStoryContent();
-      if (!storyContent || this.isCancelled) return null;
-      
-      this.updateProgress("historia-gerada", 30);
-      
-      // Generate cover image
-      this.updateProgress("gerando-capa", 40);
-      const coverImageUrl = await this.generateCoverImage(storyContent.title);
-      if (!coverImageUrl || this.isCancelled) return null;
-      
-      // Generate illustrations for each page
-      this.updateProgress("gerando-ilustracoes", 50);
-      const pagesWithImages = await this.generatePagesWithImages(storyContent.content);
-      if (!pagesWithImages || this.isCancelled) return null;
-      
-      this.updateProgress("finalizando", 95);
-      
-      // Assemble the complete story
-      const completeStory: CompleteStory = {
-        title: storyContent.title,
-        coverImageUrl,
-        childImage: this.storyData.imagePreview,
-        childName: this.storyData.childName,
-        childAge: this.storyData.childAge,
-        theme: this.storyData.theme,
-        setting: this.storyData.setting,
-        characterId: this.storyData.characterId,
-        characterName: this.storyData.characterName,
-        pages: pagesWithImages
-      };
-      
-      // Save the story to Supabase
-      try {
-        const userId = (await supabase.auth.getUser()).data.user?.id;
-        
-        if (userId) {
-          const { error } = await supabase.from('stories').insert({
-            user_id: userId,
-            title: completeStory.title,
-            cover_image_url: completeStory.coverImageUrl,
-            character_name: completeStory.childName,
-            character_age: completeStory.childAge,
-            theme: completeStory.theme,
-            setting: completeStory.setting,
-            style: this.storyData.style || 'cartoon',
-            pages: completeStory.pages
-          });
-          
-          if (error) {
-            console.error("Error saving story to database:", error);
-          } else {
-            console.log("Story saved successfully to database");
-          }
-        }
-      } catch (saveError) {
-        console.error("Error attempting to save story:", saveError);
-      }
-      
-      this.updateProgress("concluido", 100);
-      console.log("Complete story generated with correct format for ViewStory component");
-      return completeStory;
-      
-    } catch (error) {
-      console.error("Error generating complete story:", error);
-      const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro ao gerar a história. Por favor, tente novamente.";
-      this.handleError(errorMessage);
-      return null;
-    }
-  }
-
+  
+  /**
+   * Generate the story content based on the input data
+   */
   public async generateStoryContent(): Promise<GeneratedStory | null> {
     try {
-      const { theme, setting, childName, childAge, characterDetails, readingLevel, language, moral, length } = this.storyData;
+      // Convert the instance data to the format expected by the static method
+      const storyParams: Story = {
+        title: `Story for ${this.data.childName}`,
+        character_name: this.data.characterName || this.data.childName,
+        character_age: this.data.childAge,
+        theme: this.data.theme,
+        setting: this.data.setting,
+        style: this.data.style,
+        moral: this.data.moral,
+        language: this.data.language,
+        reading_level: this.data.readingLevel,
+        num_pages: this.getNumPagesFromLength(this.data.length)
+      };
       
-      // Determine page count based on length
-      const pageCount = length === "short" ? 5 : (length === "medium" ? 10 : 15);
-      
-      this.updateProgress("preparando-ia", 18);
-      
-      console.log("Generating story with Gemini AI...", {
-        childName,
-        childAge,
-        theme,
-        setting,
-        characterName: characterDetails?.name,
-        characterPrompt: characterDetails?.generation_prompt
-      });
-      
-      try {
-        // Create a new Gemini instance with custom API key
-        const customGemini = new GoogleGenerativeAI(this.customGeminiApiKey || '');
-        
-        // Use Gemini AI for story generation
-        const genModel = customGemini.getGenerativeModel({ 
-          model: "gemini-1.0-pro",
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2000,
-          }
-        });
-        
-        // Construct base prompt
-        let prompt = `Crie uma história infantil para ${childName}, de ${childAge} anos de idade.
-Tema: ${getThemeName(theme)}
-Cenário: ${getSettingName(setting)}
-Nível de leitura: ${readingLevel || "intermediate"}
-Idioma: ${language || "portuguese"}
-Moral da história: ${moral || "friendship"}
-Número de páginas: ${pageCount}
-
-`;
-
-        // Add character information if available
-        if (characterDetails) {
-          prompt += `Personagem principal: ${characterDetails.name}
-${characterDetails.description ? `Descrição: ${characterDetails.description}` : ''}
-${characterDetails.personality ? `Personalidade: ${characterDetails.personality}` : ''}
-${characterDetails.generation_prompt ? `\nInstruções adicionais: ${characterDetails.generation_prompt}` : ''}
-
-`;
+      // Use the static method to generate the story
+      const result = await BookGenerationService.generateStory(
+        storyParams,
+        (message, progress) => {
+          this.progressCallback?.(this.convertProgressStage(message), progress);
         }
-
-        // Instructions for formatting
-        prompt += `
-Por favor, formate a história da seguinte maneira:
-TITULO: [título da história]
-
-PAGINA 1: [texto da primeira página]
-PAGINA 2: [texto da segunda página]
-...
-
-Cada página deve ter aproximadamente 2-3 frases, adequadas para crianças de ${childAge} anos.
-Certifique-se de incluir o nome da criança (${childName}) como protagonista da história.
-Seja criativo, encantador e apropriado para a idade.`;
-
-        console.log("Sending prompt to Gemini:", prompt);
-        
-        const result = await genModel.generateContent(prompt);
-        const response = await result.response;
-        const responseText = response.text();
-        
-        console.log("Received response from Gemini:", responseText);
-        
-        // Parse the response to extract title and content
-        return this.parseStoryContent(responseText);
-      } catch (error) {
-        console.error("Error generating with Gemini:", error);
-        
-        if (this.isCancelled) return null;
-        
-        console.log("Falling back to local generator due to API error");
-        toast.info("Usando gerador de histórias local devido a limitações da API.");
-        return await this.storyBot.generateStoryFallback({
-          childName,
-          childAge,
-          theme,
-          setting,
-          imageUrl: this.storyData.imagePreview,
-          characterPrompt: characterDetails?.generation_prompt,
-          readingLevel: readingLevel || "intermediate",
-          language: language || "portuguese",
-          moral: moral || "friendship",
-          pageCount
-        });
-      }
-    } catch (error) {
-      console.error("Error generating story content:", error);
-      this.handleError("Erro ao gerar conteúdo da história.");
+      );
+      
+      // Convert the result to GeneratedStory format
+      return {
+        title: result.title,
+        content: result.pages.map(page => page.text)
+      };
+    } catch (error: any) {
+      console.error("Error in generateStoryContent:", error);
+      this.errorCallback?.(error.message);
       return null;
     }
   }
-
-  private parseStoryContent(responseText: string): GeneratedStory {
-    const titleMatch = responseText.match(/TITULO:?\s*(.*?)(?:\r?\n|$)/i);
-    const title = titleMatch ? titleMatch[1].trim() : `História de ${this.storyData.childName}`;
-    
-    // Extract pages using regex
-    const pageMatches = responseText.match(/PAGINA\s*\d+:?\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
-    
-    let content: string[] = [];
-    if (pageMatches && pageMatches.length > 0) {
-      content = pageMatches.map(page => {
-        return page.replace(/PAGINA\s*\d+:?\s*/i, '').trim();
-      });
-    } else {
-      // Fallback parsing - split by paragraphs
-      console.log("Couldn't parse pages, falling back to paragraph splitting");
-      const paragraphs = responseText.split('\n\n').filter(para => 
-        para.trim().length > 0 && !para.match(/TITULO:/i)
-      );
+  
+  /**
+   * Generate the complete story with illustrations
+   */
+  public async generateCompleteStory(): Promise<CompleteStory | null> {
+    // For now, this is a placeholder that just returns the story content
+    // without generating illustrations
+    try {
+      const storyContent = await this.generateStoryContent();
+      if (!storyContent) return null;
       
-      content = paragraphs;
+      // Convert to CompleteStory format
+      const completeStory: CompleteStory = {
+        title: storyContent.title,
+        character_name: this.data.characterName || this.data.childName,
+        pages: storyContent.content.map((text, index) => ({
+          text,
+          page_number: index + 1,
+          image_prompt: `Illustration for page ${index + 1}: ${text.substring(0, 100)}...`
+        }))
+      };
+      
+      return completeStory;
+    } catch (error) {
+      console.error("Error in generateCompleteStory:", error);
+      return null;
     }
-    
-    // If we don't have enough pages for the story length, add some
-    const pageCount = this.storyData.length === "short" ? 5 : (this.storyData.length === "medium" ? 10 : 15);
-    while (content.length < pageCount) {
-      content.push(`A aventura de ${this.storyData.childName} continua...`);
+  }
+  
+  private getNumPagesFromLength(length?: StoryLength): number {
+    switch (length) {
+      case 'short': return 5;
+      case 'medium': return 10;
+      case 'long': return 15;
+      default: return 5;
     }
-    
-    // Ensure we have at most the requested page count
-    content = content.slice(0, pageCount);
-    
-    console.log("Parsed Story:", { title, pageCount: content.length });
-    
-    return { title, content };
+  }
+  
+  private convertProgressStage(message: string): string {
+    if (message.includes("Preparando")) return "preparando";
+    if (message.includes("Criando uma história")) return "gerando-historia";
+    if (message.includes("StoryBot está escrevendo")) return "gerando-historia";
+    if (message.includes("Criando a narrativa")) return "gerando-historia";
+    if (message.includes("Formatando")) return "gerando-historia";
+    if (message.includes("Salvando")) return "finalizando";
+    if (message.includes("concluída")) return "concluido";
+    return "gerando-historia";
+  }
+  
+  /**
+   * Get the Gemini API key from localStorage or environment
+   */
+  static getGeminiApiKey(): string {
+    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
   }
 
-  private async generateCoverImage(title: string): Promise<string> {
-    if (this.isCancelled) return "";
+  /**
+   * Set the Gemini API key in localStorage
+   */
+  static setGeminiApiKey(apiKey: string): boolean {
+    try {
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('Tentativa de salvar chave vazia');
+        return false;
+      }
+      
+      localStorage.setItem('gemini_api_key', apiKey);
+      // Reinitialize the Gemini API with the new key
+      const newClient = reinitializeGeminiAI(apiKey);
+      return newClient !== null;
+    } catch (error) {
+      console.error('Erro ao definir chave da API Gemini:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if the Gemini API key is valid
+   */
+  static isGeminiApiKeyValid(): boolean {
+    const apiKey = this.getGeminiApiKey();
+    return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'undefined' && apiKey !== 'null' && apiKey.startsWith('AIza'));
+  }
+
+  /**
+   * Generate a children's story based on user inputs
+   */
+  static async generateStory(storyParams: Story, progressCallback?: (message: string, progress: number) => void): Promise<CompleteStory> {
+    // Check if we have an API key first
+    if (!this.isGeminiApiKeyValid()) {
+      // Dispatch an event to notify components about API issues
+      window.dispatchEvent(new CustomEvent('storybot_api_issue'));
+      throw new Error('API key não encontrada ou inválida. Configure a chave da API Gemini nas configurações.');
+    }
     
     try {
-      const { theme, childName, setting, style, characterDetails, moral } = this.storyData;
-      const childImage = this.storyData.imagePreview;
-      const characterPrompt = characterDetails?.generation_prompt || null;
+      if (this.isGenerating) {
+        throw new Error('Já existe uma geração em andamento.');
+      }
       
-      // Generate image description for cover
-      const coverDescription = await this.storyBot.generateImageDescription(
-        `Capa do livro com título "${title}", mostrando ${childName} em uma aventura no cenário de ${getSettingName(setting)} com tema de ${getThemeName(theme)}.`,
-        childName,
-        this.storyData.childAge,
-        theme,
-        setting,
-        this.storyData.moral || "friendship"
-      );
+      // Set up abort controller for cancellation
+      this.abortController = new AbortController();
+      this.isGenerating = true;
       
-      if (this.isCancelled) return "";
+      // Start with a new story ID
+      this.currentStoryId = uuidv4();
+      const storyId = this.currentStoryId;
       
-      // Generate cover image
-      return await this.storyBot.generateImage(
-        coverDescription,
-        childName,
-        theme,
-        setting,
-        childImage,
-        style || "cartoon",
-        characterPrompt
-      );
-    } catch (error) {
-      console.error("Error generating cover image:", error);
-      // Fall back to themed cover
-      return `/images/covers/${this.storyData.theme}.jpg`;
+      // Update progress
+      progressCallback?.('Preparando o StoryBot...', 5);
+      
+      // Get the system prompt for story generation
+      const systemPrompt = await this.getStoryBotPrompt();
+      
+      // Create the full prompt with user inputs
+      progressCallback?.('Criando uma história incrível...', 15);
+      
+      // Fetch character prompt if available
+      let characterDetails = '';
+      if (storyParams.character_name) {
+        characterDetails = await this.getCharacterPrompt(storyParams.character_name);
+      }
+      
+      const fullPrompt = this.buildStoryPrompt(storyParams, characterDetails);
+      
+      progressCallback?.('O StoryBot está escrevendo sua história...', 25);
+      
+      // Initialize Gemini API with the current API key
+      const gemini = new GoogleGenerativeAI(this.getGeminiApiKey());
+      
+      // Get the generative model
+      const model = gemini.getGenerativeModel({ 
+        model: 'gemini-1.0-pro',
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.9,
+          topK: 40,
+          maxOutputTokens: 8000,
+        },
+      });
+      
+      // Create a chat session with the system prompt
+      const chat = model.startChat({
+        history: [
+          {
+            role: 'user',
+            parts: [{ text: systemPrompt }],
+          },
+          {
+            role: 'model',
+            parts: [{ text: 'Entendido! Estou pronto para criar histórias infantis encantadoras e educativas como o StoryBot. Como posso ajudar hoje?' }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.9,
+          topK: 40,
+          maxOutputTokens: 8000,
+        },
+      });
+      
+      progressCallback?.('Criando a narrativa e os personagens...', 40);
+      
+      // Generate the story
+      const result = await chat.sendMessage(fullPrompt, {
+        signal: this.abortController?.signal,
+      });
+      
+      progressCallback?.('Formatando a história em páginas...', 60);
+      
+      // Process the response text
+      const responseText = result.response.text();
+      const parsedStory = this.parseStoryResponse(responseText, storyParams.title || 'História sem título');
+      
+      // Create entry in the database
+      progressCallback?.('Salvando sua história...', 85);
+      
+      // Check if we're still generating the same story (hasn't been cancelled)
+      if (this.currentStoryId !== storyId) {
+        throw new Error('A geração foi cancelada.');
+      }
+      
+      // Save the story to the database
+      const savedStory = await this.saveStoryToDatabase(parsedStory, storyParams);
+      
+      progressCallback?.('História concluída com sucesso!', 100);
+      
+      this.isGenerating = false;
+      this.abortController = null;
+      this.currentStoryId = null;
+      
+      return savedStory;
+    } catch (error: any) {
+      this.isGenerating = false;
+      this.abortController = null;
+      
+      if (error.name === 'AbortError') {
+        throw new Error('A geração da história foi cancelada.');
+      }
+      
+      console.error('Error generating story:', error);
+      throw error;
     }
   }
-
-  private async generatePagesWithImages(pageTexts: string[]): Promise<StoryPage[]> {
-    if (this.isCancelled) return [];
-    
-    const pagesWithImages: StoryPage[] = [];
-    const { theme, childName, setting, style, characterDetails, moral } = this.storyData;
-    const childImage = this.storyData.imagePreview;
-    const characterPrompt = characterDetails?.generation_prompt || null;
-    
-    for (let i = 0; i < pageTexts.length; i++) {
-      if (this.isCancelled) break;
+  
+  /**
+   * Cancel the current story generation
+   */
+  static cancelGeneration(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+    this.isGenerating = false;
+    this.currentStoryId = null;
+  }
+  
+  /**
+   * Get the StoryBot prompt from database or default
+   */
+  static async getStoryBotPrompt(): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('prompt')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
       
-      const pageText = pageTexts[i];
-      const progressPercent = 50 + Math.floor((i / pageTexts.length) * 45);
-      this.updateProgress(`ilustracao-${i+1}`, progressPercent);
-      
-      try {
-        // Generate image description
-        const imageDescription = await this.storyBot.generateImageDescription(
-          pageText + (this.storyData.characterName ? ` com o personagem ${this.storyData.characterName}` : ''),
-          childName,
-          this.storyData.childAge,
-          theme,
-          setting,
-          this.storyData.moral || "friendship"
-        );
-        
-        if (this.isCancelled) break;
-        
-        // Generate image based on description
-        const imageUrl = await this.storyBot.generateImage(
-          imageDescription,
-          childName,
-          theme,
-          setting,
-          childImage,
-          style || "cartoon",
-          characterPrompt
-        );
-        
-        pagesWithImages.push({
-          text: pageText,
-          imageUrl,
-          imagePrompt: imageDescription
-        });
-      } catch (error) {
-        console.error(`Failed to generate image for page ${i+1}:`, error);
-        
-        if (this.isCancelled) break;
-        
-        // Use fallback image
-        const fallbackUrl = `/images/placeholders/${theme}.jpg`;
-        pagesWithImages.push({
-          text: pageText,
-          imageUrl: fallbackUrl
-        });
+      if (error) {
+        console.warn('Error fetching StoryBot prompt, using default:', error);
+        return localStorage.getItem('storybot_prompt') || this.getDefaultStoryBotPrompt();
       }
+      
+      return data.prompt;
+    } catch (error) {
+      console.error('Error getting StoryBot prompt:', error);
+      return this.getDefaultStoryBotPrompt();
+    }
+  }
+  
+  /**
+   * Get the character prompt by name
+   */
+  static async getCharacterPrompt(characterName: string): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('generation_prompt, description, personality, age')
+        .eq('name', characterName)
+        .single();
+      
+      if (error) {
+        console.warn(`Error fetching character prompt for ${characterName}:`, error);
+        return '';
+      }
+      
+      if (data.generation_prompt) {
+        return data.generation_prompt;
+      } else if (data.description) {
+        // Build a basic prompt from the character details
+        return `Personagem: ${characterName}
+Idade: ${data.age || 'Não especificada'}
+Descrição: ${data.description}
+Personalidade: ${data.personality || 'Não especificada'}`;
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error getting character prompt:', error);
+      return '';
+    }
+  }
+  
+  /**
+   * Build the prompt for story generation
+   */
+  static buildStoryPrompt(storyParams: Story, characterDetails: string): string {
+    const {
+      title,
+      character_name,
+      character_age,
+      theme,
+      setting,
+      style,
+      moral,
+      language,
+      reading_level,
+      num_pages,
+    } = storyParams;
+    
+    let prompt = 'Crie uma história infantil com as seguintes características:\n\n';
+    
+    if (title) prompt += `Título: ${title}\n`;
+    if (character_name) prompt += `Personagem principal: ${character_name}\n`;
+    if (character_age) prompt += `Idade do personagem: ${character_age}\n`;
+    if (theme) prompt += `Tema: ${theme}\n`;
+    if (setting) prompt += `Cenário: ${setting}\n`;
+    if (style) prompt += `Estilo: ${style}\n`;
+    if (moral) prompt += `Moral/Lição: ${moral}\n`;
+    if (language) prompt += `Idioma: ${language}\n`;
+    if (reading_level) prompt += `Nível de leitura: ${reading_level}\n`;
+    if (num_pages) prompt += `Número de páginas: ${num_pages}\n`;
+    
+    // Add character details if available
+    if (characterDetails) {
+      prompt += `\nDetalhes do personagem:\n${characterDetails}\n`;
     }
     
-    return pagesWithImages;
+    prompt += `\nCada página deve ser claramente separada por "PÁGINA X:" e após o texto de cada página, inclua "PROMPT DA IMAGEM:" com uma descrição detalhada da cena para geração de ilustração.\n`;
+    
+    return prompt;
+  }
+  
+  /**
+   * Parse the response text into structured story pages
+   */
+  static parseStoryResponse(responseText: string, defaultTitle: string): CompleteStory {
+    // Extract title if possible
+    let title = defaultTitle;
+    const titleMatch = responseText.match(/^#\s*(.+)$/m) || responseText.match(/^Título:\s*(.+)$/m);
+    if (titleMatch && titleMatch[1]) {
+      title = titleMatch[1].trim();
+    }
+    
+    // Split text into pages
+    const pageRegex = /PÁGINA\s*(\d+):([\s\S]*?)(?=PÁGINA\s*\d+:|PROMPT DA IMAGEM:|$)/gi;
+    const promptRegex = /PROMPT DA IMAGEM:([\s\S]*?)(?=PÁGINA\s*\d+:|PROMPT DA IMAGEM:|$)/gi;
+    
+    const pages: StoryPage[] = [];
+    let pageMatch;
+    let pageIndex = 0;
+    
+    // If no explicit page markers, split by paragraphs
+    if (!responseText.match(pageRegex)) {
+      const paragraphs = responseText.split(/\n\n+/);
+      
+      // Group paragraphs into pages (3-4 paragraphs per page)
+      const paragraphsPerPage = 3;
+      
+      for (let i = 0; i < paragraphs.length; i += paragraphsPerPage) {
+        pageIndex++;
+        const pageContent = paragraphs.slice(i, i + paragraphsPerPage).join('\n\n');
+        
+        // Skip empty pages
+        if (!pageContent.trim()) continue;
+        
+        pages.push({
+          text: pageContent,
+          page_number: pageIndex,
+          image_prompt: `Uma ilustração para um livro infantil mostrando a cena: ${pageContent.substring(0, 150)}...`,
+        });
+      }
+    } else {
+      // Process pages with explicit markers
+      while ((pageMatch = pageRegex.exec(responseText)) !== null) {
+        const pageNumber = parseInt(pageMatch[1], 10);
+        const pageContent = pageMatch[2].trim();
+        
+        // Find image prompt for this page
+        let imagePrompt = '';
+        let promptMatch;
+        promptRegex.lastIndex = pageMatch.index + pageMatch[0].length;
+        
+        if ((promptMatch = promptRegex.exec(responseText)) !== null) {
+          if (promptMatch.index < pageRegex.lastIndex || pageRegex.lastIndex === 0) {
+            imagePrompt = promptMatch[1].trim();
+          }
+        }
+        
+        pages.push({
+          text: pageContent,
+          page_number: pageNumber,
+          image_prompt: imagePrompt,
+        });
+      }
+      
+      // Sort pages by page number
+      pages.sort((a, b) => a.page_number - b.page_number);
+    }
+    
+    return {
+      title,
+      character_name: '',  // Will be set from storyParams
+      pages,
+    };
+  }
+  
+  /**
+   * Save the story to the database
+   */
+  static async saveStoryToDatabase(parsedStory: CompleteStory, storyParams: Story): Promise<CompleteStory> {
+    try {
+      // Make sure we have a user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado.');
+      }
+      
+      // Create story entry
+      const storyData = {
+        id: this.currentStoryId || uuidv4(),
+        title: parsedStory.title || storyParams.title,
+        character_name: storyParams.character_name || '',
+        character_age: storyParams.character_age || '',
+        theme: storyParams.theme || '',
+        setting: storyParams.setting || '',
+        style: storyParams.style || '',
+        moral: storyParams.moral || '',
+        language: storyParams.language || 'Português',
+        reading_level: storyParams.reading_level || 'Intermediário',
+        character_prompt: storyParams.character_prompt || '',
+        user_id: user.id,
+        published: true,
+      };
+      
+      // Insert story
+      const { data: insertedStory, error } = await supabase
+        .from('stories')
+        .insert(storyData)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error inserting story:', error);
+        throw new Error(`Erro ao salvar história: ${error.message}`);
+      }
+      
+      // Insert pages
+      const pageInserts = parsedStory.pages.map(page => ({
+        story_id: insertedStory.id,
+        page_number: page.page_number,
+        content: page.text,
+        image_prompt: page.image_prompt || '',
+      }));
+      
+      const { error: pagesError } = await supabase
+        .from('story_pages')
+        .insert(pageInserts);
+      
+      if (pagesError) {
+        console.error('Error inserting pages:', pagesError);
+        
+        // Delete the story if page insertion failed
+        await supabase.from('stories').delete().eq('id', insertedStory.id);
+        
+        throw new Error(`Erro ao salvar páginas da história: ${pagesError.message}`);
+      }
+      
+      // Return the complete story with the database ID
+      return {
+        ...storyData,
+        pages: parsedStory.pages,
+        id: insertedStory.id,
+      };
+    } catch (error: any) {
+      console.error('Error saving story to database:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Default StoryBot prompt
+   */
+  static getDefaultStoryBotPrompt(): string {
+    return `Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
+
+Suas respostas devem ser:
+1. Criativas e envolventes
+2. Apropriadas para a idade indicada e nível de leitura especificado
+3. No idioma solicitado (português do Brasil por padrão)
+4. Livres de conteúdo assustador, violento ou inadequado
+5. Bem estruturadas com começo, meio e fim
+6. Ricas em detalhes visuais e sensoriais
+7. Com personagens cativantes e memoráveis
+8. Transmitir a lição moral solicitada de forma natural e não forçada
+
+Quando o usuário fornecer informações sobre um personagem específico (como nome, descrição e personalidade), você deve criar uma história onde esse personagem seja o protagonista principal. O personagem deve manter suas características exatas conforme descritas pelo usuário, e a história deve desenvolver-se em torno dele.
+
+Cada página deve ter conteúdo substancial com pelo menos 2-3 parágrafos (cerca de 100-150 palavras) para criar uma experiência de leitura rica.
+
+Ajuste a complexidade do vocabulário e das sentenças de acordo com o nível de leitura indicado:
+- Iniciante (4-6 anos): Frases curtas e simples, vocabulário básico
+- Intermediário (7-9 anos): Frases mais elaboradas, vocabulário moderado
+- Avançado (10-12 anos): Estruturas mais complexas, vocabulário rico
+
+Para as imagens, forneça descrições visuais detalhadas após cada página da história. Estas descrições serão usadas para gerar ilustrações. As descrições devem:
+1. Capturar o momento principal daquela parte da história
+2. Incluir detalhes sobre expressões dos personagens, cores, ambiente e ação
+3. Ser específicas sobre elementos visuais importantes
+4. Evitar elementos abstratos difíceis de representar visualmente
+5. Ter aproximadamente 50-100 palavras`;
   }
 }

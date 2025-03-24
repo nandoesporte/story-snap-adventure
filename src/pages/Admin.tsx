@@ -1,31 +1,61 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { StoryManager } from "@/components/admin/StoryManager";
 import { UserManager } from "@/components/admin/UserManager";
-import CharacterManager from "@/components/admin/CharacterManager";
+import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("stories");
   const [isAdmin, setIsAdmin] = useState(false);
-
-  React.useEffect(() => {
-    // Check if user is admin
-    if (user?.email === 'nandoesporte1@gmail.com') {
-      setIsAdmin(true);
-    } else if (user) {
-      // This logic mirrors what's in AdminLink.tsx
-      const checkAdmin = async () => {
+  const [loading, setLoading] = useState(true);
+  
+  // Parse query parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location]);
+  
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      setLoading(true);
+      
+      if (!user) {
+        console.log("Admin check: No user logged in");
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        console.log("Admin check for user:", user.email);
+        
+        // First check: If it's the target admin email (hardcoded check for reliability)
+        if (user.email === 'nandoesporte1@gmail.com') {
+          console.log("Admin access granted: Direct email match for", user.email);
+          localStorage.setItem('user_role', 'admin');
+          setIsAdmin(true);
+          setLoading(false);
+          return;
+        }
+        
+        // Second check: Check database
         try {
-          const { supabase } = await import('@/lib/supabase');
+          // Initialize the database structure if needed
           await supabase.rpc('create_user_profiles_if_not_exists');
           
           const { data, error } = await supabase
@@ -33,28 +63,57 @@ const Admin = () => {
             .select('is_admin')
             .eq('id', user.id)
             .single();
+          
+          console.log("Admin database check result:", { data, error });
             
-          if (!error) {
-            setIsAdmin(data?.is_admin || false);
+          if (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } else if (data?.is_admin) {
+            console.log("Admin access granted: Database check");
+            localStorage.setItem('user_role', 'admin');
+            setIsAdmin(true);
+          } else {
+            console.log("Admin access denied: Not an admin in database");
+            localStorage.setItem('user_role', 'user');
+            setIsAdmin(false);
           }
         } catch (error) {
-          console.error('Error checking admin status:', error);
+          console.error('Error during admin check:', error);
+          setIsAdmin(false);
         }
-      };
-      
-      checkAdmin();
-    }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAdminStatus();
   }, [user]);
 
-  React.useEffect(() => {
-    if (user === null) {
-      navigate("/auth");
-      toast.error("Faça login para acessar esta página");
-    } else if (user && !isAdmin) {
-      navigate("/");
-      toast.error("Você não tem permissão para acessar esta página");
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!loading) {
+      if (user === null) {
+        console.log("Redirecting to auth: No user");
+        navigate("/auth");
+        toast.error("Faça login para acessar esta página");
+      } else if (user && !isAdmin) {
+        console.log("Redirecting to home: Not admin");
+        navigate("/");
+        toast.error("Você não tem permissão para acessar esta página");
+      } else {
+        console.log("Admin access allowed");
+      }
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto my-8 p-4">
+        <h1 className="text-2xl font-bold">Verificando permissões...</h1>
+      </div>
+    );
+  }
 
   if (!user || !isAdmin) {
     return (
@@ -68,7 +127,7 @@ const Admin = () => {
     <div className="container mx-auto my-8 p-4">
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-6 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>

@@ -329,5 +329,3 @@ Elementos importantes:
     </Card>
   );
 };
-
-export default StoryBotPromptManager;
