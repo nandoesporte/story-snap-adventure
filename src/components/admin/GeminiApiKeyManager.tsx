@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,6 @@ const GeminiApiKeyManager = () => {
   const [debugInfo, setDebugInfo] = useState<string>("");
 
   useEffect(() => {
-    // Load API key from localStorage on component mount
     const savedKey = BookGenerationService.getGeminiApiKey() || "";
     setApiKey(savedKey);
   }, []);
@@ -29,26 +27,20 @@ const GeminiApiKeyManager = () => {
 
     setIsSaving(true);
     try {
-      // Trim the key to remove any accidental whitespace
       const trimmedKey = apiKey.trim();
       
-      // Save API key to localStorage
       localStorage.setItem('gemini_api_key', trimmedKey);
       
-      // Reinitialize Gemini with the new API key
       const newClient = reinitializeGeminiAI(trimmedKey);
       
       if (newClient) {
         toast.success("Chave da API Gemini salva com sucesso");
         
-        // Test the connection
         setTestStatus('testing');
         try {
-          // Use the updated model name gemini-1.5-pro
           const model = newClient.getGenerativeModel({ model: "gemini-1.5-pro" });
           const result = await model.generateContent("Test connection to Gemini API");
           
-          // Create debug info
           const responseText = result.response.text();
           setDebugInfo(JSON.stringify({
             apiKeyLength: trimmedKey.length,
@@ -63,12 +55,10 @@ const GeminiApiKeyManager = () => {
           setTestStatus('success');
           toast.success("Conexão com a API Gemini testada com sucesso!");
           
-          // Reset any stored API issues
           localStorage.removeItem("storybot_api_issue");
         } catch (error) {
           console.error("Error testing Gemini API:", error);
           
-          // Create debug info
           setDebugInfo(JSON.stringify({
             apiKeyLength: trimmedKey.length,
             apiKeyPrefix: trimmedKey.substring(0, 5) + "...",
@@ -90,7 +80,6 @@ const GeminiApiKeyManager = () => {
       toast.error("Erro ao salvar a chave da API");
       setTestStatus('error');
       
-      // Create debug info
       setDebugInfo(JSON.stringify({
         error: error.toString(),
         errorDetails: error.message || "No details available",
@@ -190,3 +179,4 @@ const GeminiApiKeyManager = () => {
 };
 
 export default GeminiApiKeyManager;
+export { GeminiApiKeyManager };
