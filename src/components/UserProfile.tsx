@@ -33,9 +33,11 @@ const UserProfile = () => {
       }
       
       try {
+        console.log("UserProfile: Checking admin status for", user.email);
+        
         // For simplicity, first check via direct email match
         if (user.email === 'nandoesporte1@gmail.com') {
-          console.log("Admin dropdown visible: Direct email match");
+          console.log("Admin dropdown visible: Direct email match for", user.email);
           localStorage.setItem('user_role', 'admin');
           setIsAdmin(true);
           setLoading(false);
@@ -52,6 +54,8 @@ const UserProfile = () => {
             .select('is_admin')
             .eq('id', user.id)
             .single();
+          
+          console.log("UserProfile: Database check result:", { data, error });
             
           if (error) {
             console.error('Error checking admin status:', error);

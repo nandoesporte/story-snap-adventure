@@ -25,9 +25,11 @@ export const AdminLink = () => {
       }
       
       try {
+        console.log("AdminLink: Checking admin status for", user.email);
+        
         // First check: direct email match
         if (user.email === 'nandoesporte1@gmail.com') {
-          console.log("Admin link visible: Direct email match");
+          console.log("Admin link visible: Direct email match for", user.email);
           localStorage.setItem('user_role', 'admin');
           setIsAdmin(true);
           setLoading(false);
@@ -44,6 +46,8 @@ export const AdminLink = () => {
             .select('is_admin')
             .eq('id', user.id)
             .single();
+          
+          console.log("AdminLink: Database check result:", { data, error });
             
           if (error) {
             console.error('Error checking admin status:', error);

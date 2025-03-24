@@ -35,15 +35,18 @@ const Admin = () => {
       setLoading(true);
       
       if (!user) {
+        console.log("Admin check: No user logged in");
         setIsAdmin(false);
         setLoading(false);
         return;
       }
       
       try {
+        console.log("Admin check for user:", user.email);
+        
         // First check: If it's the target admin email (hardcoded check for reliability)
         if (user.email === 'nandoesporte1@gmail.com') {
-          console.log("Admin access granted: Direct email match");
+          console.log("Admin access granted: Direct email match for", user.email);
           localStorage.setItem('user_role', 'admin');
           setIsAdmin(true);
           setLoading(false);
@@ -60,6 +63,8 @@ const Admin = () => {
             .select('is_admin')
             .eq('id', user.id)
             .single();
+          
+          console.log("Admin database check result:", { data, error });
             
           if (error) {
             console.error('Error checking admin status:', error);
@@ -89,11 +94,15 @@ const Admin = () => {
   useEffect(() => {
     if (!loading) {
       if (user === null) {
+        console.log("Redirecting to auth: No user");
         navigate("/auth");
         toast.error("Faça login para acessar esta página");
       } else if (user && !isAdmin) {
+        console.log("Redirecting to home: Not admin");
         navigate("/");
         toast.error("Você não tem permissão para acessar esta página");
+      } else {
+        console.log("Admin access allowed");
       }
     }
   }, [user, isAdmin, loading, navigate]);

@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Get API key from localStorage or environment variables
 const getGeminiApiKey = () => {
   const key = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
-  return key !== 'undefined' && key !== 'null' && key.length > 0 ? key : '';
+  return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
 };
 
 // Initialize Gemini API client with API key
@@ -18,8 +18,10 @@ export const reinitializeGeminiAI = (apiKey: string) => {
   }
   
   try {
-    localStorage.setItem('gemini_api_key', apiKey);
-    const newClient = new GoogleGenerativeAI(apiKey);
+    console.log(`Inicializando API Gemini com chave: ${apiKey.substring(0, 5)}...`);
+    const trimmedKey = apiKey.trim();
+    localStorage.setItem('gemini_api_key', trimmedKey);
+    const newClient = new GoogleGenerativeAI(trimmedKey);
     return newClient;
   } catch (error) {
     console.error('Erro ao reinicializar Gemini:', error);
@@ -82,6 +84,7 @@ export const openai = {
           console.error("Error using Gemini API:", error);
           // Dispatch an event to inform components about API issues
           window.dispatchEvent(new CustomEvent('storybot_api_issue'));
+          localStorage.setItem('storybot_api_issue', 'true');
           throw error;
         }
       }
