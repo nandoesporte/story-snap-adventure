@@ -44,8 +44,8 @@ const GeminiApiKeyManager = () => {
         // Test the connection
         setTestStatus('testing');
         try {
-          // Make a simple test request to verify the API key works
-          const model = newClient.getGenerativeModel({ model: "gemini-1.0-pro" });
+          // Make a simple test request to verify the API key works - updated model name
+          const model = newClient.getGenerativeModel({ model: "gemini-pro" });
           const result = await model.generateContent("Test connection to Gemini API");
           
           // Create debug info
@@ -54,6 +54,7 @@ const GeminiApiKeyManager = () => {
             apiKeyLength: trimmedKey.length,
             apiKeyPrefix: trimmedKey.substring(0, 5) + "...",
             response: responseText,
+            modelName: "gemini-pro",
             timestamp: new Date().toISOString()
           }, null, 2));
           
@@ -73,6 +74,7 @@ const GeminiApiKeyManager = () => {
             apiKeyPrefix: trimmedKey.substring(0, 5) + "...",
             error: error.toString(),
             errorDetails: error.message || "No details available",
+            modelName: "gemini-pro",
             timestamp: new Date().toISOString()
           }, null, 2));
           

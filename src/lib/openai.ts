@@ -50,8 +50,8 @@ export const openai = {
             parts: [{ text: msg.content }]
           }));
 
-          // Get appropriate model from Gemini
-          const modelName = model.includes('gpt-4') ? 'gemini-pro' : 'gemini-1.0-pro';
+          // Get appropriate model from Gemini - updated model names
+          const modelName = model.includes('gpt-4') ? 'gemini-pro' : 'gemini-pro';
           const geminiModel = currentGeminiAI.getGenerativeModel({ 
             model: modelName,
             generationConfig: {

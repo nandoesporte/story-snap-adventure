@@ -1,4 +1,3 @@
-
 import { openai, geminiAI } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
@@ -81,6 +80,7 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
+      // Updated model name to "gemini-pro"
       const completion = await openai.chat.completions.create({
         model: "gemini-pro",
         messages: formattedMessages,
@@ -148,6 +148,7 @@ export class StoryBot {
         }
       ];
       
+      // Updated model name to "gemini-pro"
       const completion = await openai.chat.completions.create({
         model: "gemini-pro",
         messages: formattedMessages,
@@ -275,6 +276,7 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
+      // Updated model name to "gemini-pro"
       const completion = await openai.chat.completions.create({
         model: "gemini-pro",
         messages: formattedMessages,
