@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import FileUpload from "@/components/FileUpload";
 import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import StoryConfirmation from "@/components/StoryConfirmation";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -38,11 +37,11 @@ import {
 } from "@/services/BookGenerationService";
 import { useStoryBot } from "@/hooks/useStoryBot";
 
-type CreationStep = "photo" | "prompt" | "details" | "confirmation" | "generating";
+type CreationStep = "prompt" | "details" | "confirmation" | "generating";
 
 const CreateStory = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<CreationStep>("photo");
+  const [step, setStep] = useState<CreationStep>("prompt");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [storyPrompt, setStoryPrompt] = useState<string>("");
@@ -55,20 +54,6 @@ const CreateStory = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [cancelRequested, setCancelRequested] = useState(false);
   const { apiAvailable } = useStoryBot();
-
-  const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file);
-    
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-    }
-  };
   
   const handlePromptSubmit = (prompt: string) => {
     setStoryPrompt(prompt);
@@ -189,10 +174,8 @@ const CreateStory = () => {
     setCancelRequested(true);
     setIsGenerating(false);
     
-    if (step === "photo" || step === "prompt" || step === "details" || step === "confirmation") {
-      if (step === "prompt") {
-        setStep("photo");
-      } else if (step === "details") {
+    if (step === "prompt" || step === "details" || step === "confirmation") {
+      if (step === "details") {
         setStep("prompt");
       } else if (step === "confirmation") {
         setStep("details");
@@ -241,39 +224,11 @@ const CreateStory = () => {
   
   const renderStep = () => {
     switch (step) {
-      case "photo":
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              Adicione uma foto da criança
-            </h2>
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              imagePreview={imagePreview}
-            />
-            <div className="mt-8 flex justify-end">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => imagePreview ? setStep("prompt") : toast.error("Por favor, adicione uma foto para continuar.")}
-                className="px-6 py-2 bg-storysnap-blue text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:bg-storysnap-blue/90 transition-all flex items-center gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                Próximo
-              </motion.button>
-            </div>
-          </motion.div>
-        );
-        
       case "prompt":
         return (
           <StoryPromptInput 
             onSubmit={handlePromptSubmit} 
-            onBack={() => setStep("photo")}
+            onBack={() => navigate("/")}
           />
         );
         
