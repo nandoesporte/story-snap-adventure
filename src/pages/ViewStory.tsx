@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
@@ -299,14 +300,14 @@ const ViewStory = () => {
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-gradient-to-b from-purple-600 to-indigo-700">
+      <div className="h-screen w-full flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="inline-block animate-bounce bg-white p-2 rounded-full mb-4">
+          <div className="inline-block animate-bounce bg-purple-100 p-2 rounded-full mb-4">
             <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
             </svg>
           </div>
-          <h3 className="text-xl font-bold text-white">Carregando sua história mágica...</h3>
+          <h3 className="text-xl font-bold text-gray-800">Carregando sua história mágica...</h3>
         </div>
       </div>
     );
@@ -314,7 +315,7 @@ const ViewStory = () => {
 
   if (loadError || !storyData) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-600 to-indigo-700">
+      <div className="min-h-screen flex flex-col bg-white">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
           <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
@@ -387,7 +388,7 @@ const ViewStory = () => {
 
   return (
     <div 
-      className="min-h-screen flex flex-col bg-gradient-to-b from-purple-600 to-indigo-700"
+      className="min-h-screen flex flex-col bg-white"
     >
       <Navbar />
       
@@ -396,7 +397,7 @@ const ViewStory = () => {
           {Array.from({ length: 20 }).map((_, i) => (
             <motion.div
               key={i}
-              className="absolute bg-white rounded-full opacity-70"
+              className="absolute bg-purple-200 rounded-full opacity-40"
               style={{
                 width: Math.random() * 4 + 2 + 'px',
                 height: Math.random() * 4 + 2 + 'px',
@@ -404,7 +405,7 @@ const ViewStory = () => {
                 left: Math.random() * 100 + '%',
               }}
               animate={{
-                opacity: [0.2, 0.8, 0.2],
+                opacity: [0.2, 0.4, 0.2],
                 scale: [1, 1.2, 1],
               }}
               transition={{
@@ -418,7 +419,7 @@ const ViewStory = () => {
         </div>
         
         <div id="story-container" className="container mx-auto max-w-5xl px-4">
-          <div className="mb-6 bg-white/20 p-2 rounded-full">
+          <div className="mb-6 bg-purple-100 p-2 rounded-full">
             <Progress value={progress} className="h-2" />
           </div>
           

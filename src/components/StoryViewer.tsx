@@ -259,7 +259,7 @@ const StoryViewer = () => {
   };
 
   return (
-    <div ref={storyBookRef} className="story-viewer-container story-book-style">
+    <div ref={storyBookRef} className="story-viewer-container story-book-style bg-white">
       <div className="story-header">
         <div className="story-avatar">
           <img 
@@ -437,7 +437,7 @@ const StoryViewer = () => {
         </Button>
       </div>
       
-      <div className="story-metadata">
+      <div className="story-metadata bg-white">
         <div className="metadata-section">
           <h3 className="metadata-title">Sobre a história</h3>
           <p className="metadata-content">
@@ -505,7 +505,7 @@ const StoryViewer = () => {
         }
         
         .story-book-style {
-          background: #f8f5f0;
+          background: #ffffff;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 
                       0 0 5px rgba(0, 0, 0, 0.1), 
                       0 -5px 10px rgba(0, 0, 0, 0.1) inset;
