@@ -1,6 +1,5 @@
 
 import { toast } from "sonner";
-import { geminiAI } from "@/lib/openai";
 
 interface ImageGenerationParams {
   prompt: string;
@@ -19,19 +18,24 @@ interface LeonardoResponse {
 }
 
 /**
- * LeonardoAIAgent - Responsável por gerar ilustrações consistentes usando Gemini API
+ * LeonardoAIAgent - Responsável por gerar ilustrações consistentes usando Leonardo.ai API
  * Mantém características dos personagens consistentes ao longo das ilustrações
  */
 export class LeonardoAIAgent {
   private characterPrompts: Map<string, string> = new Map();
   private characterImageStyles: Map<string, string> = new Map();
   private isAvailable: boolean = true;
+  private apiKey: string | null = null;
 
   constructor() {
     this.isAvailable = true;
     
     // Carregar prompts de personagens salvos
     this.loadSavedCharacterPrompts();
+    
+    // Carregar a API key do Leonardo.ai
+    this.apiKey = localStorage.getItem('leonardo_api_key');
+    this.isAvailable = !!this.apiKey;
   }
 
   /**
@@ -106,23 +110,38 @@ export class LeonardoAIAgent {
    * Verifica se o agente está disponível para uso
    */
   public isAgentAvailable(): boolean {
-    return this.isAvailable;
+    return this.isAvailable && !!this.apiKey;
   }
 
   /**
-   * Define a URL do webhook do Leonardo AI
+   * Define a chave da API do Leonardo.ai
    */
-  public setWebhookUrl(url: string): boolean {
-    // Mantemos este método para compatibilidade, mas não é mais necessário
+  public setApiKey(apiKey: string): boolean {
+    if (!apiKey) return false;
+    
+    this.apiKey = apiKey.trim();
+    localStorage.setItem('leonardo_api_key', this.apiKey);
+    this.isAvailable = true;
+    
+    // Limpar qualquer erro anterior
+    localStorage.removeItem("leonardo_api_issue");
+    
     return true;
   }
 
   /**
-   * Gera uma imagem usando o Gemini API com base em um prompt e mantendo
+   * Gera uma imagem usando a API do Leonardo.ai com base em um prompt e mantendo
    * consistência com as características do personagem
    */
   public async generateImage(params: ImageGenerationParams): Promise<string> {
     const { prompt, characterName, theme, setting, style = "cartoon", characterPrompt, childImage } = params;
+    
+    if (!this.apiKey) {
+      console.error("Leonardo.ai API key não configurada");
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
+      return this.getFallbackImage(theme);
+    }
     
     // Usar o prompt salvo do personagem, se existir
     const savedPrompt = this.characterPrompts.get(characterName);
@@ -137,42 +156,44 @@ export class LeonardoAIAgent {
       enhancedPrompt += ` O personagem ${characterName} possui as seguintes características: ${finalCharacterPrompt}`;
     }
     
-    console.log("Gerando imagem com Gemini API:", {
+    console.log("Gerando imagem com Leonardo.ai API:", {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
       style: savedStyle
     });
     
     try {
-      // Usar o Gemini para gerar a imagem diretamente
-      const geminiModel = geminiAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      // Chamar a API do Leonardo.ai
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          modelId: "b820ea11-02bf-4652-97ae-93b22e02a0a9", // Leonardo Creative
+          width: 768,
+          height: 768,
+          num_images: 1,
+          promptMagic: true,
+          presetStyle: savedStyle === "cartoon" ? "ANIME" : (savedStyle === "realistic" ? "CINEMATIC" : "CREATIVE"),
+          public: false,
+          nsfw: false
+        })
+      });
       
-      const generationPrompt = `
-      Gere uma imagem para livro infantil no estilo ${savedStyle} baseada na seguinte cena:
-      
-      "${enhancedPrompt}"
-      
-      Cenário: ${setting}
-      Tema: ${theme}
-      
-      A imagem deve ser colorida, encantadora e apropriada para crianças, mantendo consistência 
-      nas características dos personagens em todo o livro.
-      `;
-      
-      const result = await geminiModel.generateContent(generationPrompt);
-      const response = await result.response;
-      
-      // Extrair a imagem da resposta - Gemini 1.5 Pro pode gerar imagens
-      const parts = response.candidates[0].content.parts;
-      const imagePart = parts.find(part => part.inlineData && part.inlineData.mimeType.startsWith('image/'));
-      
-      if (!imagePart || !imagePart.inlineData) {
-        throw new Error("Não foi possível gerar a imagem");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Leonardo.ai API error:", errorData);
+        throw new Error(`Leonardo.ai API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
       }
       
-      // Converter dados base64 para URL de imagem
-      const base64Data = imagePart.inlineData.data;
-      const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${base64Data}`;
+      const data = await response.json();
+      const generationId = data.sdGenerationJob.generationId;
+      
+      // Aguardar a conclusão da geração
+      const imageUrl = await this.pollForResults(generationId);
       
       // Quando bem-sucedido, salvar o prompt para uso futuro
       if (characterPrompt && !savedPrompt) {
@@ -181,22 +202,88 @@ export class LeonardoAIAgent {
       
       return imageUrl;
     } catch (error: any) {
-      console.error("Error generating image with Gemini:", error);
+      console.error("Error generating image with Leonardo.ai:", error);
       
-      // Se ocorrer um erro com o Gemini, podemos tentar fazer fallback para uma abordagem alternativa
-      toast.error("Erro ao gerar imagem com Gemini. Usando imagem de placeholder.");
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
+      
+      toast.error("Erro ao gerar imagem com Leonardo.ai. Usando imagem de placeholder.");
       
       // Retornar uma imagem placeholder baseada no tema
-      const themeImages: Record<string, string> = {
-        adventure: "/images/placeholders/adventure.jpg",
-        fantasy: "/images/placeholders/fantasy.jpg",
-        space: "/images/placeholders/space.jpg",
-        ocean: "/images/placeholders/ocean.jpg",
-        dinosaurs: "/images/placeholders/dinosaurs.jpg"
-      };
-      
-      return themeImages[theme] || "/images/placeholders/illustration-placeholder.jpg";
+      return this.getFallbackImage(theme);
     }
+  }
+
+  /**
+   * Consulta periodicamente o status da geração até que esteja concluída
+   */
+  private async pollForResults(generationId: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error("Leonardo.ai API key não configurada");
+    }
+    
+    let attempts = 0;
+    const maxAttempts = 30; // 5 minutos no máximo (10 segundos * 30)
+    
+    while (attempts < maxAttempts) {
+      attempts++;
+      
+      try {
+        const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+          headers: {
+            "Authorization": `Bearer ${this.apiKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error(`Error checking generation status (attempt ${attempts}):`, errorData);
+          
+          // Aguardar antes da próxima tentativa
+          await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        // Verificar se a geração foi concluída
+        if (data.generations_by_pk.status === "COMPLETE") {
+          // Pegar a primeira imagem gerada
+          const generatedImages = data.generations_by_pk.generated_images;
+          if (generatedImages && generatedImages.length > 0) {
+            return generatedImages[0].url;
+          }
+          throw new Error("No images generated");
+        } else if (data.generations_by_pk.status === "FAILED") {
+          throw new Error("Generation failed");
+        }
+        
+        // Aguardar antes da próxima tentativa
+        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+      } catch (error) {
+        console.error(`Error in polling attempt ${attempts}:`, error);
+        
+        // Aguardar antes da próxima tentativa
+        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+      }
+    }
+    
+    throw new Error("Timeout while waiting for image generation");
+  }
+
+  /**
+   * Obtém uma imagem de fallback baseada no tema
+   */
+  private getFallbackImage(theme: string): string {
+    const themeImages: Record<string, string> = {
+      adventure: "/images/placeholders/adventure.jpg",
+      fantasy: "/images/placeholders/fantasy.jpg",
+      space: "/images/placeholders/space.jpg",
+      ocean: "/images/placeholders/ocean.jpg",
+      dinosaurs: "/images/placeholders/dinosaurs.jpg"
+    };
+    
+    return themeImages[theme] || "/images/placeholders/illustration-placeholder.jpg";
   }
 
   /**
@@ -241,7 +328,7 @@ export class LeonardoAIAgent {
         } catch (error) {
           console.error(`Erro ao gerar imagem para página ${pageNumber}:`, error);
           // Usar uma imagem de placeholder para não interromper todo o processo
-          imageUrls.push("/images/placeholders/illustration-placeholder.jpg");
+          imageUrls.push(this.getFallbackImage(theme));
         }
       }
       
@@ -249,7 +336,7 @@ export class LeonardoAIAgent {
     } catch (error) {
       console.error("Erro ao gerar imagens da história:", error);
       // Retornar placeholders para todas as páginas
-      return storyPages.map(() => "/images/placeholders/illustration-placeholder.jpg");
+      return storyPages.map(() => this.getFallbackImage(theme));
     }
   }
 }

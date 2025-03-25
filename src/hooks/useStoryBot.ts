@@ -270,6 +270,23 @@ export const useStoryBot = () => {
     
     toast.success("Status da API do Leonardo foi redefinido. Tente gerar imagens novamente.");
   };
+  
+  const setLeonardoApiKey = (apiKey: string): boolean => {
+    if (!apiKey) return false;
+    
+    try {
+      const success = leonardoAgent.setApiKey(apiKey);
+      if (success) {
+        setLeonardoApiAvailable(true);
+        localStorage.removeItem("leonardo_api_issue");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error setting Leonardo API key:", error);
+      return false;
+    }
+  };
 
   return { 
     generateStoryBotResponse, 
@@ -282,8 +299,7 @@ export const useStoryBot = () => {
     apiAvailable,
     leonardoApiAvailable,
     resetLeonardoApiStatus,
-    setLeonardoWebhook: () => true,
-    leonardoWebhookUrl: null,
+    setLeonardoApiKey,
     leonardoAgent
   };
 };
