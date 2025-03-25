@@ -686,6 +686,20 @@ const ViewStory = () => {
           position: relative;
           transform-style: preserve-3d;
         }
+
+        .story-header {
+          background: linear-gradient(to right, #f5f3ff, #ede9fe);
+          border-bottom: 4px solid #c4b5fd;
+        }
+        
+        .story-title {
+          color: #7c3aed;
+          text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.5);
+        }
+        
+        .story-action-button {
+          @apply bg-white/70 backdrop-blur-sm text-violet-700 border border-violet-200 hover:bg-white/90 transition-all duration-200;
+        }
         `}
       </style>
     </div>

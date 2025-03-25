@@ -517,12 +517,12 @@ const StoryViewer = () => {
           display: flex;
           align-items: center;
           padding: 1.25rem;
-          background-color: rgba(124, 58, 237, 0.9);
+          background-color: rgba(255, 255, 255, 0.9);
           position: relative;
           flex-wrap: wrap;
           border-radius: 0.5rem 0.5rem 0 0;
-          background-image: linear-gradient(to right, #8b5cf6, #6366f1);
-          border-bottom: 4px solid #7c3aed;
+          background-image: linear-gradient(to right, #f5f3ff, #ede9fe);
+          border-bottom: 4px solid #c4b5fd;
         }
         
         .story-avatar {
@@ -541,13 +541,13 @@ const StoryViewer = () => {
         }
         
         .story-title {
-          color: white;
+          color: #7c3aed;
           font-size: 1.5rem;
           font-weight: 700;
           font-family: 'Bubblegum Sans', cursive;
           margin: 0;
           flex: 1;
-          text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+          text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.5);
         }
         
         .story-actions {
@@ -566,7 +566,9 @@ const StoryViewer = () => {
         
         .story-action-btn {
           margin-right: 0.5rem;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid rgba(124, 58, 237, 0.3);
+          color: #7c3aed;
+          background: rgba(255, 255, 255, 0.5);
         }
         
         .story-content-container {
