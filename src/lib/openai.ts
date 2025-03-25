@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { toast } from 'sonner';
 
@@ -49,11 +48,6 @@ export const ensureStoryBotPromptsTable = async () => {
   }
 };
 
-// Attempt to initialize the table when this module loads
-ensureStoryBotPromptsTable().catch(err => {
-  console.warn('Failed to initialize StoryBot prompts table:', err);
-});
-
 // Keep OpenAI interface for backward compatibility
 export const openai = {
   chat: {
@@ -61,6 +55,7 @@ export const openai = {
       create: async ({ messages, model, temperature, max_tokens }: any) => {
         let retryCount = 0;
         const maxRetries = 2;
+        let backoffDelay = 2000; // Start with 2 seconds delay
         
         const attemptRequest = async (): Promise<any> => {
           try {
@@ -108,6 +103,9 @@ export const openai = {
               
               const responseText = result.response.text();
 
+              // Clear any previous API issues
+              localStorage.removeItem("storybot_api_issue");
+
               // Format response to match OpenAI structure
               return {
                 choices: [
@@ -126,6 +124,12 @@ export const openai = {
                 throw new Error('Tempo limite excedido ao gerar resposta');
               }
               
+              // Check for quota errors
+              if (error.message && error.message.includes("quota") && error.message.includes("429")) {
+                console.error("Quota exceeded error detected:", error);
+                throw new Error('Limite de quota do Gemini excedido. Por favor, tente novamente mais tarde.');
+              }
+              
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
               
@@ -138,6 +142,9 @@ export const openai = {
               clearTimeout(timeoutId);
               
               const responseText = result.response.text();
+              
+              // Clear any previous API issues
+              localStorage.removeItem("storybot_api_issue");
               
               return {
                 choices: [
@@ -152,18 +159,56 @@ export const openai = {
           } catch (error: any) {
             console.error("Error using Gemini API (attempt " + (retryCount + 1) + "):", error);
             
-            retryCount++;
-            if (retryCount <= maxRetries) {
-              console.log(`Retrying Gemini API request (attempt ${retryCount} of ${maxRetries})...`);
+            // Check specifically for quota errors
+            if (error.message && (
+                error.message.includes("quota") || 
+                error.message.includes("429") || 
+                error.message.includes("rate limit")
+              )) {
+              console.error("Quota exceeded or rate limit error detected. Adding delay before retry.");
+              localStorage.setItem("storybot_api_issue", "true");
               
-              // Wait a short time before retrying
-              await new Promise(resolve => setTimeout(resolve, 1500));
+              retryCount++;
+              if (retryCount <= maxRetries) {
+                console.log(`Retrying Gemini API request with backoff (attempt ${retryCount} of ${maxRetries})...`);
+                
+                // Wait with exponential backoff before retrying
+                await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                backoffDelay *= 2; // Exponential backoff
+                
+                return attemptRequest();
+              }
+            } else if (error.message && error.message.includes("Tempo limite excedido")) {
+              // Just retry timeout errors without counting towards retry limit
+              console.log(`Retrying after timeout error...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
               return attemptRequest();
+            } else {
+              // For other errors, increment retry count
+              retryCount++;
+              if (retryCount <= maxRetries) {
+                console.log(`Retrying Gemini API request (attempt ${retryCount} of ${maxRetries})...`);
+                
+                // Wait a short time before retrying
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                return attemptRequest();
+              }
             }
             
             // Dispatch an event to inform components about API issues
             window.dispatchEvent(new CustomEvent('storybot_api_issue'));
-            localStorage.setItem('storybot_api_issue', 'true');
+            localStorage.setItem("storybot_api_issue", "true");
+            
+            // If we've exhausted retries, we can try a local fallback generator
+            if (error.message && (
+                error.message.includes("quota") || 
+                error.message.includes("429") || 
+                error.message.includes("rate limit")
+              )) {
+              // Return a special error that indicates quota issues
+              throw new Error('QUOTA_EXCEEDED: ' + error.message);
+            }
+            
             throw error;
           }
         };

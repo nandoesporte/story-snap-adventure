@@ -108,16 +108,41 @@ export class BookGenerationService {
           character_prompt: this.data.character_prompt
         };
         
-        const result = await BookGenerationService.generateStory(
-          storyParams,
-          (message, progress) => {
-            this.progressCallback?.(this.convertProgressStage(message), progress);
+        let result;
+        try {
+          result = await BookGenerationService.generateStory(
+            storyParams,
+            (message, progress) => {
+              this.progressCallback?.(this.convertProgressStage(message), progress);
+            }
+          );
+        } catch (error: any) {
+          console.error("Error generating story with API:", error);
+          
+          // Check if this is a quota error
+          if (error.message && (
+              error.message.includes("QUOTA_EXCEEDED") || 
+              error.message.includes("quota") ||
+              error.message.includes("429")
+            )) {
+            console.log("Using fallback story generator due to quota limits");
+            this.progressCallback?.("using-fallback", 60);
+            
+            // Use fallback generator
+            result = this.generateFallbackStory(storyParams);
+          } else {
+            // Re-throw other errors
+            throw error;
           }
-        );
+        }
+        
+        if (!result) {
+          throw new Error("Falha ao gerar a história. Por favor, tente novamente.");
+        }
         
         return {
           title: result.title,
-          content: result.pages.map(page => page.text)
+          content: result.pages.map(page => typeof page === 'string' ? page : page.text)
         };
       } catch (error: any) {
         console.error("Error in generateStoryContent (attempt " + (this.retryCount + 1) + "):", error);
@@ -290,8 +315,18 @@ export class BookGenerationService {
             maxOutputTokens: 8000,
           },
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error initializing Gemini chat:", error);
+        
+        // Check for quota errors
+        if (error.message && (
+            error.message.includes("quota") || 
+            error.message.includes("429") || 
+            error.message.includes("rate limit")
+          )) {
+          throw new Error('QUOTA_EXCEEDED: ' + error.message);
+        }
+        
         throw new Error('Erro ao inicializar o modelo Gemini. Por favor, verifique sua chave da API.');
       }
       
@@ -318,6 +353,12 @@ export class BookGenerationService {
           throw new Error('A geração foi cancelada.');
         } else if (error.message?.includes('Tempo limite')) {
           throw error;
+        } else if (error.message && (
+            error.message.includes("quota") || 
+            error.message.includes("429") || 
+            error.message.includes("rate limit")
+          )) {
+          throw new Error('QUOTA_EXCEEDED: ' + error.message);
         } else {
           throw new Error(`Erro ao gerar história com Gemini: ${error.message || 'Erro desconhecido'}`);
         }
@@ -650,5 +691,92 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 3. Ser específicas sobre elementos visuais importantes
 4. Evitar elementos abstratos difíceis de representar visualmente
 5. Ter aproximadamente 50-100 palavras`;
+  }
+
+  // Add fallback story generator
+  private generateFallbackStory(params: Story): CompleteStory {
+    console.log("Using fallback story generator with params:", params);
+    
+    // Get the page count
+    const numPages = params.num_pages || 5;
+    
+    // Simple fallback templates for story titles
+    const titles = [
+      `A Grande Aventura de ${params.character_name}`,
+      `${params.character_name} e a Jornada Mágica`,
+      `O Incrível Mundo de ${params.character_name}`,
+      `${params.character_name} Descobre ${params.setting}`,
+      `A Missão Especial de ${params.character_name}`
+    ];
+    
+    // Select a random title
+    const title = titles[Math.floor(Math.random() * titles.length)];
+    
+    // Generate simple content based on theme and setting
+    const storyStarters = [
+      `Era uma vez, ${params.character_name}, uma criança de ${params.character_age} anos, que adorava explorar novos lugares.`,
+      `${params.character_name} sempre sonhou em visitar ${params.setting}.`,
+      `Em um dia ensolarado, ${params.character_name} encontrou um mapa misterioso.`,
+      `${params.character_name} e seus amigos estavam brincando quando algo incrível aconteceu.`,
+      `A aventura de ${params.character_name} começou quando um estranho pacote chegou à sua porta.`
+    ];
+    
+    const middles = [
+      `Durante sua jornada em ${params.setting}, ${params.character_name} descobriu um segredo antigo.`,
+      `No caminho, ${params.character_name} fez novos amigos que ajudaram na aventura.`,
+      `A missão não seria fácil, mas ${params.character_name} estava determinado(a) a continuar.`,
+      `Com coragem e inteligência, ${params.character_name} enfrentou todos os desafios.`,
+      `A cada passo, ${params.character_name} aprendeu algo novo sobre ${params.theme}.`
+    ];
+    
+    const endings = [
+      `No final, ${params.character_name} entendeu a importância de ${params.moral || 'amizade'}.`,
+      `A aventura terminou, mas as lições aprendidas ficariam para sempre.`,
+      `${params.character_name} voltou para casa cheio(a) de histórias para contar.`,
+      `E assim ${params.character_name} salvou o dia, usando suas habilidades especiais.`,
+      `Todos celebraram a vitória de ${params.character_name}, o(a) verdadeiro(a) herói(heroína) de ${params.setting}.`
+    ];
+    
+    // Generate pages for the story
+    const pages = [];
+    
+    for (let i = 0; i < numPages; i++) {
+      let pageText;
+      
+      if (i === 0) {
+        // First page - introduction
+        pageText = storyStarters[Math.floor(Math.random() * storyStarters.length)];
+      } else if (i === numPages - 1) {
+        // Last page - conclusion
+        pageText = endings[Math.floor(Math.random() * endings.length)];
+      } else {
+        // Middle pages - adventure progress
+        if (i < 3) {
+          pageText = middles[Math.floor(Math.random() * middles.length)];
+        } else {
+          // More variety for middle pages
+          pageText = `${params.character_name} continuou sua jornada em ${params.setting}, descobrindo novos segredos a cada momento.`;
+          
+          // Add some variation
+          if (i % 2 === 0) {
+            pageText += ` As cores vibrantes e os sons misteriosos criavam uma atmosfera mágica.`;
+          } else {
+            pageText += ` Cada desafio superado tornava ${params.character_name} mais forte e sábio(a).`;
+          }
+        }
+      }
+      
+      pages.push({
+        text: pageText,
+        page_number: i + 1,
+        image_prompt: `Ilustração para página ${i+1}: ${pageText}`
+      });
+    }
+    
+    return {
+      title,
+      character_name: params.character_name || '',
+      pages
+    };
   }
 }

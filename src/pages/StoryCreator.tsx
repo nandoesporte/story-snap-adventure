@@ -95,6 +95,13 @@ const StoryCreator = () => {
     if (cancelRequested) return;
     setCurrentStage(stage);
     setProgress(percent);
+    
+    if (stage === "using-fallback") {
+      toast.info("Usando gerador de histórias local devido a limitações de API", {
+        description: "A história será mais simples, mas ainda personalizada para você.",
+        duration: 5000,
+      });
+    }
   };
   
   const generateStoryContent = async (data: StoryInputData) => {
@@ -110,9 +117,21 @@ const StoryCreator = () => {
         data,
         updateProgress,
         (message) => {
+          if (message.includes("cancelada")) {
+            setIsGenerating(false);
+            return;
+          }
+          
           setHasError(true);
           setErrorMessage(message);
           setIsGenerating(false);
+          
+          if (message.includes("quota") || message.includes("429")) {
+            toast.error("Limite de requisições excedido", {
+              description: "Estamos enfrentando problemas com o limite de API. Tente novamente mais tarde.",
+              duration: 6000,
+            });
+          }
         }
       );
       
@@ -142,7 +161,11 @@ const StoryCreator = () => {
       
       setHasError(true);
       setErrorMessage("Ocorreu um erro ao gerar a história. Use o botão abaixo para tentar novamente.");
-      toast.error("Ocorreu um erro ao gerar a história. Por favor, tente novamente.");
+      
+      if (!String(error).includes("cancelada")) {
+        toast.error("Ocorreu um erro ao gerar a história. Por favor, tente novamente.");
+      }
+      
       setIsGenerating(false);
     }
   };
@@ -294,6 +317,8 @@ const StoryCreator = () => {
       case "gerando-ilustracoes": return "Ilustrando as páginas...";
       case "finalizando": return "Finalizando sua história...";
       case "concluido": return "História completa!";
+      case "using-fallback": return "Usando nosso contador de histórias alternativo...";
+      case "retrying": return "Tentando novamente...";
       default: 
         if (currentStage.startsWith("ilustracao-")) {
           const pageNum = currentStage.split("-")[1];
