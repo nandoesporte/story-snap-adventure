@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle, Info, HelpCircle, ExternalLink } from "luci
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { HelpPopover } from "@/components/ui/popover";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
 
 const LeonardoWebhookConfig = () => {
   const { leonardoApiAvailable, setLeonardoWebhook, leonardoWebhookUrl, resetLeonardoApiStatus } = useStoryBot();
@@ -16,6 +17,11 @@ const LeonardoWebhookConfig = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (setLeonardoWebhook(webhookUrl)) {
+      toast({
+        title: "Configuração salva",
+        description: "Webhook do Leonardo AI configurado com sucesso.",
+        variant: "success",
+      });
       // Refresh the page or component to apply changes
       window.location.reload();
     }
@@ -43,17 +49,33 @@ const LeonardoWebhookConfig = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success || data.image_url) {
-          alert("Conexão com webhook bem sucedida!");
+          toast({
+            title: "Conexão bem sucedida",
+            description: "Conexão com webhook do Leonardo AI estabelecida com sucesso!",
+            variant: "success",
+          });
           setLeonardoWebhook(webhookUrl);
         } else {
-          alert("O webhook respondeu, mas não retornou um formato esperado. Verifique se a implementação está correta.");
+          toast({
+            title: "Formato inesperado",
+            description: "O webhook respondeu, mas não retornou um formato esperado. Verifique se a implementação está correta.",
+            variant: "destructive",
+          });
         }
       } else {
-        alert(`Erro ao conectar com o webhook: ${response.status} ${response.statusText}`);
+        toast({
+          title: "Erro de conexão",
+          description: `Erro ao conectar com o webhook: ${response.status} ${response.statusText}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error testing webhook:", error);
-      alert("Erro ao testar o webhook. Verifique se a URL está correta e o serviço está online.");
+      toast({
+        title: "Erro de conexão",
+        description: "Erro ao testar o webhook. Verifique se a URL está correta e o serviço está online.",
+        variant: "destructive",
+      });
     } finally {
       setIsTesting(false);
     }
@@ -61,6 +83,11 @@ const LeonardoWebhookConfig = () => {
   
   const handleReset = () => {
     resetLeonardoApiStatus();
+    toast({
+      title: "Status redefinido",
+      description: "O status da API do Leonardo foi redefinido.",
+      variant: "success",
+    });
     window.location.reload();
   };
   
@@ -76,7 +103,7 @@ const LeonardoWebhookConfig = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Alert className="mb-4" variant="info">
+        <Alert className="mb-4" variant="default">
           <Info className="h-4 w-4" />
           <AlertTitle>Informação importante</AlertTitle>
           <AlertDescription>
