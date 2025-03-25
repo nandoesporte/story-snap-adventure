@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -21,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
-import { supabase } from "@/utils/supabase";
+import { supabase } from "@/lib/supabase";
 
 const ViewStory = () => {
   const navigate = useNavigate();
@@ -76,7 +76,6 @@ const ViewStory = () => {
       
       setStoryData(parsedData);
       
-      // Add a slight delay before hiding the loading state
       const timer = setTimeout(() => {
         setLoading(false);
       }, 1000);
@@ -100,7 +99,6 @@ const ViewStory = () => {
         characterName: characterName
       }));
       
-      // Load character data if needed
       loadCharacterData(selectedCharacterId);
     }
   }, []);

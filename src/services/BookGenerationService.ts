@@ -128,8 +128,8 @@ export class BookGenerationService {
             console.log("Using fallback story generator due to quota limits");
             this.progressCallback?.("using-fallback", 60);
             
-            // Use fallback generator
-            result = this.generateFallbackStory(storyParams);
+            // Use fallback generator - fix: call the static method with class name
+            result = BookGenerationService.generateFallbackStory(storyParams);
           } else {
             // Re-throw other errors
             throw error;
