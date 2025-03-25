@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
@@ -86,35 +85,41 @@ const ViewStory = () => {
         return;
       }
       
-      // Processar os dados da história para garantir que as URLs das imagens estão corretas
+      // Process story data to ensure image URLs are correct
       if (parsedData.pages && Array.isArray(parsedData.pages)) {
-        // Verificar se as páginas têm a estrutura esperada para exibir as imagens
         parsedData.pages = parsedData.pages.map((page: any, index: number) => {
-          // Se a página não tiver imageUrl, mas tiver image_url, use image_url
+          // If the page doesn't have imageUrl, check if it has image_url
           if (!page.imageUrl && page.image_url) {
+            console.log(`Page ${index + 1} using image_url:`, page.image_url);
             return {
               ...page,
               imageUrl: page.image_url
             };
           }
-          // Se não tiver nenhuma URL de imagem, usar uma imagem de placeholder baseada no tema
-          if (!page.imageUrl && !page.image_url) {
-            const themeImages: {[key: string]: string} = {
-              adventure: "/images/placeholders/adventure.jpg",
-              fantasy: "/images/placeholders/fantasy.jpg",
-              space: "/images/placeholders/space.jpg",
-              ocean: "/images/placeholders/ocean.jpg",
-              dinosaurs: "/images/placeholders/dinosaurs.jpg"
-            };
-            return {
-              ...page,
-              imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
-            };
+          
+          // If it has neither imageUrl nor image_url, use imageUrl field directly if it exists
+          if (page.imageUrl) {
+            console.log(`Page ${index + 1} already has imageUrl:`, page.imageUrl);
+            return page;
           }
-          return page;
+          
+          // If no image URL is found anywhere, use placeholder based on theme
+          console.log(`Page ${index + 1} has no image URL, using placeholder`);
+          const themeImages: {[key: string]: string} = {
+            adventure: "/images/placeholders/adventure.jpg",
+            fantasy: "/images/placeholders/fantasy.jpg",
+            space: "/images/placeholders/space.jpg",
+            ocean: "/images/placeholders/ocean.jpg",
+            dinosaurs: "/images/placeholders/dinosaurs.jpg"
+          };
+          return {
+            ...page,
+            imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
+          };
         });
       }
       
+      console.log("Processed pages data:", parsedData.pages);
       setStoryData(parsedData);
       
       const timer = setTimeout(() => {
@@ -201,15 +206,14 @@ const ViewStory = () => {
     }
   };
 
-  // Função para regenerar todas as ilustrações da história
   const regenerateAllIllustrations = async () => {
     if (!storyData || !storyData.pages || storyData.pages.length === 0) {
       toast.error("Dados da história não encontrados");
       return;
     }
     
-    if (!leonardoApiAvailable || !leonardoWebhookUrl) {
-      toast.error("Leonardo AI não está configurado. Configure o webhook nas configurações.");
+    if (!leonardoApiAvailable) {
+      toast.error("Leonardo AI não está disponível. Verifique as configurações.");
       return;
     }
     
@@ -217,17 +221,17 @@ const ViewStory = () => {
     toast.info("Iniciando geração de ilustrações consistentes...");
     
     try {
-      // Extrair textos das páginas
+      // Extract page texts
       const pageTexts = storyData.pages.map((page: any) => page.text);
       
-      // Extrair metadados da história
+      // Extract story metadata
       const characterName = storyData.characterName || storyMeta.characterName || "Personagem";
       const theme = storyData.theme || "adventure";
       const setting = storyData.setting || "forest";
       const characterPrompt = storyData.characterPrompt || storyMeta.characterPrompt || null;
       const style = storyData.style || "cartoon";
       
-      // Gerar novas ilustrações consistentes
+      // Generate new consistent illustrations
       const newImages = await generateConsistentStoryImages(
         pageTexts,
         characterName,
@@ -238,22 +242,24 @@ const ViewStory = () => {
         storyData.childImage || null
       );
       
-      // Atualizar as imagens na história
+      console.log("Generated new images:", newImages);
+      
+      // Update images in the story
       const updatedPages = storyData.pages.map((page: any, index: number) => ({
         ...page,
         imageUrl: newImages[index] || page.imageUrl
       }));
       
-      // Atualizar storyData
+      // Update storyData
       const updatedStoryData = {
         ...storyData,
         pages: updatedPages
       };
       
-      // Salvar na sessão
+      // Save to session
       sessionStorage.setItem("storyData", JSON.stringify(updatedStoryData));
       
-      // Atualizar o estado
+      // Update state
       setStoryData(updatedStoryData);
       
       toast.success("Ilustrações regeneradas com sucesso!");
@@ -529,7 +535,7 @@ const ViewStory = () => {
           
           <div className="mb-4 flex justify-between items-center">
             <div className="flex gap-2">
-              {leonardoApiAvailable && leonardoWebhookUrl && (
+              {leonardoApiAvailable && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -658,11 +664,30 @@ const ViewStory = () => {
                 {currentPage > 0 && currentPage <= storyData.pages.length && (
                   <div className="grid md:grid-cols-2">
                     <div className="bg-gradient-to-b from-indigo-50 to-purple-50 p-4 md:p-8 flex items-center justify-center">
-                      <img 
-                        src={storyData.pages[currentPage - 1].imageUrl} 
-                        alt={`Ilustração página ${currentPage}`}
-                        className="max-w-full max-h-[400px] rounded-lg shadow-lg object-contain"
-                      />
+                      {storyData.pages[currentPage - 1].imageUrl ? (
+                        <img 
+                          src={storyData.pages[currentPage - 1].imageUrl} 
+                          alt={`Ilustração página ${currentPage}`}
+                          className="max-w-full max-h-[400px] rounded-lg shadow-lg object-contain"
+                          onError={(e) => {
+                            console.error("Image failed to load:", storyData.pages[currentPage - 1].imageUrl);
+                            const target = e.target as HTMLImageElement;
+                            const themeImages: {[key: string]: string} = {
+                              adventure: "/images/placeholders/adventure.jpg",
+                              fantasy: "/images/placeholders/fantasy.jpg",
+                              space: "/images/placeholders/space.jpg",
+                              ocean: "/images/placeholders/ocean.jpg",
+                              dinosaurs: "/images/placeholders/dinosaurs.jpg"
+                            };
+                            target.src = themeImages[storyData.theme as keyof typeof themeImages] || "/placeholder.svg";
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-gray-400">
+                          <ImageIcon className="w-16 h-16 mb-2" />
+                          <p>Imagem não disponível</p>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="p-6 md:p-10 flex flex-col">

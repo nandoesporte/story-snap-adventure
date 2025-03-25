@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,8 @@ import {
   VolumeIcon, 
   BookmarkIcon,
   HeartIcon,
-  Settings
+  Settings,
+  ImageIcon
 } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import LeonardoWebhookConfig from "./LeonardoWebhookConfig";
@@ -57,13 +59,18 @@ const StoryViewer = () => {
       
       if (parsedData.pages && Array.isArray(parsedData.pages)) {
         parsedData.pages = parsedData.pages.map((page: any) => {
+          // Handle case when imageUrl is missing but image_url exists
           if (!page.imageUrl && page.image_url) {
+            console.log("Converting image_url to imageUrl:", page.image_url);
             return {
               ...page,
               imageUrl: page.image_url
             };
           }
+          
+          // Handle case when both imageUrl and image_url are missing
           if (!page.imageUrl && !page.image_url) {
+            console.log("No image URL found, using placeholder for theme:", parsedData.theme);
             const themeImages: {[key: string]: string} = {
               adventure: "/images/placeholders/adventure.jpg",
               fantasy: "/images/placeholders/fantasy.jpg",
@@ -80,6 +87,7 @@ const StoryViewer = () => {
         });
       }
       
+      console.log("Processed story data for StoryViewer:", parsedData);
       setStoryData(parsedData);
     }
   }, []);
@@ -409,11 +417,30 @@ const StoryViewer = () => {
               ) : (
                 <>
                   <div className="story-image-container">
-                    <img 
-                      src={pageData?.imageUrl}
-                      alt={`Ilustração página ${currentPage + 1}`}
-                      className="story-image"
-                    />
+                    {pageData?.imageUrl ? (
+                      <img 
+                        src={pageData.imageUrl}
+                        alt={`Ilustração página ${currentPage + 1}`}
+                        className="story-image"
+                        onError={(e) => {
+                          console.error("Image failed to load:", pageData.imageUrl);
+                          const target = e.target as HTMLImageElement;
+                          const themeImages: {[key: string]: string} = {
+                            adventure: "/images/placeholders/adventure.jpg",
+                            fantasy: "/images/placeholders/fantasy.jpg",
+                            space: "/images/placeholders/space.jpg",
+                            ocean: "/images/placeholders/ocean.jpg",
+                            dinosaurs: "/images/placeholders/dinosaurs.jpg"
+                          };
+                          target.src = themeImages[storyData.theme as keyof typeof themeImages] || "/placeholder.svg";
+                        }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-gray-400">
+                        <ImageIcon className="w-16 h-16 mb-2" />
+                        <p>Imagem não disponível</p>
+                      </div>
+                    )}
                     
                     <div className="progress-bar-container">
                       <div className="progress-bar">

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -111,9 +112,9 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      console.log("Usando LeonardoAIAgent para gerar imagem consistente");
+      console.log("Using LeonardoAIAgent to generate consistent image");
       
-      return await leonardoAgent.generateImage({
+      const imageUrl = await leonardoAgent.generateImage({
         prompt: imageDescription,
         characterName,
         theme,
@@ -122,11 +123,14 @@ export const useStoryBot = () => {
         characterPrompt,
         childImage: childImageBase64
       });
+      
+      console.log("Generated image URL:", imageUrl);
+      return imageUrl;
     } catch (error) {
       console.error("Error generating image:", error);
-      setApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
-      localStorage.setItem("storybot_api_issue", "true");
+      setLeonardoApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
       
       toast.error("Erro ao gerar imagem. Usando imagens de placeholder.");
       
@@ -154,7 +158,7 @@ export const useStoryBot = () => {
     try {
       console.log("Using LeonardoAIAgent for cover image generation");
       
-      return await leonardoAgent.generateImage({
+      const imageUrl = await leonardoAgent.generateImage({
         prompt: `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`,
         characterName,
         theme,
@@ -163,11 +167,14 @@ export const useStoryBot = () => {
         characterPrompt,
         childImage: childImageBase64
       });
+      
+      console.log("Generated cover image URL:", imageUrl);
+      return imageUrl;
     } catch (error) {
       console.error("Error generating cover image:", error);
-      setApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
-      localStorage.setItem("storybot_api_issue", "true");
+      setLeonardoApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
       
       const themeCovers: {[key: string]: string} = {
         adventure: "/images/covers/adventure.jpg",
@@ -193,6 +200,16 @@ export const useStoryBot = () => {
     toast.info("Gerando ilustrações consistentes para a história...");
     
     try {
+      console.log("Generating consistent story images with params:", {
+        storyPages: storyPages.length,
+        characterName,
+        theme,
+        setting,
+        characterPrompt: characterPrompt?.substring(0, 50) + "...",
+        style,
+        hasChildImage: !!childImageBase64
+      });
+      
       const imageUrls = await leonardoAgent.generateStoryImages(
         storyPages,
         characterName,
@@ -203,11 +220,15 @@ export const useStoryBot = () => {
         childImageBase64
       );
       
-      console.log("Imagens geradas com sucesso:", imageUrls);
+      console.log("Successfully generated story images:", imageUrls);
       return imageUrls;
     } catch (error) {
-      console.error("Erro ao gerar ilustrações consistentes:", error);
+      console.error("Error generating consistent illustrations:", error);
       toast.error("Erro ao gerar ilustrações. Usando imagens de placeholder.");
+      
+      setLeonardoApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      localStorage.setItem("leonardo_api_issue", "true");
       
       return storyPages.map(() => {
         const themeImages: {[key: string]: string} = {
@@ -241,10 +262,6 @@ export const useStoryBot = () => {
     }
   };
 
-  const setLeonardoWebhook = (url: string) => {
-    return true;
-  };
-
   const resetLeonardoApiStatus = () => {
     resetLeonardoApi();
     setLeonardoApiAvailable(true);
@@ -265,7 +282,7 @@ export const useStoryBot = () => {
     apiAvailable,
     leonardoApiAvailable,
     resetLeonardoApiStatus,
-    setLeonardoWebhook,
+    setLeonardoWebhook: () => true,
     leonardoWebhookUrl: null,
     leonardoAgent
   };
