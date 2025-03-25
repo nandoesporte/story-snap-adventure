@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { BookGenerationService } from '@/services/BookGenerationService';
 import { reinitializeGeminiAI } from '@/lib/openai';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Info } from "lucide-react";
 
 const GeminiApiKeyManager = () => {
   const [apiKey, setApiKey] = useState<string>("");
@@ -97,7 +98,7 @@ const GeminiApiKeyManager = () => {
         <CardHeader>
           <CardTitle>Configuração da API do Gemini</CardTitle>
           <CardDescription>
-            Configure sua chave da API do Gemini para geração de histórias
+            Configure sua chave da API do Gemini para geração de histórias e ilustrações
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -124,6 +125,16 @@ const GeminiApiKeyManager = () => {
                 Google AI Studio
               </a>
             </p>
+            
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
+              <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-800">Geração de ilustrações com Gemini</p>
+                <p className="text-sm text-blue-700">
+                  Agora o StoryBot usa o modelo Gemini para gerar as ilustrações, dispensando a necessidade de configurar o webhook do Leonardo AI.
+                </p>
+              </div>
+            </div>
             
             {testStatus === 'success' && (
               <p className="text-xs text-green-600 mt-2">

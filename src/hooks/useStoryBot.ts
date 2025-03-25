@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -120,23 +119,8 @@ export const useStoryBot = () => {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ) => {
-    // Check if webhook URL is configured first
-    if (!leonardoWebhookUrl) {
-      toast.error("Erro: URL do webhook do Leonardo AI não configurada. Configure nas configurações.");
-      // Return placeholder image for the theme
-      const themeImages = {
-        adventure: "/images/placeholders/adventure.jpg",
-        fantasy: "/images/placeholders/fantasy.jpg",
-        space: "/images/placeholders/space.jpg",
-        ocean: "/images/placeholders/ocean.jpg",
-        dinosaurs: "/images/placeholders/dinosaurs.jpg"
-      };
-      
-      return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
-    }
-    
     try {
-      console.log("Calling StoryBot.generateImage with webhook URL:", leonardoWebhookUrl);
+      console.log("Calling StoryBot.generateImage with Gemini");
       
       // Adicionar mais informações de log
       console.log("Image generation params:", {
@@ -159,18 +143,18 @@ export const useStoryBot = () => {
         characterPrompt
       );
       
-      console.log("Image generation result:", result.substring(0, 100) + "...");
+      console.log("Image generation result:", typeof result === 'string' ? result.substring(0, 100) + "..." : "Non-string result");
       
-      setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
+      setApiAvailable(storyBot.isApiAvailable());
       return result;
     } catch (error) {
       console.error("Error generating image:", error);
-      setLeonardoApiAvailable(false);
-      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-      localStorage.setItem("leonardo_api_issue", "true");
+      setApiAvailable(false);
+      window.dispatchEvent(new CustomEvent("storybot_api_issue"));
+      localStorage.setItem("storybot_api_issue", "true");
       
       // Show error toast
-      toast.error("Erro ao gerar imagem. Configure o webhook do Leonardo AI nas configurações.");
+      toast.error("Erro ao gerar imagem. Usando imagens de placeholder.");
       
       // Fallback to themed placeholders
       const themeImages = {
@@ -195,36 +179,10 @@ export const useStoryBot = () => {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ) => {
-    // Check if webhook URL is configured first
-    if (!leonardoWebhookUrl) {
-      toast.error("Erro: URL do webhook do Leonardo AI não configurada. Configure nas configurações.");
-      // Return placeholder image for the theme
-      const themeCovers = {
-        adventure: "/images/covers/adventure.jpg",
-        fantasy: "/images/covers/fantasy.jpg",
-        space: "/images/covers/space.jpg",
-        ocean: "/images/covers/ocean.jpg",
-        dinosaurs: "/images/covers/dinosaurs.jpg"
-      };
-      
-      return themeCovers[theme as keyof typeof themeCovers] || `/placeholder.svg`;
-    }
-    
     try {
-      // Create a detailed description for the cover image
-      const coverDescription = await generateImageDescription(
-        `Capa do livro com título "${title}", mostrando ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`,
-        characterName,
-        "7", // Default age if not provided
-        theme,
-        setting
-      );
-      
-      console.log("Generating cover image with description:", coverDescription);
-      
-      // Generate the cover image using the description
-      return await generateImage(
-        coverDescription,
+      // Generate the cover image using StoryBot
+      return await storyBot.generateCoverImage(
+        title,
         characterName,
         theme,
         setting,

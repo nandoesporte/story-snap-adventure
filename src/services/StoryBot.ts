@@ -1,6 +1,7 @@
 import { openai, geminiAI, ensureStoryBotPromptsTable, isLeonardoWebhookValid } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -228,7 +229,170 @@ export class StoryBot {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ): Promise<string> {
-    // Check if Leonardo API is available and webhook is configured
+    if (!this.apiAvailable) {
+      throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
+    }
+    
+    console.info("Generating image with Gemini:", {
+      imageDescription: imageDescription.substring(0, 100) + "...",
+      theme,
+      style
+    });
+    
+    this.retryCount = 0;
+    
+    const attemptImageGeneration = async (): Promise<string> => {
+      try {
+        // Get Gemini API key
+        const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
+        if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
+          throw new Error("Chave da API Gemini não configurada");
+        }
+        
+        // Initialize Gemini with the current key
+        const currentGeminiAI = new GoogleGenerativeAI(apiKey.trim());
+        
+        // Create a prompt for image generation
+        const fullPrompt = `
+        Crie uma ilustração detalhada para um livro infantil com as seguintes características:
+        
+        Descrição da cena: ${imageDescription}
+        Personagem principal: ${characterName}
+        Tema: ${theme}
+        Cenário: ${setting}
+        Estilo visual: ${style}
+        ${characterPrompt ? `Detalhes adicionais do personagem: ${characterPrompt}` : ''}
+        
+        A ilustração deve ser colorida, alegre e apropriada para crianças.
+        `;
+        
+        // Set a timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+        
+        // Get a generative model
+        const model = currentGeminiAI.getGenerativeModel({ 
+          model: "gemini-1.5-pro-vision",
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          }
+        });
+        
+        // Generate the image with text-to-image capabilities
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: fullPrompt }]}],
+          generationConfig: {
+            responseFormat: { format: "IMAGE" }
+          }
+        }, { signal: controller.signal });
+        
+        clearTimeout(timeoutId);
+        
+        // Check if there's any image in the response
+        const response = result.response;
+        
+        if (!response) {
+          throw new Error("Resposta vazia do Gemini");
+        }
+        
+        // Extract image data from response
+        const imagePart = response.candidates?.[0]?.content?.parts?.find(part => part.fileData && part.fileData.mimeType?.startsWith('image/'));
+        
+        if (!imagePart || !imagePart.fileData || !imagePart.fileData.base64Data) {
+          console.error("No image found in response from Gemini");
+          throw new Error("Nenhuma imagem encontrada na resposta do Gemini");
+        }
+        
+        // Create data URL from base64 data
+        const imageDataUrl = `data:${imagePart.fileData.mimeType};base64,${imagePart.fileData.base64Data}`;
+        
+        // Reset the error flag on successful generation
+        localStorage.removeItem("leonardo_api_issue");
+        this.leonardoApiAvailable = true;
+        
+        return imageDataUrl;
+      } catch (error: any) {
+        console.error("Error generating image with Gemini API (attempt " + (this.retryCount + 1) + "):", error);
+        
+        if (error.name === 'AbortError') {
+          toast.error("Tempo limite excedido ao gerar imagem com Gemini AI");
+          throw new Error('Tempo limite excedido ao gerar imagem');
+        }
+        
+        // Check for quota errors
+        if (error.message && (
+            error.message.includes("quota") || 
+            error.message.includes("429") || 
+            error.message.includes("rate limit")
+          )) {
+          console.error("Quota exceeded error detected:", error);
+          
+          // If we hit rate limits, attempt to use Leonardo webhook as fallback if configured
+          if (this.leonardoWebhookUrl && this.leonardoApiAvailable) {
+            console.log("Attempting to use Leonardo webhook as fallback");
+            try {
+              return await this.generateImageUsingLeonardo(
+                imageDescription, 
+                characterName, 
+                theme, 
+                setting, 
+                childImageBase64, 
+                style, 
+                characterPrompt
+              );
+            } catch (leonardoError) {
+              console.error("Leonardo fallback also failed:", leonardoError);
+            }
+          }
+        }
+        
+        this.retryCount++;
+        if (this.retryCount <= this.maxRetries) {
+          console.log(`Retrying image generation with Gemini (attempt ${this.retryCount} of ${this.maxRetries})...`);
+          toast.info(`Tentando novamente (${this.retryCount}/${this.maxRetries})...`);
+          
+          // Wait a short time before retrying
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return attemptImageGeneration();
+        }
+        
+        this.apiAvailable = false;
+        localStorage.setItem("storybot_api_issue", "true");
+        
+        // Show error toast
+        toast.error("Erro ao gerar imagem com Gemini. Usando imagens de placeholder.");
+        
+        // Fallback to themed placeholders
+        const themeImages: Record<string, string> = {
+          adventure: "/images/placeholders/adventure.jpg",
+          fantasy: "/images/placeholders/fantasy.jpg",
+          space: "/images/placeholders/space.jpg",
+          ocean: "/images/placeholders/ocean.jpg",
+          dinosaurs: "/images/placeholders/dinosaurs.jpg"
+        };
+        
+        return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
+      }
+    };
+    
+    return attemptImageGeneration();
+  }
+  
+  private async generateImageUsingLeonardo(
+    imageDescription: string,
+    characterName: string,
+    theme: string,
+    setting: string,
+    childImageBase64: string | null = null,
+    style: string = "cartoon",
+    characterPrompt: string | null = null
+  ): Promise<string> {
     if (!this.leonardoApiAvailable || !this.leonardoWebhookUrl) {
       console.error("Leonardo API unavailable or webhook not configured");
       
@@ -245,110 +409,103 @@ export class StoryBot {
       };
       
       // If theme exists in our placeholders, use it, otherwise use a default
-      return themeImages[theme] || "/placeholder.svg";
+      return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
     }
     
-    if (this.cancelRequested) {
-      this.cancelRequested = false;
-      throw new Error("A geração foi cancelada.");
-    }
-    
-    console.info("Generating image:", {
-      imageDescription: imageDescription.substring(0, 100) + "...",
-      theme,
-      style,
+    console.info("Using Leonardo webhook as fallback:", {
       webhookUrl: this.leonardoWebhookUrl
     });
     
-    this.retryCount = 0;
-    
-    const attemptImageGeneration = async (): Promise<string> => {
-      try {
-        // Call the Leonardo webhook with all required parameters
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-        
-        const response = await fetch(this.leonardoWebhookUrl!, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: imageDescription,
-            character_name: characterName,
-            theme,
-            setting,
-            style,
-            character_prompt: characterPrompt,
-            child_image: childImageBase64
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          console.error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
-          throw new Error(`Leonardo webhook returned status: ${response.status} - ${response.statusText}`);
-        }
-        
-        let data;
-        try {
-          data = await response.json();
-          console.log("Leonardo webhook response:", data);
-        } catch (e) {
-          console.error("Failed to parse webhook response as JSON", e);
-          throw new Error("Invalid response format from webhook");
-        }
-        
-        if (data.image_url) {
-          // Reset the error flag on successful generation
-          localStorage.removeItem("leonardo_api_issue");
-          this.leonardoApiAvailable = true;
-          return data.image_url;
-        } else if (data.error) {
-          throw new Error(`Webhook error: ${data.error}`);
-        } else {
-          throw new Error("Webhook didn't return an image URL or error message");
-        }
-      } catch (error: any) {
-        console.error("Error generating image with Leonardo API (attempt " + (this.retryCount + 1) + "):", error);
-        
-        if (error.name === 'AbortError') {
-          toast.error("Tempo limite excedido ao chamar o webhook do Leonardo AI");
-          throw new Error('Tempo limite excedido ao gerar imagem');
-        }
-        
-        this.retryCount++;
-        if (this.retryCount <= this.maxRetries) {
-          console.log(`Retrying image generation (attempt ${this.retryCount} of ${this.maxRetries})...`);
-          toast.info(`Tentando novamente (${this.retryCount}/${this.maxRetries})...`);
-          
-          // Wait a short time before retrying
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          return attemptImageGeneration();
-        }
-        
-        this.leonardoApiAvailable = false;
-        localStorage.setItem("leonardo_api_issue", "true");
-        
-        // Show error toast
-        toast.error("Erro ao gerar imagem. Verifique a configuração do webhook do Leonardo AI.");
-        
-        // Fallback to themed placeholders
-        const themeImages: Record<string, string> = {
-          adventure: "/images/placeholders/adventure.jpg",
-          fantasy: "/images/placeholders/fantasy.jpg",
-          space: "/images/placeholders/space.jpg",
-          ocean: "/images/placeholders/ocean.jpg",
-          dinosaurs: "/images/placeholders/dinosaurs.jpg"
-        };
-        
-        return themeImages[theme] || "/placeholder.svg";
+    try {
+      // Call the Leonardo webhook with all required parameters
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      
+      const response = await fetch(this.leonardoWebhookUrl!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: imageDescription,
+          character_name: characterName,
+          theme,
+          setting,
+          style,
+          character_prompt: characterPrompt,
+          child_image: childImageBase64
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
+        throw new Error(`Leonardo webhook returned status: ${response.status} - ${response.statusText}`);
       }
-    };
-    
-    return attemptImageGeneration();
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("Leonardo webhook response:", data);
+      } catch (e) {
+        console.error("Failed to parse webhook response as JSON", e);
+        throw new Error("Invalid response format from webhook");
+      }
+      
+      if (data.image_url) {
+        // Reset the error flag on successful generation
+        localStorage.removeItem("leonardo_api_issue");
+        this.leonardoApiAvailable = true;
+        return data.image_url;
+      } else if (data.error) {
+        throw new Error(`Webhook error: ${data.error}`);
+      } else {
+        throw new Error("Webhook didn't return an image URL or error message");
+      }
+    } catch (error: any) {
+      console.error("Error using Leonardo fallback:", error);
+      throw error;
+    }
+  }
+  
+  public async generateCoverImage(
+    title: string,
+    characterName: string,
+    theme: string,
+    setting: string,
+    childImageBase64: string | null = null,
+    style: string = "cartoon",
+    characterPrompt: string | null = null
+  ): Promise<string> {
+    try {
+      const coverDescription = `Capa do livro infantil "${title}", mostrando ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
+      
+      console.log("Generating cover image with description:", coverDescription);
+      
+      return await this.generateImage(
+        coverDescription,
+        characterName,
+        theme,
+        setting,
+        childImageBase64,
+        style,
+        characterPrompt
+      );
+    } catch (error) {
+      console.error("Error generating cover image:", error);
+      
+      const themeCovers = {
+        adventure: "/images/covers/adventure.jpg",
+        fantasy: "/images/covers/fantasy.jpg",
+        space: "/images/covers/space.jpg",
+        ocean: "/images/covers/ocean.jpg",
+        dinosaurs: "/images/covers/dinosaurs.jpg"
+      };
+      
+      return themeCovers[theme as keyof typeof themeCovers] || `/placeholder.svg`;
+    }
   }
   
   public async generateStory(params: StoryParams): Promise<GeneratedStory> {
@@ -362,10 +519,8 @@ export class StoryBot {
     }
     
     try {
-      // Default system prompt
       let systemPrompt = "Você é um assistente especializado em criar histórias infantis personalizadas.";
       
-      // Try to get story generation prompt from Supabase
       try {
         await ensureStoryBotPromptsTable();
         
@@ -382,7 +537,6 @@ export class StoryBot {
         console.warn("Error fetching story generation prompt, using default", error);
       }
       
-      // Construct the user prompt with all parameters
       const userPrompt = `
         Crie uma história infantil com as seguintes características:
         - Nome da criança: ${params.childName}
@@ -411,7 +565,6 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
-      // Use the updated model name gemini-1.5-pro
       const completion = await openai.chat.completions.create({
         model: "gemini-1.5-pro",
         messages: formattedMessages,
@@ -421,7 +574,6 @@ export class StoryBot {
       
       const storyText = completion.choices[0].message.content || "";
       
-      // Parse the story into title and pages
       return this.parseStoryContent(storyText, params.childName);
     } catch (error) {
       console.error("Error in StoryBot generateStory:", error);
@@ -434,7 +586,6 @@ export class StoryBot {
   public async generateStoryFallback(params: StoryParams): Promise<GeneratedStory> {
     console.log("Using fallback story generator with params:", params);
     
-    // Simple fallback templates
     const titles = [
       `A Grande Aventura de ${params.childName}`,
       `${params.childName} e a Jornada Mágica`,
@@ -443,10 +594,8 @@ export class StoryBot {
       `A Missão Especial de ${params.childName}`
     ];
     
-    // Select a random title
     const title = titles[Math.floor(Math.random() * titles.length)];
     
-    // Generate simple content based on theme and setting
     const storyStarters = [
       `Era uma vez, ${params.childName}, uma criança de ${params.childAge} anos, que adorava explorar novos lugares.`,
       `${params.childName} sempre sonhou em visitar ${params.setting}.`,
@@ -471,23 +620,18 @@ export class StoryBot {
       `Todos celebraram a vitória de ${params.childName}, o(a) verdadeiro(a) herói(heroína) de ${params.setting}.`
     ];
     
-    // Generate content for each page
     const pageCount = params.pageCount || 10;
     const content: string[] = [];
     
     for (let i = 0; i < pageCount; i++) {
       if (i === 0) {
-        // First page - introduction
         content.push(storyStarters[Math.floor(Math.random() * storyStarters.length)]);
       } else if (i === pageCount - 1) {
-        // Last page - conclusion
         content.push(endings[Math.floor(Math.random() * endings.length)]);
       } else {
-        // Middle pages - adventure progress
         if (i < 3) {
           content.push(middles[Math.floor(Math.random() * middles.length)]);
         } else {
-          // More variety for middle pages
           content.push(`${params.childName} continuou sua jornada em ${params.setting}, descobrindo novos segredos a cada momento.`);
         }
       }
@@ -519,7 +663,6 @@ export class StoryBot {
       content = paragraphs;
     }
     
-    // Ensure we have at least some content
     while (content.length < 5) {
       content.push(`A aventura de ${childName} continua...`);
     }

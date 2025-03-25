@@ -48,6 +48,12 @@ export const ensureStoryBotPromptsTable = async () => {
   }
 };
 
+// For development without API keys, we can detect if the API key is valid
+export const isOpenAIKeyValid = () => {
+  const apiKey = getGeminiApiKey();
+  return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
+};
+
 // Keep OpenAI interface for backward compatibility
 export const openai = {
   chat: {
@@ -217,12 +223,6 @@ export const openai = {
       }
     }
   }
-};
-
-// For development without API keys, we can detect if the API key is valid
-export const isOpenAIKeyValid = () => {
-  const apiKey = getGeminiApiKey();
-  return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
 };
 
 // Check if the Leonardo webhook URL is valid
