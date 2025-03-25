@@ -696,7 +696,7 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 5. Ter aproximadamente 50-100 palavras`;
   }
 
-  static async generateFallbackStory(params: Story): CompleteStory {
+  static generateFallbackStory(params: Story): CompleteStory {
     console.log("Using fallback story generator with params:", params);
     
     const numPages = params.num_pages || 5;
