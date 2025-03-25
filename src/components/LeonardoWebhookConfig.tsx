@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, Info, HelpCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info, HelpCircle, ExternalLink } from "lucide-react";
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { HelpPopover } from "@/components/ui/popover";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const LeonardoWebhookConfig = () => {
   const { leonardoApiAvailable, setLeonardoWebhook, leonardoWebhookUrl, resetLeonardoApiStatus } = useStoryBot();
@@ -75,6 +76,16 @@ const LeonardoWebhookConfig = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <Alert className="mb-4" variant="info">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Informação importante</AlertTitle>
+          <AlertDescription>
+            Você precisa criar um serviço de webhook que se conecte à API do Leonardo AI. 
+            Este serviço receberá as solicitações da sua aplicação, processará as chamadas para o 
+            Leonardo AI e retornará as URLs das imagens geradas.
+          </AlertDescription>
+        </Alert>
+        
         {!leonardoApiAvailable && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -121,6 +132,15 @@ const LeonardoWebhookConfig = () => {
                   <p className="text-sm text-gray-700">
                     Você pode criar um webhook simples usando serviços como AWS Lambda, Vercel Functions, ou Google Cloud Functions.
                   </p>
+                  <p className="text-sm text-gray-700 mt-2 font-medium">
+                    Formato esperado da resposta do webhook:
+                  </p>
+                  <pre className="text-xs bg-gray-100 p-2 rounded">
+{`{
+  "image_url": "https://url-da-imagem-gerada.jpg",
+  "success": true
+}`}
+                  </pre>
                 </div>
               </HelpPopover>
             </div>
@@ -135,6 +155,42 @@ const LeonardoWebhookConfig = () => {
             <p className="text-xs text-gray-500">
               Insira a URL completa do seu webhook que se conecta ao Leonardo AI para gerar imagens.
             </p>
+          </div>
+          
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <h3 className="text-sm font-medium mb-2">Exemplo de Implementação</h3>
+            <p className="text-xs text-gray-600 mb-2">
+              Seu serviço de webhook deve aceitar requisições POST com o seguinte formato:
+            </p>
+            <pre className="text-xs bg-slate-100 p-2 rounded overflow-x-auto">
+{`{
+  "prompt": "Descrição detalhada para gerar a imagem",
+  "character_name": "Nome do personagem",
+  "theme": "Tema da história",
+  "setting": "Cenário da história",
+  "style": "cartoon" // Estilo da imagem
+}`}
+            </pre>
+            <p className="text-xs text-gray-600 mt-2">
+              E deve retornar uma resposta JSON com a URL da imagem gerada:
+            </p>
+            <pre className="text-xs bg-slate-100 p-2 rounded overflow-x-auto">
+{`{
+  "image_url": "https://url-da-imagem-gerada.jpg",
+  "success": true
+}`}
+            </pre>
+            <div className="mt-3">
+              <a 
+                href="https://docs.leonardo.ai/reference/introduction" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Documentação API Leonardo AI
+              </a>
+            </div>
           </div>
         </form>
       </CardContent>

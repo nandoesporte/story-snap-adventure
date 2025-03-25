@@ -1,4 +1,3 @@
-
 import { openai, geminiAI, ensureStoryBotPromptsTable, isLeonardoWebhookValid } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -62,6 +61,7 @@ export class StoryBot {
     localStorage.setItem("leonardo_webhook_url", url);
     // Clear any previous API issues when setting a new URL
     localStorage.removeItem("leonardo_api_issue");
+    this.leonardoApiAvailable = true;
   }
 
   public async generateStoryBotResponse(messages: any[], userPrompt: string): Promise<string> {
@@ -197,7 +197,10 @@ export class StoryBot {
   ): Promise<string> {
     // Check if Leonardo API is available and webhook is configured
     if (!this.leonardoApiAvailable || !this.leonardoWebhookUrl) {
-      console.error("Leonardo API unavailable or webhook not configured");
+      console.error("Leonardo API unavailable or webhook not configured", {
+        leonardoApiAvailable: this.leonardoApiAvailable,
+        leonardoWebhookUrl: this.leonardoWebhookUrl
+      });
       
       // Set the error flag
       localStorage.setItem("leonardo_api_issue", "true");
@@ -215,11 +218,26 @@ export class StoryBot {
       return themeImages[theme] || "/placeholder.svg";
     }
     
-    console.info("Generating image:", {
-      imageDescription,
-      theme,
-      style,
+    console.info("Generating image with Leonardo webhook:", {
       webhookUrl: this.leonardoWebhookUrl
+    });
+    
+    const requestBody = {
+      prompt: imageDescription,
+      character_name: characterName,
+      theme,
+      setting,
+      style,
+      character_prompt: characterPrompt,
+      child_image: childImageBase64
+    };
+    
+    console.log("Sending request to Leonardo webhook:", {
+      url: this.leonardoWebhookUrl,
+      requestBody: {
+        ...requestBody,
+        child_image: childImageBase64 ? "[BASE64_IMAGE_DATA]" : null // Log placeholder instead of actual base64 data
+      }
     });
     
     try {
@@ -229,31 +247,35 @@ export class StoryBot {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: imageDescription,
-          character_name: characterName,
-          theme,
-          setting,
-          style,
-          character_prompt: characterPrompt,
-          child_image: childImageBase64
-        }),
+        body: JSON.stringify(requestBody),
       });
       
+      console.log("Leonardo webhook response status:", response.status);
+      
       if (!response.ok) {
-        console.error(`Leonardo webhook returned status: ${response.status}`);
-        throw new Error(`Leonardo webhook returned status: ${response.status}`);
+        console.error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
+        throw new Error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
-      console.log("Leonardo webhook response:", data);
-      
-      if (data.image_url) {
-        // Reset the error flag on successful generation
-        localStorage.removeItem("leonardo_api_issue");
-        return data.image_url;
-      } else {
-        throw new Error("Leonardo webhook didn't return an image URL");
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        const data = JSON.parse(responseText);
+        console.log("Leonardo webhook response data:", data);
+        
+        if (data.image_url) {
+          // Reset the error flag on successful generation
+          localStorage.removeItem("leonardo_api_issue");
+          this.leonardoApiAvailable = true;
+          return data.image_url;
+        } else {
+          console.error("Leonardo webhook didn't return an image_url", data);
+          throw new Error("Leonardo webhook didn't return an image URL");
+        }
+      } catch (parseError) {
+        console.error("Error parsing Leonardo webhook response:", parseError);
+        console.error("Raw response text:", responseText);
+        throw new Error("Invalid response format from Leonardo webhook");
       }
     } catch (error) {
       console.error("Error generating image with Leonardo API:", error);
