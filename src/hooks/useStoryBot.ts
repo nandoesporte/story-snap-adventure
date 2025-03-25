@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +17,7 @@ export const useStoryBot = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
+  const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(null);
   
   const storyBot = new StoryBot();
   const leonardoAgent = new LeonardoAIAgent();
@@ -26,6 +26,11 @@ export const useStoryBot = () => {
     ensureStoryBotPromptsTable().catch(err => {
       console.warn('Failed to ensure StoryBot prompts table exists:', err);
     });
+    
+    const savedWebhookUrl = localStorage.getItem('leonardo_webhook_url');
+    if (savedWebhookUrl) {
+      setLeonardoWebhookUrl(savedWebhookUrl);
+    }
   }, []);
   
   useEffect(() => {
@@ -288,6 +293,19 @@ export const useStoryBot = () => {
     }
   };
 
+  const updateLeonardoWebhookUrl = (url: string): boolean => {
+    if (!url) return false;
+    
+    try {
+      localStorage.setItem('leonardo_webhook_url', url);
+      setLeonardoWebhookUrl(url);
+      return true;
+    } catch (error) {
+      console.error("Error setting Leonardo webhook URL:", error);
+      return false;
+    }
+  };
+
   return { 
     generateStoryBotResponse, 
     isGenerating,
@@ -298,8 +316,10 @@ export const useStoryBot = () => {
     convertImageToBase64,
     apiAvailable,
     leonardoApiAvailable,
+    leonardoWebhookUrl,
     resetLeonardoApiStatus,
     setLeonardoApiKey,
+    updateLeonardoWebhookUrl,
     leonardoAgent
   };
 };

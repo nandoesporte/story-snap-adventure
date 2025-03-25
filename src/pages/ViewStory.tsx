@@ -32,8 +32,7 @@ const ViewStory = () => {
   const navigate = useNavigate();
   const { 
     generateConsistentStoryImages, 
-    leonardoApiAvailable, 
-    leonardoWebhookUrl 
+    leonardoApiAvailable
   } = useStoryBot();
   const [storyData, setStoryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);

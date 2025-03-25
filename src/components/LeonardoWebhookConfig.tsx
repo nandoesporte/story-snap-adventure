@@ -8,8 +8,15 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
 const LeonardoWebhookConfig = () => {
-  const { leonardoApiAvailable, resetLeonardoApiStatus, setLeonardoApiKey } = useStoryBot();
+  const { 
+    leonardoApiAvailable, 
+    resetLeonardoApiStatus, 
+    setLeonardoApiKey, 
+    leonardoWebhookUrl,
+    updateLeonardoWebhookUrl
+  } = useStoryBot();
   const [apiKey, setApiKey] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState(leonardoWebhookUrl || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleReset = () => {
@@ -41,6 +48,31 @@ const LeonardoWebhookConfig = () => {
       }, 1000);
     } else {
       toast.error("Erro ao configurar a chave da API Leonardo.ai");
+    }
+    
+    setIsSubmitting(false);
+  };
+  
+  const handleSubmitWebhookUrl = () => {
+    if (!webhookUrl.trim()) {
+      toast.error("Por favor, insira uma URL de webhook válida");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    // Salvar a URL do webhook
+    const success = updateLeonardoWebhookUrl(webhookUrl.trim());
+    
+    if (success) {
+      toast.success("URL do webhook Leonardo.ai configurada com sucesso!");
+      
+      // Recarregar a página para aplicar as alterações
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } else {
+      toast.error("Erro ao configurar a URL do webhook Leonardo.ai");
     }
     
     setIsSubmitting(false);
@@ -81,30 +113,58 @@ const LeonardoWebhookConfig = () => {
           </div>
         )}
         
-        <div className="mt-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Key className="h-4 w-4 text-slate-500" />
-            <p className="text-sm font-medium">Chave da API Leonardo.ai</p>
+        <div className="mt-4 space-y-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Key className="h-4 w-4 text-slate-500" />
+              <p className="text-sm font-medium">Chave da API Leonardo.ai</p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Cole sua chave de API do Leonardo.ai"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSubmitKey}
+                disabled={isSubmitting || !apiKey.trim()}
+                size="sm"
+              >
+                Salvar
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Sua chave da API é armazenada localmente apenas neste dispositivo.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Cole sua chave de API do Leonardo.ai"
-              className="flex-1"
-            />
-            <Button 
-              onClick={handleSubmitKey}
-              disabled={isSubmitting || !apiKey.trim()}
-              size="sm"
-            >
-              Salvar
-            </Button>
+          
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4 text-slate-500" />
+              <p className="text-sm font-medium">URL do Webhook Leonardo.ai (opcional)</p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+                placeholder="URL do webhook (opcional)"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSubmitWebhookUrl}
+                disabled={isSubmitting || !webhookUrl.trim()}
+                size="sm"
+              >
+                Salvar
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Somente é necessário se você tiver um servidor de webhook personalizado.
+            </p>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Sua chave da API é armazenada localmente apenas neste dispositivo.
-          </p>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between flex-wrap gap-2">
