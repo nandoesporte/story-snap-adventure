@@ -193,7 +193,10 @@ const StoryCreator = () => {
         storyInputData,
         (stage, percent) => {
           console.log(`Story generation progress: ${stage} - ${percent}%`);
-          // You could update UI based on progress here
+          // Update UI based on stage
+          if (stage === "retrying") {
+            toast.info(`Tentando novamente gerar a história... (${Math.round(percent/10)}ª tentativa)`);
+          }
         },
         (errorMessage) => {
           console.error("Story generation error:", errorMessage);
@@ -234,7 +237,9 @@ const StoryCreator = () => {
       }
       
       const pagesWithImages: StoryPage[] = [];
+      let failedImages = 0;
       
+      // Generate images for each page with proper error handling
       for (const pageText of storyData.content) {
         let imageDescription, imageUrl;
         
@@ -259,7 +264,22 @@ const StoryCreator = () => {
           );
         } catch (error) {
           console.error("Failed to generate page image:", error);
-          imageUrl = "/placeholder.svg";
+          failedImages++;
+          
+          // Use theme-based placeholder
+          const themeImages = {
+            adventure: "/images/placeholders/adventure.jpg",
+            fantasy: "/images/placeholders/fantasy.jpg",
+            space: "/images/placeholders/space.jpg",
+            ocean: "/images/placeholders/ocean.jpg",
+            dinosaurs: "/images/placeholders/dinosaurs.jpg"
+          };
+          
+          imageUrl = themeImages[formData.theme as keyof typeof themeImages] || "/placeholder.svg";
+          
+          if (failedImages === 1) {
+            toast.error("Algumas imagens não puderam ser geradas. Usando placeholders.");
+          }
         }
         
         pagesWithImages.push({
@@ -288,8 +308,11 @@ const StoryCreator = () => {
       toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       setStep("chat");
       
-      const apiIssueEvent = new Event("storybot_api_issue");
-      window.dispatchEvent(apiIssueEvent);
+      // Only dispatch API issue if it's a real API error, not a user cancellation
+      if (!error.message?.includes("cancelada")) {
+        const apiIssueEvent = new Event("storybot_api_issue");
+        window.dispatchEvent(apiIssueEvent);
+      }
     } finally {
       setIsGenerating(false);
     }

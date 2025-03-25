@@ -1,5 +1,6 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { toast } from 'sonner';
 
 // Get API key from localStorage or environment variables
 const getGeminiApiKey = () => {
@@ -58,77 +59,116 @@ export const openai = {
   chat: {
     completions: {
       create: async ({ messages, model, temperature, max_tokens }: any) => {
-        try {
-          // Get current API key
-          const currentApiKey = getGeminiApiKey();
-          if (!currentApiKey) {
-            throw new Error('Chave da API Gemini não configurada');
-          }
-          
-          // Create a new instance with the current key
-          const currentGeminiAI = new GoogleGenerativeAI(currentApiKey);
-          
-          // Map OpenAI messages format to Gemini format
-          const geminiMessages = messages.map((msg: any) => ({
-            role: msg.role === 'assistant' ? 'model' : msg.role,
-            parts: [{ text: msg.content }]
-          }));
-
-          // Always use gemini-1.5-pro model
-          const geminiModel = currentGeminiAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro",
-            generationConfig: {
-              temperature: temperature || 0.7,
-              maxOutputTokens: max_tokens || 1000,
-            }
-          });
-
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        const attemptRequest = async (): Promise<any> => {
           try {
-            // Create chat session - not all Gemini models support chat
-            const chat = geminiModel.startChat({
-              history: geminiMessages.slice(0, -1) // Exclude the last message
+            // Get current API key
+            const currentApiKey = getGeminiApiKey();
+            if (!currentApiKey) {
+              throw new Error('Chave da API Gemini não configurada');
+            }
+            
+            // Create a new instance with the current key
+            const currentGeminiAI = new GoogleGenerativeAI(currentApiKey);
+            
+            // Map OpenAI messages format to Gemini format
+            const geminiMessages = messages.map((msg: any) => ({
+              role: msg.role === 'assistant' ? 'model' : msg.role,
+              parts: [{ text: msg.content }]
+            }));
+
+            // Always use gemini-1.5-pro model
+            const geminiModel = currentGeminiAI.getGenerativeModel({ 
+              model: "gemini-1.5-pro",
+              generationConfig: {
+                temperature: temperature || 0.7,
+                maxOutputTokens: max_tokens || 1000,
+              }
             });
 
-            // Generate response
-            const lastMessage = geminiMessages[geminiMessages.length - 1];
-            const result = await chat.sendMessage(lastMessage.parts[0].text);
-            const responseText = result.response.text();
+            try {
+              // Set a timeout to prevent hanging requests
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-            // Format response to match OpenAI structure
-            return {
-              choices: [
-                {
-                  message: {
-                    content: responseText
+              // Create chat session - not all Gemini models support chat
+              const chat = geminiModel.startChat({
+                history: geminiMessages.slice(0, -1) // Exclude the last message
+              });
+
+              // Generate response
+              const lastMessage = geminiMessages[geminiMessages.length - 1];
+              const result = await chat.sendMessage(lastMessage.parts[0].text, {
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              
+              const responseText = result.response.text();
+
+              // Format response to match OpenAI structure
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: responseText
+                    }
                   }
-                }
-              ]
-            };
-          } catch (error) {
-            // If chat fails, try with direct generation
-            console.warn("Chat failed, trying direct content generation:", error);
-            
-            const lastMessage = geminiMessages[geminiMessages.length - 1];
-            const result = await geminiModel.generateContent(lastMessage.parts[0].text);
-            const responseText = result.response.text();
-            
-            return {
-              choices: [
-                {
-                  message: {
-                    content: responseText
+                ]
+              };
+            } catch (error: any) {
+              // If chat fails, try with direct generation
+              console.warn("Chat failed, trying direct content generation:", error);
+              
+              if (error.name === 'AbortError') {
+                throw new Error('Tempo limite excedido ao gerar resposta');
+              }
+              
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+              
+              const lastMessage = geminiMessages[geminiMessages.length - 1];
+              const result = await geminiModel.generateContent(
+                lastMessage.parts[0].text,
+                { signal: controller.signal }
+              );
+              
+              clearTimeout(timeoutId);
+              
+              const responseText = result.response.text();
+              
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: responseText
+                    }
                   }
-                }
-              ]
-            };
+                ]
+              };
+            }
+          } catch (error: any) {
+            console.error("Error using Gemini API (attempt " + (retryCount + 1) + "):", error);
+            
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              console.log(`Retrying Gemini API request (attempt ${retryCount} of ${maxRetries})...`);
+              
+              // Wait a short time before retrying
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              return attemptRequest();
+            }
+            
+            // Dispatch an event to inform components about API issues
+            window.dispatchEvent(new CustomEvent('storybot_api_issue'));
+            localStorage.setItem('storybot_api_issue', 'true');
+            throw error;
           }
-        } catch (error) {
-          console.error("Error using Gemini API:", error);
-          // Dispatch an event to inform components about API issues
-          window.dispatchEvent(new CustomEvent('storybot_api_issue'));
-          localStorage.setItem('storybot_api_issue', 'true');
-          throw error;
-        }
+        };
+        
+        return attemptRequest();
       }
     }
   }

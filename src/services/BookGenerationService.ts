@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { reinitializeGeminiAI } from '@/lib/openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { toast } from 'sonner';
 
 export type StoryTheme = 'adventure' | 'fantasy' | 'space' | 'ocean' | 'dinosaurs';
 export type StorySetting = 'forest' | 'castle' | 'space' | 'underwater' | 'dinosaurland';
@@ -24,7 +25,7 @@ export interface StoryInputData {
   readingLevel?: ReadingLevel;
   language?: StoryLanguage;
   moral?: StoryMoral;
-  character_prompt?: string; // Add this to ensure it's available in the input data
+  character_prompt?: string;
 }
 
 export interface GeneratedStory {
@@ -56,7 +57,7 @@ export interface Story {
   user_id?: string;
   cover_image?: string;
   published?: boolean;
-  character_prompt?: string; // Add this property to fix the first error
+  character_prompt?: string;
 }
 
 export interface CompleteStory extends Story {
@@ -71,6 +72,8 @@ export class BookGenerationService {
   private data: StoryInputData;
   private progressCallback?: (stage: string, percent: number) => void;
   private errorCallback?: (message: string) => void;
+  private retryCount: number = 0;
+  private maxRetries: number = 2;
   
   constructor(
     data: StoryInputData,
@@ -87,37 +90,58 @@ export class BookGenerationService {
   }
   
   public async generateStoryContent(): Promise<GeneratedStory | null> {
-    try {
-      const storyParams: Story = {
-        title: `Story for ${this.data.childName}`,
-        character_name: this.data.characterName || this.data.childName,
-        character_age: this.data.childAge,
-        theme: this.data.theme,
-        setting: this.data.setting,
-        style: this.data.style,
-        moral: this.data.moral,
-        language: this.data.language,
-        reading_level: this.data.readingLevel,
-        num_pages: this.getNumPagesFromLength(this.data.length),
-        character_prompt: this.data.character_prompt // Add this to include the character_prompt
-      };
-      
-      const result = await BookGenerationService.generateStory(
-        storyParams,
-        (message, progress) => {
-          this.progressCallback?.(this.convertProgressStage(message), progress);
+    this.retryCount = 0;
+    
+    const attemptGeneration = async (): Promise<GeneratedStory | null> => {
+      try {
+        const storyParams: Story = {
+          title: `Story for ${this.data.childName}`,
+          character_name: this.data.characterName || this.data.childName,
+          character_age: this.data.childAge,
+          theme: this.data.theme,
+          setting: this.data.setting,
+          style: this.data.style,
+          moral: this.data.moral,
+          language: this.data.language,
+          reading_level: this.data.readingLevel,
+          num_pages: this.getNumPagesFromLength(this.data.length),
+          character_prompt: this.data.character_prompt
+        };
+        
+        const result = await BookGenerationService.generateStory(
+          storyParams,
+          (message, progress) => {
+            this.progressCallback?.(this.convertProgressStage(message), progress);
+          }
+        );
+        
+        return {
+          title: result.title,
+          content: result.pages.map(page => page.text)
+        };
+      } catch (error: any) {
+        console.error("Error in generateStoryContent (attempt " + (this.retryCount + 1) + "):", error);
+        
+        if (error.message?.includes("cancelada")) {
+          this.errorCallback?.(error.message);
+          return null;
         }
-      );
-      
-      return {
-        title: result.title,
-        content: result.pages.map(page => page.text)
-      };
-    } catch (error: any) {
-      console.error("Error in generateStoryContent:", error);
-      this.errorCallback?.(error.message);
-      return null;
-    }
+        
+        this.retryCount++;
+        if (this.retryCount <= this.maxRetries) {
+          console.log(`Retrying story generation (attempt ${this.retryCount} of ${this.maxRetries})...`);
+          this.progressCallback?.("retrying", 10 * this.retryCount);
+          
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          return attemptGeneration();
+        } else {
+          this.errorCallback?.(error.message || "Erro ao gerar história após múltiplas tentativas");
+          return null;
+        }
+      }
+    };
+    
+    return attemptGeneration();
   }
   
   public async generateCompleteStory(): Promise<CompleteStory | null> {
@@ -206,20 +230,35 @@ export class BookGenerationService {
       
       progressCallback?.('Preparando o StoryBot...', 5);
       
-      const systemPrompt = await this.getStoryBotPrompt();
+      let systemPrompt;
+      try {
+        systemPrompt = await this.getStoryBotPrompt();
+      } catch (error) {
+        console.warn("Error getting StoryBot prompt, using default:", error);
+        systemPrompt = this.getDefaultStoryBotPrompt();
+      }
       
       progressCallback?.('Criando uma história incrível...', 15);
       
       let characterDetails = '';
       if (storyParams.character_name) {
-        characterDetails = await this.getCharacterPrompt(storyParams.character_name);
+        try {
+          characterDetails = await this.getCharacterPrompt(storyParams.character_name);
+        } catch (error) {
+          console.warn("Error getting character prompt, continuing without it:", error);
+        }
       }
       
       const fullPrompt = this.buildStoryPrompt(storyParams, characterDetails);
       
       progressCallback?.('O StoryBot está escrevendo sua história...', 25);
       
-      const gemini = new GoogleGenerativeAI(this.getGeminiApiKey());
+      const apiKey = this.getGeminiApiKey();
+      if (!apiKey || apiKey.length < 10) {
+        throw new Error('Chave da API Gemini inválida ou muito curta');
+      }
+      
+      const gemini = new GoogleGenerativeAI(apiKey);
       
       const model = gemini.getGenerativeModel({ 
         model: 'gemini-1.5-pro',
@@ -231,35 +270,70 @@ export class BookGenerationService {
         },
       });
       
-      const chat = model.startChat({
-        history: [
-          {
-            role: 'user',
-            parts: [{ text: systemPrompt }],
+      let chat;
+      try {
+        chat = model.startChat({
+          history: [
+            {
+              role: 'user',
+              parts: [{ text: systemPrompt }],
+            },
+            {
+              role: 'model',
+              parts: [{ text: 'Entendido! Estou pronto para criar histórias infantis encantadoras e educativas como o StoryBot. Como posso ajudar hoje?' }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.9,
+            topK: 40,
+            maxOutputTokens: 8000,
           },
-          {
-            role: 'model',
-            parts: [{ text: 'Entendido! Estou pronto para criar histórias infantis encantadoras e educativas como o StoryBot. Como posso ajudar hoje?' }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.9,
-          topK: 40,
-          maxOutputTokens: 8000,
-        },
-      });
+        });
+      } catch (error) {
+        console.error("Error initializing Gemini chat:", error);
+        throw new Error('Erro ao inicializar o modelo Gemini. Por favor, verifique sua chave da API.');
+      }
       
       progressCallback?.('Criando a narrativa e os personagens...', 40);
       
-      const result = await chat.sendMessage(fullPrompt, {
-        signal: this.abortController?.signal,
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Tempo limite excedido ao gerar história')), 60000);
       });
+      
+      let responseText;
+      try {
+        const result = await Promise.race([
+          chat.sendMessage(fullPrompt, {
+            signal: this.abortController?.signal,
+          }),
+          timeoutPromise
+        ]) as any;
+        
+        responseText = result.response.text();
+      } catch (error: any) {
+        console.error("Error getting response from Gemini:", error);
+        
+        if (error.name === 'AbortError' || error.message?.includes('cancelada')) {
+          throw new Error('A geração foi cancelada.');
+        } else if (error.message?.includes('Tempo limite')) {
+          throw error;
+        } else {
+          throw new Error(`Erro ao gerar história com Gemini: ${error.message || 'Erro desconhecido'}`);
+        }
+      }
+      
+      if (!responseText || responseText.trim().length < 50) {
+        throw new Error('A resposta gerada é muito curta ou vazia. Por favor, tente novamente.');
+      }
       
       progressCallback?.('Formatando a história em páginas...', 60);
       
-      const responseText = result.response.text();
       const parsedStory = this.parseStoryResponse(responseText, storyParams.title || 'História sem título');
+      
+      if (parsedStory.pages.length === 0) {
+        throw new Error('Não foi possível extrair páginas da história gerada. Por favor, tente novamente.');
+      }
       
       progressCallback?.('Salvando sua história...', 85);
       
@@ -267,12 +341,10 @@ export class BookGenerationService {
         throw new Error('A geração foi cancelada.');
       }
       
-      // Skip database saving if there are issues with the tables
       try {
         await this.saveStoryToDatabase(parsedStory, storyParams);
       } catch (error) {
         console.warn("Could not save story to database, but will continue with memory-only version:", error);
-        // Continue with the parsed story even if database saving fails
       }
       
       progressCallback?.('História concluída com sucesso!', 100);
@@ -468,7 +540,6 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         throw new Error('Usuário não autenticado.');
       }
       
-      // First check if the stories table has the character_prompt column
       const hasCharacterPromptColumn = await this.checkColumnExists('stories', 'character_prompt');
       
       const storyData: Record<string, any> = {
@@ -486,7 +557,6 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         published: true
       };
       
-      // Only add the character_prompt if the column exists
       if (hasCharacterPromptColumn) {
         storyData.character_prompt = storyParams.character_prompt || '';
       }
@@ -502,7 +572,6 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         throw new Error(`Erro ao salvar história: ${error.message}`);
       }
       
-      // Check if the story_pages table exists
       try {
         const pageInserts = parsedStory.pages.map(page => ({
           story_id: insertedStory.id,
@@ -518,22 +587,20 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         if (pagesError) {
           console.error('Error inserting pages:', pagesError);
           
-          // Try to clean up the story since pages failed
           await supabase.from('stories').delete().eq('id', insertedStory.id);
           
           throw new Error(`Erro ao salvar páginas da história: ${pagesError.message}`);
         }
       } catch (error) {
         console.error('Error with story pages:', error);
-        // Continue even if pages failed - we'll return the memory version
       }
       
       return {
         ...storyData,
         pages: parsedStory.pages,
         id: insertedStory.id,
-        title: parsedStory.title, // Ensure title is included
-        character_name: storyParams.character_name || '' // Ensure character_name is included
+        title: parsedStory.title,
+        character_name: storyParams.character_name || ''
       };
     } catch (error: any) {
       console.error('Error saving story to database:', error);
@@ -541,10 +608,8 @@ Personalidade: ${data.personality || 'Não especificada'}`;
     }
   }
   
-  // Utility method to check if a column exists in a table
   static async checkColumnExists(table: string, column: string): Promise<boolean> {
     try {
-      // Try to select just that column to see if it exists
       const { error } = await supabase
         .from(table)
         .select(column)
