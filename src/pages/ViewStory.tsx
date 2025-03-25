@@ -15,7 +15,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   VolumeIcon,
-  AlertTriangle
+  AlertTriangle,
+  ImageIcon,
+  RefreshCwIcon
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,9 +25,17 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useStoryBot } from "@/hooks/useStoryBot";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 
 const ViewStory = () => {
   const navigate = useNavigate();
+  const { 
+    generateConsistentStoryImages, 
+    leonardoApiAvailable, 
+    leonardoWebhookUrl 
+  } = useStoryBot();
   const [storyData, setStoryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -34,8 +44,9 @@ const ViewStory = () => {
   const [pageDirection, setPageDirection] = useState<"left" | "right">("right");
   const [isNarrating, setIsNarrating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRegeneratingImages, setIsRegeneratingImages] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
-  const [storyMeta, setStoryMeta] = useState({});
+  const [storyMeta, setStoryMeta] = useState<any>({});
 
   useEffect(() => {
     const styleElement = document.createElement("style");
@@ -158,6 +169,70 @@ const ViewStory = () => {
       navigator.clipboard.writeText(window.location.href)
         .then(() => toast.success("Link copiado para a área de transferência!"))
         .catch(() => toast.error("Não foi possível copiar o link"));
+    }
+  };
+
+  // Função para regenerar todas as ilustrações da história
+  const regenerateAllIllustrations = async () => {
+    if (!storyData || !storyData.pages || storyData.pages.length === 0) {
+      toast.error("Dados da história não encontrados");
+      return;
+    }
+    
+    if (!leonardoApiAvailable || !leonardoWebhookUrl) {
+      toast.error("Leonardo AI não está configurado. Configure o webhook nas configurações.");
+      return;
+    }
+    
+    setIsRegeneratingImages(true);
+    toast.info("Iniciando geração de ilustrações consistentes...");
+    
+    try {
+      // Extrair textos das páginas
+      const pageTexts = storyData.pages.map((page: any) => page.text);
+      
+      // Extrair metadados da história
+      const characterName = storyData.characterName || storyMeta.characterName || "Personagem";
+      const theme = storyData.theme || "adventure";
+      const setting = storyData.setting || "forest";
+      const characterPrompt = storyData.characterPrompt || storyMeta.characterPrompt || null;
+      const style = storyData.style || "cartoon";
+      
+      // Gerar novas ilustrações consistentes
+      const newImages = await generateConsistentStoryImages(
+        pageTexts,
+        characterName,
+        theme,
+        setting,
+        characterPrompt,
+        style,
+        storyData.childImage || null
+      );
+      
+      // Atualizar as imagens na história
+      const updatedPages = storyData.pages.map((page: any, index: number) => ({
+        ...page,
+        imageUrl: newImages[index] || page.imageUrl
+      }));
+      
+      // Atualizar storyData
+      const updatedStoryData = {
+        ...storyData,
+        pages: updatedPages
+      };
+      
+      // Salvar na sessão
+      sessionStorage.setItem("storyData", JSON.stringify(updatedStoryData));
+      
+      // Atualizar o estado
+      setStoryData(updatedStoryData);
+      
+      toast.success("Ilustrações regeneradas com sucesso!");
+    } catch (error) {
+      console.error("Error regenerating illustrations:", error);
+      toast.error("Erro ao regenerar ilustrações. Tente novamente.");
+    } finally {
+      setIsRegeneratingImages(false);
     }
   };
 
@@ -421,6 +496,50 @@ const ViewStory = () => {
         <div id="story-container" className="container mx-auto max-w-5xl px-4">
           <div className="mb-6 bg-purple-100 p-2 rounded-full">
             <Progress value={progress} className="h-2" />
+          </div>
+          
+          <div className="mb-4 flex justify-between items-center">
+            <div className="flex gap-2">
+              {leonardoApiAvailable && leonardoWebhookUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={regenerateAllIllustrations}
+                  disabled={isRegeneratingImages}
+                  className="text-xs flex items-center gap-1"
+                >
+                  {isRegeneratingImages ? (
+                    <>
+                      <RefreshCwIcon className="h-3 w-3 animate-spin" />
+                      Regenerando...
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-3 w-3" />
+                      Regenerar Ilustrações
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Configurar Leonardo AI
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Configuração do Leonardo AI</DialogTitle>
+                </DialogHeader>
+                <LeonardoWebhookConfig />
+              </DialogContent>
+            </Dialog>
           </div>
           
           <div 
