@@ -268,7 +268,17 @@ export class BookGenerationService {
       let characterDetails = '';
       if (storyParams.character_name) {
         try {
-          characterDetails = await this.getCharacterPrompt(storyParams.character_name);
+          // First check if we have a character prompt in localStorage (selected from the StoryBot page)
+          const savedCharacterPrompt = localStorage.getItem('character_prompt');
+          const savedCharacterName = localStorage.getItem('character_name');
+          
+          if (savedCharacterPrompt && savedCharacterName && savedCharacterName === storyParams.character_name) {
+            console.log("Using saved character prompt for:", savedCharacterName);
+            characterDetails = savedCharacterPrompt;
+          } else {
+            // Fallback to fetching from database
+            characterDetails = await this.getCharacterPrompt(storyParams.character_name);
+          }
         } catch (error) {
           console.warn("Error getting character prompt, continuing without it:", error);
         }
@@ -693,14 +703,11 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 5. Ter aproximadamente 50-100 palavras`;
   }
 
-  // Add fallback story generator
-  private generateFallbackStory(params: Story): CompleteStory {
+  static async generateFallbackStory(params: Story): CompleteStory {
     console.log("Using fallback story generator with params:", params);
     
-    // Get the page count
     const numPages = params.num_pages || 5;
     
-    // Simple fallback templates for story titles
     const titles = [
       `A Grande Aventura de ${params.character_name}`,
       `${params.character_name} e a Jornada Mágica`,
@@ -709,10 +716,8 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
       `A Missão Especial de ${params.character_name}`
     ];
     
-    // Select a random title
     const title = titles[Math.floor(Math.random() * titles.length)];
     
-    // Generate simple content based on theme and setting
     const storyStarters = [
       `Era uma vez, ${params.character_name}, uma criança de ${params.character_age} anos, que adorava explorar novos lugares.`,
       `${params.character_name} sempre sonhou em visitar ${params.setting}.`,
@@ -737,27 +742,21 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
       `Todos celebraram a vitória de ${params.character_name}, o(a) verdadeiro(a) herói(heroína) de ${params.setting}.`
     ];
     
-    // Generate pages for the story
     const pages = [];
     
     for (let i = 0; i < numPages; i++) {
       let pageText;
       
       if (i === 0) {
-        // First page - introduction
         pageText = storyStarters[Math.floor(Math.random() * storyStarters.length)];
       } else if (i === numPages - 1) {
-        // Last page - conclusion
         pageText = endings[Math.floor(Math.random() * endings.length)];
       } else {
-        // Middle pages - adventure progress
         if (i < 3) {
           pageText = middles[Math.floor(Math.random() * middles.length)];
         } else {
-          // More variety for middle pages
           pageText = `${params.character_name} continuou sua jornada em ${params.setting}, descobrindo novos segredos a cada momento.`;
           
-          // Add some variation
           if (i % 2 === 0) {
             pageText += ` As cores vibrantes e os sons misteriosos criavam uma atmosfera mágica.`;
           } else {

@@ -5,15 +5,28 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StoryBotChat from "../components/StoryBotChat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Wand2, BookText, Download, Info } from "lucide-react";
+import { AlertCircle, Wand2, BookText, Download, Info, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/lib/supabase";
+
+interface Character {
+  id: string;
+  name: string;
+  description: string;
+  generation_prompt?: string;
+}
 
 const StoryBot = () => {
   const navigate = useNavigate();
   const [showApiAlert, setShowApiAlert] = useState(false);
   const [localGeneratorMode, setLocalGeneratorMode] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<string>("");
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
   
   useEffect(() => {
     // Check localStorage to see if we've already detected API issues
@@ -30,10 +43,33 @@ const StoryBot = () => {
     
     window.addEventListener("storybot_api_issue", handleApiIssue);
     
+    // Load characters from Supabase
+    fetchCharacters();
+    
     return () => {
       window.removeEventListener("storybot_api_issue", handleApiIssue);
     };
   }, []);
+  
+  const fetchCharacters = async () => {
+    try {
+      setIsLoadingCharacters(true);
+      const { data, error } = await supabase
+        .from('characters')
+        .select('id, name, description, generation_prompt');
+      
+      if (error) {
+        console.error("Error fetching characters:", error);
+        toast.error("Erro ao carregar personagens");
+      } else {
+        setCharacters(data || []);
+      }
+    } catch (err) {
+      console.error("Error in fetchCharacters:", err);
+    } finally {
+      setIsLoadingCharacters(false);
+    }
+  };
   
   const handleGenerateStory = () => {
     if (localGeneratorMode) {
@@ -41,6 +77,17 @@ const StoryBot = () => {
     } else {
       toast.info("Gerando história personalizada");
     }
+    
+    // Save selected character to localStorage for use in view-story page
+    if (selectedCharacter) {
+      localStorage.setItem("selected_character", selectedCharacter);
+      const characterData = characters.find(c => c.id === selectedCharacter);
+      if (characterData) {
+        localStorage.setItem("character_prompt", characterData.generation_prompt || "");
+        localStorage.setItem("character_name", characterData.name || "");
+      }
+    }
+    
     navigate("/view-story");
   };
   
@@ -120,7 +167,7 @@ const StoryBot = () => {
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-violet-100 text-violet-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">3</span>
-                    <p>Descreva como você quer que o personagem principal seja.</p>
+                    <p>Selecione um personagem ou descreva um personalizado.</p>
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-violet-100 text-violet-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">4</span>
@@ -135,18 +182,44 @@ const StoryBot = () => {
                     <BookText className="w-5 h-5 text-violet-600" />
                     Gerar História Completa
                   </h2>
-                  <p className="text-slate-600 text-sm">
-                    Quando terminar de definir os detalhes da história com o StoryBot, você pode gerar a história completa com todas as páginas e ilustrações.
-                  </p>
                   
-                  <div className="pt-2">
-                    <Button 
-                      onClick={handleGenerateStory}
-                      className={`w-full ${localGeneratorMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-storysnap-blue hover:bg-storysnap-blue/90'} text-white`}
-                    >
-                      <Wand2 className="w-4 h-4 mr-2" />
-                      {localGeneratorMode ? "Criar História com Gerador Local" : "Criar História Completa"}
-                    </Button>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="character" className="text-sm font-medium">Selecione um personagem</Label>
+                      <Select value={selectedCharacter} onValueChange={setSelectedCharacter}>
+                        <SelectTrigger className="w-full mt-1">
+                          <SelectValue placeholder="Escolha um personagem" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Nenhum personagem</SelectItem>
+                          {characters.map(character => (
+                            <SelectItem key={character.id} value={character.id}>
+                              {character.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedCharacter && (
+                        <div className="mt-2 text-xs text-violet-600">
+                          <User className="w-3 h-3 inline mr-1" />
+                          {characters.find(c => c.id === selectedCharacter)?.name} será o protagonista da história
+                        </div>
+                      )}
+                    </div>
+                    
+                    <p className="text-slate-600 text-sm">
+                      Quando terminar de definir os detalhes da história com o StoryBot, você pode gerar a história completa com todas as páginas e ilustrações.
+                    </p>
+                  
+                    <div className="pt-2">
+                      <Button 
+                        onClick={handleGenerateStory}
+                        className={`w-full ${localGeneratorMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-storysnap-blue hover:bg-storysnap-blue/90'} text-white`}
+                      >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        {localGeneratorMode ? "Criar História com Gerador Local" : "Criar História Completa"}
+                      </Button>
+                    </div>
                   </div>
                   
                   {localGeneratorMode && (

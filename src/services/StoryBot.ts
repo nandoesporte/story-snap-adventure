@@ -229,10 +229,20 @@ export class StoryBot {
       throw new Error("A geração foi cancelada.");
     }
     
+    // Check if we have a saved character prompt in localStorage
+    const savedCharacterPrompt = localStorage.getItem('character_prompt');
+    const savedCharacterName = localStorage.getItem('character_name');
+    
+    if (savedCharacterPrompt && savedCharacterName && savedCharacterName === characterName) {
+      console.log("Using saved character prompt for images:", savedCharacterName);
+      characterPrompt = savedCharacterPrompt;
+    }
+    
     console.info("Generating image with Gemini:", {
       imageDescription: imageDescription.substring(0, 100) + "...",
       theme,
-      style
+      style,
+      hasCharacterPrompt: !!characterPrompt
     });
     
     this.retryCount = 0;
@@ -654,3 +664,4 @@ export class StoryBot {
     return { title, content };
   }
 }
+

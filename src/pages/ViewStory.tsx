@@ -1,5 +1,5 @@
-
-import { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { supabase } from "@/utils/supabase";
 
 const ViewStory = () => {
   const navigate = useNavigate();
@@ -34,7 +34,8 @@ const ViewStory = () => {
   const [isNarrating, setIsNarrating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const bookRef = useRef<HTMLDivElement>(null);
-  
+  const [storyMeta, setStoryMeta] = useState({});
+
   useEffect(() => {
     const styleElement = document.createElement("style");
     styleElement.textContent = customScrollbarStyles;
@@ -87,6 +88,47 @@ const ViewStory = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const selectedCharacterId = localStorage.getItem('selected_character');
+    const characterName = localStorage.getItem('character_name');
+    
+    if (selectedCharacterId && characterName) {
+      console.log("Using selected character:", characterName);
+      setStoryMeta(prev => ({
+        ...prev,
+        characterName: characterName
+      }));
+      
+      // Load character data if needed
+      loadCharacterData(selectedCharacterId);
+    }
+  }, []);
+
+  const loadCharacterData = async (characterId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('*')
+        .eq('id', characterId)
+        .single();
+        
+      if (error) {
+        console.error("Error loading character data:", error);
+        return;
+      }
+      
+      if (data) {
+        setStoryMeta(prev => ({
+          ...prev,
+          characterName: data.name,
+          characterPrompt: data.generation_prompt || data.description
+        }));
+      }
+    } catch (err) {
+      console.error("Error in loadCharacterData:", err);
+    }
+  };
 
   const handleNextPage = () => {
     if (storyData && currentPage < storyData.pages.length) {
