@@ -94,6 +94,7 @@ const StoryBot = () => {
   const clearApiIssueStatus = () => {
     // Reset API issue status for testing purposes
     localStorage.removeItem("storybot_api_issue");
+    localStorage.removeItem("leonardo_api_issue"); // Limpar também o status da API de imagens
     setShowApiAlert(false);
     setLocalGeneratorMode(false);
     toast.success("Status da API reiniciado");

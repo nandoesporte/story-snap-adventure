@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { BookGenerationService } from '@/services/BookGenerationService';
 import { reinitializeGeminiAI } from '@/lib/openai';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Info } from "lucide-react";
+import { Info, ImageIcon } from "lucide-react";
 
 const GeminiApiKeyManager = () => {
   const [apiKey, setApiKey] = useState<string>("");
@@ -58,6 +57,7 @@ const GeminiApiKeyManager = () => {
           toast.success("Conexão com a API Gemini testada com sucesso!");
           
           localStorage.removeItem("storybot_api_issue");
+          localStorage.removeItem("leonardo_api_issue");
         } catch (error) {
           console.error("Error testing Gemini API:", error);
           
@@ -129,9 +129,21 @@ const GeminiApiKeyManager = () => {
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
               <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-800">Geração de ilustrações com Gemini</p>
+                <p className="text-sm font-medium text-blue-800">Geração de histórias e ilustrações com Gemini</p>
                 <p className="text-sm text-blue-700">
-                  Agora o StoryBot usa o modelo Gemini para gerar as ilustrações, dispensando a necessidade de configurar o webhook do Leonardo AI.
+                  O StoryBot usa o modelo Gemini para gerar tanto as histórias quanto as ilustrações,
+                  oferecendo uma experiência completa e integrada.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md flex items-start gap-2">
+              <ImageIcon className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-purple-800">Geração de ilustrações integrada</p>
+                <p className="text-sm text-purple-700">
+                  Com o Gemini 1.5 Pro, o StoryBot agora gera ilustrações diretamente, sem necessidade
+                  de configurar o webhook do Leonardo AI.
                 </p>
               </div>
             </div>

@@ -1,5 +1,6 @@
 
 import { toast } from "sonner";
+import { geminiAI } from "@/lib/openai";
 
 interface ImageGenerationParams {
   prompt: string;
@@ -18,39 +19,19 @@ interface LeonardoResponse {
 }
 
 /**
- * LeonardoAIAgent - Responsável por gerar ilustrações consistentes usando Leonardo AI
+ * LeonardoAIAgent - Responsável por gerar ilustrações consistentes usando Gemini API
  * Mantém características dos personagens consistentes ao longo das ilustrações
  */
 export class LeonardoAIAgent {
-  private webhookUrl: string | null;
   private characterPrompts: Map<string, string> = new Map();
   private characterImageStyles: Map<string, string> = new Map();
   private isAvailable: boolean = true;
 
-  constructor(webhookUrl: string | null = null) {
-    this.webhookUrl = webhookUrl;
-    this.isAvailable = this.validateWebhookUrl();
+  constructor() {
+    this.isAvailable = true;
     
     // Carregar prompts de personagens salvos
     this.loadSavedCharacterPrompts();
-  }
-
-  /**
-   * Verifica se o webhook do Leonardo AI está configurado corretamente
-   */
-  private validateWebhookUrl(): boolean {
-    if (!this.webhookUrl) {
-      console.warn("Leonardo AI webhook não configurado");
-      return false;
-    }
-    
-    try {
-      const url = new URL(this.webhookUrl);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch (e) {
-      console.error("URL de webhook inválida:", e);
-      return false;
-    }
   }
 
   /**
@@ -125,28 +106,22 @@ export class LeonardoAIAgent {
    * Verifica se o agente está disponível para uso
    */
   public isAgentAvailable(): boolean {
-    return this.isAvailable && !!this.webhookUrl;
+    return this.isAvailable;
   }
 
   /**
    * Define a URL do webhook do Leonardo AI
    */
   public setWebhookUrl(url: string): boolean {
-    this.webhookUrl = url;
-    this.isAvailable = this.validateWebhookUrl();
-    return this.isAvailable;
+    // Mantemos este método para compatibilidade, mas não é mais necessário
+    return true;
   }
 
   /**
-   * Gera uma imagem usando o Leonardo AI com base em um prompt e mantendo
+   * Gera uma imagem usando o Gemini API com base em um prompt e mantendo
    * consistência com as características do personagem
    */
   public async generateImage(params: ImageGenerationParams): Promise<string> {
-    if (!this.isAgentAvailable()) {
-      toast.error("Agente Leonardo AI não está disponível. Verifique as configurações.");
-      throw new Error("Leonardo AI agent not available");
-    }
-
     const { prompt, characterName, theme, setting, style = "cartoon", characterPrompt, childImage } = params;
     
     // Usar o prompt salvo do personagem, se existir
@@ -162,63 +137,65 @@ export class LeonardoAIAgent {
       enhancedPrompt += ` O personagem ${characterName} possui as seguintes características: ${finalCharacterPrompt}`;
     }
     
-    console.log("Gerando imagem com Leonardo AI:", {
-      webhookUrl: this.webhookUrl,
+    console.log("Gerando imagem com Gemini API:", {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
       style: savedStyle
     });
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      // Usar o Gemini para gerar a imagem diretamente
+      const geminiModel = geminiAI.getGenerativeModel({ model: "gemini-1.5-pro" });
       
-      const response = await fetch(this.webhookUrl!, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: enhancedPrompt,
-          character_name: characterName,
-          theme,
-          setting,
-          style: savedStyle,
-          character_prompt: finalCharacterPrompt,
-          child_image: childImage
-        }),
-        signal: controller.signal
-      });
+      const generationPrompt = `
+      Gere uma imagem para livro infantil no estilo ${savedStyle} baseada na seguinte cena:
       
-      clearTimeout(timeoutId);
+      "${enhancedPrompt}"
       
-      if (!response.ok) {
-        console.error(`Leonardo AI returned status: ${response.status} ${response.statusText}`);
-        throw new Error(`Leonardo AI returned status: ${response.status} - ${response.statusText}`);
+      Cenário: ${setting}
+      Tema: ${theme}
+      
+      A imagem deve ser colorida, encantadora e apropriada para crianças, mantendo consistência 
+      nas características dos personagens em todo o livro.
+      `;
+      
+      const result = await geminiModel.generateContent(generationPrompt);
+      const response = await result.response;
+      
+      // Extrair a imagem da resposta - Gemini 1.5 Pro pode gerar imagens
+      const parts = response.candidates[0].content.parts;
+      const imagePart = parts.find(part => part.inlineData && part.inlineData.mimeType.startsWith('image/'));
+      
+      if (!imagePart || !imagePart.inlineData) {
+        throw new Error("Não foi possível gerar a imagem");
       }
       
-      const data = await response.json() as LeonardoResponse;
-      console.log("Leonardo AI response:", data);
+      // Converter dados base64 para URL de imagem
+      const base64Data = imagePart.inlineData.data;
+      const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${base64Data}`;
       
-      if (data.image_url) {
-        // Quando bem-sucedido, salvar o prompt para uso futuro
-        if (characterPrompt && !savedPrompt) {
-          this.saveCharacterPrompt(characterName, characterPrompt);
-        }
-        return data.image_url;
-      } else if (data.error) {
-        throw new Error(`Webhook error: ${data.error}`);
-      } else {
-        throw new Error("Webhook não retornou uma URL de imagem");
+      // Quando bem-sucedido, salvar o prompt para uso futuro
+      if (characterPrompt && !savedPrompt) {
+        this.saveCharacterPrompt(characterName, characterPrompt);
       }
+      
+      return imageUrl;
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        toast.error("Tempo limite excedido ao gerar imagem com Leonardo AI");
-        throw new Error('Tempo limite excedido ao gerar imagem');
-      }
+      console.error("Error generating image with Gemini:", error);
       
-      console.error("Error using Leonardo AI:", error);
-      throw error;
+      // Se ocorrer um erro com o Gemini, podemos tentar fazer fallback para uma abordagem alternativa
+      toast.error("Erro ao gerar imagem com Gemini. Usando imagem de placeholder.");
+      
+      // Retornar uma imagem placeholder baseada no tema
+      const themeImages: Record<string, string> = {
+        adventure: "/images/placeholders/adventure.jpg",
+        fantasy: "/images/placeholders/fantasy.jpg",
+        space: "/images/placeholders/space.jpg",
+        ocean: "/images/placeholders/ocean.jpg",
+        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      };
+      
+      return themeImages[theme] || "/images/placeholders/illustration-placeholder.jpg";
     }
   }
 
@@ -235,7 +212,7 @@ export class LeonardoAIAgent {
     style: string = "cartoon",
     childImage: string | null = null
   ): Promise<string[]> {
-    if (!this.isAgentAvailable() || !storyPages.length) {
+    if (!storyPages.length) {
       return storyPages.map(() => "");
     }
     

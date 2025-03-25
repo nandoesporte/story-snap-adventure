@@ -17,15 +17,12 @@ export const useStoryBot = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
-  const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(
-    localStorage.getItem("leonardo_webhook_url")
-  );
   
   // Create an instance of the StoryBot service
-  const storyBot = new StoryBot(leonardoWebhookUrl);
+  const storyBot = new StoryBot();
   
-  // Create an instance of the Leonardo AI agent
-  const leonardoAgent = new LeonardoAIAgent(leonardoWebhookUrl);
+  // Create an instance of the Leonardo AI agent - now without webhook dependency
+  const leonardoAgent = new LeonardoAIAgent();
   
   // Ensure the storybot_prompts table exists
   useEffect(() => {
@@ -37,7 +34,7 @@ export const useStoryBot = () => {
   // Update API availability status from the service
   useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
-    setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
+    setLeonardoApiAvailable(leonardoAgent.isAgentAvailable());
     
     // Listen for API issue events
     const handleStoryBotApiIssue = () => {
@@ -122,33 +119,18 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      // Tente primeiro usar o agente Leonardo AI para geração consistente
-      if (leonardoAgent.isAgentAvailable()) {
-        console.log("Usando LeonardoAIAgent para gerar imagem consistente");
-        
-        return await leonardoAgent.generateImage({
-          prompt: imageDescription,
-          characterName,
-          theme,
-          setting,
-          style,
-          characterPrompt,
-          childImage: childImageBase64
-        });
-      }
+      // Agora sempre usamos o agente Leonardo AI para geração consistente
+      console.log("Usando LeonardoAIAgent para gerar imagem consistente");
       
-      // Cair para o método padrão se o agente não estiver disponível
-      console.log("Voltando para o método padrão de geração de imagem");
-      
-      return await storyBot.generateImage(
-        imageDescription,
+      return await leonardoAgent.generateImage({
+        prompt: imageDescription,
         characterName,
         theme,
         setting,
-        childImageBase64,
         style,
-        characterPrompt
-      );
+        characterPrompt,
+        childImage: childImageBase64
+      });
     } catch (error) {
       console.error("Error generating image:", error);
       setApiAvailable(false);
@@ -181,31 +163,18 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      // Try to use the Leonardo AI agent for consistent character generation first
-      if (leonardoAgent.isAgentAvailable()) {
-        console.log("Using LeonardoAIAgent for cover image generation");
-        
-        return await leonardoAgent.generateImage({
-          prompt: `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`,
-          characterName,
-          theme,
-          setting,
-          style,
-          characterPrompt,
-          childImage: childImageBase64
-        });
-      }
+      // Agora sempre usamos o agente Leonardo AI para geração consistente
+      console.log("Using LeonardoAIAgent for cover image generation");
       
-      // Fallback to the standard method if agent is not available
-      return await storyBot.generateCoverImage(
-        title,
+      return await leonardoAgent.generateImage({
+        prompt: `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`,
         characterName,
         theme,
         setting,
-        childImageBase64,
         style,
-        characterPrompt
-      );
+        characterPrompt,
+        childImage: childImageBase64
+      });
     } catch (error) {
       console.error("Error generating cover image:", error);
       setApiAvailable(false);
@@ -234,54 +203,17 @@ export const useStoryBot = () => {
     style: string = "cartoon",
     childImageBase64: string | null = null
   ) => {
-    if (leonardoAgent.isAgentAvailable()) {
-      toast.info("Gerando ilustrações consistentes para a história...");
-      
-      return await leonardoAgent.generateStoryImages(
-        storyPages,
-        characterName,
-        theme,
-        setting,
-        characterPrompt,
-        style,
-        childImageBase64
-      );
-    } else {
-      toast.warning("Agente Leonardo AI não disponível. As imagens podem não ter consistência entre si.");
-      
-      // Fallback: gerar imagens individualmente
-      const imageUrls: string[] = [];
-      
-      for (let i = 0; i < storyPages.length; i++) {
-        try {
-          const pageText = storyPages[i];
-          const imageDescription = await generateImageDescription(
-            pageText,
-            characterName,
-            "7",
-            theme,
-            setting
-          );
-          
-          const imageUrl = await generateImage(
-            imageDescription,
-            characterName,
-            theme,
-            setting,
-            childImageBase64,
-            style,
-            characterPrompt
-          );
-          
-          imageUrls.push(imageUrl);
-        } catch (error) {
-          console.error(`Error generating image for page ${i+1}:`, error);
-          imageUrls.push("/images/placeholders/illustration-placeholder.jpg");
-        }
-      }
-      
-      return imageUrls;
-    }
+    toast.info("Gerando ilustrações consistentes para a história...");
+    
+    return await leonardoAgent.generateStoryImages(
+      storyPages,
+      characterName,
+      theme,
+      setting,
+      characterPrompt,
+      style,
+      childImageBase64
+    );
   };
   
   const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
@@ -303,21 +235,7 @@ export const useStoryBot = () => {
   };
 
   const setLeonardoWebhook = (url: string) => {
-    if (url && url.startsWith('http')) {
-      localStorage.setItem("leonardo_webhook_url", url);
-      setLeonardoWebhookUrl(url);
-      storyBot.setLeonardoWebhookUrl(url);
-      leonardoAgent.setWebhookUrl(url);
-      
-      // Clear any previous API issues when setting a new URL
-      localStorage.removeItem("leonardo_api_issue");
-      setLeonardoApiAvailable(true);
-      
-      return true;
-    } else {
-      toast.error("URL de webhook inválida. Por favor, insira uma URL completa começando com http:// ou https://");
-      return false;
-    }
+    return true;
   };
 
   const resetLeonardoApiStatus = () => {
@@ -342,7 +260,7 @@ export const useStoryBot = () => {
     leonardoApiAvailable,
     resetLeonardoApiStatus,
     setLeonardoWebhook,
-    leonardoWebhookUrl,
+    leonardoWebhookUrl: null,
     leonardoAgent
   };
 };
