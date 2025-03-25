@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "@/services/StoryBot";
-import { ensureStoryBotPromptsTable } from "@/lib/openai";
+import { ensureStoryBotPromptsTable, resetLeonardoApiStatus as resetLeonardoApi } from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -35,6 +35,23 @@ export const useStoryBot = () => {
   useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
     setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
+    
+    // Listen for API issue events
+    const handleStoryBotApiIssue = () => {
+      setApiAvailable(false);
+    };
+    
+    const handleLeonardoApiIssue = () => {
+      setLeonardoApiAvailable(false);
+    };
+    
+    window.addEventListener('storybot_api_issue', handleStoryBotApiIssue);
+    window.addEventListener('leonardo_api_issue', handleLeonardoApiIssue);
+    
+    return () => {
+      window.removeEventListener('storybot_api_issue', handleStoryBotApiIssue);
+      window.removeEventListener('leonardo_api_issue', handleLeonardoApiIssue);
+    };
   }, []);
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
@@ -103,7 +120,35 @@ export const useStoryBot = () => {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ) => {
+    // Check if webhook URL is configured first
+    if (!leonardoWebhookUrl) {
+      toast.error("Erro: URL do webhook do Leonardo AI não configurada. Configure nas configurações.");
+      // Return placeholder image for the theme
+      const themeImages = {
+        adventure: "/images/placeholders/adventure.jpg",
+        fantasy: "/images/placeholders/fantasy.jpg",
+        space: "/images/placeholders/space.jpg",
+        ocean: "/images/placeholders/ocean.jpg",
+        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      };
+      
+      return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
+    }
+    
     try {
+      console.log("Calling StoryBot.generateImage with webhook URL:", leonardoWebhookUrl);
+      
+      // Adicionar mais informações de log
+      console.log("Image generation params:", {
+        description: imageDescription.substring(0, 100) + "...",
+        characterName,
+        theme,
+        setting,
+        hasChildImage: !!childImageBase64,
+        style,
+        hasCharacterPrompt: !!characterPrompt
+      });
+      
       const result = await storyBot.generateImage(
         imageDescription,
         characterName,
@@ -113,6 +158,9 @@ export const useStoryBot = () => {
         style,
         characterPrompt
       );
+      
+      console.log("Image generation result:", result.substring(0, 100) + "...");
+      
       setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
       return result;
     } catch (error) {
@@ -120,6 +168,9 @@ export const useStoryBot = () => {
       setLeonardoApiAvailable(false);
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       localStorage.setItem("leonardo_api_issue", "true");
+      
+      // Show error toast
+      toast.error("Erro ao gerar imagem. Configure o webhook do Leonardo AI nas configurações.");
       
       // Fallback to themed placeholders
       const themeImages = {
@@ -144,6 +195,21 @@ export const useStoryBot = () => {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ) => {
+    // Check if webhook URL is configured first
+    if (!leonardoWebhookUrl) {
+      toast.error("Erro: URL do webhook do Leonardo AI não configurada. Configure nas configurações.");
+      // Return placeholder image for the theme
+      const themeCovers = {
+        adventure: "/images/covers/adventure.jpg",
+        fantasy: "/images/covers/fantasy.jpg",
+        space: "/images/covers/space.jpg",
+        ocean: "/images/covers/ocean.jpg",
+        dinosaurs: "/images/covers/dinosaurs.jpg"
+      };
+      
+      return themeCovers[theme as keyof typeof themeCovers] || `/placeholder.svg`;
+    }
+    
     try {
       // Create a detailed description for the cover image
       const coverDescription = await generateImageDescription(
@@ -153,6 +219,8 @@ export const useStoryBot = () => {
         theme,
         setting
       );
+      
+      console.log("Generating cover image with description:", coverDescription);
       
       // Generate the cover image using the description
       return await generateImage(
@@ -208,7 +276,11 @@ export const useStoryBot = () => {
       localStorage.setItem("leonardo_webhook_url", url);
       setLeonardoWebhookUrl(url);
       storyBot.setLeonardoWebhookUrl(url);
-      toast.success("URL de webhook do Leonardo AI configurada com sucesso!");
+      
+      // Clear any previous API issues when setting a new URL
+      localStorage.removeItem("leonardo_api_issue");
+      setLeonardoApiAvailable(true);
+      
       return true;
     } else {
       toast.error("URL de webhook inválida. Por favor, insira uma URL completa começando com http:// ou https://");
@@ -218,8 +290,12 @@ export const useStoryBot = () => {
 
   // Reset Leonardo API availability status for testing
   const resetLeonardoApiStatus = () => {
-    localStorage.removeItem("leonardo_api_issue");
+    resetLeonardoApi();
     setLeonardoApiAvailable(true);
+    
+    // Remove a flag de erro do localStorage
+    localStorage.removeItem("leonardo_api_issue");
+    
     toast.success("Status da API do Leonardo foi redefinido. Tente gerar imagens novamente.");
   };
 

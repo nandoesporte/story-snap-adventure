@@ -1,5 +1,7 @@
-import { openai, geminiAI, ensureStoryBotPromptsTable } from '@/lib/openai';
+
+import { openai, geminiAI, ensureStoryBotPromptsTable, isLeonardoWebhookValid } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -28,6 +30,7 @@ export class StoryBot {
   private apiAvailable: boolean = true;
   private leonardoApiAvailable: boolean = true;
   private leonardoWebhookUrl: string | null = null;
+  private cancelRequested: boolean = false;
 
   constructor(webhookUrl: string | null = null) {
     // Check if the API was previously marked as unavailable
@@ -52,16 +55,29 @@ export class StoryBot {
   }
   
   public isLeonardoApiAvailable(): boolean {
-    return this.leonardoApiAvailable;
+    return this.leonardoApiAvailable && isLeonardoWebhookValid() && !!this.leonardoWebhookUrl;
   }
   
   public setLeonardoWebhookUrl(url: string): void {
     this.leonardoWebhookUrl = url;
+    localStorage.setItem("leonardo_webhook_url", url);
+    // Clear any previous API issues when setting a new URL
+    localStorage.removeItem("leonardo_api_issue");
+    this.leonardoApiAvailable = true;
+  }
+  
+  public cancel(): void {
+    this.cancelRequested = true;
   }
 
   public async generateStoryBotResponse(messages: any[], userPrompt: string): Promise<string> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {
@@ -117,6 +133,11 @@ export class StoryBot {
   ): Promise<string> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {
@@ -190,60 +211,111 @@ export class StoryBot {
     style: string = "cartoon",
     characterPrompt: string | null = null
   ): Promise<string> {
-    if (!this.leonardoApiAvailable) {
-      throw new Error("Leonardo API marked as unavailable");
+    // Check if Leonardo API is available and webhook is configured
+    if (!this.leonardoApiAvailable || !this.leonardoWebhookUrl) {
+      console.error("Leonardo API unavailable or webhook not configured");
+      
+      // Set the error flag
+      localStorage.setItem("leonardo_api_issue", "true");
+      
+      // Return themed placeholder images based on the theme
+      const themeImages: Record<string, string> = {
+        adventure: "/images/placeholders/adventure.jpg",
+        fantasy: "/images/placeholders/fantasy.jpg",
+        space: "/images/placeholders/space.jpg",
+        ocean: "/images/placeholders/ocean.jpg",
+        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      };
+      
+      // If theme exists in our placeholders, use it, otherwise use a default
+      return themeImages[theme] || "/placeholder.svg";
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     console.info("Generating image:", {
-      imageDescription,
+      imageDescription: imageDescription.substring(0, 100) + "...",
       theme,
-      style
+      style,
+      webhookUrl: this.leonardoWebhookUrl
     });
     
     try {
-      // If a webhook URL is provided, we'll use it to generate the image
-      if (this.leonardoWebhookUrl) {
-        const response = await fetch(this.leonardoWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: imageDescription,
-            character_name: characterName,
-            theme,
-            setting,
-            style,
-            character_prompt: characterPrompt,
-            child_image: childImageBase64
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Leonardo webhook returned status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        if (data.image_url) {
-          return data.image_url;
-        } else {
-          throw new Error("Leonardo webhook didn't return an image URL");
-        }
+      // Call the Leonardo webhook with all required parameters
+      const response = await fetch(this.leonardoWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: imageDescription,
+          character_name: characterName,
+          theme,
+          setting,
+          style,
+          character_prompt: characterPrompt,
+          child_image: childImageBase64
+        }),
+        // Add a reasonable timeout to prevent hanging requests
+        signal: AbortSignal.timeout(60000) // 60 seconds timeout
+      });
+      
+      if (!response.ok) {
+        console.error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
+        throw new Error(`Leonardo webhook returned status: ${response.status} - ${response.statusText}`);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("Leonardo webhook response:", data);
+      } catch (e) {
+        console.error("Failed to parse webhook response as JSON", e);
+        throw new Error("Invalid response format from webhook");
+      }
+      
+      if (data.image_url) {
+        // Reset the error flag on successful generation
+        localStorage.removeItem("leonardo_api_issue");
+        this.leonardoApiAvailable = true;
+        return data.image_url;
+      } else if (data.error) {
+        throw new Error(`Webhook error: ${data.error}`);
       } else {
-        // Fallback to placeholder images if no webhook URL is provided
-        throw new Error("No Leonardo webhook URL configured");
+        throw new Error("Webhook didn't return an image URL or error message");
       }
     } catch (error) {
       console.error("Error generating image with Leonardo API:", error);
       this.leonardoApiAvailable = false;
       localStorage.setItem("leonardo_api_issue", "true");
-      throw error;
+      
+      // Show error toast
+      toast.error("Erro ao gerar imagem. Verifique a configuração do webhook do Leonardo AI.");
+      
+      // Fallback to themed placeholders
+      const themeImages: Record<string, string> = {
+        adventure: "/images/placeholders/adventure.jpg",
+        fantasy: "/images/placeholders/fantasy.jpg",
+        space: "/images/placeholders/space.jpg",
+        ocean: "/images/placeholders/ocean.jpg",
+        dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      };
+      
+      return themeImages[theme] || "/placeholder.svg";
     }
   }
 
   public async generateStory(params: StoryParams): Promise<GeneratedStory> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {
