@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
@@ -32,6 +31,26 @@ export const reinitializeGeminiAI = (apiKey: string) => {
     return null;
   }
 };
+
+// Check if the storybot_prompts table exists and create it if it doesn't
+export const ensureStoryBotPromptsTable = async () => {
+  try {
+    const { supabase } = await import('@/lib/supabase');
+    
+    // Try to execute the SQL from storybot_prompts.sql
+    await supabase.rpc('create_storybot_prompt_if_not_exists');
+    console.log('StoryBot prompts table checked/created successfully');
+    return true;
+  } catch (error) {
+    console.error('Error ensuring StoryBot prompts table exists:', error);
+    return false;
+  }
+};
+
+// Attempt to initialize the table when this module loads
+ensureStoryBotPromptsTable().catch(err => {
+  console.warn('Failed to initialize StoryBot prompts table:', err);
+});
 
 // Keep OpenAI interface for backward compatibility
 export const openai = {

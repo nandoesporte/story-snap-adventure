@@ -1,5 +1,4 @@
-
-import { openai, geminiAI } from '@/lib/openai';
+import { openai, geminiAI, ensureStoryBotPromptsTable } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
 type Message = {
@@ -41,6 +40,11 @@ export class StoryBot {
     }
     
     this.leonardoWebhookUrl = webhookUrl;
+    
+    // Try to ensure the storybot_prompts table exists
+    ensureStoryBotPromptsTable().catch(err => {
+      console.warn("Failed to ensure storybot_prompts table exists", err);
+    });
   }
 
   public isApiAvailable(): boolean {
@@ -65,6 +69,8 @@ export class StoryBot {
       let systemPrompt = "Você é o StoryBot, um assistente que ajuda a criar histórias infantis personalizadas.";
       
       try {
+        await ensureStoryBotPromptsTable();
+        
         const { data: promptData, error: promptError } = await supabase
           .from('storybot_prompts')
           .select('*')
@@ -75,7 +81,7 @@ export class StoryBot {
           systemPrompt = promptData.prompt;
         }
       } catch (error) {
-        console.warn("Error fetching StoryBot prompt, using default system prompt");
+        console.warn("Error fetching StoryBot prompt, using default system prompt", error);
       }
       
       const formattedMessages: Message[] = [
@@ -119,6 +125,8 @@ export class StoryBot {
       
       // Try to get image description prompt from Supabase
       try {
+        await ensureStoryBotPromptsTable();
+        
         const { data: promptData, error: promptError } = await supabase
           .from('storybot_prompts')
           .select('*')
@@ -129,7 +137,7 @@ export class StoryBot {
           imagePrompt = promptData.prompt;
         }
       } catch (error) {
-        console.warn("Error fetching image description prompt, using default");
+        console.warn("Error fetching image description prompt, using default", error);
       }
       
       const formattedMessages: Message[] = [
@@ -244,6 +252,8 @@ export class StoryBot {
       
       // Try to get story generation prompt from Supabase
       try {
+        await ensureStoryBotPromptsTable();
+        
         const { data: promptData, error: promptError } = await supabase
           .from('storybot_prompts')
           .select('*')
@@ -254,7 +264,7 @@ export class StoryBot {
           systemPrompt = promptData.prompt;
         }
       } catch (error) {
-        console.warn("Error fetching story generation prompt, using default");
+        console.warn("Error fetching story generation prompt, using default", error);
       }
       
       // Construct the user prompt with all parameters

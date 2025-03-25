@@ -27,4 +27,24 @@ const PopoverContent = React.forwardRef<
 ))
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverContent }
+// Add a custom component for help popover
+const HelpPopover = ({ 
+  trigger, 
+  children 
+}: { 
+  trigger: React.ReactNode; 
+  children: React.ReactNode 
+}) => {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {trigger}
+      </PopoverTrigger>
+      <PopoverContent className="w-80 bg-violet-50 border-violet-200">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export { Popover, PopoverTrigger, PopoverContent, HelpPopover }

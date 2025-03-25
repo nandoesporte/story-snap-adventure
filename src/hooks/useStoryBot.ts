@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "@/services/StoryBot";
+import { ensureStoryBotPromptsTable } from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -22,6 +23,13 @@ export const useStoryBot = () => {
   
   // Create an instance of the StoryBot service
   const storyBot = new StoryBot(leonardoWebhookUrl);
+  
+  // Ensure the storybot_prompts table exists
+  useEffect(() => {
+    ensureStoryBotPromptsTable().catch(err => {
+      console.warn('Failed to ensure StoryBot prompts table exists:', err);
+    });
+  }, []);
   
   // Update API availability status from the service
   useEffect(() => {

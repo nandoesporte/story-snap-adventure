@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryBot } from "../hooks/useStoryBot";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle, Info, RefreshCw } from "lucide-react";
+import { ensureStoryBotPromptsTable } from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -22,6 +23,13 @@ const StoryBotChat = () => {
   const [localModeActive, setLocalModeActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { generateStoryBotResponse, apiAvailable } = useStoryBot();
+  
+  // Initialize the database table when component loads
+  useEffect(() => {
+    ensureStoryBotPromptsTable().catch(err => {
+      console.warn("Failed to initialize StoryBot prompts table:", err);
+    });
+  }, []);
   
   useEffect(() => {
     // Initial welcome message changes based on API availability
@@ -62,7 +70,7 @@ const StoryBotChat = () => {
     return () => {
       window.removeEventListener("storybot_api_issue", handleApiIssue);
     };
-  }, [apiAvailable]);
+  }, [apiAvailable, hasApiError, messages.length]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,6 +101,32 @@ const StoryBotChat = () => {
     
     if (e.target.value.match(/aparência|personagem.+?(cabelo|olhos|pele|roupa|veste)/i)) {
       setCharacterPrompt(e.target.value);
+    }
+  };
+
+  const retryConnection = async () => {
+    try {
+      // Try to initialize the storybot_prompts table
+      const success = await ensureStoryBotPromptsTable();
+      
+      if (success) {
+        toast.success("Conexão reestabelecida! Agora você pode usar todos os recursos.");
+        localStorage.removeItem("storybot_api_issue");
+        setHasApiError(false);
+        setLocalModeActive(false);
+        
+        // Add a message explaining the situation
+        const reconnectionMessage: Message = {
+          role: "assistant",
+          content: "Ótimas notícias! Minha conexão foi restaurada e agora posso usar toda minha capacidade para criar histórias maravilhosas para você! Como posso te ajudar hoje?"
+        };
+        setMessages(prev => [...prev, reconnectionMessage]);
+      } else {
+        throw new Error("Não foi possível reestabelecer a conexão");
+      }
+    } catch (error) {
+      console.error("Error retrying connection:", error);
+      toast.error("Não foi possível reestabelecer a conexão. Continuando no modo simplificado.");
     }
   };
 
@@ -228,11 +262,21 @@ const StoryBotChat = () => {
       {hasApiError && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700">
           <AlertCircle className="h-4 w-4" />
-          <p className="text-sm">
-            {localModeActive 
-              ? "Usando gerador de histórias local. As respostas serão simplificadas."
-              : "Estamos com limitações técnicas no momento. As respostas podem ser simplificadas."}
-          </p>
+          <div className="flex-1">
+            <p className="text-sm">
+              {localModeActive 
+                ? "Usando gerador de histórias local. As respostas serão simplificadas."
+                : "Estamos com limitações técnicas no momento. As respostas podem ser simplificadas."}
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={retryConnection}
+            className="ml-2 h-8 border-amber-300 bg-amber-100 hover:bg-amber-200 flex gap-1 items-center"
+          >
+            <RefreshCw className="h-3 w-3" /> Reconectar
+          </Button>
         </div>
       )}
       
@@ -240,7 +284,7 @@ const StoryBotChat = () => {
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 text-blue-700">
           <Info className="h-4 w-4 mt-0.5" />
           <div>
-            <p className="text-sm font-medium">Dicas para o modo simplificado:</p>
+            <p className="text-sm font-medium text-slate-800 mb-1">Dicas para o modo simplificado:</p>
             <ul className="text-xs mt-1 space-y-1 list-disc pl-4">
               <li>Seja específico sobre o nome e idade da criança</li>
               <li>Mencione claramente o tema desejado (aventura, fantasia, espaço, etc.)</li>
