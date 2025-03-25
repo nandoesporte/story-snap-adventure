@@ -86,6 +86,35 @@ const ViewStory = () => {
         return;
       }
       
+      // Processar os dados da história para garantir que as URLs das imagens estão corretas
+      if (parsedData.pages && Array.isArray(parsedData.pages)) {
+        // Verificar se as páginas têm a estrutura esperada para exibir as imagens
+        parsedData.pages = parsedData.pages.map((page: any, index: number) => {
+          // Se a página não tiver imageUrl, mas tiver image_url, use image_url
+          if (!page.imageUrl && page.image_url) {
+            return {
+              ...page,
+              imageUrl: page.image_url
+            };
+          }
+          // Se não tiver nenhuma URL de imagem, usar uma imagem de placeholder baseada no tema
+          if (!page.imageUrl && !page.image_url) {
+            const themeImages: {[key: string]: string} = {
+              adventure: "/images/placeholders/adventure.jpg",
+              fantasy: "/images/placeholders/fantasy.jpg",
+              space: "/images/placeholders/space.jpg",
+              ocean: "/images/placeholders/ocean.jpg",
+              dinosaurs: "/images/placeholders/dinosaurs.jpg"
+            };
+            return {
+              ...page,
+              imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
+            };
+          }
+          return page;
+        });
+      }
+      
       setStoryData(parsedData);
       
       const timer = setTimeout(() => {

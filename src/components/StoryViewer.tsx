@@ -54,6 +54,32 @@ const StoryViewer = () => {
     const storedData = sessionStorage.getItem("storyData");
     if (storedData) {
       const parsedData = JSON.parse(storedData);
+      
+      if (parsedData.pages && Array.isArray(parsedData.pages)) {
+        parsedData.pages = parsedData.pages.map((page: any) => {
+          if (!page.imageUrl && page.image_url) {
+            return {
+              ...page,
+              imageUrl: page.image_url
+            };
+          }
+          if (!page.imageUrl && !page.image_url) {
+            const themeImages: {[key: string]: string} = {
+              adventure: "/images/placeholders/adventure.jpg",
+              fantasy: "/images/placeholders/fantasy.jpg",
+              space: "/images/placeholders/space.jpg",
+              ocean: "/images/placeholders/ocean.jpg",
+              dinosaurs: "/images/placeholders/dinosaurs.jpg"
+            };
+            return {
+              ...page,
+              imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
+            };
+          }
+          return page;
+        });
+      }
+      
       setStoryData(parsedData);
     }
   }, []);

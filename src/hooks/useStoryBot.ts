@@ -18,25 +18,19 @@ export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
   
-  // Create an instance of the StoryBot service
   const storyBot = new StoryBot();
-  
-  // Create an instance of the Leonardo AI agent - now without webhook dependency
   const leonardoAgent = new LeonardoAIAgent();
   
-  // Ensure the storybot_prompts table exists
   useEffect(() => {
     ensureStoryBotPromptsTable().catch(err => {
       console.warn('Failed to ensure StoryBot prompts table exists:', err);
     });
   }, []);
   
-  // Update API availability status from the service
   useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
     setLeonardoApiAvailable(leonardoAgent.isAgentAvailable());
     
-    // Listen for API issue events
     const handleStoryBotApiIssue = () => {
       setApiAvailable(false);
     };
@@ -68,14 +62,12 @@ export const useStoryBot = () => {
       window.dispatchEvent(new CustomEvent("storybot_api_issue"));
       localStorage.setItem("storybot_api_issue", "true");
       
-      // Provide a graceful fallback response
       const fallbackResponses = [
         "Peço desculpas, estou com dificuldades técnicas no momento. Estou usando um gerador local de histórias para continuar te ajudando. Poderia tentar novamente com outras palavras?",
         "Estou tendo problemas para acessar minha base de conhecimento completa, mas posso continuar te ajudando com o gerador local de histórias. Vamos tentar algo diferente?",
         "Parece que houve um problema na conexão. Estou trabalhando com recursos limitados agora, mas ainda posso criar histórias legais para você. Poderia reformular sua pergunta?"
       ];
       
-      // Choose a random fallback response
       return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
     } finally {
       setIsGenerating(false);
@@ -119,7 +111,6 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      // Agora sempre usamos o agente Leonardo AI para geração consistente
       console.log("Usando LeonardoAIAgent para gerar imagem consistente");
       
       return await leonardoAgent.generateImage({
@@ -137,11 +128,9 @@ export const useStoryBot = () => {
       window.dispatchEvent(new CustomEvent("storybot_api_issue"));
       localStorage.setItem("storybot_api_issue", "true");
       
-      // Show error toast
       toast.error("Erro ao gerar imagem. Usando imagens de placeholder.");
       
-      // Fallback to themed placeholders
-      const themeImages = {
+      const themeImages: {[key: string]: string} = {
         adventure: "/images/placeholders/adventure.jpg",
         fantasy: "/images/placeholders/fantasy.jpg",
         space: "/images/placeholders/space.jpg",
@@ -163,7 +152,6 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
-      // Agora sempre usamos o agente Leonardo AI para geração consistente
       console.log("Using LeonardoAIAgent for cover image generation");
       
       return await leonardoAgent.generateImage({
@@ -181,8 +169,7 @@ export const useStoryBot = () => {
       window.dispatchEvent(new CustomEvent("storybot_api_issue"));
       localStorage.setItem("storybot_api_issue", "true");
       
-      // Fallback to themed cover placeholders
-      const themeCovers = {
+      const themeCovers: {[key: string]: string} = {
         adventure: "/images/covers/adventure.jpg",
         fantasy: "/images/covers/fantasy.jpg",
         space: "/images/covers/space.jpg",
@@ -205,15 +192,35 @@ export const useStoryBot = () => {
   ) => {
     toast.info("Gerando ilustrações consistentes para a história...");
     
-    return await leonardoAgent.generateStoryImages(
-      storyPages,
-      characterName,
-      theme,
-      setting,
-      characterPrompt,
-      style,
-      childImageBase64
-    );
+    try {
+      const imageUrls = await leonardoAgent.generateStoryImages(
+        storyPages,
+        characterName,
+        theme,
+        setting,
+        characterPrompt,
+        style,
+        childImageBase64
+      );
+      
+      console.log("Imagens geradas com sucesso:", imageUrls);
+      return imageUrls;
+    } catch (error) {
+      console.error("Erro ao gerar ilustrações consistentes:", error);
+      toast.error("Erro ao gerar ilustrações. Usando imagens de placeholder.");
+      
+      return storyPages.map(() => {
+        const themeImages: {[key: string]: string} = {
+          adventure: "/images/placeholders/adventure.jpg",
+          fantasy: "/images/placeholders/fantasy.jpg",
+          space: "/images/placeholders/space.jpg",
+          ocean: "/images/placeholders/ocean.jpg",
+          dinosaurs: "/images/placeholders/dinosaurs.jpg"
+        };
+        
+        return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
+      });
+    }
   };
   
   const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
@@ -242,7 +249,6 @@ export const useStoryBot = () => {
     resetLeonardoApi();
     setLeonardoApiAvailable(true);
     
-    // Remove a flag de erro do localStorage
     localStorage.removeItem("leonardo_api_issue");
     
     toast.success("Status da API do Leonardo foi redefinido. Tente gerar imagens novamente.");
