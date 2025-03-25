@@ -201,13 +201,6 @@ export class BookGenerationService {
   }
   
   private convertProgressStage(message: string): string {
-    if (message.includes("Preparando")) return "preparando";
-    if (message.includes("Criando uma história")) return "gerando-historia";
-    if (message.includes("StoryBot está escrevendo")) return "gerando-historia";
-    if (message.includes("Criando a narrativa")) return "gerando-historia";
-    if (message.includes("Formatando")) return "gerando-historia";
-    if (message.includes("Salvando")) return "finalizando";
-    if (message.includes("concluída")) return "concluido";
     return "gerando-historia";
   }
   
