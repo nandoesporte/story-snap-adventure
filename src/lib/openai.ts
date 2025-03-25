@@ -1,3 +1,4 @@
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from localStorage or environment variables
@@ -137,4 +138,16 @@ export const openai = {
 export const isOpenAIKeyValid = () => {
   const apiKey = getGeminiApiKey();
   return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
+};
+
+// Check if the Leonardo webhook URL is valid
+export const isLeonardoWebhookValid = () => {
+  const webhookUrl = localStorage.getItem('leonardo_webhook_url');
+  return webhookUrl && webhookUrl.length > 0 && webhookUrl.startsWith('http');
+};
+
+// Reset Leonardo API status and clear any error flags
+export const resetLeonardoApiStatus = () => {
+  localStorage.removeItem("leonardo_api_issue");
+  return true;
 };

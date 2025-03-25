@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "@/services/StoryBot";
-import { ensureStoryBotPromptsTable } from "@/lib/openai";
+import { ensureStoryBotPromptsTable, resetLeonardoApiStatus as resetLeonardoApi } from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -35,6 +35,23 @@ export const useStoryBot = () => {
   useEffect(() => {
     setApiAvailable(storyBot.isApiAvailable());
     setLeonardoApiAvailable(storyBot.isLeonardoApiAvailable());
+    
+    // Listen for API issue events
+    const handleStoryBotApiIssue = () => {
+      setApiAvailable(false);
+    };
+    
+    const handleLeonardoApiIssue = () => {
+      setLeonardoApiAvailable(false);
+    };
+    
+    window.addEventListener('storybot_api_issue', handleStoryBotApiIssue);
+    window.addEventListener('leonardo_api_issue', handleLeonardoApiIssue);
+    
+    return () => {
+      window.removeEventListener('storybot_api_issue', handleStoryBotApiIssue);
+      window.removeEventListener('leonardo_api_issue', handleLeonardoApiIssue);
+    };
   }, []);
 
   const generateStoryBotResponse = async (messages: Message[], userPrompt: string) => {
@@ -104,6 +121,7 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null
   ) => {
     try {
+      console.log("Calling StoryBot.generateImage with webhook URL:", leonardoWebhookUrl);
       const result = await storyBot.generateImage(
         imageDescription,
         characterName,
@@ -120,6 +138,9 @@ export const useStoryBot = () => {
       setLeonardoApiAvailable(false);
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       localStorage.setItem("leonardo_api_issue", "true");
+      
+      // Show error toast
+      toast.error("Erro ao gerar imagem. Configure o webhook do Leonardo AI nas configurações.");
       
       // Fallback to themed placeholders
       const themeImages = {
@@ -153,6 +174,8 @@ export const useStoryBot = () => {
         theme,
         setting
       );
+      
+      console.log("Generating cover image with description:", coverDescription);
       
       // Generate the cover image using the description
       return await generateImage(
@@ -218,7 +241,7 @@ export const useStoryBot = () => {
 
   // Reset Leonardo API availability status for testing
   const resetLeonardoApiStatus = () => {
-    localStorage.removeItem("leonardo_api_issue");
+    resetLeonardoApi();
     setLeonardoApiAvailable(true);
     toast.success("Status da API do Leonardo foi redefinido. Tente gerar imagens novamente.");
   };
