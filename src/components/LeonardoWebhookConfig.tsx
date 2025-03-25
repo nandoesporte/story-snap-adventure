@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Info, Key } from "lucide-react";
@@ -15,9 +15,16 @@ const LeonardoWebhookConfig = () => {
     leonardoWebhookUrl,
     updateLeonardoWebhookUrl
   } = useStoryBot();
+  
   const [apiKey, setApiKey] = useState("");
-  const [webhookUrl, setWebhookUrl] = useState(leonardoWebhookUrl || "");
+  const [webhookUrl, setWebhookUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  useEffect(() => {
+    if (leonardoWebhookUrl) {
+      setWebhookUrl(leonardoWebhookUrl);
+    }
+  }, [leonardoWebhookUrl]);
   
   const handleReset = () => {
     resetLeonardoApiStatus();
@@ -62,17 +69,21 @@ const LeonardoWebhookConfig = () => {
     setIsSubmitting(true);
     
     // Salvar a URL do webhook
-    const success = updateLeonardoWebhookUrl(webhookUrl.trim());
-    
-    if (success) {
-      toast.success("URL do webhook Leonardo.ai configurada com sucesso!");
+    if (updateLeonardoWebhookUrl) {
+      const success = updateLeonardoWebhookUrl(webhookUrl.trim());
       
-      // Recarregar a página para aplicar as alterações
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      if (success) {
+        toast.success("URL do webhook Leonardo.ai configurada com sucesso!");
+        
+        // Recarregar a página para aplicar as alterações
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        toast.error("Erro ao configurar a URL do webhook Leonardo.ai");
+      }
     } else {
-      toast.error("Erro ao configurar a URL do webhook Leonardo.ai");
+      toast.error("Função de atualização do webhook não disponível");
     }
     
     setIsSubmitting(false);

@@ -1,17 +1,19 @@
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUserStories, deleteStory, Story, updateStory } from "@/lib/supabase";
+import { getAllStories, deleteStory, Story, updateStory } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Search, Plus } from "lucide-react";
+import { Pencil, Trash2, Search, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export const StoryManager = () => {
   const { toast } = useToast();
@@ -20,9 +22,20 @@ export const StoryManager = () => {
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: stories = [], isLoading, error } = useQuery({
+  const { data: stories = [], isLoading, error, refetch } = useQuery({
     queryKey: ["admin-stories"],
-    queryFn: getUserStories,
+    queryFn: async () => {
+      try {
+        console.log("Fetching all stories for admin...");
+        const result = await getAllStories();
+        console.log("Admin stories fetched successfully:", result);
+        return result;
+      } catch (err: any) {
+        console.error("Error fetching admin stories:", err);
+        throw err;
+      }
+    },
+    retry: 1,
   });
 
   const deleteMutation = useMutation({
@@ -34,7 +47,8 @@ export const StoryManager = () => {
         variant: "default",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Error in delete mutation:", error);
       toast({
         title: "Erro ao excluir história",
         description: error.message,
@@ -54,7 +68,8 @@ export const StoryManager = () => {
         variant: "default",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Error in update mutation:", error);
       toast({
         title: "Erro ao atualizar história",
         description: error.message,
@@ -71,8 +86,8 @@ export const StoryManager = () => {
 
   const filteredStories = stories.filter(
     (story) =>
-      story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      story.character_name.toLowerCase().includes(searchTerm.toLowerCase())
+      story.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      story.character_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const form = useForm<Story>({
@@ -104,6 +119,31 @@ export const StoryManager = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 border rounded-md bg-red-50 text-red-800">
+        <h3 className="text-lg font-medium">Erro ao carregar histórias</h3>
+        <p className="mt-1">{error instanceof Error ? error.message : "Erro desconhecido"}</p>
+        <Button 
+          variant="outline" 
+          className="mt-4" 
+          onClick={() => refetch()}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -118,11 +158,7 @@ export const StoryManager = () => {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-8">Carregando histórias...</div>
-      ) : error ? (
-        <div className="text-center py-8 text-red-500">Erro ao carregar histórias.</div>
-      ) : filteredStories.length === 0 ? (
+      {filteredStories.length === 0 ? (
         <div className="text-center py-8">Nenhuma história encontrada.</div>
       ) : (
         <div className="rounded-md border">
@@ -280,7 +316,7 @@ export const StoryManager = () => {
                         {...field}
                         placeholder="Descreva detalhes físicos e personalidade do personagem para manter consistência nas imagens"
                         rows={3}
-                        value={field.value as string}
+                        value={field.value as string || ''}
                       />
                     </FormControl>
                     <FormMessage />

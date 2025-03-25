@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -27,7 +27,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Trash, Plus, BookOpen, AlertTriangle } from 'lucide-react';
+import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 const MyStories = () => {
@@ -40,16 +40,36 @@ const MyStories = () => {
     data: stories,
     isLoading,
     isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['userStories'],
-    queryFn: getUserStories,
+    queryFn: async () => {
+      try {
+        console.log("Fetching user stories...");
+        const result = await getUserStories();
+        console.log("Stories fetched successfully:", result);
+        return result;
+      } catch (err: any) {
+        console.error("Error fetching stories:", err);
+        throw err;
+      }
+    },
+    retry: 1,
     meta: {
       onError: (error: Error) => {
+        console.error("Query error in useQuery:", error);
         toast.error(`Erro ao carregar histórias: ${error.message}`);
       },
     },
   });
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      console.error("Error in stories query:", error);
+      toast.error(`Erro ao carregar histórias: ${error.message}`);
+    }
+  }, [isError, error]);
 
   const handleDeleteStory = async () => {
     if (!storyToDelete) return;
@@ -60,6 +80,7 @@ const MyStories = () => {
       toast.success('História excluída com sucesso');
       refetch();
     } catch (error: any) {
+      console.error("Error deleting story:", error);
       toast.error(`Erro ao excluir história: ${error.message}`);
     } finally {
       setIsDeleting(false);
@@ -103,9 +124,12 @@ const MyStories = () => {
                   <AlertTriangle className="h-12 w-12 text-red-500" />
                   <div>
                     <p className="text-lg font-medium text-red-800">Erro ao carregar histórias</p>
-                    <p className="text-red-600">Ocorreu um erro ao tentar carregar suas histórias. Tente novamente mais tarde.</p>
+                    <p className="text-red-600">
+                      {error instanceof Error ? error.message : "Ocorreu um erro ao tentar carregar suas histórias. Tente novamente mais tarde."}
+                    </p>
                   </div>
                   <Button onClick={() => refetch()} variant="outline" className="mt-2">
+                    <RefreshCw className="mr-2 h-4 w-4" />
                     Tentar novamente
                   </Button>
                 </div>

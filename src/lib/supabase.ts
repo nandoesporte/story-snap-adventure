@@ -1,3 +1,4 @@
+
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -228,17 +229,27 @@ export type UserSession = {
 
 // Helper functions for authentication
 export const getUser = async (): Promise<UserSession> => {
-  const { data, error } = await supabase.auth.getSession();
-  
-  if (error) {
-    console.error('Error fetching user:', error.message);
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error fetching user session:', error.message);
+      return { user: null, session: null };
+    }
+    
+    // Get the user data separately
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('Error fetching user data:', userError.message);
+      return { user: null, session: null };
+    }
+    
+    return { user, session: data.session };
+  } catch (err) {
+    console.error('Unexpected error in getUser:', err);
     return { user: null, session: null };
   }
-  
-  // Get the user data separately
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  return { user, session: data.session };
 };
 
 export const signInWithEmail = async (email: string, password: string) => {
@@ -288,79 +299,144 @@ export type StoryPage = {
 };
 
 export const saveStory = async (story: Story) => {
-  const { data, error } = await supabase
-    .from('stories')
-    .insert([{
-      user_id: (await getUser()).user?.id,
-      title: story.title,
-      cover_image_url: story.cover_image_url,
-      character_name: story.character_name,
-      character_age: story.character_age,
-      theme: story.theme,
-      setting: story.setting,
-      style: story.style,
-      pages: story.pages,
-    }])
-    .select();
-  
-  if (error) throw error;
-  return data;
+  try {
+    const userSession = await getUser();
+    if (!userSession.user) {
+      throw new Error('Usuário não autenticado');
+    }
+
+    const { data, error } = await supabase
+      .from('stories')
+      .insert([{
+        user_id: userSession.user.id,
+        title: story.title,
+        cover_image_url: story.cover_image_url,
+        character_name: story.character_name,
+        character_age: story.character_age,
+        theme: story.theme,
+        setting: story.setting,
+        style: story.style,
+        character_prompt: story.character_prompt || '',
+        pages: story.pages,
+      }])
+      .select();
+    
+    if (error) {
+      console.error('Error saving story:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in saveStory:', err);
+    throw err;
+  }
 };
 
 export const getUserStories = async () => {
-  const user = (await getUser()).user;
-  
-  if (!user) return [];
-  
-  const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
+  try {
+    const userSession = await getUser();
+    if (!userSession.user) {
+      console.warn('No authenticated user found when fetching stories');
+      return [];
+    }
+    
+    console.log('Fetching stories for user:', userSession.user.id);
+    
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('user_id', userSession.user.id)  // Add this line to filter by user_id
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching user stories:', error);
+      throw error;
+    }
+    
+    console.log('Stories fetched successfully, count:', data?.length);
+    return data || [];
+  } catch (err) {
+    console.error('Unexpected error in getUserStories:', err);
+    throw err;
+  }
 };
 
 export const getStoryById = async (id: string) => {
-  const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .eq('id', id)
-    .single();
-  
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching story by ID:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in getStoryById:', err);
+    throw err;
+  }
 };
 
 export const deleteStory = async (id: string) => {
-  const { error } = await supabase
-    .from('stories')
-    .delete()
-    .eq('id', id);
-  
-  if (error) throw error;
+  try {
+    const { error } = await supabase
+      .from('stories')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting story:', error);
+      throw error;
+    }
+  } catch (err) {
+    console.error('Unexpected error in deleteStory:', err);
+    throw err;
+  }
 };
 
 // Admin functions
 export const updateStory = async (id: string, updates: Partial<Story>) => {
-  const { data, error } = await supabase
-    .from('stories')
-    .update(updates)
-    .eq('id', id)
-    .select();
-  
-  if (error) throw error;
-  return data[0];
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('Error updating story:', error);
+      throw error;
+    }
+    
+    return data[0];
+  } catch (err) {
+    console.error('Unexpected error in updateStory:', err);
+    throw err;
+  }
 };
 
 export const getAllStories = async () => {
-  const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching all stories:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in getAllStories:', err);
+    throw err;
+  }
 };
 
 // Reference to the SQL setup file
