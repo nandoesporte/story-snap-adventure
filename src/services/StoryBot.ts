@@ -30,6 +30,7 @@ export class StoryBot {
   private apiAvailable: boolean = true;
   private leonardoApiAvailable: boolean = true;
   private leonardoWebhookUrl: string | null = null;
+  private cancelRequested: boolean = false;
 
   constructor(webhookUrl: string | null = null) {
     // Check if the API was previously marked as unavailable
@@ -54,7 +55,7 @@ export class StoryBot {
   }
   
   public isLeonardoApiAvailable(): boolean {
-    return this.leonardoApiAvailable && isLeonardoWebhookValid();
+    return this.leonardoApiAvailable && isLeonardoWebhookValid() && !!this.leonardoWebhookUrl;
   }
   
   public setLeonardoWebhookUrl(url: string): void {
@@ -62,11 +63,21 @@ export class StoryBot {
     localStorage.setItem("leonardo_webhook_url", url);
     // Clear any previous API issues when setting a new URL
     localStorage.removeItem("leonardo_api_issue");
+    this.leonardoApiAvailable = true;
+  }
+  
+  public cancel(): void {
+    this.cancelRequested = true;
   }
 
   public async generateStoryBotResponse(messages: any[], userPrompt: string): Promise<string> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {
@@ -122,6 +133,11 @@ export class StoryBot {
   ): Promise<string> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {
@@ -215,8 +231,13 @@ export class StoryBot {
       return themeImages[theme] || "/placeholder.svg";
     }
     
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
+    }
+    
     console.info("Generating image:", {
-      imageDescription,
+      imageDescription: imageDescription.substring(0, 100) + "...",
       theme,
       style,
       webhookUrl: this.leonardoWebhookUrl
@@ -238,22 +259,33 @@ export class StoryBot {
           character_prompt: characterPrompt,
           child_image: childImageBase64
         }),
+        // Add a reasonable timeout to prevent hanging requests
+        signal: AbortSignal.timeout(60000) // 60 seconds timeout
       });
       
       if (!response.ok) {
-        console.error(`Leonardo webhook returned status: ${response.status}`);
-        throw new Error(`Leonardo webhook returned status: ${response.status}`);
+        console.error(`Leonardo webhook returned status: ${response.status} ${response.statusText}`);
+        throw new Error(`Leonardo webhook returned status: ${response.status} - ${response.statusText}`);
       }
       
-      const data = await response.json();
-      console.log("Leonardo webhook response:", data);
+      let data;
+      try {
+        data = await response.json();
+        console.log("Leonardo webhook response:", data);
+      } catch (e) {
+        console.error("Failed to parse webhook response as JSON", e);
+        throw new Error("Invalid response format from webhook");
+      }
       
       if (data.image_url) {
         // Reset the error flag on successful generation
         localStorage.removeItem("leonardo_api_issue");
+        this.leonardoApiAvailable = true;
         return data.image_url;
+      } else if (data.error) {
+        throw new Error(`Webhook error: ${data.error}`);
       } else {
-        throw new Error("Leonardo webhook didn't return an image URL");
+        throw new Error("Webhook didn't return an image URL or error message");
       }
     } catch (error) {
       console.error("Error generating image with Leonardo API:", error);
@@ -279,6 +311,11 @@ export class StoryBot {
   public async generateStory(params: StoryParams): Promise<GeneratedStory> {
     if (!this.apiAvailable) {
       throw new Error("API previously marked as unavailable");
+    }
+    
+    if (this.cancelRequested) {
+      this.cancelRequested = false;
+      throw new Error("A geração foi cancelada.");
     }
     
     try {

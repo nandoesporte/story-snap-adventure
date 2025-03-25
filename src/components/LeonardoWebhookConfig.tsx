@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertTriangle, CheckCircle, Info, HelpCircle } from "lucide-react";
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { HelpPopover } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 const LeonardoWebhookConfig = () => {
   const { leonardoApiAvailable, setLeonardoWebhook, leonardoWebhookUrl, resetLeonardoApiStatus } = useStoryBot();
@@ -14,17 +15,30 @@ const LeonardoWebhookConfig = () => {
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!webhookUrl) {
+      toast.error("Por favor, insira uma URL de webhook válida");
+      return;
+    }
+    
     if (setLeonardoWebhook(webhookUrl)) {
-      // Refresh the page or component to apply changes
-      window.location.reload();
+      toast.success("Webhook configurado com sucesso!");
+      // Recarregue apenas se necessário para aplicar mudanças
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   };
   
   const handleTest = async () => {
-    if (!webhookUrl) return;
+    if (!webhookUrl) {
+      toast.error("Por favor, insira uma URL de webhook válida");
+      return;
+    }
     
     setIsTesting(true);
     try {
+      toast.info("Testando conexão com o webhook...");
+      
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -39,20 +53,23 @@ const LeonardoWebhookConfig = () => {
         }),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success || data.image_url) {
-          alert("Conexão com webhook bem sucedida!");
-          setLeonardoWebhook(webhookUrl);
-        } else {
-          alert("O webhook respondeu, mas não retornou um formato esperado. Verifique se a implementação está correta.");
-        }
+      if (!response.ok) {
+        toast.error(`Erro ao conectar com o webhook: ${response.status} ${response.statusText}`);
+        throw new Error(`Erro de resposta: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Resposta do webhook:", data);
+      
+      if (data.success || data.image_url) {
+        toast.success("Conexão com webhook bem sucedida!");
+        setLeonardoWebhook(webhookUrl);
       } else {
-        alert(`Erro ao conectar com o webhook: ${response.status} ${response.statusText}`);
+        toast.error("O webhook respondeu, mas não retornou um formato esperado. Verifique se a implementação está correta.");
       }
     } catch (error) {
       console.error("Error testing webhook:", error);
-      alert("Erro ao testar o webhook. Verifique se a URL está correta e o serviço está online.");
+      toast.error("Erro ao testar o webhook. Verifique se a URL está correta e o serviço está online.");
     } finally {
       setIsTesting(false);
     }
@@ -60,7 +77,10 @@ const LeonardoWebhookConfig = () => {
   
   const handleReset = () => {
     resetLeonardoApiStatus();
-    window.location.reload();
+    toast.success("Status da API do Leonardo redefinido com sucesso");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
   
   return (
@@ -121,6 +141,15 @@ const LeonardoWebhookConfig = () => {
                   <p className="text-sm text-gray-700">
                     Você pode criar um webhook simples usando serviços como AWS Lambda, Vercel Functions, ou Google Cloud Functions.
                   </p>
+                  <p className="text-sm text-gray-700 font-medium mt-2">
+                    Formato esperado de resposta do webhook:
+                  </p>
+                  <pre className="bg-gray-100 p-2 rounded text-xs">
+                    {`{
+  "image_url": "https://exemplo.com/imagem.jpg",
+  "success": true
+}`}
+                  </pre>
                 </div>
               </HelpPopover>
             </div>
