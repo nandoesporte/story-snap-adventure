@@ -171,7 +171,7 @@ const LeonardoWebhookConfig = () => {
         <Button 
           variant="outline"
           onClick={handleReset}
-          disabled={leonardoApiAvailable}
+          disabled={!leonardoApiAvailable}
           className="text-sm"
         >
           Redefinir Status da API

@@ -32,7 +32,8 @@ const ViewStory = () => {
   const navigate = useNavigate();
   const { 
     generateConsistentStoryImages, 
-    leonardoApiAvailable
+    leonardoApiAvailable,
+    leonardoWebhookUrl
   } = useStoryBot();
   const [storyData, setStoryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -45,6 +46,7 @@ const ViewStory = () => {
   const [isRegeneratingImages, setIsRegeneratingImages] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
   const [storyMeta, setStoryMeta] = useState<any>({});
+  const [imagesGenerated, setImagesGenerated] = useState(false);
 
   useEffect(() => {
     const styleElement = document.createElement("style");
@@ -84,10 +86,8 @@ const ViewStory = () => {
         return;
       }
       
-      // Process story data to ensure image URLs are correct
       if (parsedData.pages && Array.isArray(parsedData.pages)) {
         parsedData.pages = parsedData.pages.map((page: any, index: number) => {
-          // If the page doesn't have imageUrl, check if it has image_url
           if (!page.imageUrl && page.image_url) {
             console.log(`Page ${index + 1} using image_url:`, page.image_url);
             return {
@@ -96,13 +96,11 @@ const ViewStory = () => {
             };
           }
           
-          // If it has neither imageUrl nor image_url, use imageUrl field directly if it exists
           if (page.imageUrl) {
             console.log(`Page ${index + 1} already has imageUrl:`, page.imageUrl);
             return page;
           }
           
-          // If no image URL is found anywhere, use placeholder based on theme
           console.log(`Page ${index + 1} has no image URL, using placeholder`);
           const themeImages: {[key: string]: string} = {
             adventure: "/images/placeholders/adventure.jpg",
@@ -148,6 +146,21 @@ const ViewStory = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (storyData && !loading && !imagesGenerated && leonardoApiAvailable) {
+      const hasNoImages = storyData.pages.some((page: any) => 
+        !page.imageUrl || page.imageUrl.includes('placeholders') || page.imageUrl.includes('placeholder.svg')
+      );
+      
+      if (hasNoImages) {
+        console.log("Story loaded without images. Auto-generating illustrations...");
+        toast.info("Gerando ilustrações para a história...");
+        generateIllustrations();
+        setImagesGenerated(true);
+      }
+    }
+  }, [storyData, loading, leonardoApiAvailable, imagesGenerated]);
+
   const loadCharacterData = async (characterId: string) => {
     try {
       const { data, error } = await supabase
@@ -170,6 +183,64 @@ const ViewStory = () => {
       }
     } catch (err) {
       console.error("Error in loadCharacterData:", err);
+    }
+  };
+
+  const generateIllustrations = async () => {
+    if (!storyData || !storyData.pages || storyData.pages.length === 0) {
+      toast.error("Dados da história não encontrados");
+      return;
+    }
+    
+    if (!leonardoApiAvailable) {
+      toast.error("Leonardo AI não está disponível. Verifique as configurações.");
+      return;
+    }
+    
+    setIsRegeneratingImages(true);
+    toast.info("Iniciando geração de ilustrações para a história...");
+    
+    try {
+      const pageTexts = storyData.pages.map((page: any) => page.text);
+      
+      const characterName = storyData.characterName || storyMeta.characterName || "Personagem";
+      const theme = storyData.theme || "adventure";
+      const setting = storyData.setting || "forest";
+      const characterPrompt = storyData.characterPrompt || storyMeta.characterPrompt || null;
+      const style = storyData.style || "cartoon";
+      
+      const newImages = await generateConsistentStoryImages(
+        pageTexts,
+        characterName,
+        theme,
+        setting,
+        characterPrompt,
+        style,
+        storyData.childImage || null
+      );
+      
+      console.log("Generated new images:", newImages);
+      
+      const updatedPages = storyData.pages.map((page: any, index: number) => ({
+        ...page,
+        imageUrl: newImages[index] || page.imageUrl
+      }));
+      
+      const updatedStoryData = {
+        ...storyData,
+        pages: updatedPages
+      };
+      
+      sessionStorage.setItem("storyData", JSON.stringify(updatedStoryData));
+      
+      setStoryData(updatedStoryData);
+      
+      toast.success("Ilustrações geradas com sucesso!");
+    } catch (error) {
+      console.error("Error generating illustrations:", error);
+      toast.error("Erro ao gerar ilustrações. Tente novamente.");
+    } finally {
+      setIsRegeneratingImages(false);
     }
   };
 
@@ -206,68 +277,7 @@ const ViewStory = () => {
   };
 
   const regenerateAllIllustrations = async () => {
-    if (!storyData || !storyData.pages || storyData.pages.length === 0) {
-      toast.error("Dados da história não encontrados");
-      return;
-    }
-    
-    if (!leonardoApiAvailable) {
-      toast.error("Leonardo AI não está disponível. Verifique as configurações.");
-      return;
-    }
-    
-    setIsRegeneratingImages(true);
-    toast.info("Iniciando geração de ilustrações consistentes...");
-    
-    try {
-      // Extract page texts
-      const pageTexts = storyData.pages.map((page: any) => page.text);
-      
-      // Extract story metadata
-      const characterName = storyData.characterName || storyMeta.characterName || "Personagem";
-      const theme = storyData.theme || "adventure";
-      const setting = storyData.setting || "forest";
-      const characterPrompt = storyData.characterPrompt || storyMeta.characterPrompt || null;
-      const style = storyData.style || "cartoon";
-      
-      // Generate new consistent illustrations
-      const newImages = await generateConsistentStoryImages(
-        pageTexts,
-        characterName,
-        theme,
-        setting,
-        characterPrompt,
-        style,
-        storyData.childImage || null
-      );
-      
-      console.log("Generated new images:", newImages);
-      
-      // Update images in the story
-      const updatedPages = storyData.pages.map((page: any, index: number) => ({
-        ...page,
-        imageUrl: newImages[index] || page.imageUrl
-      }));
-      
-      // Update storyData
-      const updatedStoryData = {
-        ...storyData,
-        pages: updatedPages
-      };
-      
-      // Save to session
-      sessionStorage.setItem("storyData", JSON.stringify(updatedStoryData));
-      
-      // Update state
-      setStoryData(updatedStoryData);
-      
-      toast.success("Ilustrações regeneradas com sucesso!");
-    } catch (error) {
-      console.error("Error regenerating illustrations:", error);
-      toast.error("Erro ao regenerar ilustrações. Tente novamente.");
-    } finally {
-      setIsRegeneratingImages(false);
-    }
+    await generateIllustrations();
   };
 
   const handleDownload = async () => {
