@@ -25,9 +25,8 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 1,
-      onError: (error) => {
-        console.error("React Query error:", error);
-      }
+      // Latest version of react-query no longer accepts onError here
+      // but inside meta object or using onSettled handler
     },
   },
 });
