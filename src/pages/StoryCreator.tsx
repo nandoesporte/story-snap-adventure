@@ -27,10 +27,41 @@ import {
   StoryInputData, 
   GeneratedStory 
 } from "@/services/BookGenerationService";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 
 const MAX_RETRY_ATTEMPTS = 3;
 
-const StoryCreator = () => {
+const StoryCreatorPage = () => {
+  try {
+    const queryClient = useQueryClient();
+    return <StoryCreatorContent />;
+  } catch (error) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+        <Navbar />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+          <div className="container max-w-4xl px-4">
+            <Alert variant="destructive" className="mb-6">
+              <AlertTriangle className="h-5 w-5" />
+              <AlertTitle>Erro de Inicialização</AlertTitle>
+              <AlertDescription>
+                Não foi possível inicializar o gerador de histórias. Por favor, recarregue a página ou volte à página inicial.
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-center">
+              <Button onClick={() => window.location.href = "/"} variant="default">
+                Voltar para Página Inicial
+              </Button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+};
+
+const StoryCreatorContent = () => {
   const navigate = useNavigate();
   const [storyData, setStoryData] = useState<StoryInputData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -635,4 +666,4 @@ const StoryCreator = () => {
   );
 };
 
-export default StoryCreator;
+export default StoryCreatorPage;

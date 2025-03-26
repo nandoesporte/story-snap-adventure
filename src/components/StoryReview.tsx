@@ -1,12 +1,13 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Edit, Save, RefreshCw, ImageIcon, AlertCircle } from "lucide-react";
+import { Sparkles, Edit, Save, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface StoryReviewProps {
   story: {
@@ -18,6 +19,14 @@ interface StoryReviewProps {
 }
 
 const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) => {
+  // Create a safe wrapper for React Query
+  let queryClient;
+  try {
+    queryClient = useQueryClient();
+  } catch (error) {
+    console.warn("QueryClient not available in StoryReview, but not required for core functionality");
+  }
+
   const [editedStory, setEditedStory] = useState({ ...story });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingPageIndex, setEditingPageIndex] = useState<number | null>(null);
@@ -195,13 +204,13 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
                       </div>
                       <p className="text-slate-700">{pageText}</p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
                       onClick={() => handleEditPage(index)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1"
                     >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
+                      <Edit className="h-3.5 w-3.5" />
                       Editar
                     </Button>
                   </div>
@@ -211,25 +220,29 @@ const StoryReview: React.FC<StoryReviewProps> = ({ story, onSubmit, onCancel }) 
           ))}
         </div>
       </ScrollArea>
-
-      <div className="border-t border-violet-100 p-6">
+      
+      <div className="p-6 border-t border-violet-100">
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <Button 
             variant="outline" 
             onClick={onCancel}
-            className="flex-1 sm:flex-initial"
-            disabled={isSubmitting}
+            className="gap-2"
           >
-            Voltar
+            Cancelar e Voltar
           </Button>
+          
           <Button 
             variant="default"
             onClick={handleSubmit}
-            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 flex-1 sm:flex-initial"
             disabled={isSubmitting}
+            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
           >
-            <ImageIcon className="h-4 w-4" />
-            {isSubmitting ? "Gerando Ilustrações..." : "Gerar Ilustrações"}
+            {isSubmitting ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4" />
+            )}
+            Continuar com ilustrações
           </Button>
         </div>
       </div>

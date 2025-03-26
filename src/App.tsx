@@ -16,6 +16,21 @@ import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Create a stable QueryClient instance outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+      onError: (error) => {
+        console.error("React Query error:", error);
+      }
+    },
+  },
+});
 
 function App() {
   const navigate = useNavigate();
@@ -63,4 +78,14 @@ function App() {
   );
 }
 
+// Export the app wrapped with the QueryClientProvider
 export default App;
+
+// This is the component that main.tsx will use
+export function AppWithProviders() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  );
+}
