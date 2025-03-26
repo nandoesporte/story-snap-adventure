@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -35,7 +34,6 @@ const StoryCreator = () => {
   } = useStoryGeneration();
   
   useEffect(() => {
-    // Carregar dados do sessionStorage
     const savedData = sessionStorage.getItem("create_story_data");
     if (savedData) {
       try {
@@ -108,7 +106,6 @@ const StoryCreator = () => {
         return null;
       }
       
-      // Preparar dados para salvar no banco
       const storyToSave = {
         title: storyData.title,
         cover_image_url: storyData.coverImageUrl,
@@ -118,7 +115,6 @@ const StoryCreator = () => {
         setting: storyData.setting,
         style: storyData.style,
         user_id: user.id,
-        character_prompt: selectedCharacter?.generation_prompt || "",
         pages: storyData.pages.map((page: any) => ({
           text: page.text,
           image_url: page.imageUrl
@@ -127,7 +123,6 @@ const StoryCreator = () => {
       
       console.log("Salvando história no banco de dados...");
       
-      // Salvar história no banco usando a função refatorada
       const { data, error } = await supabase
         .from("stories")
         .insert(storyToSave)
@@ -142,7 +137,6 @@ const StoryCreator = () => {
       console.log("História salva com sucesso no Supabase:", data);
       toast.success("História salva com sucesso!");
       
-      // Retornar o ID da história para redirecionamento
       return data[0]?.id;
     } catch (error) {
       console.error("Erro ao salvar história:", error);
@@ -156,7 +150,6 @@ const StoryCreator = () => {
       return;
     }
     
-    // Verificar se a API key do OpenAI está configurada
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey) {
       toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
@@ -166,10 +159,8 @@ const StoryCreator = () => {
     setStep("generating");
     
     try {
-      // Obter prompt do personagem se disponível
       const characterPrompt = selectedCharacter?.generation_prompt || "";
       
-      // Gerar a história completa
       const completeBook = await generateCompleteStory(
         data.childName,
         data.childAge,
@@ -184,14 +175,12 @@ const StoryCreator = () => {
         data.style
       );
       
-      // Log para debug
       console.log("História gerada com sucesso:", {
         title: completeBook.title,
         coverImagePreview: completeBook.coverImageUrl.substring(0, 50) + "...",
         pagesCount: completeBook.pages.length
       });
       
-      // Salvar no Supabase e obter o ID para redirecionamento
       setStep("finalizing");
       toast.info("Salvando história no banco de dados...");
       
@@ -211,7 +200,6 @@ const StoryCreator = () => {
         readingLevel: data.readingLevel
       });
       
-      // Tente salvar no sessionStorage com tratamento para quota excedida
       try {
         sessionStorage.setItem("storyData", JSON.stringify({
           title: completeBook.title,
@@ -231,15 +219,12 @@ const StoryCreator = () => {
         }));
       } catch (storageError) {
         console.warn("Erro ao salvar no sessionStorage (possível excesso de cota):", storageError);
-        // Isso é esperado para histórias grandes, já salvamos no Supabase
       }
       
-      // Redirecionar para a visualização com ID se disponível
       setTimeout(() => {
         if (storyId) {
           navigate(`/view-story/${storyId}`);
         } else {
-          // Se não conseguiu salvar, tentar visualizar da sessão
           navigate("/view-story");
         }
       }, 1000);

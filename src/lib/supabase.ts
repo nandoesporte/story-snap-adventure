@@ -1,3 +1,4 @@
+
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -389,21 +390,25 @@ export const saveStory = async (story: Story) => {
       }
     }
 
-    // Create the story entry with processed images
+    // Create the story entry with processed images and remove character_prompt if it's causing issues
+    const storyData = {
+      user_id: userSession.user.id,
+      title: story.title,
+      cover_image_url: coverImageUrl,
+      character_name: story.character_name,
+      character_age: story.character_age,
+      theme: story.theme,
+      setting: story.setting,
+      style: story.style,
+      pages: processedPages,
+    };
+    
+    // Only include character_prompt if it exists in the stories table schema
+    // We'll remove it for now since the error indicates it doesn't exist
+    
     const { data, error } = await supabase
       .from('stories')
-      .insert([{
-        user_id: userSession.user.id,
-        title: story.title,
-        cover_image_url: coverImageUrl,
-        character_name: story.character_name,
-        character_age: story.character_age,
-        theme: story.theme,
-        setting: story.setting,
-        style: story.style,
-        character_prompt: story.character_prompt || '',
-        pages: processedPages,
-      }])
+      .insert([storyData])
       .select();
     
     if (error) {
