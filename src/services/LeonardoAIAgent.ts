@@ -95,7 +95,7 @@ export class LeonardoAIAgent {
     
     this.characterImageStyles.set(characterName, style);
     
-    // Persistir no localStorage
+    // PERSISTIR no localStorage
     try {
       const styles: Record<string, string> = {};
       this.characterImageStyles.forEach((value, key) => {
@@ -317,6 +317,7 @@ export class LeonardoAIAgent {
    */
   public async generateStoryImages(
     storyPages: string[], 
+    imagePrompts: string[],
     characterName: string,
     theme: string,
     setting: string,
@@ -326,7 +327,7 @@ export class LeonardoAIAgent {
     storyTitle: string | null = null
   ): Promise<string[]> {
     if (!storyPages.length) {
-      return storyPages.map(() => "");
+      return [];
     }
     
     try {
@@ -335,13 +336,14 @@ export class LeonardoAIAgent {
       // Gerar imagens para cada página sequencialmente para manter consistência
       for (let i = 0; i < storyPages.length; i++) {
         const pageText = storyPages[i];
+        const imagePrompt = imagePrompts[i] || `Ilustração para a página ${i+1}: ${pageText.substring(0, 100)}...`;
         const pageNumber = i + 1;
         
         toast.info(`Gerando ilustração para página ${pageNumber} de ${storyPages.length}...`);
         
         try {
           // Criar um prompt específico para livro infantil
-          let enhancedPrompt = `Ilustração para um livro infantil representando: ${pageText}`;
+          let enhancedPrompt = imagePrompt;
           
           // Adicionar contexto geral da história se disponível
           if (storyTitle) {
@@ -382,6 +384,50 @@ export class LeonardoAIAgent {
       console.error("Erro ao gerar imagens da história:", error);
       // Retornar placeholders para todas as páginas
       return storyPages.map(() => this.getFallbackImage(theme));
+    }
+  }
+
+  /**
+   * Gera uma imagem de capa para a história
+   */
+  public async generateCoverImage(
+    title: string,
+    characterName: string,
+    theme: string,
+    setting: string,
+    style: string = "cartoon",
+    characterPrompt: string | null = null,
+    childImage: string | null = null
+  ): Promise<string> {
+    const coverPrompt = `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}. 
+                        A ilustração deve ser vibrante, colorida e conter o título "${title}" integrado ao design. 
+                        O personagem deve estar em destaque na cena, com uma expressão alegre e aventureira.`;
+    
+    try {
+      const imageUrl = await this.generateImage({
+        prompt: coverPrompt,
+        characterName,
+        theme,
+        setting,
+        style,
+        characterPrompt,
+        childImage,
+        storyContext: `Capa do livro "${title}"`
+      });
+      
+      return imageUrl;
+    } catch (error) {
+      console.error("Erro ao gerar imagem de capa:", error);
+      
+      const themeCovers: Record<string, string> = {
+        adventure: "/images/covers/adventure.jpg",
+        fantasy: "/images/covers/fantasy.jpg",
+        space: "/images/covers/space.jpg",
+        ocean: "/images/covers/ocean.jpg",
+        dinosaurs: "/images/covers/dinosaurs.jpg"
+      };
+      
+      return themeCovers[theme] || "/images/covers/adventure.jpg";
     }
   }
 }

@@ -98,6 +98,140 @@ export class StoryBot {
     return !!this.geminiClient;
   }
 
+  async generateStoryWithPrompts(
+    characterName: string,
+    childAge: string,
+    theme: string,
+    setting: string,
+    moralTheme: string = "",
+    characterPrompt: string = "",
+    length: string = "medium",
+    readingLevel: string = "intermediate",
+    language: string = "portuguese",
+    storyContext: string = ""
+  ): Promise<{title: string; content: string[]; imagePrompts: string[]}> {
+    // Criar um prompt estruturado para gerar a história completa
+    const prompt = `Crie uma história infantil completa com as seguintes características:
+    
+    Personagem principal: ${characterName}
+    Idade da criança: ${childAge} anos
+    Tema: ${theme}
+    Cenário: ${setting}
+    Lição moral: ${moralTheme}
+    Tamanho: ${length} (curto: 5 páginas, médio: 8 páginas, longo: 12 páginas)
+    Nível de leitura: ${readingLevel}
+    Idioma: ${language}
+    
+    ${characterPrompt ? `Detalhes do personagem: ${characterPrompt}` : ''}
+    ${storyContext ? `Contexto adicional: ${storyContext}` : ''}
+    
+    A história deve:
+    1. Ter um título claro
+    2. Ser dividida em páginas numeradas
+    3. Cada página deve ter um texto envolvente e adequado para crianças
+    4. Após cada página, incluir um prompt detalhado para a ilustração que acompanhará aquela página
+    
+    Formato:
+    TÍTULO: [Nome da história]
+    
+    PÁGINA 1:
+    [Texto da página 1]
+    
+    ILUSTRAÇÃO 1:
+    [Descrição detalhada para a ilustração da página 1, mencionando cores, ambiente, expressões, posições dos personagens]
+    
+    [Repetir para cada página]
+    
+    Importante: cada prompt de ilustração deve ser detalhado, visual e claro para que possa ser usado diretamente para gerar imagens.`;
+
+    try {
+      let response;
+      if (this.useOpenAI && this.openAIClient) {
+        const completion = await this.openAIClient.chat.completions.create({
+          model: this.openAIModel,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.7,
+        });
+        response = completion.choices[0].message.content || '';
+      } else if (this.geminiClient) {
+        const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
+        const result = await model.generateContent(prompt);
+        const genResponse = await result.response;
+        response = genResponse.text();
+      } else {
+        throw new Error('Nenhum cliente de IA disponível');
+      }
+
+      // Processar a resposta para extrair título, conteúdo e prompts de ilustração
+      return this.processStoryResponse(response);
+    } catch (error) {
+      console.error("Erro ao gerar história:", error);
+      throw new Error('Falha ao gerar história completa');
+    }
+  }
+
+  private processStoryResponse(response: string): {title: string; content: string[]; imagePrompts: string[]} {
+    // Extrair o título
+    const titleMatch = response.match(/TÍTULO:\s*(.*?)(?:\r?\n|$)/i) || 
+                       response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
+    const title = titleMatch ? titleMatch[1].trim() : "História Personalizada";
+
+    // Extrair páginas e prompts de ilustração
+    const contentPages: string[] = [];
+    const imagePrompts: string[] = [];
+
+    // Padrão para capturar páginas numeradas (permite variações na formatação)
+    const pageRegex = /PÁGINA\s*(\d+):\s*([\s\S]*?)(?=ILUSTRAÇÃO\s*\d+:|ILUSTRACAO\s*\d+:|PROMPT\s*DA\s*IMAGEM|PROMPT\s*DE\s*IMAGEM|PÁGINA\s*\d+:|PAGINA\s*\d+:|$)/gi;
+    
+    // Padrão para capturar prompts de ilustração
+    const illustrationRegex = /(?:ILUSTRAÇÃO\s*\d+:|ILUSTRACAO\s*\d+:|PROMPT\s*DA\s*IMAGEM|PROMPT\s*DE\s*IMAGEM):\s*([\s\S]*?)(?=PÁGINA\s*\d+:|PAGINA\s*\d+:|$)/gi;
+
+    // Extrair conteúdo das páginas
+    let pageMatch;
+    while ((pageMatch = pageRegex.exec(response)) !== null) {
+      if (pageMatch[2].trim()) {
+        contentPages.push(pageMatch[2].trim());
+      }
+    }
+
+    // Extrair prompts de ilustração
+    let illustrationMatch;
+    while ((illustrationMatch = illustrationRegex.exec(response)) !== null) {
+      if (illustrationMatch[1].trim()) {
+        imagePrompts.push(illustrationMatch[1].trim());
+      }
+    }
+
+    // Garantir que temos o mesmo número de páginas e prompts
+    while (imagePrompts.length < contentPages.length) {
+      imagePrompts.push(`Ilustração para a história "${title}"`);
+    }
+
+    // Se por algum motivo não conseguimos extrair as páginas, tentar outro método
+    if (contentPages.length === 0) {
+      // Separar por linhas em branco e tentar extrair conteúdo
+      const paragraphs = response.split('\n\n').filter(para => 
+        para.trim().length > 0 && 
+        !para.match(/TÍTULO:|TITULO:/i) &&
+        !para.match(/ILUSTRAÇÃO|ILUSTRACAO|PROMPT/i)
+      );
+      
+      if (paragraphs.length > 0) {
+        // Dividir os parágrafos em páginas (aproximadamente 2-3 parágrafos por página)
+        for (let i = 0; i < paragraphs.length; i += 2) {
+          const pageContent = paragraphs.slice(i, i + 2).join('\n\n');
+          contentPages.push(pageContent);
+          if (imagePrompts.length < contentPages.length) {
+            imagePrompts.push(`Ilustração para a página ${contentPages.length} da história "${title}"`);
+          }
+        }
+      }
+    }
+
+    return { title, content: contentPages, imagePrompts };
+  }
+
   async generateImageDescription(
     pageText: string,
     characterName: string,

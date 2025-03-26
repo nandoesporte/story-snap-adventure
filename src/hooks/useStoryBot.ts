@@ -181,30 +181,22 @@ export const useStoryBot = () => {
     characterName: string,
     theme: string,
     setting: string,
-    childImageBase64: string | null,
+    childImageBase64: string | null = null,
     style: string = "cartoon",
     characterPrompt: string | null = null
   ) => {
     try {
       console.log("Using LeonardoAIAgent for cover image generation");
       
-      let coverPrompt = `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
-      
-      if (characterPrompt) {
-        coverPrompt += ` O personagem ${characterName} possui as seguintes características: ${characterPrompt}`;
-        console.log("Enhanced cover prompt with character details");
-      }
-      
-      const imageUrl = await leonardoAgent.generateImage({
-        prompt: coverPrompt,
+      const imageUrl = await leonardoAgent.generateCoverImage(
+        title,
         characterName,
         theme,
         setting,
         style,
         characterPrompt,
-        childImage: childImageBase64,
-        storyContext: `Capa do livro "${title}"`
-      });
+        childImageBase64
+      );
       
       console.log("Generated cover image URL:", imageUrl);
       return imageUrl;
@@ -228,6 +220,7 @@ export const useStoryBot = () => {
 
   const generateConsistentStoryImages = async (
     storyPages: string[],
+    imagePrompts: string[],
     characterName: string,
     theme: string,
     setting: string,
@@ -241,6 +234,7 @@ export const useStoryBot = () => {
     try {
       console.log("Generating consistent story images with params:", {
         storyPages: storyPages.length,
+        imagePrompts: imagePrompts.length,
         characterName,
         theme,
         setting,
@@ -251,22 +245,9 @@ export const useStoryBot = () => {
         useOpenAIForStories
       });
       
-      const enhancedStoryPages = storyPages.map((page, index) => {
-        let enhancedPage = page;
-        
-        if (characterPrompt) {
-          enhancedPage = `${page} (Personagem ${characterName}: ${characterPrompt})`;
-        }
-        
-        enhancedPage = `Página ${index + 1} de uma história infantil: ${enhancedPage}`;
-        
-        enhancedPage += ` Ilustre o momento principal desta cena em estilo de ${style === 'cartoon' ? 'desenho animado colorido' : style}.`;
-        
-        return enhancedPage;
-      });
-      
       const imageUrls = await leonardoAgent.generateStoryImages(
-        enhancedStoryPages,
+        storyPages,
+        imagePrompts,
         characterName,
         theme,
         setting,
@@ -315,6 +296,97 @@ export const useStoryBot = () => {
       console.error("Error converting image to base64:", error);
       toast.error("Erro ao processar imagem.");
       return "";
+    }
+  };
+
+  const generateCompleteStory = async (
+    characterName: string,
+    childAge: string,
+    theme: string,
+    setting: string,
+    moralTheme: string = "",
+    characterPrompt: string = "",
+    length: string = "medium",
+    readingLevel: string = "intermediate",
+    language: string = "portuguese",
+    childImageBase64: string | null = null,
+    style: string = "cartoon"
+  ) => {
+    toast.info("Iniciando geração da história completa...");
+    
+    try {
+      setIsGenerating(true);
+      
+      // Passo 1: Gerar a história com prompts para ilustrações
+      toast.info("Criando a narrativa da história...");
+      const storyData = await storyBot.generateStoryWithPrompts(
+        characterName,
+        childAge,
+        theme,
+        setting,
+        moralTheme,
+        characterPrompt,
+        length,
+        readingLevel,
+        language
+      );
+      
+      console.log("Generated story:", {
+        title: storyData.title,
+        pages: storyData.content.length,
+        imagePrompts: storyData.imagePrompts.length
+      });
+      
+      // Passo 2: Gerar a imagem de capa
+      toast.info("Criando a capa do livro...");
+      const coverImageUrl = await leonardoAgent.generateCoverImage(
+        storyData.title,
+        characterName,
+        theme,
+        setting,
+        style,
+        characterPrompt,
+        childImageBase64
+      );
+      
+      // Passo 3: Gerar ilustrações para todas as páginas
+      toast.info(`Criando ilustrações para ${storyData.content.length} páginas...`);
+      const imageUrls = await leonardoAgent.generateStoryImages(
+        storyData.content,
+        storyData.imagePrompts,
+        characterName,
+        theme,
+        setting,
+        characterPrompt,
+        style,
+        childImageBase64,
+        storyData.title
+      );
+      
+      // Passo 4: Montar o livro completo
+      const completeBook = {
+        title: storyData.title,
+        coverImageUrl,
+        childName: characterName,
+        childAge,
+        theme,
+        setting,
+        characterPrompt,
+        pages: storyData.content.map((text, index) => ({
+          text,
+          imageUrl: imageUrls[index] || "/placeholder.svg"
+        }))
+      };
+      
+      toast.success("História gerada com sucesso!");
+      
+      return completeBook;
+    } catch (error) {
+      console.error("Error generating complete story:", error);
+      toast.error("Erro ao gerar a história completa. Por favor, tente novamente.");
+      throw error;
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -388,6 +460,7 @@ export const useStoryBot = () => {
     openAIModel,
     setUseOpenAIForStories,
     checkOpenAIAvailability,
-    initializeOpenAIClient
+    initializeOpenAIClient,
+    generateCompleteStory  // Nova função para geração completa da história
   };
 };

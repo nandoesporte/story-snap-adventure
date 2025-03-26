@@ -44,8 +44,53 @@ const StoryCreator = () => {
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  const { generateStoryBotResponse, generateImageDescription, generateImage, generateCoverImage, convertImageToBase64 } = useStoryBot();
-  const [bookGenerator, setBookGenerator] = useState<BookGenerationService | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentStage, setCurrentStage] = useState<string>("preparando");
+  const { 
+    generateStoryBotResponse, 
+    generateImageDescription, 
+    generateImage, 
+    generateCoverImage, 
+    convertImageToBase64,
+    generateCompleteStory
+  } = useStoryBot();
+
+  useEffect(() => {
+    // Tentar carregar os dados da história da sessionStorage
+    const savedData = sessionStorage.getItem("create_story_data");
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        // Formatar os dados para o formato do formulário
+        const formattedData: StoryFormData = {
+          childName: parsedData.childName,
+          childAge: parsedData.childAge,
+          theme: parsedData.theme,
+          setting: parsedData.setting,
+          characterId: parsedData.characterId,
+          characterName: parsedData.characterName,
+          style: parsedData.style || "cartoon",
+          length: parsedData.length || "medium",
+          readingLevel: parsedData.readingLevel || "intermediate",
+          language: parsedData.language || "portuguese",
+          moral: parsedData.moral || "friendship"
+        };
+        
+        setFormData(formattedData);
+        
+        if (parsedData.imagePreview) {
+          setImagePreview(parsedData.imagePreview);
+        }
+        
+        // Se temos todos os dados necessários, já podemos iniciar a geração
+        if (formattedData.childName && formattedData.theme && formattedData.setting) {
+          setStep("chat");
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados salvos:", error);
+      }
+    }
+  }, []);
   
   useEffect(() => {
     const fetchCharacter = async () => {
@@ -165,8 +210,13 @@ const StoryCreator = () => {
     }
   };
   
+  const updateProgress = (stage: string, percent: number) => {
+    setCurrentStage(stage);
+    setProgress(percent);
+  };
+  
   const generateFinalStory = async () => {
-    if (!formData || !selectedFile || !imagePreview) {
+    if (!formData) {
       toast.error("Informações incompletas para gerar a história.");
       return;
     }
@@ -175,122 +225,34 @@ const StoryCreator = () => {
     setIsGenerating(true);
     
     try {
-      toast.info("Gerando história personalizada...");
+      updateProgress("preparando", 10);
       
-      // Set up the story input data
-      const storyInputData: StoryInputData = {
-        childName: formData.childName,
-        childAge: formData.childAge,
-        theme: formData.theme as any, // Type casting since we know it matches
-        setting: formData.setting as any,
-        characterId: formData.characterId,
-        characterName: selectedCharacter?.name,
-        imagePreview: imagePreview
-      };
+      // Preparar o prompt do personagem
+      const characterPrompt = selectedCharacter?.generation_prompt || null;
       
-      // Create a new BookGenerationService instance
-      const generator = new BookGenerationService(
-        storyInputData,
-        (stage, percent) => {
-          console.log(`Story generation progress: ${stage} - ${percent}%`);
-          // Update UI based on stage
-          if (stage === "retrying") {
-            toast.info(`Tentando novamente gerar a história... (${Math.round(percent/10)}ª tentativa)`);
-          }
-        },
-        (errorMessage) => {
-          console.error("Story generation error:", errorMessage);
-          toast.error(errorMessage || "Erro ao gerar história");
-        }
+      updateProgress("gerando-historia", 20);
+      
+      // Gerar a história completa em um fluxo sequencial
+      const completeBook = await generateCompleteStory(
+        formData.childName,
+        formData.childAge,
+        formData.theme,
+        formData.setting,
+        formData.moral,
+        characterPrompt || "",
+        formData.length,
+        formData.readingLevel,
+        formData.language,
+        imagePreview,
+        formData.style
       );
       
-      setBookGenerator(generator);
+      updateProgress("concluido", 100);
       
-      // Try to generate the story
-      const storyData = await generator.generateStoryContent();
-      
-      if (!storyData) {
-        throw new Error("Falha ao gerar a história. Por favor, tente novamente.");
-      }
-      
-      // Now try to generate images for each page
-      const childImageBase64 = imagePreview;
-      
-      toast.info("Gerando imagens para a história...");
-      
-      let coverImageUrl;
-      try {
-        // Pass the character generation prompt to the cover image generation
-        coverImageUrl = await generateCoverImage(
-          storyData.title,
-          formData.childName,
-          formData.theme,
-          formData.setting,
-          childImageBase64,
-          "cartoon",
-          selectedCharacter?.generation_prompt || null
-        );
-      } catch (error) {
-        console.error("Failed to generate cover image:", error);
-        coverImageUrl = "/placeholder.svg";
-        toast.error("Não foi possível gerar a capa. Usando imagem padrão.");
-      }
-      
-      const pagesWithImages: StoryPage[] = [];
-      let failedImages = 0;
-      
-      // Generate images for each page with proper error handling
-      for (const pageText of storyData.content) {
-        let imageDescription, imageUrl;
-        
-        try {
-          imageDescription = await generateImageDescription(
-            pageText + (selectedCharacter ? ` com o personagem ${selectedCharacter.name}` : ''),
-            formData.childName,
-            formData.childAge,
-            formData.theme,
-            formData.setting
-          );
-          
-          // Pass the character generation prompt to the image generation
-          imageUrl = await generateImage(
-            imageDescription,
-            formData.childName,
-            formData.theme,
-            formData.setting,
-            childImageBase64,
-            "cartoon",
-            selectedCharacter?.generation_prompt || null
-          );
-        } catch (error) {
-          console.error("Failed to generate page image:", error);
-          failedImages++;
-          
-          // Use theme-based placeholder
-          const themeImages = {
-            adventure: "/images/placeholders/adventure.jpg",
-            fantasy: "/images/placeholders/fantasy.jpg",
-            space: "/images/placeholders/space.jpg",
-            ocean: "/images/placeholders/ocean.jpg",
-            dinosaurs: "/images/placeholders/dinosaurs.jpg"
-          };
-          
-          imageUrl = themeImages[formData.theme as keyof typeof themeImages] || "/placeholder.svg";
-          
-          if (failedImages === 1) {
-            toast.error("Algumas imagens não puderam ser geradas. Usando placeholders.");
-          }
-        }
-        
-        pagesWithImages.push({
-          text: pageText,
-          imageUrl: imageUrl
-        });
-      }
-      
+      // Salvar o livro completo na sessionStorage para a visualização
       sessionStorage.setItem("storyData", JSON.stringify({
-        title: storyData.title,
-        coverImageUrl: coverImageUrl,
+        title: completeBook.title,
+        coverImageUrl: completeBook.coverImageUrl,
         childImage: imagePreview,
         childName: formData.childName,
         childAge: formData.childAge,
@@ -298,7 +260,7 @@ const StoryCreator = () => {
         setting: formData.setting,
         characterId: formData.characterId,
         characterName: selectedCharacter?.name,
-        pages: pagesWithImages
+        pages: completeBook.pages
       }));
       
       toast.success("História gerada com sucesso!");
@@ -316,36 +278,6 @@ const StoryCreator = () => {
     } finally {
       setIsGenerating(false);
     }
-  };
-  
-  const parseStoryContent = (response: string): { title: string; content: string[] } => {
-    let cleanedResponse = response.replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:|prompt de imagem:|image prompt:/gi, '');
-    
-    const titleMatch = cleanedResponse.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
-    const title = titleMatch ? titleMatch[1].trim() : `História de ${formData?.childName}`;
-    
-    const pageMatches = cleanedResponse.match(/PAGINA\s*\d+:\s*([\s\S]*?)(?=PAGINA\s*\d+:|$)/gi);
-    
-    let content: string[] = [];
-    if (pageMatches && pageMatches.length > 0) {
-      content = pageMatches.map(page => {
-        return page.replace(/PAGINA\s*\d+:\s*/i, '')
-          .replace(/ilustração:|illustration:|desenhe:|draw:|imagem:|image:|descrição visual:|visual description:|prompt de imagem:|image prompt:/gi, '')
-          .trim();
-      });
-    } else {
-      const paragraphs = cleanedResponse.split('\n\n').filter(para => 
-        para.trim().length > 0 && !para.match(/TITULO:/i)
-      );
-      
-      content = paragraphs;
-    }
-    
-    while (content.length < 10) {
-      content.push(`A aventura de ${formData?.childName} continua...`);
-    }
-    
-    return { title, content: content.slice(0, 10) };
   };
   
   return (
@@ -386,7 +318,7 @@ const StoryCreator = () => {
             <h2 className="text-2xl font-bold mb-6 text-center">
               Personalize a história
             </h2>
-            <StoryForm onSubmit={handleFormSubmit} />
+            <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
             
             <div className="mt-8 flex justify-between">
               <motion.button
@@ -518,7 +450,14 @@ const StoryCreator = () => {
           >
             <LoadingSpinner size="lg" />
             <p className="mt-6 text-lg font-medium">Gerando a história personalizada...</p>
-            <p className="text-slate-500">Isso pode levar alguns instantes</p>
+            <p className="text-slate-500 mb-4">{currentStage}</p>
+            <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
+              <div 
+                className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-slate-500">Isso pode levar alguns instantes. Estamos criando algo especial!</p>
           </motion.div>
         )}
       </div>
