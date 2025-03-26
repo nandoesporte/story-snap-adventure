@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Info, Key } from "lucide-react";
+import { AlertCircle, CheckCircle, Info, Key } from "lucide-react";
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const LeonardoWebhookConfig = () => {
   const { 
@@ -13,17 +15,24 @@ const LeonardoWebhookConfig = () => {
     resetLeonardoApiStatus, 
     setLeonardoApiKey, 
     leonardoWebhookUrl,
-    updateLeonardoWebhookUrl
+    updateLeonardoWebhookUrl,
+    useOpenAIForStories,
+    setUseOpenAIForStories
   } = useStoryBot();
   
   const [apiKey, setApiKey] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useGPT4, setUseGPT4] = useState(false);
   
   useEffect(() => {
     if (leonardoWebhookUrl) {
       setWebhookUrl(leonardoWebhookUrl);
     }
+    
+    // Verificar se o uso do OpenAI está ativado
+    const storedValue = localStorage.getItem("use_openai_for_stories");
+    setUseGPT4(storedValue === "true");
   }, [leonardoWebhookUrl]);
   
   const handleReset = () => {
@@ -87,6 +96,20 @@ const LeonardoWebhookConfig = () => {
     }
     
     setIsSubmitting(false);
+  };
+  
+  const handleToggleGPT4 = () => {
+    const newValue = !useGPT4;
+    setUseGPT4(newValue);
+    
+    // Atualizar a configuração
+    if (setUseOpenAIForStories) {
+      setUseOpenAIForStories(newValue);
+      localStorage.setItem("use_openai_for_stories", newValue.toString());
+      toast.success(newValue 
+        ? "GPT-4 será usado para gerar histórias" 
+        : "Gemini será usado para gerar histórias");
+    }
   };
   
   return (
@@ -175,6 +198,31 @@ const LeonardoWebhookConfig = () => {
             <p className="text-xs text-slate-500 mt-1">
               Somente é necessário se você tiver um servidor de webhook personalizado.
             </p>
+          </div>
+          
+          <div className="pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="use-gpt4" className="text-sm font-medium">Usar OpenAI GPT-4</Label>
+                <p className="text-xs text-slate-500">
+                  Ative para gerar histórias usando o modelo GPT-4 da OpenAI ao invés do Gemini
+                </p>
+              </div>
+              <Switch
+                id="use-gpt4"
+                checked={useGPT4}
+                onCheckedChange={handleToggleGPT4}
+              />
+            </div>
+            
+            {useGPT4 && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-xs text-blue-700">
+                  <AlertCircle className="h-3 w-3 inline-block mr-1" />
+                  O GPT-4 da OpenAI está ativado para geração de histórias. As histórias serão geradas com mais detalhes e criatividade.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

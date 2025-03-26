@@ -18,6 +18,7 @@ export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
   const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(null);
+  const [useOpenAIForStories, setUseOpenAIForStoriesState] = useState<boolean>(false);
   
   const storyBot = new StoryBot();
   const leonardoAgent = new LeonardoAIAgent();
@@ -31,6 +32,9 @@ export const useStoryBot = () => {
     if (savedWebhookUrl) {
       setLeonardoWebhookUrl(savedWebhookUrl);
     }
+    
+    const useOpenAI = localStorage.getItem('use_openai_for_stories') === 'true';
+    setUseOpenAIForStoriesState(useOpenAI);
   }, []);
   
   useEffect(() => {
@@ -119,8 +123,13 @@ export const useStoryBot = () => {
     try {
       console.log("Using LeonardoAIAgent to generate consistent image");
       
+      let enhancedPrompt = imageDescription;
+      if (characterPrompt) {
+        enhancedPrompt += `. O personagem ${characterName} possui as seguintes características: ${characterPrompt}`;
+      }
+      
       const imageUrl = await leonardoAgent.generateImage({
-        prompt: imageDescription,
+        prompt: enhancedPrompt,
         characterName,
         theme,
         setting,
@@ -212,11 +221,19 @@ export const useStoryBot = () => {
         setting,
         characterPrompt: characterPrompt?.substring(0, 50) + "...",
         style,
-        hasChildImage: !!childImageBase64
+        hasChildImage: !!childImageBase64,
+        useOpenAIForStories
+      });
+      
+      const enhancedStoryPages = storyPages.map(page => {
+        if (characterPrompt) {
+          return `${page} (Personagem ${characterName}: ${characterPrompt})`;
+        }
+        return page;
       });
       
       const imageUrls = await leonardoAgent.generateStoryImages(
-        storyPages,
+        enhancedStoryPages,
         characterName,
         theme,
         setting,
@@ -306,6 +323,20 @@ export const useStoryBot = () => {
     }
   };
 
+  const setUseOpenAIForStories = (useOpenAI: boolean): boolean => {
+    try {
+      localStorage.setItem('use_openai_for_stories', useOpenAI.toString());
+      setUseOpenAIForStoriesState(useOpenAI);
+      
+      storyBot.setUseOpenAI(useOpenAI);
+      
+      return true;
+    } catch (error) {
+      console.error("Error setting OpenAI usage preference:", error);
+      return false;
+    }
+  };
+
   return { 
     generateStoryBotResponse, 
     isGenerating,
@@ -320,6 +351,8 @@ export const useStoryBot = () => {
     resetLeonardoApiStatus,
     setLeonardoApiKey,
     updateLeonardoWebhookUrl,
-    leonardoAgent
+    leonardoAgent,
+    useOpenAIForStories,
+    setUseOpenAIForStories
   };
 };

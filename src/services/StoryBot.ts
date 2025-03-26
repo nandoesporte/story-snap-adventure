@@ -33,6 +33,7 @@ export class StoryBot {
   private cancelRequested: boolean = false;
   private retryCount: number = 0;
   private maxRetries: number = 2;
+  private useOpenAI: boolean = false;
 
   constructor(webhookUrl: string | null = null) {
     if(localStorage.getItem("storybot_api_issue") === "true") {
@@ -44,6 +45,8 @@ export class StoryBot {
     }
     
     this.leonardoWebhookUrl = webhookUrl;
+    
+    this.useOpenAI = localStorage.getItem("use_openai_for_stories") === "true";
     
     ensureStoryBotPromptsTable().catch(err => {
       console.warn("Failed to ensure storybot_prompts table exists", err);
@@ -63,6 +66,11 @@ export class StoryBot {
     localStorage.setItem("leonardo_webhook_url", url);
     localStorage.removeItem("leonardo_api_issue");
     this.leonardoApiAvailable = true;
+  }
+  
+  public setUseOpenAI(useOpenAI: boolean): void {
+    this.useOpenAI = useOpenAI;
+    console.log(`Using ${useOpenAI ? 'OpenAI GPT-4' : 'Gemini'} for story generation`);
   }
   
   public cancel(): void {
@@ -107,14 +115,73 @@ export class StoryBot {
           { role: "user", content: userPrompt }
         ];
         
-        const completion = await openai.chat.completions.create({
-          model: "gemini-1.5-pro",
-          messages: formattedMessages,
-          temperature: 0.7,
-          max_tokens: 1000,
-        });
-        
-        return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+        if (this.useOpenAI) {
+          console.log("Using OpenAI API for story generation");
+          
+          try {
+            const openaiApiKey = localStorage.getItem('openai_api_key');
+            
+            if (!openaiApiKey) {
+              console.warn("OpenAI API key não encontrada, usando a API Gemini como fallback");
+              
+              const completion = await openai.chat.completions.create({
+                model: "gemini-1.5-pro",
+                messages: formattedMessages,
+                temperature: 0.7,
+                max_tokens: 1000,
+              });
+              
+              return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+            }
+            
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${openaiApiKey}`
+              },
+              body: JSON.stringify({
+                model: "gpt-4",
+                messages: formattedMessages.map(msg => ({
+                  role: msg.role,
+                  content: msg.content
+                })),
+                temperature: 0.7,
+                max_tokens: 1000
+              })
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+            }
+            
+            const data = await response.json();
+            return data.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+            
+          } catch (openaiError) {
+            console.error("Error using OpenAI API:", openaiError);
+            console.log("Falling back to Gemini API");
+            
+            const completion = await openai.chat.completions.create({
+              model: "gemini-1.5-pro",
+              messages: formattedMessages,
+              temperature: 0.7,
+              max_tokens: 1000,
+            });
+            
+            return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+          }
+        } else {
+          const completion = await openai.chat.completions.create({
+            model: "gemini-1.5-pro",
+            messages: formattedMessages,
+            temperature: 0.7,
+            max_tokens: 1000,
+          });
+          
+          return completion.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+        }
       } catch (error: any) {
         console.error("Error in StoryBot generateStoryBotResponse (attempt " + (this.retryCount + 1) + "):", error);
         
@@ -229,7 +296,6 @@ export class StoryBot {
       throw new Error("A geração foi cancelada.");
     }
     
-    // Check if we have a saved character prompt in localStorage
     const savedCharacterPrompt = localStorage.getItem('character_prompt');
     const savedCharacterName = localStorage.getItem('character_name');
     
@@ -238,12 +304,33 @@ export class StoryBot {
       characterPrompt = savedCharacterPrompt;
     }
     
-    console.info("Generating image with Gemini:", {
-      imageDescription: imageDescription.substring(0, 100) + "...",
+    let enhancedPrompt = imageDescription;
+    if (characterPrompt) {
+      enhancedPrompt += `. O personagem ${characterName} possui as seguintes características: ${characterPrompt}`;
+    }
+    
+    console.info("Generating image with Leonardo.ai:", {
+      imageDescription: enhancedPrompt.substring(0, 100) + "...",
       theme,
       style,
       hasCharacterPrompt: !!characterPrompt
     });
+    
+    if (this.leonardoWebhookUrl && this.leonardoApiAvailable) {
+      try {
+        return await this.generateImageUsingLeonardo(
+          enhancedPrompt,
+          characterName,
+          theme,
+          setting,
+          childImageBase64,
+          style,
+          characterPrompt
+        );
+      } catch (leonardoError) {
+        console.error("Leonardo.ai generation failed, falling back to Gemini:", leonardoError);
+      }
+    }
     
     this.retryCount = 0;
     
@@ -559,16 +646,77 @@ export class StoryBot {
         { role: "user", content: userPrompt }
       ];
       
-      const completion = await openai.chat.completions.create({
-        model: "gemini-1.5-pro",
-        messages: formattedMessages,
-        temperature: 0.7,
-        max_tokens: 2500,
-      });
-      
-      const storyText = completion.choices[0].message.content || "";
-      
-      return this.parseStoryContent(storyText, params.childName);
+      if (this.useOpenAI) {
+        console.log("Using OpenAI API for story generation");
+        
+        try {
+          const openaiApiKey = localStorage.getItem('openai_api_key');
+          
+          if (!openaiApiKey) {
+            console.warn("OpenAI API key não encontrada, usando a API Gemini como fallback");
+            
+            const completion = await openai.chat.completions.create({
+              model: "gemini-1.5-pro",
+              messages: formattedMessages,
+              temperature: 0.7,
+              max_tokens: 2500,
+            });
+            
+            const storyText = completion.choices[0].message.content || "";
+            return this.parseStoryContent(storyText, params.childName);
+          }
+          
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${openaiApiKey}`
+            },
+            body: JSON.stringify({
+              model: "gpt-4",
+              messages: formattedMessages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+              })),
+              temperature: 0.7,
+              max_tokens: 2500
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+          }
+          
+          const data = await response.json();
+          const storyText = data.choices[0].message.content || "";
+          return this.parseStoryContent(storyText, params.childName);
+          
+        } catch (openaiError) {
+          console.error("Error using OpenAI API:", openaiError);
+          console.log("Falling back to Gemini API");
+          
+          const completion = await openai.chat.completions.create({
+            model: "gemini-1.5-pro",
+            messages: formattedMessages,
+            temperature: 0.7,
+            max_tokens: 2500,
+          });
+          
+          const storyText = completion.choices[0].message.content || "";
+          return this.parseStoryContent(storyText, params.childName);
+        }
+      } else {
+        const completion = await openai.chat.completions.create({
+          model: "gemini-1.5-pro",
+          messages: formattedMessages,
+          temperature: 0.7,
+          max_tokens: 2500,
+        });
+        
+        const storyText = completion.choices[0].message.content || "";
+        return this.parseStoryContent(storyText, params.childName);
+      }
     } catch (error) {
       console.error("Error in StoryBot generateStory:", error);
       this.apiAvailable = false;
@@ -664,4 +812,3 @@ export class StoryBot {
     return { title, content };
   }
 }
-

@@ -7,6 +7,12 @@ const getGeminiApiKey = () => {
   return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
 };
 
+// Get OpenAI API key from localStorage
+const getOpenAIApiKey = () => {
+  const key = localStorage.getItem('openai_api_key') || '';
+  return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
+};
+
 // Initialize Gemini API client with API key
 export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey() || 'invalid-key-placeholder');
 
@@ -33,6 +39,28 @@ export const reinitializeGeminiAI = (apiKey: string) => {
   }
 };
 
+// Function to set OpenAI API key
+export const setOpenAIApiKey = (apiKey: string) => {
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
+    console.error('Tentativa de salvar chave OpenAI inválida:', apiKey);
+    return false;
+  }
+  
+  try {
+    console.log(`Salvando chave da API OpenAI: ${apiKey.substring(0, 5)}...`);
+    const trimmedKey = apiKey.trim();
+    localStorage.setItem('openai_api_key', trimmedKey);
+    
+    // Clear any previous API issues
+    localStorage.removeItem("storybot_api_issue");
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao salvar chave da OpenAI:', error);
+    return false;
+  }
+};
+
 // Check if the storybot_prompts table exists and create it if it doesn't
 export const ensureStoryBotPromptsTable = async () => {
   try {
@@ -51,6 +79,12 @@ export const ensureStoryBotPromptsTable = async () => {
 // For development without API keys, we can detect if the API key is valid
 export const isOpenAIKeyValid = () => {
   const apiKey = getGeminiApiKey();
+  return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
+};
+
+// Check if OpenAI API key is valid
+export const isOpenAIApiKeyValid = () => {
+  const apiKey = getOpenAIApiKey();
   return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
 };
 
