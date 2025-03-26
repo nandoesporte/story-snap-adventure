@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -5,7 +6,7 @@ import Index from './pages/Index';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
 import CreateStory from './pages/CreateStory';
-import StoryCreator from './pages/StoryCreator';
+import StoryCreator from './components/StoryCreator';
 import MyStories from './pages/MyStories';
 import ViewStory from './pages/ViewStory';
 import NotFound from './pages/NotFound';

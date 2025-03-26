@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { StoryBot, StoryGenerationResult } from '@/services/StoryBot';
+import { StoryBot } from '@/services/StoryBot';
 import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
 
 export type StoryPage = {
@@ -50,7 +50,7 @@ export const useStoryGeneration = () => {
     try {
       setIsGenerating(true);
       
-      // Step 1: Generate story content with illustration prompts
+      // Passo 1: Gerar o conteúdo da história com prompts para ilustrações
       updateProgress("gerando narrativa", 10);
       const storyData = await storyBot.generateStoryWithPrompts(
         characterName,
@@ -65,13 +65,13 @@ export const useStoryGeneration = () => {
         storyContext
       );
       
-      console.log("Generated story:", {
-        title: storyData.title,
-        pages: storyData.content.length,
-        imagePrompts: storyData.imagePrompts.length
+      console.log("História gerada:", {
+        titulo: storyData.title,
+        paginas: storyData.content.length,
+        promptsImagens: storyData.imagePrompts.length
       });
       
-      // Step 2: Generate cover image
+      // Passo 2: Gerar capa do livro
       updateProgress("criando capa", 30);
       const coverImageUrl = await leonardoAgent.generateCoverImage(
         storyData.title,
@@ -83,7 +83,7 @@ export const useStoryGeneration = () => {
         childImageBase64
       );
       
-      // Step 3: Generate illustrations for all pages
+      // Passo 3: Gerar ilustrações para as páginas
       updateProgress(`gerando ilustrações (0/${storyData.content.length})`, 40);
       const imageUrls = await leonardoAgent.generateStoryImages(
         storyData.content,
@@ -97,7 +97,7 @@ export const useStoryGeneration = () => {
         storyData.title
       );
       
-      // Step 4: Compile the complete book
+      // Passo 4: Montar o livro completo
       updateProgress("finalizando", 90);
       const completeBook: CompleteBook = {
         title: storyData.title,
@@ -118,7 +118,7 @@ export const useStoryGeneration = () => {
       
       return completeBook;
     } catch (error) {
-      console.error("Error generating complete story:", error);
+      console.error("Erro ao gerar história completa:", error);
       toast.error("Erro ao gerar a história completa. Por favor, tente novamente.");
       throw error;
     } finally {
