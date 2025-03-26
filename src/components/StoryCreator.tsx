@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -107,8 +106,6 @@ const StoryCreator = () => {
         return null;
       }
       
-      // Prepare story data for saving
-      // Note: We're including character_prompt field now
       const storyToSave = {
         title: storyData.title,
         cover_image_url: storyData.coverImageUrl,
@@ -127,31 +124,27 @@ const StoryCreator = () => {
       
       console.log("Salvando história no banco de dados:", storyToSave);
       
-      // First verify if the character_prompt column exists
       let columnExists = false;
       try {
         const { data: columnData, error: columnError } = await supabase.rpc(
           'check_column_exists',
-          { table_name: 'stories', column_name: 'character_prompt' }
+          { p_table_name: 'stories', p_column_name: 'character_prompt' }
         );
         
         columnExists = columnData === true;
         
         if (columnError) {
           console.warn("Erro ao verificar coluna character_prompt:", columnError);
-          // If we can't verify, proceed anyway and let the insert attempt handle it
         }
       } catch (checkError) {
         console.warn("Erro ao verificar existência da coluna:", checkError);
       }
       
-      // If column doesn't exist, remove the field from the data to save
       if (!columnExists) {
         console.warn("Coluna character_prompt não existe, removendo do objeto a salvar.");
         delete storyToSave.character_prompt;
       }
       
-      // Insert story data
       const { data, error } = await supabase
         .from("stories")
         .insert(storyToSave)
