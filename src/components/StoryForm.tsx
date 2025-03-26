@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Award, BookOpen, Globe } from "lucide-react";
@@ -192,59 +191,25 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
       
       <div>
         <Label htmlFor="character">Personagem</Label>
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-          {isLoading ? (
-            <div className="col-span-full p-4 text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-600 mx-auto"></div>
-              <p className="mt-2 text-sm text-slate-500">Carregando personagens...</p>
-            </div>
-          ) : (
-            characters?.map((character) => (
-              <div
-                key={character.id}
-                onClick={() => setCharacterId(character.id)}
-                className={`
-                  border rounded-lg p-3 cursor-pointer flex items-center gap-3 transition-colors
-                  ${characterId === character.id 
-                    ? 'border-violet-400 bg-violet-50' 
-                    : 'border-slate-200 hover:border-violet-200 hover:bg-violet-50/50'}
-                `}
+        <Select 
+          value={characterId} 
+          onValueChange={(value) => setCharacterId(value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="Selecione um personagem" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Nenhum personagem</SelectItem>
+            {characters?.map((character) => (
+              <SelectItem 
+                key={character.id} 
+                value={character.id || "default-character"}
               >
-                {character.image_url ? (
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-violet-100 flex-shrink-0">
-                    <img 
-                      src={character.image_url} 
-                      alt={character.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-lg text-violet-600">
-                      {character.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                
-                <span className="font-medium text-sm truncate flex-1">
-                  {character.name}
-                </span>
-                
-                <div className={`w-4 h-4 rounded-full border ${
-                  characterId === character.id 
-                    ? 'border-violet-500 bg-violet-500' 
-                    : 'border-slate-300'
-                } flex-shrink-0`}>
-                  {characterId === character.id && (
-                    <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M7 13L10 16L17 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                {character.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
