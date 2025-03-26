@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Award, BookOpen, Globe } from "lucide-react";
@@ -192,8 +193,8 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
       <div>
         <Label htmlFor="character">Personagem</Label>
         <Select 
-          value={characterId} 
-          onValueChange={(value) => setCharacterId(value)}
+          value={characterId || "none"} 
+          onValueChange={(value) => setCharacterId(value === "none" ? "" : value)}
         >
           <SelectTrigger className="mt-1">
             <SelectValue placeholder="Selecione um personagem" />
