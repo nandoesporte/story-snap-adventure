@@ -115,6 +115,7 @@ const StoryCreator = () => {
         setting: storyData.setting,
         style: storyData.style,
         user_id: user.id,
+        character_prompt: selectedCharacter?.generation_prompt || "",
         pages: storyData.pages.map((page: any) => ({
           text: page.text,
           image_url: page.imageUrl
