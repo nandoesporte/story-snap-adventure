@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -55,40 +54,53 @@ const StoryViewer = () => {
   useEffect(() => {
     const storedData = sessionStorage.getItem("storyData");
     if (storedData) {
-      const parsedData = JSON.parse(storedData);
-      
-      if (parsedData.pages && Array.isArray(parsedData.pages)) {
-        parsedData.pages = parsedData.pages.map((page: any) => {
-          // Handle case when imageUrl is missing but image_url exists
-          if (!page.imageUrl && page.image_url) {
-            console.log("Converting image_url to imageUrl:", page.image_url);
-            return {
-              ...page,
-              imageUrl: page.image_url
-            };
-          }
-          
-          // Handle case when both imageUrl and image_url are missing
-          if (!page.imageUrl && !page.image_url) {
-            console.log("No image URL found, using placeholder for theme:", parsedData.theme);
-            const themeImages: {[key: string]: string} = {
-              adventure: "/images/placeholders/adventure.jpg",
-              fantasy: "/images/placeholders/fantasy.jpg",
-              space: "/images/placeholders/space.jpg",
-              ocean: "/images/placeholders/ocean.jpg",
-              dinosaurs: "/images/placeholders/dinosaurs.jpg"
-            };
-            return {
-              ...page,
-              imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
-            };
-          }
-          return page;
+      try {
+        const parsedData = JSON.parse(storedData);
+        
+        if (parsedData.coverImageUrl) {
+          console.log("Cover image type:", typeof parsedData.coverImageUrl);
+          console.log("Cover image preview:", parsedData.coverImageUrl.substring(0, 50) + "...");
+        } else {
+          console.warn("No cover image URL found");
+          parsedData.coverImageUrl = "/placeholder.svg";
+        }
+        
+        if (parsedData.pages && Array.isArray(parsedData.pages)) {
+          parsedData.pages = parsedData.pages.map((page: any, index: number) => {
+            if (!page.imageUrl) {
+              console.warn(`Page ${index}: No imageUrl found`);
+              
+              const themeImages: {[key: string]: string} = {
+                adventure: "/images/placeholders/adventure.jpg",
+                fantasy: "/images/placeholders/fantasy.jpg",
+                space: "/images/placeholders/space.jpg",
+                ocean: "/images/placeholders/ocean.jpg",
+                dinosaurs: "/images/placeholders/dinosaurs.jpg"
+              };
+              
+              return {
+                ...page,
+                imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
+              };
+            } else if (page.imageUrl.startsWith('data:image')) {
+              console.log(`Page ${index}: Valid data URL image found`);
+              return page;
+            } else {
+              console.log(`Page ${index}: Image URL: ${page.imageUrl.substring(0, 30)}...`);
+              return page;
+            }
+          });
+        }
+        
+        console.log("Processed story data for StoryViewer:", {
+          title: parsedData.title,
+          pagesCount: parsedData.pages?.length || 0
         });
+        
+        setStoryData(parsedData);
+      } catch (error) {
+        console.error("Error parsing story data:", error);
       }
-      
-      console.log("Processed story data for StoryViewer:", parsedData);
-      setStoryData(parsedData);
     }
   }, []);
 
@@ -392,11 +404,23 @@ const StoryViewer = () => {
               {isCoverPage ? (
                 <div className="story-cover">
                   <div className="story-cover-image-container">
-                    <img 
-                      src={storyData?.coverImageUrl}
-                      alt={`Capa: ${storyData?.title}`}
-                      className="story-cover-image"
-                    />
+                    {storyData?.coverImageUrl ? (
+                      <img 
+                        src={storyData.coverImageUrl}
+                        alt={`Capa: ${storyData?.title}`}
+                        className="story-cover-image"
+                        onError={(e) => {
+                          console.error("Cover image failed to load:", storyData.coverImageUrl);
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-gray-400">
+                        <ImageIcon className="w-16 h-16 mb-2" />
+                        <p>Imagem não disponível</p>
+                      </div>
+                    )}
                   </div>
                   <div className="story-cover-details">
                     <h2 className="story-cover-title">{storyData?.title}</h2>

@@ -79,7 +79,10 @@ const ViewStory = () => {
       }
       
       const parsedData = JSON.parse(data);
-      console.log("Successfully loaded story data:", parsedData);
+      console.log("Successfully loaded story data:", {
+        title: parsedData.title,
+        pages: parsedData.pages?.length || 0
+      });
       
       if (!parsedData.title || !parsedData.pages || !Array.isArray(parsedData.pages)) {
         console.error("Invalid story data format:", parsedData);
@@ -88,37 +91,46 @@ const ViewStory = () => {
         return;
       }
       
+      // Validate coverImageUrl
+      if (!parsedData.coverImageUrl) {
+        console.warn("No cover image URL found, using placeholder");
+        parsedData.coverImageUrl = "/placeholder.svg";
+      } else if (parsedData.coverImageUrl.startsWith('data:image')) {
+        console.log("Valid data URL for cover image found");
+      }
+      
       if (parsedData.pages && Array.isArray(parsedData.pages)) {
         parsedData.pages = parsedData.pages.map((page: any, index: number) => {
-          if (!page.imageUrl && page.image_url) {
-            console.log(`Page ${index + 1} using image_url:`, page.image_url);
+          // Check if page has a valid imageUrl
+          if (!page.imageUrl) {
+            console.warn(`Page ${index + 1} has no image URL, using placeholder`);
+            const themeImages: {[key: string]: string} = {
+              adventure: "/images/placeholders/adventure.jpg",
+              fantasy: "/images/placeholders/fantasy.jpg",
+              space: "/images/placeholders/space.jpg",
+              ocean: "/images/placeholders/ocean.jpg",
+              dinosaurs: "/images/placeholders/dinosaurs.jpg"
+            };
             return {
               ...page,
-              imageUrl: page.image_url
+              imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
             };
-          }
-          
-          if (page.imageUrl) {
-            console.log(`Page ${index + 1} already has imageUrl:`, page.imageUrl);
+          } else if (page.imageUrl.startsWith('data:image')) {
+            console.log(`Page ${index + 1} has valid data URL image`);
+            return page;
+          } else {
+            console.log(`Page ${index + 1} has image URL: ${page.imageUrl.substring(0, 30)}...`);
             return page;
           }
-          
-          console.log(`Page ${index + 1} has no image URL, using placeholder`);
-          const themeImages: {[key: string]: string} = {
-            adventure: "/images/placeholders/adventure.jpg",
-            fantasy: "/images/placeholders/fantasy.jpg",
-            space: "/images/placeholders/space.jpg",
-            ocean: "/images/placeholders/ocean.jpg",
-            dinosaurs: "/images/placeholders/dinosaurs.jpg"
-          };
-          return {
-            ...page,
-            imageUrl: themeImages[parsedData.theme as keyof typeof themeImages] || "/placeholder.svg"
-          };
         });
       }
       
-      console.log("Processed pages data:", parsedData.pages);
+      console.log("Processed pages data, first page image:", 
+        parsedData.pages[0]?.imageUrl ? 
+        (parsedData.pages[0].imageUrl.substring(0, 30) + "...") : 
+        "No image"
+      );
+      
       setStoryData(parsedData);
       
       const timer = setTimeout(() => {

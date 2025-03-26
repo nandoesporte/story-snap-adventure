@@ -126,6 +126,13 @@ const StoryCreator = () => {
         data.style
       );
       
+      // Log para debug
+      console.log("Salvando dados do livro para StoryViewer:", {
+        título: completeBook.title,
+        capa: completeBook.coverImageUrl.substring(0, 50) + "...",
+        páginas: completeBook.pages.length
+      });
+      
       // Salvar os dados do livro completo para visualização
       sessionStorage.setItem("storyData", JSON.stringify({
         title: completeBook.title,
@@ -137,7 +144,11 @@ const StoryCreator = () => {
         setting: data.setting,
         characterId: data.characterId,
         characterName: selectedCharacter?.name,
-        pages: completeBook.pages
+        pages: completeBook.pages,
+        language: data.language,
+        style: data.style,
+        moral: data.moral,
+        readingLevel: data.readingLevel
       }));
       
       setStep("finalizing");

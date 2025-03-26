@@ -98,6 +98,7 @@ export const useStoryGeneration = () => {
         return "/placeholder.svg";
       }
 
+      // Return the complete data URL for the image
       return `data:image/jpeg;base64,${imageData}`;
     } catch (error) {
       console.error("Error generating image with Gemini:", error);
@@ -160,6 +161,8 @@ export const useStoryGeneration = () => {
         
         const imageUrl = await generateImageWithGemini(imagePrompt);
         
+        console.log(`Página ${i+1}: Imagem gerada com tamanho ${imageUrl.length} caracteres`);
+        
         pages.push({
           text: pageText,
           imageUrl: imageUrl
@@ -178,6 +181,17 @@ export const useStoryGeneration = () => {
         characterPrompt,
         pages
       };
+      
+      // Log para debug
+      console.log("Livro completo gerado:", {
+        titulo: completeBook.title,
+        capa: completeBook.coverImageUrl.substring(0, 50) + "...",
+        paginas: completeBook.pages.length,
+        primeiraPagina: {
+          texto: completeBook.pages[0]?.text.substring(0, 50) + "...",
+          imagem: completeBook.pages[0]?.imageUrl.substring(0, 50) + "..."
+        }
+      });
       
       updateProgress("concluído", 100);
       toast.success("História gerada com sucesso!");
