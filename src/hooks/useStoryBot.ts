@@ -35,6 +35,8 @@ export const useStoryBot = () => {
     
     const useOpenAI = localStorage.getItem('use_openai_for_stories') === 'true';
     setUseOpenAIForStoriesState(useOpenAI);
+    
+    storyBot.setUseOpenAI(useOpenAI);
   }, []);
   
   useEffect(() => {
@@ -126,6 +128,7 @@ export const useStoryBot = () => {
       let enhancedPrompt = imageDescription;
       if (characterPrompt) {
         enhancedPrompt += `. O personagem ${characterName} possui as seguintes características: ${characterPrompt}`;
+        console.log("Enhanced prompt with character details");
       }
       
       const imageUrl = await leonardoAgent.generateImage({
@@ -172,8 +175,15 @@ export const useStoryBot = () => {
     try {
       console.log("Using LeonardoAIAgent for cover image generation");
       
+      let coverPrompt = `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
+      
+      if (characterPrompt) {
+        coverPrompt += ` O personagem ${characterName} possui as seguintes características: ${characterPrompt}`;
+        console.log("Enhanced cover prompt with character details");
+      }
+      
       const imageUrl = await leonardoAgent.generateImage({
-        prompt: `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`,
+        prompt: coverPrompt,
         characterName,
         theme,
         setting,
@@ -225,11 +235,18 @@ export const useStoryBot = () => {
         useOpenAIForStories
       });
       
-      const enhancedStoryPages = storyPages.map(page => {
+      const enhancedStoryPages = storyPages.map((page, index) => {
+        let enhancedPage = page;
+        
         if (characterPrompt) {
-          return `${page} (Personagem ${characterName}: ${characterPrompt})`;
+          enhancedPage = `${page} (Personagem ${characterName}: ${characterPrompt})`;
         }
-        return page;
+        
+        enhancedPage = `Página ${index + 1} de uma história infantil: ${enhancedPage}`;
+        
+        enhancedPage += ` Ilustre o momento principal desta cena em estilo de ${style === 'cartoon' ? 'desenho animado colorido' : style}.`;
+        
+        return enhancedPage;
       });
       
       const imageUrls = await leonardoAgent.generateStoryImages(
@@ -329,6 +346,8 @@ export const useStoryBot = () => {
       setUseOpenAIForStoriesState(useOpenAI);
       
       storyBot.setUseOpenAI(useOpenAI);
+      
+      console.log(`Configurado para usar ${useOpenAI ? 'OpenAI GPT-4' : 'Gemini'} para geração de histórias`);
       
       return true;
     } catch (error) {

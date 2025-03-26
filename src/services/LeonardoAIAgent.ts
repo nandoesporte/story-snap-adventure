@@ -150,16 +150,25 @@ export class LeonardoAIAgent {
     // Usar o estilo visual salvo, se existir
     const savedStyle = this.characterImageStyles.get(characterName) || style;
     
-    // Enriquecer o prompt para garantir consistência do personagem
+    // Enriquecer o prompt para garantir consistência do personagem e melhorar as ilustrações
     let enhancedPrompt = prompt;
+    
+    // Adicionar detalhes específicos do personagem ao prompt
     if (finalCharacterPrompt) {
       enhancedPrompt += ` O personagem ${characterName} possui as seguintes características: ${finalCharacterPrompt}`;
     }
     
+    // Adicionar instruções para estilo de ilustração de livro infantil
+    enhancedPrompt += ` Ilustração de alta qualidade para livro infantil, colorida, estilo ${savedStyle === "cartoon" ? "desenho animado" : savedStyle}.`;
+    
+    // Adicionar instruções para composição e foco
+    enhancedPrompt += " Composição central, foco no personagem principal, expressões faciais claras, cores vibrantes.";
+    
     console.log("Gerando imagem com Leonardo.ai API:", {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
-      style: savedStyle
+      style: savedStyle,
+      promptLength: enhancedPrompt.length
     });
     
     try {
@@ -314,8 +323,21 @@ export class LeonardoAIAgent {
         toast.info(`Gerando ilustração para página ${pageNumber} de ${storyPages.length}...`);
         
         try {
+          // Criar um prompt específico para livro infantil
+          let enhancedPrompt = `Ilustração para um livro infantil representando: ${pageText}`;
+          
+          // Adicionar contexto de número da página e tema
+          enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
+          
+          // Se for a primeira ou última página, adicionar indicações especiais
+          if (i === 0) {
+            enhancedPrompt += " Esta é a primeira página da história, mostre o início da aventura.";
+          } else if (i === storyPages.length - 1) {
+            enhancedPrompt += " Esta é a última página da história, mostre a conclusão ou celebração.";
+          }
+          
           const imageUrl = await this.generateImage({
-            prompt: `Ilustração para um livro infantil representando: ${pageText}`,
+            prompt: enhancedPrompt,
             characterName,
             theme,
             setting,

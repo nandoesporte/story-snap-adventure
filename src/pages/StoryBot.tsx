@@ -5,13 +5,14 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StoryBotChat from "../components/StoryBotChat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Wand2, BookText, Download, Info, User } from "lucide-react";
+import { AlertCircle, Wand2, BookText, Download, Info, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
+import { useStoryBot } from "@/hooks/useStoryBot";
 
 interface Character {
   id: string;
@@ -27,6 +28,7 @@ const StoryBot = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string>("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
+  const { useOpenAIForStories } = useStoryBot();
   
   useEffect(() => {
     // Check localStorage to see if we've already detected API issues
@@ -75,7 +77,9 @@ const StoryBot = () => {
     if (localGeneratorMode) {
       toast.info("Gerando história usando o gerador local");
     } else {
-      toast.info("Gerando história personalizada");
+      toast.info(useOpenAIForStories 
+        ? "Gerando história com OpenAI GPT-4" 
+        : "Gerando história com Google Gemini");
     }
     
     // Save selected character to localStorage for use in view-story page
@@ -119,6 +123,13 @@ const StoryBot = () => {
             <p className="text-slate-600 max-w-xl mx-auto">
               Converse com o StoryBot para criar histórias infantis personalizadas e mágicas.
             </p>
+            
+            {useOpenAIForStories && (
+              <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Usando OpenAI GPT-4 para histórias</span>
+              </div>
+            )}
           </motion.div>
           
           {showApiAlert && (
@@ -215,10 +226,18 @@ const StoryBot = () => {
                     <div className="pt-2">
                       <Button 
                         onClick={handleGenerateStory}
-                        className={`w-full ${localGeneratorMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-storysnap-blue hover:bg-storysnap-blue/90'} text-white`}
+                        className={`w-full ${localGeneratorMode ? 'bg-amber-500 hover:bg-amber-600' : useOpenAIForStories ? 'bg-blue-600 hover:bg-blue-700' : 'bg-storysnap-blue hover:bg-storysnap-blue/90'} text-white`}
                       >
-                        <Wand2 className="w-4 h-4 mr-2" />
-                        {localGeneratorMode ? "Criar História com Gerador Local" : "Criar História Completa"}
+                        {useOpenAIForStories && !localGeneratorMode ? (
+                          <Sparkles className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Wand2 className="w-4 h-4 mr-2" />
+                        )}
+                        {localGeneratorMode 
+                          ? "Criar História com Gerador Local" 
+                          : useOpenAIForStories 
+                            ? "Criar História com GPT-4"
+                            : "Criar História Completa"}
                       </Button>
                     </div>
                   </div>
