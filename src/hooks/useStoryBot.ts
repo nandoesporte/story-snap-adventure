@@ -1,11 +1,15 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "@/services/StoryBot";
 import { LeonardoAIAgent } from "@/services/LeonardoAIAgent";
-import { ensureStoryBotPromptsTable, resetLeonardoApiStatus as resetLeonardoApi, isOpenAIApiKeyValid } from "@/lib/openai";
+import { 
+  ensureStoryBotPromptsTable, 
+  resetLeonardoApiStatus as resetLeonardoApi, 
+  isOpenAIApiKeyValid,
+  initializeOpenAI
+} from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -20,6 +24,7 @@ export const useStoryBot = () => {
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
   const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(null);
   const [useOpenAIForStories, setUseOpenAIForStoriesState] = useState<boolean>(false);
+  const [openAIModel, setOpenAIModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini');
   
   const storyBot = new StoryBot();
   const leonardoAgent = new LeonardoAIAgent();
@@ -35,9 +40,12 @@ export const useStoryBot = () => {
     }
     
     const useOpenAI = localStorage.getItem('use_openai_for_stories') === 'true';
-    setUseOpenAIForStoriesState(useOpenAI);
+    const savedOpenAIModel = localStorage.getItem('openai_model') as 'gpt-4o' | 'gpt-4o-mini' || 'gpt-4o-mini';
     
-    storyBot.setUseOpenAI(useOpenAI);
+    setUseOpenAIForStoriesState(useOpenAI);
+    setOpenAIModel(savedOpenAIModel);
+    
+    storyBot.setUseOpenAI(useOpenAI, savedOpenAIModel);
   }, []);
   
   useEffect(() => {
@@ -354,14 +362,17 @@ export const useStoryBot = () => {
     }
   };
 
-  const setUseOpenAIForStories = (useOpenAI: boolean): boolean => {
+  const setUseOpenAIForStories = (useOpenAI: boolean, model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini'): boolean => {
     try {
       localStorage.setItem('use_openai_for_stories', useOpenAI.toString());
+      localStorage.setItem('openai_model', model);
+      
       setUseOpenAIForStoriesState(useOpenAI);
+      setOpenAIModel(model);
       
-      storyBot.setUseOpenAI(useOpenAI);
+      storyBot.setUseOpenAI(useOpenAI, model);
       
-      console.log(`Configurado para usar ${useOpenAI ? 'OpenAI GPT-4' : 'Gemini'} para geração de histórias`);
+      console.log(`Configurado para usar ${useOpenAI ? `OpenAI ${model}` : 'Gemini'} para geração de histórias`);
       
       return true;
     } catch (error) {
@@ -372,6 +383,10 @@ export const useStoryBot = () => {
 
   const checkOpenAIAvailability = (): boolean => {
     return isOpenAIApiKeyValid();
+  };
+
+  const initializeOpenAIClient = (apiKey: string) => {
+    return initializeOpenAI(apiKey);
   };
 
   return { 
@@ -390,7 +405,9 @@ export const useStoryBot = () => {
     updateLeonardoWebhookUrl,
     leonardoAgent,
     useOpenAIForStories,
+    openAIModel,
     setUseOpenAIForStories,
-    checkOpenAIAvailability
+    checkOpenAIAvailability,
+    initializeOpenAIClient
   };
 };
