@@ -9,7 +9,7 @@ interface ImageGenerationParams {
   style?: string;
   characterPrompt?: string | null;
   childImage?: string | null;
-  storyContext?: string | null; // Adicionamos contexto da história para melhorar ilustrações
+  storyContext?: string | null;
 }
 
 interface LeonardoResponse {
@@ -188,7 +188,7 @@ export class LeonardoAIAgent {
     });
     
     try {
-      // Chamar a API do Leonardo.ai
+      // Chamar a API do Leonardo.ai para iniciar a geração
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
         headers: {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +23,6 @@ export const useStoryBot = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
-  const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState<string | null>(null);
   const [useOpenAIForStories, setUseOpenAIForStoriesState] = useState<boolean>(false);
   const [openAIModel, setOpenAIModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini');
   
@@ -33,11 +33,6 @@ export const useStoryBot = () => {
     ensureStoryBotPromptsTable().catch(err => {
       console.warn('Failed to ensure StoryBot prompts table exists:', err);
     });
-    
-    const savedWebhookUrl = localStorage.getItem('leonardo_webhook_url');
-    if (savedWebhookUrl) {
-      setLeonardoWebhookUrl(savedWebhookUrl);
-    }
     
     const useOpenAI = localStorage.getItem('use_openai_for_stories') === 'true';
     const savedOpenAIModel = localStorage.getItem('openai_model') as 'gpt-4o' | 'gpt-4o-mini' || 'gpt-4o-mini';
@@ -349,19 +344,6 @@ export const useStoryBot = () => {
     }
   };
 
-  const updateLeonardoWebhookUrl = (url: string): boolean => {
-    if (!url) return false;
-    
-    try {
-      localStorage.setItem('leonardo_webhook_url', url);
-      setLeonardoWebhookUrl(url);
-      return true;
-    } catch (error) {
-      console.error("Error setting Leonardo webhook URL:", error);
-      return false;
-    }
-  };
-
   const setUseOpenAIForStories = (useOpenAI: boolean, model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini'): boolean => {
     try {
       localStorage.setItem('use_openai_for_stories', useOpenAI.toString());
@@ -399,10 +381,8 @@ export const useStoryBot = () => {
     convertImageToBase64,
     apiAvailable,
     leonardoApiAvailable,
-    leonardoWebhookUrl,
     resetLeonardoApiStatus,
     setLeonardoApiKey,
-    updateLeonardoWebhookUrl,
     leonardoAgent,
     useOpenAIForStories,
     openAIModel,

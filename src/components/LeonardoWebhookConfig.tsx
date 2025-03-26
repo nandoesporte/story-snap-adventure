@@ -14,26 +14,19 @@ const LeonardoWebhookConfig = () => {
     leonardoApiAvailable, 
     resetLeonardoApiStatus, 
     setLeonardoApiKey, 
-    leonardoWebhookUrl,
-    updateLeonardoWebhookUrl,
     useOpenAIForStories,
     setUseOpenAIForStories
   } = useStoryBot();
   
   const [apiKey, setApiKey] = useState("");
-  const [webhookUrl, setWebhookUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useGPT4, setUseGPT4] = useState(false);
   
   useEffect(() => {
-    if (leonardoWebhookUrl) {
-      setWebhookUrl(leonardoWebhookUrl);
-    }
-    
     // Verificar se o uso do OpenAI está ativado
     const storedValue = localStorage.getItem("use_openai_for_stories");
     setUseGPT4(storedValue === "true");
-  }, [leonardoWebhookUrl]);
+  }, []);
   
   const handleReset = () => {
     resetLeonardoApiStatus();
@@ -64,35 +57,6 @@ const LeonardoWebhookConfig = () => {
       }, 1000);
     } else {
       toast.error("Erro ao configurar a chave da API Leonardo.ai");
-    }
-    
-    setIsSubmitting(false);
-  };
-  
-  const handleSubmitWebhookUrl = () => {
-    if (!webhookUrl.trim()) {
-      toast.error("Por favor, insira uma URL de webhook válida");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    // Salvar a URL do webhook
-    if (updateLeonardoWebhookUrl) {
-      const success = updateLeonardoWebhookUrl(webhookUrl.trim());
-      
-      if (success) {
-        toast.success("URL do webhook Leonardo.ai configurada com sucesso!");
-        
-        // Recarregar a página para aplicar as alterações
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        toast.error("Erro ao configurar a URL do webhook Leonardo.ai");
-      }
-    } else {
-      toast.error("Função de atualização do webhook não disponível");
     }
     
     setIsSubmitting(false);
@@ -171,32 +135,6 @@ const LeonardoWebhookConfig = () => {
             </div>
             <p className="text-xs text-slate-500 mt-1">
               Sua chave da API é armazenada localmente apenas neste dispositivo.
-            </p>
-          </div>
-          
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Info className="h-4 w-4 text-slate-500" />
-              <p className="text-sm font-medium">URL do Webhook Leonardo.ai (opcional)</p>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="URL do webhook (opcional)"
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleSubmitWebhookUrl}
-                disabled={isSubmitting || !webhookUrl.trim()}
-                size="sm"
-              >
-                Salvar
-              </Button>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Somente é necessário se você tiver um servidor de webhook personalizado.
             </p>
           </div>
           

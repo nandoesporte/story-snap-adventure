@@ -20,7 +20,7 @@ const Settings = () => {
   const { user } = useAuth();
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [leonardoWebhookUrl, setLeonardoWebhookUrl] = useState('');
+  const [leonardoApiKey, setLeonardoApiKey] = useState('');
   const [preferredModel, setPreferredModel] = useState('gemini');
   const [openaiModelType, setOpenaiModelType] = useState('gpt-4o-mini');
   const [useOpenAI, setUseOpenAI] = useState(false);
@@ -31,14 +31,14 @@ const Settings = () => {
     // Load saved settings
     const savedGeminiKey = localStorage.getItem('gemini_api_key') || '';
     const savedOpenAIKey = localStorage.getItem('openai_api_key') || '';
-    const savedLeonardoUrl = localStorage.getItem('leonardo_webhook_url') || '';
+    const savedLeonardoKey = localStorage.getItem('leonardo_api_key') || '';
     const savedPreferredModel = localStorage.getItem('preferred_ai_model') || 'gemini';
     const savedOpenAIModel = localStorage.getItem('openai_model_type') || 'gpt-4o-mini';
     const savedUseOpenAI = localStorage.getItem('use_openai') === 'true';
     
     setGeminiApiKey(savedGeminiKey);
     setOpenaiApiKey(savedOpenAIKey);
-    setLeonardoWebhookUrl(savedLeonardoUrl);
+    setLeonardoApiKey(savedLeonardoKey);
     setPreferredModel(savedPreferredModel);
     setOpenaiModelType(savedOpenAIModel);
     setUseOpenAI(savedUseOpenAI);
@@ -62,9 +62,9 @@ const Settings = () => {
         localStorage.setItem('openai_api_key', openaiApiKey);
       }
       
-      // Save Leonardo webhook URL
-      if (leonardoWebhookUrl) {
-        localStorage.setItem('leonardo_webhook_url', leonardoWebhookUrl);
+      // Save Leonardo API key
+      if (leonardoApiKey) {
+        localStorage.setItem('leonardo_api_key', leonardoApiKey);
       }
       
       // Save AI model preferences
@@ -245,21 +245,21 @@ const Settings = () => {
                 <CardHeader>
                   <CardTitle>Configuração de Geração de Imagens</CardTitle>
                   <CardDescription>
-                    Configure as APIs para geração de ilustrações para as histórias
+                    Configure a API Leonardo.ai para geração de ilustrações
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="leonardo-webhook">URL do Webhook Leonardo.AI</Label>
+                    <Label htmlFor="leonardo-api-key">Chave da API Leonardo.AI</Label>
                     <Input
-                      id="leonardo-webhook"
-                      type="text"
-                      placeholder="https://..."
-                      value={leonardoWebhookUrl}
-                      onChange={(e) => setLeonardoWebhookUrl(e.target.value)}
+                      id="leonardo-api-key"
+                      type="password"
+                      placeholder="..."
+                      value={leonardoApiKey}
+                      onChange={(e) => setLeonardoApiKey(e.target.value)}
                     />
                     <p className="text-sm text-gray-500">
-                      Configure o webhook no <a href="https://app.leonardo.ai/webhooks" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">Leonardo.AI</a> para receber imagens geradas
+                      Obtenha sua chave em <a href="https://leonardo.ai/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">leonardo.ai/settings/api-keys</a>
                     </p>
                   </div>
                 </CardContent>
