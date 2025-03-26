@@ -99,6 +99,54 @@ const StoryCreator = () => {
     generateStory(data);
   };
   
+  const saveStoryToSupabase = async (storyData: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log("Usuário não autenticado, salvando apenas em sessão.");
+        return;
+      }
+      
+      // Preparar dados para salvar no banco
+      const storyToSave = {
+        title: storyData.title,
+        cover_image_url: storyData.coverImageUrl,
+        character_name: storyData.childName,
+        character_age: storyData.childAge,
+        theme: storyData.theme,
+        setting: storyData.setting,
+        style: storyData.style,
+        user_id: user.id,
+        pages: storyData.pages.map((page: any) => ({
+          text: page.text,
+          image_url: page.imageUrl
+        }))
+      };
+      
+      // Salvar história no banco
+      const { data, error } = await supabase
+        .from("stories")
+        .insert(storyToSave)
+        .select();
+        
+      if (error) {
+        console.error("Erro ao salvar história no Supabase:", error);
+        toast.error("Erro ao salvar história no banco de dados.");
+        return false;
+      }
+      
+      console.log("História salva com sucesso no Supabase:", data);
+      toast.success("História salva com sucesso!");
+      
+      // Retornar o ID da história para redirecionamento
+      return data[0]?.id;
+    } catch (error) {
+      console.error("Erro ao salvar história:", error);
+      return false;
+    }
+  };
+  
   const generateStory = async (data: StoryFormData) => {
     if (!data) {
       toast.error("Informações incompletas para gerar a história.");
@@ -140,11 +188,33 @@ const StoryCreator = () => {
         pagesCount: completeBook.pages.length
       });
       
-      // Salvar os dados do livro completo para visualização
-      sessionStorage.setItem("storyData", JSON.stringify({
+      // Tente salvar no sessionStorage com tratamento para quota excedida
+      try {
+        sessionStorage.setItem("storyData", JSON.stringify({
+          title: completeBook.title,
+          coverImageUrl: completeBook.coverImageUrl,
+          childImage: imagePreview,
+          childName: data.childName,
+          childAge: data.childAge,
+          theme: data.theme,
+          setting: data.setting,
+          characterId: data.characterId,
+          characterName: selectedCharacter?.name,
+          pages: completeBook.pages,
+          language: data.language,
+          style: data.style,
+          moral: data.moral,
+          readingLevel: data.readingLevel
+        }));
+      } catch (storageError) {
+        console.warn("Erro ao salvar no sessionStorage (possível excesso de cota):", storageError);
+        toast.warning("A história é muito grande para o armazenamento local. Os dados serão salvos no banco de dados.");
+      }
+      
+      // Salvar no Supabase e obter o ID para redirecionamento
+      const storyId = await saveStoryToSupabase({
         title: completeBook.title,
         coverImageUrl: completeBook.coverImageUrl,
-        childImage: imagePreview,
         childName: data.childName,
         childAge: data.childAge,
         theme: data.theme,
@@ -156,10 +226,18 @@ const StoryCreator = () => {
         style: data.style,
         moral: data.moral,
         readingLevel: data.readingLevel
-      }));
+      });
       
       setStep("finalizing");
-      setTimeout(() => navigate("/view-story"), 1000);
+      
+      // Redirecionar para a visualização com ID se disponível
+      setTimeout(() => {
+        if (storyId) {
+          navigate(`/view-story/${storyId}`);
+        } else {
+          navigate("/view-story");
+        }
+      }, 1000);
     } catch (error: any) {
       console.error("Erro ao gerar história final:", error);
       toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");

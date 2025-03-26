@@ -8,6 +8,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { supabase } from "@/lib/supabase";
 
 interface StoryPage {
   text: string;
@@ -38,7 +39,7 @@ const defaultStory: StoryData = {
   setting: "",
   pages: [
     {
-      text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história.",
+      text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
       imageUrl: "/placeholder.svg"
     }
   ]
@@ -61,27 +62,76 @@ const StoryViewer: React.FC = () => {
       try {
         setLoading(true);
         
-        // Carregar dados do sessionStorage se não tiver ID na URL
-        if (!id) {
-          const savedData = sessionStorage.getItem("storyData");
-          if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            setStoryData(parsedData);
-            setTotalPages(parsedData.pages.length + 1); // +1 para a capa
+        // Se temos um ID, carregamos do Supabase
+        if (id && id !== ":id") {
+          console.log("Carregando história do banco com ID:", id);
+          const { data, error } = await supabase
+            .from("stories")
+            .select("*")
+            .eq("id", id)
+            .single();
+            
+          if (error) {
+            console.error("Erro ao carregar história do banco:", error);
+            toast.error("Erro ao carregar história do banco de dados");
+            
+            // Tentar carregar do sessionStorage como fallback
+            loadFromSessionStorage();
+            return;
+          }
+          
+          if (data) {
+            // Converter o formato do banco para o formato usado pelo componente
+            const formattedStory: StoryData = {
+              title: data.title,
+              coverImageUrl: data.cover_image_url || "/placeholder.svg",
+              childName: data.character_name,
+              childAge: data.character_age || "",
+              theme: data.theme || "",
+              setting: data.setting || "",
+              style: data.style,
+              pages: Array.isArray(data.pages) 
+                ? data.pages.map((page: any) => ({
+                    text: page.text,
+                    imageUrl: page.image_url || "/placeholder.svg"
+                  }))
+                : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
+            };
+            
+            setStoryData(formattedStory);
+            setTotalPages(formattedStory.pages.length + 1); // +1 para a capa
+            setLoading(false);
           } else {
-            console.error("Nenhum dado de história encontrado no sessionStorage");
-            setStoryData(defaultStory);
-            setTotalPages(defaultStory.pages.length + 1);
+            // Se não encontrou no banco, tenta no sessionStorage
+            loadFromSessionStorage();
           }
         } else {
-          // Implementar carregamento da história por ID quando necessário
-          console.log("Carregando história por ID:", id);
-          setStoryData(defaultStory);
-          setTotalPages(defaultStory.pages.length + 1);
+          // Se não tem ID, carrega do sessionStorage
+          loadFromSessionStorage();
         }
       } catch (error) {
         console.error("Erro ao carregar a história:", error);
         toast.error("Erro ao carregar a história");
+        setStoryData(defaultStory);
+        setTotalPages(defaultStory.pages.length + 1);
+        setLoading(false);
+      }
+    };
+    
+    const loadFromSessionStorage = () => {
+      try {
+        const savedData = sessionStorage.getItem("storyData");
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          setStoryData(parsedData);
+          setTotalPages(parsedData.pages.length + 1); // +1 para a capa
+        } else {
+          console.error("Nenhum dado de história encontrado no sessionStorage");
+          setStoryData(defaultStory);
+          setTotalPages(defaultStory.pages.length + 1);
+        }
+      } catch (storageError) {
+        console.error("Erro ao carregar dados do sessionStorage:", storageError);
         setStoryData(defaultStory);
         setTotalPages(defaultStory.pages.length + 1);
       } finally {
@@ -183,6 +233,44 @@ const StoryViewer: React.FC = () => {
     navigate("/");
   };
   
+  const handleShareStory = () => {
+    if (!storyData) return;
+    
+    if (id) {
+      // Se temos ID, podemos criar um link compartilhável
+      const shareUrl = `${window.location.origin}/view-story/${id}`;
+      
+      // Tentar usar a API Web Share se disponível
+      if (navigator.share) {
+        navigator.share({
+          title: storyData.title,
+          text: `Confira esta história incrível: ${storyData.title}`,
+          url: shareUrl
+        }).catch(err => {
+          console.error("Erro ao compartilhar:", err);
+          // Fallback: copiar para a área de transferência
+          copyToClipboard(shareUrl);
+        });
+      } else {
+        // Fallback: copiar para a área de transferência
+        copyToClipboard(shareUrl);
+      }
+    } else {
+      toast.info("Salve a história primeiro para poder compartilhá-la.");
+    }
+  };
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        toast.success("Link copiado para a área de transferência!");
+      })
+      .catch(err => {
+        console.error("Erro ao copiar texto:", err);
+        toast.error("Não foi possível copiar o link");
+      });
+  };
+  
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
@@ -230,6 +318,15 @@ const StoryViewer: React.FC = () => {
               variant="ghost" 
               size="sm" 
               className="text-white hover:text-white hover:bg-storysnap-blue/80"
+              onClick={handleShareStory}
+            >
+              <Share className="mr-2 h-4 w-4" />
+              Compartilhar
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:text-white hover:bg-storysnap-blue/80"
               onClick={handleDownloadPDF}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -267,7 +364,7 @@ const StoryViewer: React.FC = () => {
           
           {/* Livro com efeito de página */}
           <div 
-            className="relative w-full h-full max-w-4xl max-h-[70vh] perspective-1000"
+            className="relative w-full h-full max-w-4xl max-h-[70vh] perspective-[1000px]"
           >
             <AnimatePresence mode="wait">
               <motion.div

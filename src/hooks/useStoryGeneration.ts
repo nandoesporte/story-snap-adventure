@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { StoryBot } from '@/services/StoryBot';
 import OpenAI from 'openai';
 
 export type StoryPage = {
@@ -24,8 +23,6 @@ export const useStoryGeneration = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState<string>('preparando');
-  
-  const storyBot = new StoryBot();
   
   const updateProgress = (stage: string, percent: number) => {
     setCurrentStage(stage);
@@ -278,6 +275,7 @@ export const useStoryGeneration = () => {
       
       // Passo 5: Montar o livro completo
       updateProgress("finalizando", 95);
+      
       const completeBook: CompleteBook = {
         title: storyData.title,
         coverImageUrl,
