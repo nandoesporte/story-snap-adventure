@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { StoryBot } from '@/services/StoryBot';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 export type StoryPage = {
   text: string;
@@ -32,76 +32,142 @@ export const useStoryGeneration = () => {
     setProgress(percent);
   };
   
-  // Helper function to get Gemini API key
-  const getGeminiApiKey = (): string => {
-    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
+  // Helper function to get OpenAI API key
+  const getOpenAIApiKey = (): string => {
+    return localStorage.getItem('openai_api_key') || '';
   };
 
-  // Function to generate image using Gemini API
-  const generateImageWithGemini = async (prompt: string): Promise<string> => {
+  // Function to generate image using OpenAI DALL-E 3
+  const generateImageWithOpenAI = async (prompt: string): Promise<string> => {
     try {
-      const apiKey = getGeminiApiKey();
+      const apiKey = getOpenAIApiKey();
       
       if (!apiKey) {
-        toast.error("Chave da API Gemini não encontrada. Configure-a nas configurações.");
-        throw new Error("Gemini API key not found");
+        toast.error("Chave da API OpenAI não encontrada. Configure-a nas configurações.");
+        throw new Error("OpenAI API key not found");
       }
 
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-
-      // Full prompt for image generation with detailed style guidance
-      const fullPrompt = `Por favor, crie uma ilustração de livro infantil detalhada para: ${prompt}
-      Estilo: Ilustração colorida, amigável e adequada para crianças, em um estilo cartoon ou aquarela.
-      Cores: Use cores vibrantes e atraentes para as crianças.
-      Detalhes: A ilustração deve ser clara, com personagens expressivos e um cenário detalhado.
-      Formato: Paisagem (horizontal) 16:9`;
-
-      console.log("Gerando imagem com Gemini prompt:", fullPrompt.substring(0, 100) + "...");
-
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-        generationConfig: {
-          temperature: 0.8,
-          topK: 32,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
+      const openai = new OpenAI({ 
+        apiKey,
+        dangerouslyAllowBrowser: true
       });
 
-      // Check if we got a response with parts
-      const response = result.response;
-      
-      if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("No image generation candidates returned");
-      }
+      // Full prompt for image generation with detailed style guidance
+      const fullPrompt = `Crie uma ilustração de livro infantil para: ${prompt}
+      Estilo: Ilustração colorida, amigável e adequada para crianças, em um estilo cartoon.
+      Cores: Use cores vibrantes e atraentes para as crianças.
+      Detalhes: A ilustração deve ser clara, com personagens expressivos e um cenário detalhado.`;
 
-      // Find image part in response
-      const candidate = response.candidates[0];
-      if (!candidate.content || !candidate.content.parts) {
-        throw new Error("No content parts in response");
-      }
+      console.log("Gerando imagem com OpenAI prompt:", fullPrompt.substring(0, 100) + "...");
 
-      // Extract image data
-      let imageData = null;
-      for (const part of candidate.content.parts) {
-        if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
-          imageData = part.inlineData.data; // This is the base64 image data
-          break;
-        }
-      }
+      const result = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: fullPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        response_format: "b64_json"
+      });
 
-      if (!imageData) {
-        console.warn("No image found in Gemini response, using placeholder");
-        return "/placeholder.svg";
+      if (!result.data[0].b64_json) {
+        throw new Error("No image data returned from OpenAI");
       }
 
       // Return the complete data URL for the image
-      return `data:image/jpeg;base64,${imageData}`;
+      return `data:image/png;base64,${result.data[0].b64_json}`;
     } catch (error) {
-      console.error("Error generating image with Gemini:", error);
+      console.error("Error generating image with OpenAI:", error);
       toast.error("Não foi possível gerar a imagem. Usando placeholder.");
       return "/placeholder.svg";
+    }
+  };
+  
+  const generateStoryWithGPT4 = async (
+    prompt: string,
+    language: string = "portuguese"
+  ): Promise<{ title: string; content: string[]; imagePrompts: string[] }> => {
+    try {
+      const apiKey = getOpenAIApiKey();
+      
+      if (!apiKey) {
+        toast.error("Chave da API OpenAI não encontrada. Configure-a nas configurações.");
+        throw new Error("OpenAI API key not found");
+      }
+
+      const openai = new OpenAI({ 
+        apiKey,
+        dangerouslyAllowBrowser: true
+      });
+
+      console.log("Gerando história com OpenAI GPT-4 usando prompt:", prompt.substring(0, 100) + "...");
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um escritor de literatura infantil especialista. Crie histórias envolventes e adequadas para crianças com as seguintes regras:
+            
+            1. Limite a história a 5-8 páginas de conteúdo
+            2. Crie um título criativo e relacionado à história
+            3. Para cada página, forneça também um prompt de ilustração detalhado
+            4. Histórias devem ser apropriadas para crianças e ter uma lição
+            5. Use linguagem simples mas envolvente
+            6. Escreva no idioma ${language}
+            7. Formato de resposta: 
+               TÍTULO: [título da história]
+               
+               PÁGINA 1: [texto da página 1]
+               PROMPT_IMAGEM_1: [descrição para ilustração da página 1]
+               
+               PÁGINA 2: [texto da página 2]
+               PROMPT_IMAGEM_2: [descrição para ilustração da página 2]
+               
+               (e assim por diante)`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3500
+      });
+      
+      const storyText = response.choices[0]?.message?.content || "";
+      
+      if (!storyText) {
+        throw new Error("Resposta vazia da API OpenAI");
+      }
+      
+      // Parse the response
+      const titleMatch = storyText.match(/TÍTULO:\s*(.*?)(?:\n|$)/);
+      const title = titleMatch ? titleMatch[1].trim() : "História Infantil";
+      
+      const pageRegex = /PÁGINA\s+(\d+):\s*([\s\S]*?)(?=PROMPT_IMAGEM_\d+:|PÁGINA\s+\d+:|$)/g;
+      const promptRegex = /PROMPT_IMAGEM_\d+:\s*([\s\S]*?)(?=PÁGINA\s+\d+:|PROMPT_IMAGEM_\d+:|$)/g;
+      
+      const pageContents: string[] = [];
+      const imagePrompts: string[] = [];
+      
+      let pageMatch;
+      while ((pageMatch = pageRegex.exec(storyText)) !== null) {
+        pageContents.push(pageMatch[2].trim());
+      }
+      
+      let promptMatch;
+      while ((promptMatch = promptRegex.exec(storyText)) !== null) {
+        imagePrompts.push(promptMatch[1].trim());
+      }
+      
+      return {
+        title,
+        content: pageContents,
+        imagePrompts
+      };
+    } catch (error) {
+      console.error("Error generating story with GPT-4:", error);
+      throw new Error("Falha ao gerar história com GPT-4. Verifique sua chave de API.");
     }
   };
   
@@ -122,8 +188,30 @@ export const useStoryGeneration = () => {
     try {
       setIsGenerating(true);
       
-      // Passo 1: Gerar o conteúdo da história com prompts para ilustrações
-      updateProgress("gerando narrativa", 10);
+      // Passo 1: Criar o prompt principal para a história
+      updateProgress("preparando", 5);
+      
+      let storyPrompt = `Crie uma história infantil para ${characterName}, uma criança de ${childAge} anos.`;
+      storyPrompt += `\nTema: ${theme}`;
+      storyPrompt += `\nAmbientação: ${setting}`;
+      
+      if (moralTheme) {
+        storyPrompt += `\nLição moral: ${moralTheme}`;
+      }
+      
+      if (characterPrompt) {
+        storyPrompt += `\nDetalhes do personagem: ${characterPrompt}`;
+      }
+      
+      storyPrompt += `\nNível de leitura: ${readingLevel}`;
+      storyPrompt += `\nComprimento: ${length}`;
+      
+      if (storyContext) {
+        storyPrompt += `\nContexto adicional: ${storyContext}`;
+      }
+      
+      // Passo 2: Gerar história com GPT-4
+      updateProgress("gerando narrativa", 20);
       
       console.log("Gerando história com os parâmetros:", {
         characterName,
@@ -137,31 +225,20 @@ export const useStoryGeneration = () => {
         language
       });
       
-      const storyData = await storyBot.generateStoryWithPrompts(
-        characterName,
-        childAge,
-        theme,
-        setting,
-        moralTheme,
-        characterPrompt,
-        length,
-        readingLevel,
-        language,
-        storyContext
-      );
+      const storyData = await generateStoryWithGPT4(storyPrompt, language);
       
-      console.log("História gerada:", {
+      console.log("História gerada com GPT-4:", {
         titulo: storyData.title,
         paginas: storyData.content.length,
         promptsImagens: storyData.imagePrompts.length
       });
       
-      // Passo 2: Gerar capa do livro usando Gemini
+      // Passo 3: Gerar capa do livro usando OpenAI DALL-E
       updateProgress("criando capa", 30);
       const coverPrompt = `Capa de livro infantil para a história "${storyData.title}" sobre ${characterName} em uma aventura de ${theme} em ${setting}. ${characterPrompt}`;
       
       console.log("Gerando capa com prompt:", coverPrompt);
-      const coverImageUrl = await generateImageWithGemini(coverPrompt);
+      const coverImageUrl = await generateImageWithOpenAI(coverPrompt);
       
       if (!coverImageUrl || coverImageUrl === "/placeholder.svg") {
         console.warn("Falha ao gerar a capa. Usando placeholder.");
@@ -169,7 +246,7 @@ export const useStoryGeneration = () => {
         console.log("Capa gerada com sucesso. Tamanho do data URL:", coverImageUrl.length);
       }
       
-      // Passo 3: Gerar ilustrações para as páginas usando Gemini
+      // Passo 4: Gerar ilustrações para as páginas usando OpenAI DALL-E
       updateProgress(`gerando ilustrações (0/${storyData.content.length})`, 40);
       const pages: StoryPage[] = [];
       
@@ -184,7 +261,7 @@ export const useStoryGeneration = () => {
         console.log(`Gerando ilustração para página ${i+1} com prompt:`, 
           imagePrompt.substring(0, 100) + "...");
           
-        const imageUrl = await generateImageWithGemini(imagePrompt);
+        const imageUrl = await generateImageWithOpenAI(imagePrompt);
         
         if (!imageUrl || imageUrl === "/placeholder.svg") {
           console.warn(`Falha ao gerar ilustração para página ${i+1}. Usando placeholder.`);
@@ -199,7 +276,7 @@ export const useStoryGeneration = () => {
         });
       }
       
-      // Passo 4: Montar o livro completo
+      // Passo 5: Montar o livro completo
       updateProgress("finalizando", 95);
       const completeBook: CompleteBook = {
         title: storyData.title,

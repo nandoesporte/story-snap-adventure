@@ -105,18 +105,18 @@ const StoryCreator = () => {
       return;
     }
     
+    // Verificar se a API key do OpenAI está configurada
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey) {
+      toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
+      return;
+    }
+    
     setStep("generating");
     
     try {
       // Obter prompt do personagem se disponível
       const characterPrompt = selectedCharacter?.generation_prompt || "";
-      
-      // Verificar se a API key do Gemini está configurada
-      const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
-      if (!geminiApiKey) {
-        toast.error("A chave da API Gemini não está configurada. Verifique nas configurações.");
-        throw new Error("Gemini API key not found");
-      }
       
       // Gerar a história completa
       const completeBook = await generateCompleteStory(
