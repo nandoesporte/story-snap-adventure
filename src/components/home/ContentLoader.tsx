@@ -2,6 +2,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
+type PageContent = {
+  id: string;
+  page: string;
+  section: string;
+  key: string;
+  content: string;
+  content_type: string;
+};
+
 // Custom hook to fetch page content for the index page
 export const useIndexPageContent = (section?: string) => {
   const { data: pageContents = [], isLoading } = useQuery({
@@ -24,7 +33,7 @@ export const useIndexPageContent = (section?: string) => {
           return [];
         }
         
-        return data;
+        return data as PageContent[];
       } catch (error) {
         console.error("Error in useIndexPageContent:", error);
         return [];
@@ -35,7 +44,7 @@ export const useIndexPageContent = (section?: string) => {
   // Helper function to get content by section and key
   const getContent = (sectionName: string, key: string, defaultValue: string = "") => {
     const content = pageContents.find(
-      (item: any) => item.section === sectionName && item.key === key
+      (item) => item.section === sectionName && item.key === key
     );
     return content ? content.content : defaultValue;
   };

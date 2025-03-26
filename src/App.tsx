@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -25,8 +24,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 1,
-      // Latest version of react-query no longer accepts onError here
-      // but inside meta object or using onSettled handler
     },
   },
 });
@@ -66,6 +63,7 @@ function App() {
         <Route path="/story-creator" element={<StoryCreator />} />
         <Route path="/my-stories" element={<MyStories />} />
         <Route path="/view-story/:id" element={<ViewStory />} />
+        <Route path="/view-story" element={<ViewStory />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/storybot" element={<StoryBot />} />
         <Route path="/characters" element={<Characters />} />

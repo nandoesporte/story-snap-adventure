@@ -8,6 +8,12 @@ type Message = {
   content: string;
 };
 
+export type StoryGenerationResult = {
+  title: string;
+  content: string[];
+  imagePrompts: string[];
+};
+
 export class StoryBot {
   private useOpenAI: boolean = false;
   private openAIModel: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini';
@@ -36,7 +42,7 @@ export class StoryBot {
     this.openAIModel = model;
   }
 
-  async generateStoryBotResponse(messages: Message[], userPrompt: string) {
+  async generateStoryBotResponse(messages: Message[], userPrompt: string): Promise<string> {
     if (this.useOpenAI && this.openAIClient) {
       return this.generateOpenAIResponse(messages, userPrompt);
     } else if (this.geminiClient) {
@@ -46,7 +52,7 @@ export class StoryBot {
     throw new Error('No AI client available');
   }
 
-  private async generateOpenAIResponse(messages: Message[], userPrompt: string) {
+  private async generateOpenAIResponse(messages: Message[], userPrompt: string): Promise<string> {
     if (!this.openAIClient) throw new Error('OpenAI client not initialized');
 
     const response = await this.openAIClient.chat.completions.create({
@@ -65,11 +71,8 @@ export class StoryBot {
     return response.choices[0].message.content || '';
   }
 
-  private async generateGeminiResponse(messages: Message[], userPrompt: string) {
+  private async generateGeminiResponse(messages: Message[], userPrompt: string): Promise<string> {
     if (!this.geminiClient) throw new Error('Gemini client not initialized');
-
-    const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!geminiApiKey) throw new Error('Gemini API key not found');
 
     const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
@@ -109,9 +112,42 @@ export class StoryBot {
     readingLevel: string = "intermediate",
     language: string = "portuguese",
     storyContext: string = ""
-  ): Promise<{title: string; content: string[]; imagePrompts: string[]}> {
-    // Criar um prompt estruturado para gerar a história completa
-    const prompt = `Crie uma história infantil completa com as seguintes características:
+  ): Promise<StoryGenerationResult> {
+    const prompt = this.createStoryGenerationPrompt(
+      characterName, childAge, theme, setting, moralTheme,
+      characterPrompt, length, readingLevel, language, storyContext
+    );
+
+    try {
+      let response;
+      if (this.useOpenAI && this.openAIClient) {
+        response = await this.generateOpenAIStory(prompt);
+      } else if (this.geminiClient) {
+        response = await this.generateGeminiStory(prompt);
+      } else {
+        throw new Error('Nenhum cliente de IA disponível');
+      }
+
+      return this.processStoryResponse(response);
+    } catch (error) {
+      console.error("Erro ao gerar história:", error);
+      throw new Error('Falha ao gerar história completa');
+    }
+  }
+
+  private createStoryGenerationPrompt(
+    characterName: string,
+    childAge: string,
+    theme: string,
+    setting: string,
+    moralTheme: string,
+    characterPrompt: string,
+    length: string,
+    readingLevel: string,
+    language: string,
+    storyContext: string
+  ): string {
+    return `Crie uma história infantil completa com as seguintes características:
     
     Personagem principal: ${characterName}
     Idade da criança: ${childAge} anos
@@ -143,38 +179,35 @@ export class StoryBot {
     [Repetir para cada página]
     
     Importante: cada prompt de ilustração deve ser detalhado, visual e claro para que possa ser usado diretamente para gerar imagens.`;
-
-    try {
-      let response;
-      if (this.useOpenAI && this.openAIClient) {
-        const completion = await this.openAIClient.chat.completions.create({
-          model: this.openAIModel,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
-          temperature: 0.7,
-        });
-        response = completion.choices[0].message.content || '';
-      } else if (this.geminiClient) {
-        const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-        const result = await model.generateContent(prompt);
-        const genResponse = await result.response;
-        response = genResponse.text();
-      } else {
-        throw new Error('Nenhum cliente de IA disponível');
-      }
-
-      // Processar a resposta para extrair título, conteúdo e prompts de ilustração
-      return this.processStoryResponse(response);
-    } catch (error) {
-      console.error("Erro ao gerar história:", error);
-      throw new Error('Falha ao gerar história completa');
-    }
   }
 
-  private processStoryResponse(response: string): {title: string; content: string[]; imagePrompts: string[]} {
+  private async generateOpenAIStory(prompt: string): Promise<string> {
+    if (!this.openAIClient) throw new Error('OpenAI client not initialized');
+    
+    const completion = await this.openAIClient.chat.completions.create({
+      model: this.openAIModel,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+      temperature: 0.7,
+    });
+    
+    return completion.choices[0].message.content || '';
+  }
+
+  private async generateGeminiStory(prompt: string): Promise<string> {
+    if (!this.geminiClient) throw new Error('Gemini client not initialized');
+    
+    const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const result = await model.generateContent(prompt);
+    const genResponse = await result.response;
+    
+    return genResponse.text();
+  }
+
+  private processStoryResponse(response: string): StoryGenerationResult {
     // Extrair o título
     const titleMatch = response.match(/TÍTULO:\s*(.*?)(?:\r?\n|$)/i) || 
-                       response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
+                     response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
     const title = titleMatch ? titleMatch[1].trim() : "História Personalizada";
 
     // Extrair páginas e prompts de ilustração
@@ -241,8 +274,34 @@ export class StoryBot {
     moralTheme: string = "",
     storyContext: string = ""
   ): Promise<string> {
-    // Enhanced prompt with story context for better image generation
-    const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil.
+    const prompt = this.createImageDescriptionPrompt(
+      pageText, characterName, childAge, theme, setting, moralTheme, storyContext
+    );
+
+    try {
+      if (this.useOpenAI && this.openAIClient) {
+        return this.generateOpenAIImageDescription(prompt);
+      } else if (this.geminiClient) {
+        return this.generateGeminiImageDescription(prompt);
+      } else {
+        throw new Error('Nenhum cliente de IA disponível.');
+      }
+    } catch (error) {
+      console.error("Erro ao gerar descrição da imagem:", error);
+      return `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
+    }
+  }
+
+  private createImageDescriptionPrompt(
+    pageText: string,
+    characterName: string,
+    childAge: string,
+    theme: string,
+    setting: string,
+    moralTheme: string,
+    storyContext: string
+  ): string {
+    return `Crie uma descrição detalhada para uma ilustração de livro infantil.
     A cena deve apresentar o personagem ${characterName}, uma criança de ${childAge} anos,
     em uma aventura no cenário de ${setting} com tema de ${theme}.
     
@@ -256,28 +315,28 @@ export class StoryBot {
     Inclua detalhes sobre as expressões faciais do personagem, o ambiente ao redor, cores, iluminação e a atmosfera geral da cena.
     Descreva as roupas do personagem, postura e ação no momento.
     A descrição deve ter no máximo 150 palavras.`;
+  }
 
-    try {
-      if (this.useOpenAI && this.openAIClient) {
-        const response = await this.openAIClient.chat.completions.create({
-          model: this.openAIModel,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 200,
-          temperature: 0.7,
-        });
+  private async generateOpenAIImageDescription(prompt: string): Promise<string> {
+    if (!this.openAIClient) throw new Error('OpenAI client not initialized');
+    
+    const response = await this.openAIClient.chat.completions.create({
+      model: this.openAIModel,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200,
+      temperature: 0.7,
+    });
 
-        return response.choices[0].message.content || `Ilustração detalhada de ${characterName} em ${setting} com tema de ${theme}.`;
-      } else if (this.geminiClient) {
-        const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
-      } else {
-        throw new Error('Nenhum cliente de IA disponível.');
-      }
-    } catch (error) {
-      console.error("Erro ao gerar descrição da imagem:", error);
-      return `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
-    }
+    return response.choices[0].message.content || 'Descrição de ilustração não gerada.';
+  }
+
+  private async generateGeminiImageDescription(prompt: string): Promise<string> {
+    if (!this.geminiClient) throw new Error('Gemini client not initialized');
+    
+    const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    return response.text();
   }
 }

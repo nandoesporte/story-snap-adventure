@@ -2,28 +2,21 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import FileUpload from "./FileUpload";
 import StoryForm, { StoryFormData } from "./StoryForm";
-import { toast } from "sonner";
 import LoadingSpinner from "./LoadingSpinner";
 import StoryBotChat from "./StoryBotChat";
-import { useStoryBot } from "../hooks/useStoryBot";
-import { supabase } from "@/lib/supabase";
-import { generateStoryWithGPT4, generateStory } from "@/utils/storyGenerator";
-import { BookGenerationService, StoryInputData } from "@/services/BookGenerationService";
+import { useStoryBot } from "@/hooks/useStoryBot";
+import { useStoryGeneration } from "@/hooks/useStoryGeneration";
 
 type CreationStep = "photo" | "details" | "chat" | "generating";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
-};
-
-type StoryPage = {
-  text: string;
-  imageUrl: string;
 };
 
 interface Character {
@@ -40,28 +33,24 @@ const StoryCreator = () => {
   const [step, setStep] = useState<CreationStep>("photo");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [currentStage, setCurrentStage] = useState<string>("preparando");
+  
+  const { generateStoryBotResponse } = useStoryBot();
   const { 
-    generateStoryBotResponse, 
-    generateImageDescription, 
-    generateImage, 
-    generateCoverImage, 
-    convertImageToBase64,
-    generateCompleteStory
-  } = useStoryBot();
-
+    generateCompleteStory,
+    isGenerating, 
+    progress, 
+    currentStage
+  } = useStoryGeneration();
+  
   useEffect(() => {
-    // Tentar carregar os dados da história da sessionStorage
+    // Try to load story data from sessionStorage
     const savedData = sessionStorage.getItem("create_story_data");
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
-        // Formatar os dados para o formato do formulário
         const formattedData: StoryFormData = {
           childName: parsedData.childName,
           childAge: parsedData.childAge,
@@ -82,7 +71,7 @@ const StoryCreator = () => {
           setImagePreview(parsedData.imagePreview);
         }
         
-        // Se temos todos os dados necessários, já podemos iniciar a geração
+        // If we have all required data, we can skip to chat
         if (formattedData.childName && formattedData.theme && formattedData.setting) {
           setStep("chat");
         }
@@ -123,40 +112,51 @@ const StoryCreator = () => {
   
   useEffect(() => {
     if (step === "chat" && formData) {
-      let initialPrompt = `Olá StoryBot! Estou criando uma história para ${formData.childName}, que tem ${formData.childAge}. 
-      Gostaria de uma história com tema de "${formData.theme === 'adventure' ? 'Aventura' : 
-      formData.theme === 'fantasy' ? 'Fantasia' : 
-      formData.theme === 'space' ? 'Espaço' : 
-      formData.theme === 'ocean' ? 'Oceano' : 
-      'Dinossauros'}" em um cenário de "${
-        formData.setting === 'forest' ? 'Floresta Encantada' : 
-        formData.setting === 'castle' ? 'Castelo Mágico' : 
-        formData.setting === 'space' ? 'Espaço Sideral' : 
-        formData.setting === 'underwater' ? 'Mundo Submarino' : 
-        'Terra dos Dinossauros'
-      }".`;
-      
-      if (selectedCharacter) {
-        initialPrompt += `\n\nGostaria que a história incluísse o personagem ${selectedCharacter.name}.`;
-        
-        if (selectedCharacter.description) {
-          initialPrompt += `\nDescrição do personagem: ${selectedCharacter.description}`;
-        }
-        
-        if (selectedCharacter.personality) {
-          initialPrompt += `\nPersonalidade: ${selectedCharacter.personality}`;
-        }
-        
-        if (selectedCharacter.generation_prompt) {
-          initialPrompt += `\n\nInformações adicionais para geração da história: ${selectedCharacter.generation_prompt}`;
-        }
-      }
-      
-      initialPrompt += `\n\nPode me ajudar a criar uma história incrível?`;
-      
+      // Generate initial prompt for StoryBot when entering chat step
+      let initialPrompt = createInitialPrompt(formData, selectedCharacter);
       handleSendMessage(initialPrompt);
     }
   }, [step, formData, selectedCharacter]);
+  
+  const createInitialPrompt = (formData: StoryFormData, character: Character | null): string => {
+    let prompt = `Olá StoryBot! Estou criando uma história para ${formData.childName}, que tem ${formData.childAge}. 
+    Gostaria de uma história com tema de "${getThemeText(formData.theme)}" em um cenário de "${getSettingText(formData.setting)}".`;
+    
+    if (character) {
+      prompt += `\n\nGostaria que a história incluísse o personagem ${character.name}.`;
+      
+      if (character.description) {
+        prompt += `\nDescrição do personagem: ${character.description}`;
+      }
+      
+      if (character.personality) {
+        prompt += `\nPersonalidade: ${character.personality}`;
+      }
+      
+      if (character.generation_prompt) {
+        prompt += `\n\nInformações adicionais para geração da história: ${character.generation_prompt}`;
+      }
+    }
+    
+    prompt += `\n\nPode me ajudar a criar uma história incrível?`;
+    return prompt;
+  };
+  
+  const getThemeText = (theme: string): string => {
+    return theme === 'adventure' ? 'Aventura' : 
+      theme === 'fantasy' ? 'Fantasia' : 
+      theme === 'space' ? 'Espaço' : 
+      theme === 'ocean' ? 'Oceano' : 
+      'Dinossauros';
+  };
+  
+  const getSettingText = (setting: string): string => {
+    return setting === 'forest' ? 'Floresta Encantada' : 
+      setting === 'castle' ? 'Castelo Mágico' : 
+      setting === 'space' ? 'Espaço Sideral' : 
+      setting === 'underwater' ? 'Mundo Submarino' : 
+      'Terra dos Dinossauros';
+  };
   
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
@@ -204,15 +204,7 @@ const StoryCreator = () => {
       };
       
       setMessages(prev => [...prev, errorAssistantMessage]);
-      
-      const apiIssueEvent = new Event("storybot_api_issue");
-      window.dispatchEvent(apiIssueEvent);
     }
-  };
-  
-  const updateProgress = (stage: string, percent: number) => {
-    setCurrentStage(stage);
-    setProgress(percent);
   };
   
   const generateFinalStory = async () => {
@@ -222,24 +214,19 @@ const StoryCreator = () => {
     }
     
     setStep("generating");
-    setIsGenerating(true);
     
     try {
-      updateProgress("preparando", 10);
+      // Get character prompt if available
+      const characterPrompt = selectedCharacter?.generation_prompt || "";
       
-      // Preparar o prompt do personagem
-      const characterPrompt = selectedCharacter?.generation_prompt || null;
-      
-      updateProgress("gerando-historia", 20);
-      
-      // Gerar a história completa em um fluxo sequencial
+      // Generate the complete story
       const completeBook = await generateCompleteStory(
         formData.childName,
         formData.childAge,
         formData.theme,
         formData.setting,
         formData.moral,
-        characterPrompt || "",
+        characterPrompt,
         formData.length,
         formData.readingLevel,
         formData.language,
@@ -247,9 +234,7 @@ const StoryCreator = () => {
         formData.style
       );
       
-      updateProgress("concluido", 100);
-      
-      // Salvar o livro completo na sessionStorage para a visualização
+      // Save the complete book data for viewing
       sessionStorage.setItem("storyData", JSON.stringify({
         title: completeBook.title,
         coverImageUrl: completeBook.coverImageUrl,
@@ -263,20 +248,11 @@ const StoryCreator = () => {
         pages: completeBook.pages
       }));
       
-      toast.success("História gerada com sucesso!");
       navigate("/view-story");
     } catch (error: any) {
       console.error("Error generating final story:", error);
       toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       setStep("chat");
-      
-      // Only dispatch API issue if it's a real API error, not a user cancellation
-      if (!error.message?.includes("cancelada")) {
-        const apiIssueEvent = new Event("storybot_api_issue");
-        window.dispatchEvent(apiIssueEvent);
-      }
-    } finally {
-      setIsGenerating(false);
     }
   };
   
@@ -353,19 +329,10 @@ const StoryCreator = () => {
                 <div className="flex-1">
                   <p className="font-medium">Detalhes:</p>
                   <p className="text-sm text-slate-600">Nome: {formData?.childName}, Idade: {formData?.childAge}</p>
-                  <p className="text-sm text-slate-600">Tema: {
-                    formData?.theme === 'adventure' ? 'Aventura' : 
-                    formData?.theme === 'fantasy' ? 'Fantasia' : 
-                    formData?.theme === 'space' ? 'Espaço' : 
-                    formData?.theme === 'ocean' ? 'Oceano' : 
-                    'Dinossauros'
-                  }, Cenário: {
-                    formData?.setting === 'forest' ? 'Floresta Encantada' : 
-                    formData?.setting === 'castle' ? 'Castelo Mágico' : 
-                    formData?.setting === 'space' ? 'Espaço Sideral' : 
-                    formData?.setting === 'underwater' ? 'Mundo Submarino' : 
-                    'Terra dos Dinossauros'
-                  }</p>
+                  <p className="text-sm text-slate-600">
+                    Tema: {getThemeText(formData?.theme || '')}, 
+                    Cenário: {getSettingText(formData?.setting || '')}
+                  </p>
                   {selectedCharacter && (
                     <div className="flex items-center mt-1">
                       <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
