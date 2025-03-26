@@ -145,6 +145,10 @@ const MyStories = () => {
                         src={story.cover_image_url}
                         alt={story.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-violet-200 to-indigo-200">

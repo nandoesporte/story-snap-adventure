@@ -1,4 +1,3 @@
-
 import { createClient, User } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
@@ -305,19 +304,105 @@ export const saveStory = async (story: Story) => {
       throw new Error('Usuário não autenticado');
     }
 
+    // Convert base64 images to shorter references for database storage if needed
+    const processedPages = await Promise.all(story.pages.map(async (page, index) => {
+      let imageUrl = page.image_url;
+      
+      // Check if it's a large base64 string and needs to be stored separately
+      if (page.image_url && page.image_url.startsWith('data:image') && page.image_url.length > 1000) {
+        try {
+          // Extract base64 data
+          const base64Data = page.image_url.split(',')[1];
+          
+          // Generate a unique filename
+          const fileName = `${userSession.user.id}_${Date.now()}_page_${index}.png`;
+          
+          // Upload to Supabase storage
+          const { data: storageData, error: storageError } = await supabase
+            .storage
+            .from('story_images')
+            .upload(fileName, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              upsert: true
+            });
+            
+          if (storageError) {
+            console.error('Error uploading image to storage:', storageError);
+            // Keep the original image URL if upload fails
+          } else {
+            // Get public URL
+            const { data: publicUrlData } = supabase
+              .storage
+              .from('story_images')
+              .getPublicUrl(fileName);
+              
+            imageUrl = publicUrlData.publicUrl;
+            console.log(`Uploaded image for page ${index} to storage:`, imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('Error processing image for upload:', uploadError);
+          // Keep the original image URL if processing fails
+        }
+      }
+      
+      return {
+        text: page.text,
+        image_url: imageUrl
+      };
+    }));
+    
+    // Process cover image if it's a base64 string
+    let coverImageUrl = story.cover_image_url;
+    if (story.cover_image_url && story.cover_image_url.startsWith('data:image') && story.cover_image_url.length > 1000) {
+      try {
+        // Extract base64 data
+        const base64Data = story.cover_image_url.split(',')[1];
+        
+        // Generate a unique filename
+        const fileName = `${userSession.user.id}_${Date.now()}_cover.png`;
+        
+        // Upload to Supabase storage
+        const { data: storageData, error: storageError } = await supabase
+          .storage
+          .from('story_images')
+          .upload(fileName, Buffer.from(base64Data, 'base64'), {
+            contentType: 'image/png',
+            upsert: true
+          });
+          
+        if (storageError) {
+          console.error('Error uploading cover image to storage:', storageError);
+          // Keep the original image URL if upload fails
+        } else {
+          // Get public URL
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('story_images')
+            .getPublicUrl(fileName);
+            
+          coverImageUrl = publicUrlData.publicUrl;
+          console.log('Uploaded cover image to storage:', coverImageUrl);
+        }
+      } catch (uploadError) {
+        console.error('Error processing cover image for upload:', uploadError);
+        // Keep the original image URL if processing fails
+      }
+    }
+
+    // Create the story entry with processed images
     const { data, error } = await supabase
       .from('stories')
       .insert([{
         user_id: userSession.user.id,
         title: story.title,
-        cover_image_url: story.cover_image_url,
+        cover_image_url: coverImageUrl,
         character_name: story.character_name,
         character_age: story.character_age,
         theme: story.theme,
         setting: story.setting,
         style: story.style,
         character_prompt: story.character_prompt || '',
-        pages: story.pages,
+        pages: processedPages,
       }])
       .select();
     
@@ -326,6 +411,7 @@ export const saveStory = async (story: Story) => {
       throw error;
     }
     
+    console.log('Story saved successfully:', data);
     return data;
   } catch (err) {
     console.error('Unexpected error in saveStory:', err);
@@ -343,10 +429,11 @@ export const getUserStories = async () => {
     
     console.log('Fetching stories for user:', userSession.user.id);
     
+    // Use a simplified query to avoid any potential issues with RLS policies
     const { data, error } = await supabase
       .from('stories')
-      .select('*')
-      .eq('user_id', userSession.user.id)  // Add this line to filter by user_id
+      .select('id, title, cover_image_url, character_name, character_age, theme, setting, style, created_at')
+      .eq('user_id', userSession.user.id)
       .order('created_at', { ascending: false });
     
     if (error) {
