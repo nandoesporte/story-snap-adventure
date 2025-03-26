@@ -54,7 +54,7 @@ const MyStories = () => {
         console.log("Fetching user stories...");
         const result = await getUserStories();
         console.log("Stories fetched successfully:", result);
-        return result;
+        return result as StoryListItem[]; // Cast the result to StoryListItem[]
       } catch (err: any) {
         console.error("Error fetching stories:", err);
         throw err;
