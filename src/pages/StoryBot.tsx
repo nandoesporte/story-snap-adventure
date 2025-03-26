@@ -234,7 +234,7 @@ const StoryBot = () => {
                           <SelectValue placeholder="Escolha um personagem" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhum personagem</SelectItem>
+                          <SelectItem value="none">Nenhum personagem</SelectItem>
                           {characters.map(character => (
                             <SelectItem key={character.id} value={character.id}>
                               {character.name}
