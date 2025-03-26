@@ -47,13 +47,28 @@ GRANT EXECUTE ON FUNCTION public.check_column_exists TO authenticated;
 -- Fix user_profiles table name and its policy if it's causing recursion
 DO $$
 BEGIN
-    -- Check if the table user_profiless (with double 's') exists, which is incorrect
+    -- Check if both tables exist (the misspelled one and the correct one)
     IF EXISTS (
         SELECT 1
         FROM pg_tables
         WHERE tablename = 'user_profiless'
+    ) AND EXISTS (
+        SELECT 1
+        FROM pg_tables
+        WHERE tablename = 'user_profiles'
     ) THEN
-        -- Rename the table to the correct name
+        -- If both exist, just drop the misspelled one
+        DROP TABLE IF EXISTS user_profiless;
+    ELSIF EXISTS (
+        SELECT 1
+        FROM pg_tables
+        WHERE tablename = 'user_profiless'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM pg_tables
+        WHERE tablename = 'user_profiles'
+    ) THEN
+        -- Only if user_profiless exists but user_profiles doesn't, rename it
         ALTER TABLE user_profiless RENAME TO user_profiles;
     END IF;
 END $$;
