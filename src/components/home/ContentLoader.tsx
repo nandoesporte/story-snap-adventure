@@ -7,23 +7,28 @@ export const useIndexPageContent = (section?: string) => {
   const { data: pageContents = [], isLoading } = useQuery({
     queryKey: ["page-contents", "index", section],
     queryFn: async () => {
-      const query = supabase
-        .from("page_contents")
-        .select("*")
-        .eq("page", "index");
+      try {
+        const query = supabase
+          .from("page_contents")
+          .select("*")
+          .eq("page", "index");
+          
+        if (section) {
+          query.eq("section", section);
+        }
         
-      if (section) {
-        query.eq("section", section);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error(`Error fetching page contents for section ${section}:`, error);
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error(`Error fetching page contents for section ${section}:`, error);
+          return [];
+        }
+        
+        return data;
+      } catch (error) {
+        console.error("Error in useIndexPageContent:", error);
         return [];
       }
-      
-      return data;
     },
   });
 

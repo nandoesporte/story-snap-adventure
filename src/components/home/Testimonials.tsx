@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -8,18 +7,23 @@ const Testimonials = () => {
   const { data: pageContents = [] } = useQuery({
     queryKey: ["page-contents", "index", "testimonials"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("page_contents")
-        .select("*")
-        .eq("page", "index")
-        .eq("section", "testimonials");
-      
-      if (error) {
-        console.error("Error fetching testimonials content:", error);
+      try {
+        const { data, error } = await supabase
+          .from("page_contents")
+          .select("*")
+          .eq("page", "index")
+          .eq("section", "testimonials");
+        
+        if (error) {
+          console.error("Error fetching testimonials content:", error);
+          return [];
+        }
+        
+        return data;
+      } catch (error) {
+        console.error("Error in Testimonials query:", error);
         return [];
       }
-      
-      return data;
     },
   });
 

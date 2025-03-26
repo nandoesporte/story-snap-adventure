@@ -7,7 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import './index.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Create a client
+// Create a client with a stable reference (outside the render function)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
