@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from "../components/Navbar";
@@ -32,9 +33,10 @@ const ViewStory = () => {
   const navigate = useNavigate();
   const { 
     generateConsistentStoryImages, 
-    leonardoApiAvailable,
-    leonardoWebhookUrl
+    leonardoApiAvailable
   } = useStoryBot();
+  // Remove leonardoWebhookUrl from destructuring since it's no longer available
+  
   const [storyData, setStoryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [liked, setLiked] = useState(false);
