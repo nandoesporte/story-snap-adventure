@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { reinitializeGeminiAI } from '@/lib/openai';
@@ -194,7 +195,8 @@ export class BookGenerationService {
       this.saveToSessionStorage(completeStory);
       
       try {
-        await this.saveStoryToDatabase(completeStory);
+        // Fix: Call the static method using the class name
+        await BookGenerationService.saveStoryToDatabase(completeStory);
       } catch (error) {
         console.warn("Could not save to database, but story is available in session storage:", error);
       }
@@ -591,7 +593,7 @@ Personalidade: ${data.personality || 'Não especificada'}`;
     };
   }
   
-  static async saveStoryToDatabase(parsedStory: CompleteStory, storyParams: Story): Promise<CompleteStory> {
+  static async saveStoryToDatabase(parsedStory: CompleteStory, storyParams?: Story): Promise<CompleteStory> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -601,23 +603,24 @@ Personalidade: ${data.personality || 'Não especificada'}`;
       
       const hasCharacterPromptColumn = await this.checkColumnExists('stories', 'character_prompt');
       
+      // Fix: Use storyParams instead of undefined 'story' variable
       const storyData: Record<string, any> = {
-        id: story.id || this.currentStoryId || uuidv4(),
-        title: parsedStory.title || storyParams.title,
-        character_name: storyParams.character_name || '',
-        character_age: storyParams.character_age || '',
-        theme: storyParams.theme || '',
-        setting: storyParams.setting || '',
-        style: storyParams.style || '',
-        moral: storyParams.moral || '',
-        language: storyParams.language || 'Português',
-        reading_level: storyParams.reading_level || 'Intermediário',
+        id: parsedStory.id || this.currentStoryId || uuidv4(),
+        title: parsedStory.title || (storyParams?.title || ''),
+        character_name: storyParams?.character_name || parsedStory.character_name || '',
+        character_age: storyParams?.character_age || parsedStory.character_age || '',
+        theme: storyParams?.theme || parsedStory.theme || '',
+        setting: storyParams?.setting || parsedStory.setting || '',
+        style: storyParams?.style || parsedStory.style || '',
+        moral: storyParams?.moral || parsedStory.moral || '',
+        language: storyParams?.language || parsedStory.language || 'Português',
+        reading_level: storyParams?.reading_level || parsedStory.reading_level || 'Intermediário',
         user_id: user.id,
         published: true
       };
       
       if (hasCharacterPromptColumn) {
-        storyData.character_prompt = storyParams.character_prompt || '';
+        storyData.character_prompt = storyParams?.character_prompt || '';
       }
       
       const { data: insertedStory, error } = await supabase
@@ -660,7 +663,7 @@ Personalidade: ${data.personality || 'Não especificada'}`;
         pages: parsedStory.pages,
         id: insertedStory.id,
         title: parsedStory.title,
-        character_name: storyParams.character_name || ''
+        character_name: storyParams?.character_name || parsedStory.character_name || ''
       };
     } catch (error: any) {
       console.error('Error saving story to database:', error);
