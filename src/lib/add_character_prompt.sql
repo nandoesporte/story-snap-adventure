@@ -18,7 +18,10 @@ END $$;
 -- Grant permissions on the stories table to authenticated users
 GRANT SELECT, INSERT, UPDATE, DELETE ON stories TO authenticated;
 
--- Use the renamed parameter names in the function
+-- First drop the existing function if it exists
+DROP FUNCTION IF EXISTS public.check_column_exists(text, text);
+
+-- Then create the function with the new parameter names
 CREATE OR REPLACE FUNCTION public.check_column_exists(p_table_name text, p_column_name text)
 RETURNS boolean
 LANGUAGE plpgsql

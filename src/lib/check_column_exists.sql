@@ -1,5 +1,9 @@
 
 -- Function to check if a column exists in a table
+-- First drop the existing function if it exists
+DROP FUNCTION IF EXISTS check_column_exists(text, text);
+
+-- Then create the function with the new parameter names
 CREATE OR REPLACE FUNCTION check_column_exists(p_table_name text, p_column_name text)
 RETURNS boolean
 LANGUAGE plpgsql
