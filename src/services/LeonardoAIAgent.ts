@@ -9,6 +9,7 @@ interface ImageGenerationParams {
   style?: string;
   characterPrompt?: string | null;
   childImage?: string | null;
+  storyContext?: string | null; // Adicionamos contexto da história para melhorar ilustrações
 }
 
 interface LeonardoResponse {
@@ -134,7 +135,16 @@ export class LeonardoAIAgent {
    * consistência com as características do personagem
    */
   public async generateImage(params: ImageGenerationParams): Promise<string> {
-    const { prompt, characterName, theme, setting, style = "cartoon", characterPrompt, childImage } = params;
+    const { 
+      prompt, 
+      characterName, 
+      theme, 
+      setting, 
+      style = "cartoon", 
+      characterPrompt, 
+      childImage, 
+      storyContext 
+    } = params;
     
     if (!this.apiKey) {
       console.error("Leonardo.ai API key não configurada");
@@ -153,6 +163,11 @@ export class LeonardoAIAgent {
     // Enriquecer o prompt para garantir consistência do personagem e melhorar as ilustrações
     let enhancedPrompt = prompt;
     
+    // Adicionar contexto da história, se disponível
+    if (storyContext) {
+      enhancedPrompt = `${storyContext}: ${enhancedPrompt}`;
+    }
+    
     // Adicionar detalhes específicos do personagem ao prompt
     if (finalCharacterPrompt) {
       enhancedPrompt += ` O personagem ${characterName} possui as seguintes características: ${finalCharacterPrompt}`;
@@ -167,6 +182,7 @@ export class LeonardoAIAgent {
     console.log("Gerando imagem com Leonardo.ai API:", {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
+      hasStoryContext: !!storyContext,
       style: savedStyle,
       promptLength: enhancedPrompt.length
     });
@@ -306,7 +322,8 @@ export class LeonardoAIAgent {
     setting: string,
     characterPrompt: string | null = null,
     style: string = "cartoon",
-    childImage: string | null = null
+    childImage: string | null = null,
+    storyTitle: string | null = null
   ): Promise<string[]> {
     if (!storyPages.length) {
       return storyPages.map(() => "");
@@ -326,6 +343,11 @@ export class LeonardoAIAgent {
           // Criar um prompt específico para livro infantil
           let enhancedPrompt = `Ilustração para um livro infantil representando: ${pageText}`;
           
+          // Adicionar contexto geral da história se disponível
+          if (storyTitle) {
+            enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
+          }
+          
           // Adicionar contexto de número da página e tema
           enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
           
@@ -343,7 +365,8 @@ export class LeonardoAIAgent {
             setting,
             style,
             characterPrompt,
-            childImage
+            childImage,
+            storyContext: storyTitle ? `Página ${pageNumber} da história "${storyTitle}"` : null
           });
           
           imageUrls.push(imageUrl);

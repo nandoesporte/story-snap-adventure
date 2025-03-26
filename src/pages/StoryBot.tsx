@@ -28,7 +28,8 @@ const StoryBot = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string>("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
-  const { useOpenAIForStories } = useStoryBot();
+  const [selectedCharacterData, setSelectedCharacterData] = useState<Character | null>(null);
+  const { useOpenAIForStories, setUseOpenAIForStories } = useStoryBot();
   
   useEffect(() => {
     // Check localStorage to see if we've already detected API issues
@@ -52,6 +53,15 @@ const StoryBot = () => {
       window.removeEventListener("storybot_api_issue", handleApiIssue);
     };
   }, []);
+  
+  useEffect(() => {
+    if (selectedCharacter) {
+      const character = characters.find(c => c.id === selectedCharacter);
+      setSelectedCharacterData(character || null);
+    } else {
+      setSelectedCharacterData(null);
+    }
+  }, [selectedCharacter, characters]);
   
   const fetchCharacters = async () => {
     try {
@@ -104,6 +114,13 @@ const StoryBot = () => {
     toast.success("Status da API reiniciado");
     window.location.reload();
   };
+
+  const toggleOpenAIUsage = () => {
+    setUseOpenAIForStories(!useOpenAIForStories);
+    toast.success(useOpenAIForStories 
+      ? "Usando Google Gemini para geração de histórias" 
+      : "Usando OpenAI GPT-4 para geração de histórias");
+  };
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
@@ -123,6 +140,20 @@ const StoryBot = () => {
             <p className="text-slate-600 max-w-xl mx-auto">
               Converse com o StoryBot para criar histórias infantis personalizadas e mágicas.
             </p>
+            
+            <div className="mt-4 flex justify-center">
+              <button 
+                onClick={toggleOpenAIUsage}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+                  useOpenAIForStories 
+                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full ${useOpenAIForStories ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                <span>{useOpenAIForStories ? 'Usando OpenAI GPT-4' : 'Usando Google Gemini'}</span>
+              </button>
+            </div>
             
             {useOpenAIForStories && (
               <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
@@ -211,10 +242,23 @@ const StoryBot = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      {selectedCharacter && (
-                        <div className="mt-2 text-xs text-violet-600">
-                          <User className="w-3 h-3 inline mr-1" />
-                          {characters.find(c => c.id === selectedCharacter)?.name} será o protagonista da história
+                      {selectedCharacterData && (
+                        <div className="mt-2 text-xs text-violet-600 space-y-1">
+                          <div className="flex items-start gap-1">
+                            <User className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <span><strong>{selectedCharacterData.name}</strong> será o protagonista da história</span>
+                          </div>
+                          
+                          {selectedCharacterData.description && (
+                            <p className="ml-4 text-slate-600">{selectedCharacterData.description}</p>
+                          )}
+                          
+                          {selectedCharacterData.generation_prompt && (
+                            <div className="ml-4 flex items-start gap-1">
+                              <Sparkles className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-500" />
+                              <span className="text-blue-600">Prompt especial para ilustrações será usado</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

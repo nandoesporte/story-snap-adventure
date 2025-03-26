@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { StoryBot } from "@/services/StoryBot";
 import { LeonardoAIAgent } from "@/services/LeonardoAIAgent";
-import { ensureStoryBotPromptsTable, resetLeonardoApiStatus as resetLeonardoApi } from "@/lib/openai";
+import { ensureStoryBotPromptsTable, resetLeonardoApiStatus as resetLeonardoApi, isOpenAIApiKeyValid } from "@/lib/openai";
 
 type Message = {
   role: "user" | "assistant";
@@ -92,11 +93,18 @@ export const useStoryBot = () => {
     childAge: string,
     theme: string,
     setting: string,
-    moralTheme: string = ""
+    moralTheme: string = "",
+    characterPrompt: string | null = null
   ) => {
     try {
+      // Adicionar detalhes do personagem se disponíveis
+      let enrichedText = pageText;
+      if (characterPrompt) {
+        enrichedText += ` (O personagem ${characterName} possui as seguintes características: ${characterPrompt})`;
+      }
+      
       return await storyBot.generateImageDescription(
-        pageText,
+        enrichedText,
         characterName,
         childAge,
         theme,
@@ -120,7 +128,8 @@ export const useStoryBot = () => {
     setting: string,
     childImageBase64: string | null,
     style: string = "cartoon",
-    characterPrompt: string | null = null
+    characterPrompt: string | null = null,
+    storyContext: string | null = null
   ) => {
     try {
       console.log("Using LeonardoAIAgent to generate consistent image");
@@ -138,7 +147,8 @@ export const useStoryBot = () => {
         setting,
         style,
         characterPrompt,
-        childImage: childImageBase64
+        childImage: childImageBase64,
+        storyContext: storyContext
       });
       
       console.log("Generated image URL:", imageUrl);
@@ -189,7 +199,8 @@ export const useStoryBot = () => {
         setting,
         style,
         characterPrompt,
-        childImage: childImageBase64
+        childImage: childImageBase64,
+        storyContext: `Capa do livro "${title}"`
       });
       
       console.log("Generated cover image URL:", imageUrl);
@@ -219,7 +230,8 @@ export const useStoryBot = () => {
     setting: string,
     characterPrompt: string | null = null,
     style: string = "cartoon",
-    childImageBase64: string | null = null
+    childImageBase64: string | null = null,
+    storyTitle: string | null = null
   ) => {
     toast.info("Gerando ilustrações consistentes para a história...");
     
@@ -232,6 +244,7 @@ export const useStoryBot = () => {
         characterPrompt: characterPrompt?.substring(0, 50) + "...",
         style,
         hasChildImage: !!childImageBase64,
+        storyTitle,
         useOpenAIForStories
       });
       
@@ -256,7 +269,8 @@ export const useStoryBot = () => {
         setting,
         characterPrompt,
         style,
-        childImageBase64
+        childImageBase64,
+        storyTitle
       );
       
       console.log("Successfully generated story images:", imageUrls);
@@ -356,6 +370,10 @@ export const useStoryBot = () => {
     }
   };
 
+  const checkOpenAIAvailability = (): boolean => {
+    return isOpenAIApiKeyValid();
+  };
+
   return { 
     generateStoryBotResponse, 
     isGenerating,
@@ -372,6 +390,7 @@ export const useStoryBot = () => {
     updateLeonardoWebhookUrl,
     leonardoAgent,
     useOpenAIForStories,
-    setUseOpenAIForStories
+    setUseOpenAIForStories,
+    checkOpenAIAvailability
   };
 };
