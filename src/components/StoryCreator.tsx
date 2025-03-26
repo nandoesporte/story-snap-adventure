@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -99,13 +100,15 @@ const StoryCreator = () => {
   
   const saveStoryToSupabase = async (storyData: any) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: userData } = await supabase.auth.getUser();
       
-      if (!user) {
+      if (!userData?.user) {
         console.log("Usuário não autenticado, salvando apenas em sessão.");
         return null;
       }
       
+      // Prepare story data for saving
+      // Note: We're including character_prompt field now
       const storyToSave = {
         title: storyData.title,
         cover_image_url: storyData.coverImageUrl,
@@ -114,7 +117,7 @@ const StoryCreator = () => {
         theme: storyData.theme,
         setting: storyData.setting,
         style: storyData.style,
-        user_id: user.id,
+        user_id: userData.user.id,
         character_prompt: selectedCharacter?.generation_prompt || "",
         pages: storyData.pages.map((page: any) => ({
           text: page.text,
@@ -122,8 +125,33 @@ const StoryCreator = () => {
         }))
       };
       
-      console.log("Salvando história no banco de dados...");
+      console.log("Salvando história no banco de dados:", storyToSave);
       
+      // First verify if the character_prompt column exists
+      let columnExists = false;
+      try {
+        const { data: columnData, error: columnError } = await supabase.rpc(
+          'check_column_exists',
+          { table_name: 'stories', column_name: 'character_prompt' }
+        );
+        
+        columnExists = columnData === true;
+        
+        if (columnError) {
+          console.warn("Erro ao verificar coluna character_prompt:", columnError);
+          // If we can't verify, proceed anyway and let the insert attempt handle it
+        }
+      } catch (checkError) {
+        console.warn("Erro ao verificar existência da coluna:", checkError);
+      }
+      
+      // If column doesn't exist, remove the field from the data to save
+      if (!columnExists) {
+        console.warn("Coluna character_prompt não existe, removendo do objeto a salvar.");
+        delete storyToSave.character_prompt;
+      }
+      
+      // Insert story data
       const { data, error } = await supabase
         .from("stories")
         .insert(storyToSave)
@@ -131,7 +159,7 @@ const StoryCreator = () => {
         
       if (error) {
         console.error("Erro ao salvar história no Supabase:", error);
-        toast.error("Erro ao salvar história no banco de dados.");
+        toast.error("Erro ao salvar história no banco de dados: " + error.message);
         return null;
       }
       
@@ -139,8 +167,9 @@ const StoryCreator = () => {
       toast.success("História salva com sucesso!");
       
       return data[0]?.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar história:", error);
+      toast.error("Erro ao salvar: " + (error.message || "Erro desconhecido"));
       return null;
     }
   };
@@ -205,16 +234,20 @@ const StoryCreator = () => {
         const sessionData = {
           title: completeBook.title,
           coverImageUrl: completeBook.coverImageUrl,
+          cover_image_url: completeBook.coverImageUrl,
           childImage: imagePreview,
           childName: data.childName,
+          character_name: data.childName,
           childAge: data.childAge,
+          character_age: data.childAge,
           theme: data.theme,
           setting: data.setting,
           characterId: data.characterId,
           characterName: selectedCharacter?.name,
           pages: completeBook.pages.map(page => ({
             text: page.text,
-            imageUrl: page.imageUrl
+            imageUrl: page.imageUrl,
+            image_url: page.imageUrl
           })),
           language: data.language,
           style: data.style,
@@ -229,9 +262,11 @@ const StoryCreator = () => {
           const basicData = {
             ...sessionData,
             coverImageUrl: "/placeholder.svg",
+            cover_image_url: "/placeholder.svg",
             pages: sessionData.pages.map(page => ({
               text: page.text,
-              imageUrl: "/placeholder.svg"
+              imageUrl: "/placeholder.svg",
+              image_url: "/placeholder.svg"
             }))
           };
           sessionStorage.setItem("storyData", JSON.stringify(basicData));

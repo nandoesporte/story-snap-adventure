@@ -11,13 +11,13 @@ import { supabase } from "@/lib/supabase";
 
 interface StoryPage {
   text: string;
-  imageUrl: string;
+  imageUrl?: string;
   image_url?: string;
 }
 
 interface StoryData {
   title: string;
-  coverImageUrl: string;
+  coverImageUrl?: string;
   cover_image_url?: string;
   childName: string;
   childAge: string;
@@ -80,9 +80,11 @@ const StoryViewer: React.FC = () => {
           }
           
           if (data) {
+            console.log("Dados da história carregados:", data);
             const formattedStory: StoryData = {
               title: data.title,
               coverImageUrl: data.cover_image_url || "/placeholder.svg",
+              cover_image_url: data.cover_image_url || "/placeholder.svg",
               childName: data.character_name,
               childAge: data.character_age || "",
               theme: data.theme || "",
@@ -91,7 +93,8 @@ const StoryViewer: React.FC = () => {
               pages: Array.isArray(data.pages) 
                 ? data.pages.map((page: any) => ({
                     text: page.text,
-                    imageUrl: page.image_url || "/placeholder.svg"
+                    imageUrl: page.image_url || "/placeholder.svg",
+                    image_url: page.image_url || "/placeholder.svg"
                   }))
                 : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
             };
@@ -119,10 +122,12 @@ const StoryViewer: React.FC = () => {
         const savedData = sessionStorage.getItem("storyData");
         if (savedData) {
           const parsedData = JSON.parse(savedData);
+          console.log("Dados carregados do sessionStorage:", parsedData);
           
           const formattedStory: StoryData = {
             title: parsedData.title,
             coverImageUrl: parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg",
+            cover_image_url: parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg",
             childName: parsedData.childName || parsedData.character_name,
             childAge: parsedData.childAge || parsedData.character_age || "",
             theme: parsedData.theme || "",
@@ -131,7 +136,8 @@ const StoryViewer: React.FC = () => {
             pages: Array.isArray(parsedData.pages) 
               ? parsedData.pages.map((page: any) => ({
                   text: page.text,
-                  imageUrl: page.imageUrl || page.image_url || "/placeholder.svg"
+                  imageUrl: page.imageUrl || page.image_url || "/placeholder.svg",
+                  image_url: page.imageUrl || page.image_url || "/placeholder.svg"
                 }))
               : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
           };
@@ -273,6 +279,74 @@ const StoryViewer: React.FC = () => {
       });
   };
   
+  const renderCoverPage = () => {
+    if (!storyData) return null;
+    
+    return (
+      <div className="w-full h-full relative flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-6">
+        <div className="absolute inset-0 bg-white shadow-md m-3 rounded-lg overflow-hidden">
+          <div className="w-full h-full relative">
+            <img 
+              src={storyData.coverImageUrl || storyData.cover_image_url || "/placeholder.svg"} 
+              alt={storyData.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log("Erro ao carregar imagem da capa, usando placeholder");
+                const target = e.target as HTMLImageElement;
+                target.src = "/placeholder.svg";
+              }}
+            />
+            <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/70 to-transparent text-white">
+              <h2 className="text-3xl md:text-4xl font-bold mb-2">{storyData.title}</h2>
+              <p className="text-xl mb-1">Uma história para {storyData.childName}</p>
+              <p className="text-sm opacity-80">Tema: {storyData.theme} • Cenário: {storyData.setting}</p>
+              {storyData.characterName && (
+                <p className="text-sm opacity-80">Com {storyData.characterName}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const renderStoryPage = (pageIndex: number) => {
+    if (!storyData || !storyData.pages[pageIndex]) return null;
+    
+    const page = storyData.pages[pageIndex];
+    const imageUrl = page.imageUrl || page.image_url || "/placeholder.svg";
+    
+    return (
+      <div className="w-full h-full flex flex-col md:flex-row">
+        <div className="w-full md:w-1/2 h-full p-4 md:p-8 bg-white overflow-auto flex flex-col justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">{storyData.title}</h2>
+            <div className="prose prose-lg">
+              {page.text.split('\n').map((paragraph, idx) => (
+                <p key={idx} className="mb-3">{paragraph}</p>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-gray-500">
+            Página {pageIndex + 1} de {storyData.pages.length}
+          </div>
+        </div>
+        <div className="w-full md:w-1/2 h-full bg-gray-100 relative overflow-hidden">
+          <img 
+            src={imageUrl} 
+            alt={`Ilustração da página ${pageIndex + 1}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              console.log(`Erro ao carregar imagem da página ${pageIndex + 1}, usando placeholder`);
+              const target = e.target as HTMLImageElement;
+              target.src = "/placeholder.svg";
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
+  
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
@@ -396,58 +470,10 @@ const StoryViewer: React.FC = () => {
                 className="w-full h-full flex flex-col md:flex-row shadow-2xl rounded-lg overflow-hidden bg-white"
                 ref={bookRef}
               >
-                {currentPage === 0 ? (
-                  <div className="w-full h-full relative flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-6">
-                    <div className="absolute inset-0 bg-white shadow-md m-3 rounded-lg overflow-hidden">
-                      <div className="w-full h-full relative">
-                        <img 
-                          src={storyData.coverImageUrl} 
-                          alt={storyData.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder.svg";
-                          }}
-                        />
-                        <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/70 to-transparent text-white">
-                          <h2 className="text-3xl md:text-4xl font-bold mb-2">{storyData.title}</h2>
-                          <p className="text-xl mb-1">Uma história para {storyData.childName}</p>
-                          <p className="text-sm opacity-80">Tema: {storyData.theme} • Cenário: {storyData.setting}</p>
-                          {storyData.characterName && (
-                            <p className="text-sm opacity-80">Com {storyData.characterName}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col md:flex-row">
-                    <div className="w-full md:w-1/2 h-full p-4 md:p-8 bg-white overflow-auto flex flex-col justify-between">
-                      <div>
-                        <h2 className="text-2xl font-bold mb-4 text-gray-800">{storyData.title}</h2>
-                        <div className="prose prose-lg">
-                          {storyData.pages[currentPage - 1]?.text.split('\n').map((paragraph, idx) => (
-                            <p key={idx} className="mb-3">{paragraph}</p>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-4 text-sm text-gray-500">
-                        Página {currentPage} de {totalPages - 1}
-                      </div>
-                    </div>
-                    <div className="w-full md:w-1/2 h-full bg-gray-100 relative overflow-hidden">
-                      <img 
-                        src={storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url || "/placeholder.svg"} 
-                        alt={`Ilustração da página ${currentPage}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "/placeholder.svg";
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+                {currentPage === 0 
+                  ? renderCoverPage()
+                  : renderStoryPage(currentPage - 1)
+                }
               </motion.div>
             </AnimatePresence>
           </div>
