@@ -1,5 +1,6 @@
+
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative_ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
 
 type Message = {

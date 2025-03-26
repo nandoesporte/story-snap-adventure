@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { toast } from 'sonner';
+import OpenAI from 'openai';
 
 // Get API key from localStorage or environment variables
 const getGeminiApiKey = () => {
@@ -15,6 +16,33 @@ const getOpenAIApiKey = () => {
 
 // Initialize Gemini API client with API key
 export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey() || 'invalid-key-placeholder');
+
+// Initialize OpenAI with a new API key
+export const initializeOpenAI = (apiKey: string) => {
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
+    console.error('Tentativa de inicializar OpenAI com chave inválida:', apiKey);
+    return null;
+  }
+  
+  try {
+    console.log(`Inicializando API OpenAI com chave: ${apiKey.substring(0, 5)}...`);
+    const trimmedKey = apiKey.trim();
+    localStorage.setItem('openai_api_key', trimmedKey);
+    
+    // Clear any previous API issues
+    localStorage.removeItem("storybot_api_issue");
+    
+    const openaiClient = new OpenAI({ 
+      apiKey: trimmedKey,
+      dangerouslyAllowBrowser: true
+    });
+    
+    return openaiClient;
+  } catch (error) {
+    console.error('Erro ao inicializar OpenAI:', error);
+    return null;
+  }
+};
 
 // Function to reinitialize Gemini with a new API key
 export const reinitializeGeminiAI = (apiKey: string) => {
