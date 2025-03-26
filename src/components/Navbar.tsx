@@ -5,6 +5,11 @@ import { useIsMobile } from "../hooks/use-mobile";
 import { Sparkles } from "lucide-react";
 import NavbarUser from "./NavbarUser";
 
+type NavItem = {
+  name: string;
+  path: string;
+};
+
 const Navbar = () => {
   const isMobile = useIsMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,12 +35,13 @@ const Navbar = () => {
     setIsMenuOpen(false);
   }, [location]);
 
-  const navLinks = [
-    { title: "Criar História", path: "/create-story" },
-    { title: "Personagens", path: "/characters" },
-    { title: "Nossas histórias", path: "/our-stories" },
-    { title: "Preços", path: "/pricing" },
-    { title: "FAQ", path: "/faq" },
+  const navItems: NavItem[] = [
+    { name: 'Início', path: '/' },
+    { name: 'Criar História', path: '/create-story' },
+    { name: 'Minhas Histórias', path: '/my-stories' },
+    { name: 'Personagens', path: '/characters' },
+    { name: 'StoryBot', path: '/storybot' },
+    { name: 'Configurações', path: '/settings' },
   ];
 
   return (
@@ -69,7 +75,7 @@ const Navbar = () => {
 
           {!isMobile && (
             <ul className="flex items-center space-x-6">
-              {navLinks.map((link) => (
+              {navItems.map((link) => (
                 <li key={link.path}>
                   <NavLink
                     to={link.path}
@@ -83,7 +89,7 @@ const Navbar = () => {
                   >
                     {({ isActive }) => (
                       <>
-                        {link.title}
+                        {link.name}
                         {isActive && (
                           <motion.div
                             layoutId="navbar-indicator"
@@ -144,7 +150,7 @@ const Navbar = () => {
               className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg py-4 px-4"
             >
               <ul className="space-y-3">
-                {navLinks.map((link) => (
+                {navItems.map((link) => (
                   <li key={link.path}>
                     <NavLink
                       to={link.path}
@@ -156,7 +162,7 @@ const Navbar = () => {
                         }`
                       }
                     >
-                      {link.title}
+                      {link.name}
                     </NavLink>
                   </li>
                 ))}

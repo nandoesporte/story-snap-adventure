@@ -104,14 +104,23 @@ export class StoryBot {
     childAge: string,
     theme: string,
     setting: string,
-    moralTheme: string = ""
+    moralTheme: string = "",
+    storyContext: string = ""
   ): Promise<string> {
+    // Enhanced prompt with story context for better image generation
     const prompt = `Crie uma descrição detalhada para uma ilustração de livro infantil.
     A cena deve apresentar o personagem ${characterName}, uma criança de ${childAge} anos,
     em uma aventura no cenário de ${setting} com tema de ${theme}.
+    
+    Contexto da história: ${storyContext || "Uma aventura infantil"}
+    
     A ilustração deve refletir a seguinte parte da história: ${pageText}.
+    
+    ${moralTheme ? `Esta cena deve refletir a mensagem moral sobre ${moralTheme}.` : ''}
+    
     A descrição deve ser rica em detalhes visuais e adequada para guiar um artista na criação da imagem.
-    Inclua detalhes sobre as expressões faciais do personagem, o ambiente ao redor e a atmosfera geral da cena.
+    Inclua detalhes sobre as expressões faciais do personagem, o ambiente ao redor, cores, iluminação e a atmosfera geral da cena.
+    Descreva as roupas do personagem, postura e ação no momento.
     A descrição deve ter no máximo 150 palavras.`;
 
     try {

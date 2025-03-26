@@ -177,12 +177,27 @@ export class BookGenerationService {
       const completeStory: CompleteStory = {
         title: storyContent.title,
         character_name: this.data.characterName || this.data.childName,
+        character_age: this.data.childAge,
+        theme: this.data.theme,
+        setting: this.data.setting,
+        style: this.data.style || 'cartoon',
+        moral: this.data.moral,
+        language: this.data.language || 'portuguese',
+        reading_level: this.data.readingLevel || 'intermediate',
         pages: storyContent.content.map((text, index) => ({
           text,
           page_number: index + 1,
           image_prompt: `Illustration for page ${index + 1}: ${text.substring(0, 100)}...`
         }))
       };
+      
+      this.saveToSessionStorage(completeStory);
+      
+      try {
+        await this.saveStoryToDatabase(completeStory);
+      } catch (error) {
+        console.warn("Could not save to database, but story is available in session storage:", error);
+      }
       
       return completeStory;
     } catch (error) {
@@ -587,7 +602,7 @@ Personalidade: ${data.personality || 'Não especificada'}`;
       const hasCharacterPromptColumn = await this.checkColumnExists('stories', 'character_prompt');
       
       const storyData: Record<string, any> = {
-        id: this.currentStoryId || uuidv4(),
+        id: story.id || this.currentStoryId || uuidv4(),
         title: parsedStory.title || storyParams.title,
         character_name: storyParams.character_name || '',
         character_age: storyParams.character_age || '',
@@ -622,6 +637,7 @@ Personalidade: ${data.personality || 'Não especificada'}`;
           page_number: page.page_number,
           content: page.text,
           image_prompt: page.image_prompt || '',
+          image_url: page.image_url || '',
         }));
         
         const { error: pagesError } = await supabase
@@ -770,5 +786,62 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
       character_name: params.character_name || '',
       pages
     };
+  }
+  
+  private saveToSessionStorage(story: CompleteStory): void {
+    try {
+      if (!story.id) {
+        story.id = `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      }
+      
+      sessionStorage.setItem('current_story', JSON.stringify(story));
+      
+      const savedStoriesJson = sessionStorage.getItem('saved_stories') || '[]';
+      const savedStories: CompleteStory[] = JSON.parse(savedStoriesJson);
+      
+      const existingIndex = savedStories.findIndex(s => s.id === story.id);
+      if (existingIndex >= 0) {
+        savedStories[existingIndex] = story;
+      } else {
+        savedStories.push(story);
+      }
+      
+      sessionStorage.setItem('saved_stories', JSON.stringify(savedStories));
+      
+      console.log("Story saved to session storage successfully:", story.id);
+    } catch (error) {
+      console.error("Error saving story to session storage:", error);
+    }
+  }
+  
+  static getStoriesFromSessionStorage(): CompleteStory[] {
+    try {
+      const savedStoriesJson = sessionStorage.getItem('saved_stories') || '[]';
+      return JSON.parse(savedStoriesJson);
+    } catch (error) {
+      console.error("Error retrieving stories from session storage:", error);
+      return [];
+    }
+  }
+  
+  static getStoryById(id: string): CompleteStory | null {
+    try {
+      const savedStoriesJson = sessionStorage.getItem('saved_stories') || '[]';
+      const savedStories: CompleteStory[] = JSON.parse(savedStoriesJson);
+      const story = savedStories.find(s => s.id === id);
+      
+      if (story) return story;
+      
+      const currentStoryJson = sessionStorage.getItem('current_story');
+      if (currentStoryJson) {
+        const currentStory: CompleteStory = JSON.parse(currentStoryJson);
+        if (currentStory.id === id) return currentStory;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error retrieving story from session storage:", error);
+      return null;
+    }
   }
 }

@@ -1,59 +1,65 @@
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import Profile from './pages/Profile';
+import CreateStory from './pages/CreateStory';
+import StoryCreator from './pages/StoryCreator';
+import MyStories from './pages/MyStories';
+import ViewStory from './pages/ViewStory';
+import NotFound from './pages/NotFound';
+import StoryBot from './pages/StoryBot';
+import Characters from './pages/Characters';
+import Admin from './pages/Admin';
+import Settings from './pages/Settings';
+import { initializeDatabaseStructure } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { AuthProvider } from "./context/AuthContext"; 
-import Index from "./pages/Index";
-import CreateStory from "./pages/CreateStory";
-import ViewStory from "./pages/ViewStory";
-import StoryBot from "./pages/StoryBot";
-import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin";
-import Auth from "./pages/Auth";
-import Profile from "./pages/Profile";
-import MyStories from "./pages/MyStories";
-import Characters from "./pages/Characters";
-import StoryCreatorPage from "@/pages/StoryCreator";
+function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await initializeDatabaseStructure();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Erro ao inicializar a estrutura do banco de dados:", error);
+      }
+    };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/login" element={<Auth />} />
-            <Route path="/register" element={<Auth type="register" />} />
-            <Route path="/create-story" element={<CreateStory />} />
-            <Route path="/story-creator" element={<StoryCreatorPage />} />
-            <Route path="/view-story" element={<ViewStory />} />
-            <Route path="/view-story/:storyId" element={<ViewStory />} />
-            <Route path="/storybot" element={<StoryBot />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/my-stories" element={<MyStories />} />
-            <Route path="/characters" element={<Characters />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AnimatePresence>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== '/auth') {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate, location]);
+
+  return (
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/view-story/:id" element={<ViewStory />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/storybot" element={<StoryBot />} />
+        <Route path="/characters" element={<Characters />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </div>
+  );
+}
 
 export default App;
