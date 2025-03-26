@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { StoryBot } from '@/services/StoryBot';
-import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export type StoryPage = {
@@ -27,7 +26,6 @@ export const useStoryGeneration = () => {
   const [currentStage, setCurrentStage] = useState<string>('preparando');
   
   const storyBot = new StoryBot();
-  const leonardoAgent = new LeonardoAIAgent();
   
   const updateProgress = (stage: string, percent: number) => {
     setCurrentStage(stage);
@@ -59,7 +57,7 @@ export const useStoryGeneration = () => {
       Detalhes: A ilustração deve ser clara, com personagens expressivos e um cenário detalhado.
       Formato: Paisagem (horizontal) 16:9`;
 
-      console.log("Generating image with Gemini prompt:", fullPrompt.substring(0, 100) + "...");
+      console.log("Gerando imagem com Gemini prompt:", fullPrompt.substring(0, 100) + "...");
 
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
@@ -102,6 +100,7 @@ export const useStoryGeneration = () => {
       return `data:image/jpeg;base64,${imageData}`;
     } catch (error) {
       console.error("Error generating image with Gemini:", error);
+      toast.error("Não foi possível gerar a imagem. Usando placeholder.");
       return "/placeholder.svg";
     }
   };
@@ -125,6 +124,19 @@ export const useStoryGeneration = () => {
       
       // Passo 1: Gerar o conteúdo da história com prompts para ilustrações
       updateProgress("gerando narrativa", 10);
+      
+      console.log("Gerando história com os parâmetros:", {
+        characterName,
+        childAge,
+        theme,
+        setting,
+        moralTheme,
+        hasCharacterPrompt: !!characterPrompt,
+        length,
+        readingLevel,
+        language
+      });
+      
       const storyData = await storyBot.generateStoryWithPrompts(
         characterName,
         childAge,
@@ -147,7 +159,15 @@ export const useStoryGeneration = () => {
       // Passo 2: Gerar capa do livro usando Gemini
       updateProgress("criando capa", 30);
       const coverPrompt = `Capa de livro infantil para a história "${storyData.title}" sobre ${characterName} em uma aventura de ${theme} em ${setting}. ${characterPrompt}`;
+      
+      console.log("Gerando capa com prompt:", coverPrompt);
       const coverImageUrl = await generateImageWithGemini(coverPrompt);
+      
+      if (!coverImageUrl || coverImageUrl === "/placeholder.svg") {
+        console.warn("Falha ao gerar a capa. Usando placeholder.");
+      } else {
+        console.log("Capa gerada com sucesso. Tamanho do data URL:", coverImageUrl.length);
+      }
       
       // Passo 3: Gerar ilustrações para as páginas usando Gemini
       updateProgress(`gerando ilustrações (0/${storyData.content.length})`, 40);
@@ -155,13 +175,23 @@ export const useStoryGeneration = () => {
       
       for (let i = 0; i < storyData.content.length; i++) {
         const pageText = storyData.content[i];
-        const imagePrompt = storyData.imagePrompts[i] || `Ilustração para: ${pageText.substring(0, 150)}...`;
+        const imagePrompt = storyData.imagePrompts[i] || 
+          `Ilustração para a história infantil: ${pageText.substring(0, 150)}...`;
         
-        updateProgress(`gerando ilustrações (${i+1}/${storyData.content.length})`, 40 + (50 * (i+1) / storyData.content.length));
+        updateProgress(`gerando ilustrações (${i+1}/${storyData.content.length})`, 
+          40 + (50 * (i+1) / storyData.content.length));
         
+        console.log(`Gerando ilustração para página ${i+1} com prompt:`, 
+          imagePrompt.substring(0, 100) + "...");
+          
         const imageUrl = await generateImageWithGemini(imagePrompt);
         
-        console.log(`Página ${i+1}: Imagem gerada com tamanho ${imageUrl.length} caracteres`);
+        if (!imageUrl || imageUrl === "/placeholder.svg") {
+          console.warn(`Falha ao gerar ilustração para página ${i+1}. Usando placeholder.`);
+        } else {
+          console.log(`Ilustração gerada com sucesso para página ${i+1}. Tamanho:`, 
+            imageUrl.length);
+        }
         
         pages.push({
           text: pageText,

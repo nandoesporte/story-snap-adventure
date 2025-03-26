@@ -111,6 +111,13 @@ const StoryCreator = () => {
       // Obter prompt do personagem se disponível
       const characterPrompt = selectedCharacter?.generation_prompt || "";
       
+      // Verificar se a API key do Gemini está configurada
+      const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
+      if (!geminiApiKey) {
+        toast.error("A chave da API Gemini não está configurada. Verifique nas configurações.");
+        throw new Error("Gemini API key not found");
+      }
+      
       // Gerar a história completa
       const completeBook = await generateCompleteStory(
         data.childName,
@@ -127,10 +134,10 @@ const StoryCreator = () => {
       );
       
       // Log para debug
-      console.log("Salvando dados do livro para StoryViewer:", {
-        título: completeBook.title,
-        capa: completeBook.coverImageUrl.substring(0, 50) + "...",
-        páginas: completeBook.pages.length
+      console.log("História gerada com sucesso:", {
+        title: completeBook.title,
+        coverImagePreview: completeBook.coverImageUrl.substring(0, 50) + "...",
+        pagesCount: completeBook.pages.length
       });
       
       // Salvar os dados do livro completo para visualização

@@ -8,7 +8,7 @@ import Profile from './pages/Profile';
 import CreateStory from './pages/CreateStory';
 import StoryCreator from './components/StoryCreator';
 import MyStories from './pages/MyStories';
-import ViewStory from './pages/ViewStory';
+import StoryViewer from './components/StoryViewer';
 import NotFound from './pages/NotFound';
 import StoryBot from './pages/StoryBot';
 import Characters from './pages/Characters';
@@ -63,8 +63,8 @@ function App() {
         <Route path="/create-story" element={<CreateStory />} />
         <Route path="/story-creator" element={<StoryCreator />} />
         <Route path="/my-stories" element={<MyStories />} />
-        <Route path="/view-story/:id" element={<ViewStory />} />
-        <Route path="/view-story" element={<ViewStory />} />
+        <Route path="/view-story/:id" element={<StoryViewer />} />
+        <Route path="/view-story" element={<StoryViewer />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/storybot" element={<StoryBot />} />
         <Route path="/characters" element={<Characters />} />
