@@ -30,6 +30,11 @@ import {
 import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+// Define a StoryListItem type that doesn't require the pages property
+type StoryListItem = Omit<Story, 'pages'> & {
+  pages?: Story['pages'];
+};
+
 const MyStories = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -137,7 +142,7 @@ const MyStories = () => {
             </Card>
           ) : stories && stories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stories.map((story: Story) => (
+              {stories.map((story: StoryListItem) => (
                 <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md">
                   <div className="aspect-[16/9] relative overflow-hidden bg-violet-100">
                     {story.cover_image_url ? (
