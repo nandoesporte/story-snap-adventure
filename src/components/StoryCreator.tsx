@@ -202,7 +202,7 @@ const StoryCreator = () => {
       });
       
       try {
-        sessionStorage.setItem("storyData", JSON.stringify({
+        const sessionData = {
           title: completeBook.title,
           coverImageUrl: completeBook.coverImageUrl,
           childImage: imagePreview,
@@ -212,12 +212,33 @@ const StoryCreator = () => {
           setting: data.setting,
           characterId: data.characterId,
           characterName: selectedCharacter?.name,
-          pages: completeBook.pages,
+          pages: completeBook.pages.map(page => ({
+            text: page.text,
+            imageUrl: page.imageUrl
+          })),
           language: data.language,
           style: data.style,
           moral: data.moral,
           readingLevel: data.readingLevel
-        }));
+        };
+        
+        const maxLength = 5000000; // ~5MB limite aproximado
+        const jsonString = JSON.stringify(sessionData);
+        
+        if (jsonString.length > maxLength) {
+          const basicData = {
+            ...sessionData,
+            coverImageUrl: "/placeholder.svg",
+            pages: sessionData.pages.map(page => ({
+              text: page.text,
+              imageUrl: "/placeholder.svg"
+            }))
+          };
+          sessionStorage.setItem("storyData", JSON.stringify(basicData));
+          console.log("Dados muito grandes para sessionStorage, salvando versão reduzida");
+        } else {
+          sessionStorage.setItem("storyData", jsonString);
+        }
       } catch (storageError) {
         console.warn("Erro ao salvar no sessionStorage (possível excesso de cota):", storageError);
       }

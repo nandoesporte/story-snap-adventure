@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,11 +12,13 @@ import { supabase } from "@/lib/supabase";
 interface StoryPage {
   text: string;
   imageUrl: string;
+  image_url?: string;
 }
 
 interface StoryData {
   title: string;
   coverImageUrl: string;
+  cover_image_url?: string;
   childName: string;
   childAge: string;
   theme: string;
@@ -62,7 +63,6 @@ const StoryViewer: React.FC = () => {
       try {
         setLoading(true);
         
-        // Se temos um ID, carregamos do Supabase
         if (id && id !== ":id") {
           console.log("Carregando história do banco com ID:", id);
           const { data, error } = await supabase
@@ -75,13 +75,11 @@ const StoryViewer: React.FC = () => {
             console.error("Erro ao carregar história do banco:", error);
             toast.error("Erro ao carregar história do banco de dados");
             
-            // Tentar carregar do sessionStorage como fallback
             loadFromSessionStorage();
             return;
           }
           
           if (data) {
-            // Converter o formato do banco para o formato usado pelo componente
             const formattedStory: StoryData = {
               title: data.title,
               coverImageUrl: data.cover_image_url || "/placeholder.svg",
@@ -99,14 +97,12 @@ const StoryViewer: React.FC = () => {
             };
             
             setStoryData(formattedStory);
-            setTotalPages(formattedStory.pages.length + 1); // +1 para a capa
+            setTotalPages(formattedStory.pages.length + 1);
             setLoading(false);
           } else {
-            // Se não encontrou no banco, tenta no sessionStorage
             loadFromSessionStorage();
           }
         } else {
-          // Se não tem ID, carrega do sessionStorage
           loadFromSessionStorage();
         }
       } catch (error) {
@@ -123,8 +119,25 @@ const StoryViewer: React.FC = () => {
         const savedData = sessionStorage.getItem("storyData");
         if (savedData) {
           const parsedData = JSON.parse(savedData);
-          setStoryData(parsedData);
-          setTotalPages(parsedData.pages.length + 1); // +1 para a capa
+          
+          const formattedStory: StoryData = {
+            title: parsedData.title,
+            coverImageUrl: parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg",
+            childName: parsedData.childName || parsedData.character_name,
+            childAge: parsedData.childAge || parsedData.character_age || "",
+            theme: parsedData.theme || "",
+            setting: parsedData.setting || "",
+            style: parsedData.style,
+            pages: Array.isArray(parsedData.pages) 
+              ? parsedData.pages.map((page: any) => ({
+                  text: page.text,
+                  imageUrl: page.imageUrl || page.image_url || "/placeholder.svg"
+                }))
+              : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
+          };
+          
+          setStoryData(formattedStory);
+          setTotalPages(formattedStory.pages.length + 1);
         } else {
           console.error("Nenhum dado de história encontrado no sessionStorage");
           setStoryData(defaultStory);
@@ -177,10 +190,8 @@ const StoryViewer: React.FC = () => {
         format: "a4",
       });
       
-      // Adicionar capa
       if (bookRef.current) {
         setCurrentPage(0);
-        // Dar tempo para a página renderizar
         await new Promise(r => setTimeout(r, 500));
         
         const coverCanvas = await html2canvas(bookRef.current, {
@@ -192,12 +203,10 @@ const StoryViewer: React.FC = () => {
         pdf.addImage(coverImgData, "JPEG", 0, 0, 297, 210);
       }
       
-      // Adicionar páginas
       for (let i = 0; i < storyData.pages.length; i++) {
         pdf.addPage();
         setCurrentPage(i + 1);
         
-        // Dar tempo para a página renderizar
         await new Promise(r => setTimeout(r, 500));
         
         if (bookRef.current) {
@@ -211,10 +220,7 @@ const StoryViewer: React.FC = () => {
         }
       }
       
-      // Voltar para a capa depois de gerar o PDF
       setCurrentPage(0);
-      
-      // Salvar PDF
       pdf.save(`${storyData.title.replace(/\s+/g, '_')}.pdf`);
       toast.success("PDF da história baixado com sucesso!");
     } catch (error) {
@@ -237,10 +243,8 @@ const StoryViewer: React.FC = () => {
     if (!storyData) return;
     
     if (id) {
-      // Se temos ID, podemos criar um link compartilhável
       const shareUrl = `${window.location.origin}/view-story/${id}`;
       
-      // Tentar usar a API Web Share se disponível
       if (navigator.share) {
         navigator.share({
           title: storyData.title,
@@ -248,11 +252,9 @@ const StoryViewer: React.FC = () => {
           url: shareUrl
         }).catch(err => {
           console.error("Erro ao compartilhar:", err);
-          // Fallback: copiar para a área de transferência
           copyToClipboard(shareUrl);
         });
       } else {
-        // Fallback: copiar para a área de transferência
         copyToClipboard(shareUrl);
       }
     } else {
@@ -345,7 +347,6 @@ const StoryViewer: React.FC = () => {
         </div>
         
         <div className="relative bg-slate-100 min-h-[70vh] flex items-center justify-center overflow-hidden">
-          {/* Navegação de página */}
           <button 
             className={`absolute left-4 z-10 p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
             onClick={handlePreviousPage}
@@ -362,7 +363,6 @@ const StoryViewer: React.FC = () => {
             <ChevronRight className="h-6 w-6" />
           </button>
           
-          {/* Livro com efeito de página */}
           <div 
             className="relative w-full h-full max-w-4xl max-h-[70vh] perspective-[1000px]"
           >
@@ -397,7 +397,6 @@ const StoryViewer: React.FC = () => {
                 ref={bookRef}
               >
                 {currentPage === 0 ? (
-                  // Capa
                   <div className="w-full h-full relative flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-6">
                     <div className="absolute inset-0 bg-white shadow-md m-3 rounded-lg overflow-hidden">
                       <div className="w-full h-full relative">
@@ -422,7 +421,6 @@ const StoryViewer: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  // Páginas do livro
                   <div className="w-full h-full flex flex-col md:flex-row">
                     <div className="w-full md:w-1/2 h-full p-4 md:p-8 bg-white overflow-auto flex flex-col justify-between">
                       <div>
@@ -439,7 +437,7 @@ const StoryViewer: React.FC = () => {
                     </div>
                     <div className="w-full md:w-1/2 h-full bg-gray-100 relative overflow-hidden">
                       <img 
-                        src={storyData.pages[currentPage - 1]?.imageUrl || "/placeholder.svg"} 
+                        src={storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url || "/placeholder.svg"} 
                         alt={`Ilustração da página ${currentPage}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -455,7 +453,6 @@ const StoryViewer: React.FC = () => {
           </div>
         </div>
         
-        {/* Navegação de página em formato de pontos */}
         <div className="flex justify-center items-center py-4 bg-white">
           <div className="flex space-x-2">
             {Array.from({ length: totalPages }).map((_, idx) => (
