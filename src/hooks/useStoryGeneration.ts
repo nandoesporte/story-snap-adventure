@@ -38,25 +38,47 @@ export const useStoryGeneration = () => {
       setProgress(5);
       setCurrentStage("Iniciando a criação da história...");
       
-      // Verificar disponibilidade da API de imagens
+      // Verificar disponibilidade das APIs de imagens
       const isLeonardoAvailable = leonardoApiAvailable;
       const isOpenAIAvailable = checkOpenAIAvailability();
       
       if (!isLeonardoAvailable && !isOpenAIAvailable) {
         toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
-      } else if (useOpenAIForStories) {
+      } else if (useOpenAIForStories && isOpenAIAvailable) {
         toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações.`);
-      } else {
+      } else if (isLeonardoAvailable) {
         toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações.");
+      } else {
+        toast.warning("Usando imagens de placeholder para ilustrações.");
       }
       
       // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
       setCurrentStage("Definindo personagem principal...");
       setProgress(10);
       
+      // Verificar se há um prompt de personagem detalhado
+      if (!characterPrompt || characterPrompt.trim().length < 10) {
+        console.log("Character prompt is minimal, generating a basic description...");
+        characterPrompt = `Personagem ${childName}: uma criança de ${childAge} anos, alegre e curiosa.`;
+      }
+      
       // Etapa 2: Gerar história com personagens consistentes
       setCurrentStage("Criando a narrativa com personagens consistentes...");
       setProgress(15);
+      
+      console.log("Generating complete story with params:", {
+        childName,
+        childAge,
+        theme,
+        setting,
+        moralTheme,
+        characterPrompt: characterPrompt?.substring(0, 50) + "...",
+        length, 
+        readingLevel,
+        language,
+        hasChildImage: !!childImageBase64,
+        style
+      });
       
       const result = await storyBotGenerateCompleteStory(
         childName,

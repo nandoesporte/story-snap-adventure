@@ -24,6 +24,7 @@ const LeonardoWebhookConfig = () => {
   const [apiKey, setApiKey] = useState("");
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLeonardoTesting, setIsLeonardoTesting] = useState(false);
   const [useGPT4, setUseGPT4] = useState(useOpenAIForStories);
   const [selectedModel, setSelectedModel] = useState<'gpt-4o' | 'gpt-4o-mini'>(openAIModel || 'gpt-4o-mini');
   
@@ -36,6 +37,12 @@ const LeonardoWebhookConfig = () => {
     const savedOpenAiKey = localStorage.getItem("openai_api_key");
     if (savedOpenAiKey) {
       setOpenAiApiKey(savedOpenAiKey);
+    }
+    
+    // Carregar chave da API Leonardo se existir
+    const savedLeonardoKey = localStorage.getItem("leonardo_api_key");
+    if (savedLeonardoKey) {
+      setApiKey(savedLeonardoKey);
     }
     
     // Carregar modelo selecionado
@@ -53,30 +60,52 @@ const LeonardoWebhookConfig = () => {
     }, 1000);
   };
   
-  const handleSubmitKey = () => {
+  const handleSubmitKey = async () => {
     if (!apiKey.trim()) {
       toast.error("Por favor, insira uma chave de API válida");
       return;
     }
     
     setIsSubmitting(true);
+    setIsLeonardoTesting(true);
     
-    // Salvar a chave da API
-    const success = setLeonardoApiKey(apiKey.trim());
-    
-    if (success) {
-      toast.success("Chave da API Leonardo.ai configurada com sucesso!");
-      setApiKey("");
+    try {
+      // Teste de conexão simples antes de salvar a chave
+      const testResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${apiKey.trim()}`,
+          "Content-Type": "application/json"
+        }
+      });
       
-      // Recarregar a página para aplicar as alterações
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } else {
-      toast.error("Erro ao configurar a chave da API Leonardo.ai");
+      if (!testResponse.ok) {
+        toast.error(`Erro ao testar a API Leonardo: ${testResponse.status}`);
+        setIsSubmitting(false);
+        setIsLeonardoTesting(false);
+        return;
+      }
+      
+      // Salvar a chave da API
+      const success = setLeonardoApiKey(apiKey.trim());
+      
+      if (success) {
+        toast.success("Chave da API Leonardo.ai configurada e testada com sucesso!");
+        
+        // Recarregar a página para aplicar as alterações
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        toast.error("Erro ao configurar a chave da API Leonardo.ai");
+      }
+    } catch (error) {
+      console.error("Erro ao testar a chave da API Leonardo:", error);
+      toast.error("Erro ao testar a conexão com a API Leonardo. Verifique a chave e tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+      setIsLeonardoTesting(false);
     }
-    
-    setIsSubmitting(false);
   };
   
   const handleSubmitOpenAiKey = () => {
@@ -192,7 +221,7 @@ const LeonardoWebhookConfig = () => {
                 disabled={isSubmitting || !openAiApiKey.trim()}
                 size="sm"
               >
-                Salvar
+                {isSubmitting ? "Salvando..." : "Salvar"}
               </Button>
             </div>
             <p className="text-xs text-slate-500 mt-1">
@@ -250,29 +279,59 @@ const LeonardoWebhookConfig = () => {
         </div>
         
         <div className="pt-2">
-          <h3 className="text-lg font-medium mb-3">API Leonardo.ai (Legado)</h3>
+          <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
+            <Image className="h-5 w-5 text-gray-500" />
+            API Leonardo.ai (Alternativa)
+          </h3>
           
           {leonardoApiAvailable ? (
-            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md flex items-start gap-2">
-              <Info className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-gray-800">API Leonardo.ai configurada (Legado)</p>
-                <p className="text-sm text-gray-700">
-                  A API do Leonardo.ai está configurada, mas recomendamos usar o OpenAI DALL-E para melhor compatibilidade.
+                <p className="text-sm font-medium text-green-800">API Leonardo.ai configurada</p>
+                <p className="text-sm text-green-700">
+                  A API do Leonardo.ai está configurada e pode ser usada como alternativa ao DALL-E para geração de ilustrações.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md flex items-start gap-2">
-              <Info className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-gray-800">API Legada</p>
-                <p className="text-sm text-gray-700">
-                  O Leonardo.ai não é mais recomendado. Use a API OpenAI para gerar histórias e ilustrações.
+                <p className="text-sm font-medium text-amber-800">API Leonardo.ai não configurada</p>
+                <p className="text-sm text-amber-700">
+                  Configure sua chave de API do Leonardo.ai como alternativa para geração de ilustrações.
+                  Obtenha uma chave em <a href="https://app.leonardo.ai/api-key" target="_blank" rel="noreferrer" className="text-amber-800 underline">app.leonardo.ai</a>
                 </p>
               </div>
             </div>
           )}
+          
+          <div className="mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Key className="h-4 w-4 text-slate-500" />
+              <p className="text-sm font-medium">Chave da API Leonardo.ai</p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Cole sua chave de API do Leonardo.ai"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSubmitKey}
+                disabled={isSubmitting || !apiKey.trim() || isLeonardoTesting}
+                size="sm"
+              >
+                {isLeonardoTesting ? "Testando..." : (isSubmitting ? "Salvando..." : "Salvar")}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Sua chave da API é armazenada localmente apenas neste dispositivo.
+            </p>
+          </div>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between flex-wrap gap-2">

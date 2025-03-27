@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 interface ImageGenerationParams {
@@ -31,14 +30,14 @@ export class LeonardoAIAgent {
   private apiKey: string | null = null;
 
   constructor() {
-    this.isAvailable = true;
+    // Carregar a API key do Leonardo.ai e verificar disponibilidade
+    this.apiKey = localStorage.getItem('leonardo_api_key');
+    this.isAvailable = !!this.apiKey && this.apiKey.length > 10;
     
     // Carregar prompts de personagens salvos
     this.loadSavedCharacterPrompts();
     
-    // Carregar a API key do Leonardo.ai
-    this.apiKey = localStorage.getItem('leonardo_api_key');
-    this.isAvailable = !!this.apiKey;
+    console.log(`LeonardoAIAgent initialized, API available: ${this.isAvailable}`);
   }
 
   /**
@@ -169,14 +168,21 @@ export class LeonardoAIAgent {
    * Verifica se o agente está disponível para uso
    */
   public isAgentAvailable(): boolean {
-    return this.isAvailable && !!this.apiKey;
+    // Verificar a chave salva no localStorage em tempo real
+    const storedKey = localStorage.getItem('leonardo_api_key');
+    this.isAvailable = !!storedKey && storedKey.length > 10;
+    
+    return this.isAvailable;
   }
 
   /**
    * Define a chave da API do Leonardo.ai
    */
   public setApiKey(apiKey: string): boolean {
-    if (!apiKey) return false;
+    if (!apiKey || apiKey.length < 10) {
+      console.warn("Invalid Leonardo API key (too short or empty)");
+      return false;
+    }
     
     this.apiKey = apiKey.trim();
     localStorage.setItem('leonardo_api_key', this.apiKey);
@@ -185,6 +191,7 @@ export class LeonardoAIAgent {
     // Limpar qualquer erro anterior
     localStorage.removeItem("leonardo_api_issue");
     
+    console.log("Leonardo API key set successfully");
     return true;
   }
 
@@ -204,8 +211,9 @@ export class LeonardoAIAgent {
       storyContext 
     } = params;
     
-    if (!this.apiKey) {
-      console.error("Leonardo.ai API key não configurada");
+    // Verificar a chave API antes de prosseguir
+    if (!this.apiKey || this.apiKey.length < 10) {
+      console.error("Leonardo.ai API key não configurada ou inválida");
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       localStorage.setItem("leonardo_api_issue", "true");
       return this.getFallbackImage(theme);
@@ -256,6 +264,7 @@ export class LeonardoAIAgent {
       style: savedStyle,
       hasReferenceImage: !!referenceImageUrl,
       modelId,
+      apiKeyLength: this.apiKey.length,
       promptLength: enhancedPrompt.length
     });
     
@@ -280,6 +289,27 @@ export class LeonardoAIAgent {
         requestBody.imageGuidanceScale = 0.8; // Escala de orientação da imagem (0.1 a 1)
       }
       
+      // Teste de conexão antes de fazer a chamada completa
+      try {
+        const testResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${this.apiKey}`,
+            "Content-Type": "application/json"
+          }
+        });
+        
+        if (!testResponse.ok) {
+          console.error("Leonardo.ai API connection test failed:", await testResponse.text());
+          throw new Error(`Leonardo.ai API connection test failed: ${testResponse.status}`);
+        }
+        
+        console.log("Leonardo.ai API connection test successful");
+      } catch (error) {
+        console.error("Leonardo.ai API connection test error:", error);
+        throw new Error("Failed to connect to Leonardo.ai API");
+      }
+      
       // Chamar a API do Leonardo.ai para iniciar a geração
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
@@ -297,7 +327,12 @@ export class LeonardoAIAgent {
       }
       
       const data = await response.json();
-      const generationId = data.sdGenerationJob.generationId;
+      console.log("Leonardo.ai generation job created:", data.sdGenerationJob?.generationId);
+      
+      const generationId = data.sdGenerationJob?.generationId;
+      if (!generationId) {
+        throw new Error("No generation ID returned from Leonardo.ai API");
+      }
       
       // Aguardar a conclusão da geração
       const imageUrl = await this.pollForResults(generationId);
