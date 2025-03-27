@@ -15,6 +15,7 @@ export const useStoryGeneration = () => {
   
   /**
    * Gera uma história completa com título, texto e ilustrações
+   * com personagens consistentes ao longo da narrativa
    */
   const generateCompleteStory = async (
     childName: string,
@@ -39,8 +40,12 @@ export const useStoryGeneration = () => {
         toast.warning("API de geração de imagens não está disponível. As ilustrações usarão imagens de placeholder.");
       }
       
-      // Etapa 1: Gerar história
-      setCurrentStage("Criando a narrativa...");
+      // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
+      setCurrentStage("Definindo personagem principal...");
+      setProgress(10);
+      
+      // Etapa 2: Gerar história com personagens consistentes
+      setCurrentStage("Criando a narrativa com personagens consistentes...");
       setProgress(15);
       
       const result = await storyBotGenerateCompleteStory(
