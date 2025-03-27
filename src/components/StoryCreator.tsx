@@ -224,7 +224,7 @@ const StoryCreator = () => {
         characterName: selectedCharacter?.name,
         pages: completeBook.pages,
         language: data.language,
-        style: "papercraft",
+        style: "papercraft" as StoryStyle,
         moral: data.moral,
         readingLevel: data.readingLevel
       });
@@ -249,7 +249,7 @@ const StoryCreator = () => {
             image_url: page.imageUrl
           })),
           language: data.language,
-          style: "papercraft",
+          style: "papercraft" as StoryStyle,
           moral: data.moral,
           readingLevel: data.readingLevel
         };
