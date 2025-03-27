@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryGeneration } from "@/hooks/useStoryGeneration";
+import { StoryStyle } from "@/services/BookGenerationService";
 
 type CreationStep = "details" | "generating" | "finalizing";
 
@@ -45,7 +47,7 @@ const StoryCreator = () => {
           setting: parsedData.setting,
           characterId: parsedData.characterId,
           characterName: parsedData.characterName,
-          style: parsedData.style || "papercraft",
+          style: (parsedData.style as StoryStyle) || "papercraft",
           length: parsedData.length || "medium",
           readingLevel: parsedData.readingLevel || "intermediate",
           language: parsedData.language || "portuguese",
@@ -95,7 +97,7 @@ const StoryCreator = () => {
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
       ...data,
-      style: "papercraft"
+      style: "papercraft" as StoryStyle
     };
     setFormData(updatedData);
     generateStory(updatedData);
@@ -199,7 +201,7 @@ const StoryCreator = () => {
         data.readingLevel,
         data.language,
         imagePreview,
-        "papercraft"
+        "papercraft" as StoryStyle
       );
       
       console.log("História gerada com sucesso:", {
