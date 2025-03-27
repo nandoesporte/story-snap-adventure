@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface StoryPage {
   text: string;
@@ -374,13 +375,15 @@ const StoryViewer: React.FC = () => {
     return (
       <div className="w-full h-full flex flex-col">
         <div className="w-full h-full relative overflow-hidden rounded-lg">
-          <img 
-            src={coverImage} 
-            alt={storyData.title}
-            className="w-full h-full object-cover cursor-pointer"
-            onClick={() => handleImageClick(coverImage)}
-            onError={() => handleImageError(coverImage)}
-          />
+          <div className="w-full h-full">
+            <img 
+              src={coverImage} 
+              alt={storyData.title}
+              className="w-full h-full object-contain cursor-pointer"
+              onClick={() => handleImageClick(coverImage)}
+              onError={() => handleImageError(coverImage)}
+            />
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6 md:p-8">
             <h2 className="text-3xl md:text-5xl font-bold mb-3 text-white drop-shadow-md">{storyData.title}</h2>
             <p className="text-xl md:text-2xl text-white/90 mb-2 drop-shadow-md">Uma história para {storyData.childName}</p>
@@ -427,14 +430,16 @@ const StoryViewer: React.FC = () => {
             Página {pageIndex + 1} de {storyData.pages.length}
           </div>
         </div>
-        <div className="w-full md:w-1/2 h-1/2 md:h-full bg-gray-100 relative overflow-hidden">
-          <img 
-            src={imageUrl} 
-            alt={`Ilustração da página ${pageIndex + 1}`}
-            className="w-full h-full object-contain cursor-pointer"
-            onClick={() => handleImageClick(imageUrl)}
-            onError={() => handleImageError(page.imageUrl || page.image_url || "")}
-          />
+        <div className="w-full md:w-1/2 h-1/2 md:h-full bg-gray-100 relative overflow-hidden p-4">
+          <div className="w-full h-full flex items-center justify-center">
+            <img 
+              src={imageUrl} 
+              alt={`Ilustração da página ${pageIndex + 1}`}
+              className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
+              onClick={() => handleImageClick(imageUrl)}
+              onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+            />
+          </div>
         </div>
       </div>
     );
@@ -507,16 +512,18 @@ const StoryViewer: React.FC = () => {
             </Button>
           </div>
           <div 
-            className="flex-1 overflow-auto flex items-center justify-center"
+            className="flex-1 overflow-auto flex items-center justify-center p-4"
             onClick={() => setShowImageViewer(false)}
           >
-            <img 
-              src={currentImageUrl} 
-              alt="Visualização da imagem"
-              className="max-w-full max-h-full object-contain transition-transform duration-200"
-              style={{ transform: `scale(${imageZoom})` }}
-              onError={() => handleImageError(currentImageUrl)}
-            />
+            <div className="relative max-w-full max-h-full">
+              <img 
+                src={currentImageUrl} 
+                alt="Visualização da imagem"
+                className="max-w-full max-h-[80vh] object-contain transition-transform duration-200 rounded-lg"
+                style={{ transform: `scale(${imageZoom})` }}
+                onError={() => handleImageError(currentImageUrl)}
+              />
+            </div>
           </div>
         </div>
       )}

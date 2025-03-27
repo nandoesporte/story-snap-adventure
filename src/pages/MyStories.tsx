@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 type StoryListItem = Omit<Story, 'pages'> & {
   pages?: Story['pages'];
@@ -143,21 +144,23 @@ const MyStories = () => {
               {stories.map((story: StoryListItem) => (
                 <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md hover:scale-[1.02] hover:border-violet-300">
                   <div className="aspect-[4/5] relative overflow-hidden bg-violet-100">
-                    {story.cover_image_url ? (
-                      <img
-                        src={typeof story.cover_image_url === 'string' ? story.cover_image_url : '/placeholder.svg'}
-                        alt={story.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "/placeholder.svg";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-violet-200 to-indigo-200">
-                        <BookOpen className="h-12 w-12 text-violet-500" />
-                      </div>
-                    )}
+                    <AspectRatio ratio={4/5} className="h-full">
+                      {story.cover_image_url ? (
+                        <img
+                          src={typeof story.cover_image_url === 'string' ? story.cover_image_url : '/placeholder.svg'}
+                          alt={story.title}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/placeholder.svg";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-violet-200 to-indigo-200">
+                          <BookOpen className="h-12 w-12 text-violet-500" />
+                        </div>
+                      )}
+                    </AspectRatio>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                       <Link to={`/view-story/${story.id}`} className="w-full">
                         <Button variant="secondary" className="w-full mb-2 bg-white/90 hover:bg-white">
