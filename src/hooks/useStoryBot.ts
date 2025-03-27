@@ -207,14 +207,14 @@ export const useStoryBot = () => {
 
   const getFallbackImage = (theme: string): string => {
     const themeImages: {[key: string]: string} = {
-      adventure: "/images/placeholders/adventure.jpg",
-      fantasy: "/images/placeholders/fantasy.jpg",
-      space: "/images/placeholders/space.jpg",
-      ocean: "/images/placeholders/ocean.jpg",
-      dinosaurs: "/images/placeholders/dinosaurs.jpg"
+      adventure: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
+      fantasy: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
+      space: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
+      ocean: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21",
+      dinosaurs: "https://images.unsplash.com/photo-1472396961693-142e6e269027"
     };
     
-    return themeImages[theme as keyof typeof themeImages] || "/placeholder.svg";
+    return themeImages[theme as keyof typeof themeImages] || "https://images.unsplash.com/photo-1472396961693-142e6e269027";
   };
 
   const generateCoverImage = async (
