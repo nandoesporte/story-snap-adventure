@@ -10,15 +10,11 @@ export const useStoryGeneration = () => {
   
   const {
     generateCompleteStory: storyBotGenerateCompleteStory,
-    leonardoApiAvailable,
-    useOpenAIForStories,
-    openAIModel,
-    checkOpenAIAvailability
+    leonardoApiAvailable
   } = useStoryBot();
   
   /**
    * Gera uma história completa com título, texto e ilustrações
-   * com personagens consistentes ao longo da narrativa
    */
   const generateCompleteStory = async (
     childName: string,
@@ -38,24 +34,13 @@ export const useStoryGeneration = () => {
       setProgress(5);
       setCurrentStage("Iniciando a criação da história...");
       
-      // Verificar disponibilidade da API de imagens
-      const isLeonardoAvailable = leonardoApiAvailable;
-      const isOpenAIAvailable = checkOpenAIAvailability();
-      
-      if (!isLeonardoAvailable && !isOpenAIAvailable) {
-        toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
-      } else if (useOpenAIForStories) {
-        toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações.`);
-      } else {
-        toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações.");
+      // Verificar se a API de imagens está disponível
+      if (!leonardoApiAvailable) {
+        toast.warning("API de geração de imagens não está disponível. As ilustrações usarão imagens de placeholder.");
       }
       
-      // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
-      setCurrentStage("Definindo personagem principal...");
-      setProgress(10);
-      
-      // Etapa 2: Gerar história com personagens consistentes
-      setCurrentStage("Criando a narrativa com personagens consistentes...");
+      // Etapa 1: Gerar história
+      setCurrentStage("Criando a narrativa...");
       setProgress(15);
       
       const result = await storyBotGenerateCompleteStory(

@@ -2,13 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Info, Key, Image } from "lucide-react";
+import { AlertCircle, CheckCircle, Info, Key } from "lucide-react";
 import { useStoryBot } from "@/hooks/useStoryBot";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const LeonardoWebhookConfig = () => {
   const { 
@@ -16,34 +15,25 @@ const LeonardoWebhookConfig = () => {
     resetLeonardoApiStatus, 
     setLeonardoApiKey, 
     useOpenAIForStories,
-    setUseOpenAIForStories,
-    openAIModel,
-    checkOpenAIAvailability
+    setUseOpenAIForStories
   } = useStoryBot();
   
   const [apiKey, setApiKey] = useState("");
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [useGPT4, setUseGPT4] = useState(useOpenAIForStories);
-  const [selectedModel, setSelectedModel] = useState<'gpt-4o' | 'gpt-4o-mini'>(openAIModel || 'gpt-4o-mini');
+  const [useGPT4, setUseGPT4] = useState(true);
   
   useEffect(() => {
     // Verificar se o uso do OpenAI está ativado
     const storedValue = localStorage.getItem("use_openai_for_stories");
-    setUseGPT4(storedValue === "true");
+    setUseGPT4(storedValue === "true" || storedValue === null); // Padrão é verdadeiro
     
     // Carregar chave da API OpenAI se existir
     const savedOpenAiKey = localStorage.getItem("openai_api_key");
     if (savedOpenAiKey) {
       setOpenAiApiKey(savedOpenAiKey);
     }
-    
-    // Carregar modelo selecionado
-    const savedModel = localStorage.getItem("openai_model") as 'gpt-4o' | 'gpt-4o-mini';
-    if (savedModel) {
-      setSelectedModel(savedModel);
-    }
-  }, [useOpenAIForStories, openAIModel]);
+  }, []);
   
   const handleReset = () => {
     resetLeonardoApiStatus();
@@ -90,8 +80,15 @@ const LeonardoWebhookConfig = () => {
     try {
       // Salvar a chave da API OpenAI
       localStorage.setItem("openai_api_key", openAiApiKey.trim());
+      localStorage.setItem("use_openai_for_stories", "true");
       
       toast.success("Chave da API OpenAI configurada com sucesso!");
+      
+      // Ativar o uso do GPT-4
+      setUseGPT4(true);
+      if (setUseOpenAIForStories) {
+        setUseOpenAIForStories(true);
+      }
       
       // Recarregar a página para aplicar as alterações
       setTimeout(() => {
@@ -111,27 +108,15 @@ const LeonardoWebhookConfig = () => {
     
     // Atualizar a configuração
     if (setUseOpenAIForStories) {
-      setUseOpenAIForStories(newValue, selectedModel);
+      setUseOpenAIForStories(newValue);
       localStorage.setItem("use_openai_for_stories", newValue.toString());
       toast.success(newValue 
-        ? `${selectedModel} será usado para gerar histórias e ilustrações` 
+        ? "GPT-4 será usado para gerar histórias" 
         : "Gemini será usado para gerar histórias");
     }
   };
   
-  const handleModelChange = (value: string) => {
-    const model = value as 'gpt-4o' | 'gpt-4o-mini';
-    setSelectedModel(model);
-    
-    // Atualizar a configuração se OpenAI estiver ativado
-    if (useGPT4 && setUseOpenAIForStories) {
-      setUseOpenAIForStories(true, model);
-      localStorage.setItem("openai_model", model);
-      toast.success(`Modelo alterado para ${model}`);
-    }
-  };
-  
-  const isOpenAIConfigured = checkOpenAIAvailability();
+  const isOpenAIConfigured = !!localStorage.getItem("openai_api_key");
   
   return (
     <Card className="shadow-md">
@@ -146,10 +131,7 @@ const LeonardoWebhookConfig = () => {
       </CardHeader>
       <CardContent>
         <div className="mb-8 border-b border-gray-200 pb-6">
-          <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
-            <Image className="h-5 w-5 text-emerald-500" />
-            API OpenAI DALL-E e GPT-4
-          </h3>
+          <h3 className="text-lg font-medium mb-3">API OpenAI GPT-4</h3>
           
           {isOpenAIConfigured ? (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
@@ -200,10 +182,10 @@ const LeonardoWebhookConfig = () => {
             </p>
           </div>
           
-          <div className="mt-6 space-y-4">
+          <div className="mt-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="use-gpt4" className="text-sm font-medium">Usar OpenAI para histórias e ilustrações</Label>
+                <Label htmlFor="use-gpt4" className="text-sm font-medium">Usar OpenAI GPT-4</Label>
                 <p className="text-xs text-slate-500">
                   Ative para gerar histórias e ilustrações usando a API do OpenAI
                 </p>
@@ -217,34 +199,12 @@ const LeonardoWebhookConfig = () => {
             </div>
             
             {useGPT4 && isOpenAIConfigured && (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="model-select">Modelo OpenAI</Label>
-                  <Select 
-                    value={selectedModel} 
-                    onValueChange={handleModelChange}
-                    disabled={!isOpenAIConfigured || !useGPT4}
-                  >
-                    <SelectTrigger id="model-select">
-                      <SelectValue placeholder="Selecione um modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Mais rápido, mais barato)</SelectItem>
-                      <SelectItem value="gpt-4o">GPT-4o (Mais poderoso)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500">
-                    O GPT-4o é mais poderoso, mas mais caro. O GPT-4o Mini é mais rápido e mais barato.
-                  </p>
-                </div>
-                
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-700">
-                    <CheckCircle className="h-4 w-4 inline-block mr-1 text-blue-500" />
-                    O OpenAI DALL-E está ativado para geração de ilustrações consistentes.
-                  </p>
-                </div>
-              </>
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-xs text-blue-700">
+                  <CheckCircle className="h-3 w-3 inline-block mr-1" />
+                  O GPT-4 da OpenAI está ativado para geração de histórias e ilustrações.
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -279,9 +239,10 @@ const LeonardoWebhookConfig = () => {
         <Button 
           variant="outline"
           onClick={handleReset}
+          disabled={!leonardoApiAvailable}
           className="text-sm"
         >
-          Redefinir Status das APIs
+          Redefinir Status da API
         </Button>
       </CardFooter>
     </Card>
