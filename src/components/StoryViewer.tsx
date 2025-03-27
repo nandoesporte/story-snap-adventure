@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -635,7 +636,7 @@ const StoryViewer: React.FC = () => {
         
         <div className="relative bg-gradient-to-br from-violet-50 to-indigo-50 min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
           <button 
-            className={`absolute left-3 md:left-6 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            className={`absolute left-3 md:left-6 z-20 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
             onClick={handlePreviousPage}
             disabled={currentPage === 0}
             aria-label="Página anterior"
@@ -644,7 +645,7 @@ const StoryViewer: React.FC = () => {
           </button>
           
           <button 
-            className={`absolute right-3 md:right-6 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            className={`absolute right-3 md:right-6 z-20 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
             onClick={handleNextPage}
             disabled={currentPage >= totalPages - 1}
             aria-label="Próxima página"

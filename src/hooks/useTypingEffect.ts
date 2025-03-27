@@ -73,10 +73,11 @@ export const useTypingEffect = (
             cutIndex = firstPeriod + 2; // +2 para incluir o ponto e o espaço
           } else {
             // Se não encontrar um ponto, corta pelo espaço mais próximo
-            cutIndex = temp.indexOf(' ') + 1;
-            
-            // Se não encontrar espaço, remove 1/3 do texto
-            if (cutIndex <= 0) {
+            const firstSpace = temp.indexOf(' ');
+            if (firstSpace !== -1) {
+              cutIndex = firstSpace + 1; // +1 para incluir o espaço
+            } else {
+              // Se não encontrar espaço, remove 1/3 do texto
               cutIndex = Math.floor(temp.length / 3);
             }
           }
