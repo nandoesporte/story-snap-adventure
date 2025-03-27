@@ -430,7 +430,7 @@ const StoryViewer: React.FC = () => {
         {isMobile ? (
           <>
             <div className="w-full h-1/2 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden rounded-t-lg">
-              <div className="w-full h-full flex items-center justify-center p-4">
+              <div className="w-full h-full flex items-center justify-center p-3">
                 <img 
                   src={imageUrl} 
                   alt={`Ilustração da página ${pageIndex + 1}`}
@@ -441,19 +441,19 @@ const StoryViewer: React.FC = () => {
               </div>
             </div>
             
-            <div className="w-full h-1/2 p-6 bg-white overflow-auto flex flex-col justify-between rounded-b-lg">
-              <ScrollArea className="h-full pr-2">
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
+            <div className="w-full min-h-1/2 p-4 bg-white overflow-auto flex flex-col justify-between rounded-b-lg">
+              <ScrollArea className="h-full pr-2 mb-3">
+                <div>
+                  <h2 className="text-xl font-bold mb-2 text-gray-800">{storyData.title}</h2>
                   <div className="prose prose-sm">
                     {typedText.split('\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-2 text-base">{paragraph}</p>
+                      <p key={idx} className="mb-2 text-sm leading-relaxed text-gray-700">{paragraph}</p>
                     ))}
                     <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
                   </div>
                 </div>
               </ScrollArea>
-              <div className="mt-4 pt-2 border-t text-xs text-gray-500 flex justify-between">
+              <div className="mt-2 pt-2 border-t text-xs text-gray-500 flex justify-between">
                 <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
                 <span>{storyData.childName}</span>
               </div>
@@ -650,7 +650,7 @@ const StoryViewer: React.FC = () => {
           </button>
           
           <div 
-            className="w-full h-full max-w-none max-h-[70vh]"
+            className="w-full h-full max-h-[70vh]"
           >
             <AnimatePresence mode="wait">
               <motion.div
