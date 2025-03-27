@@ -10,7 +10,10 @@ export const useStoryGeneration = () => {
   
   const {
     generateCompleteStory: storyBotGenerateCompleteStory,
-    leonardoApiAvailable
+    leonardoApiAvailable,
+    useOpenAIForStories,
+    openAIModel,
+    checkOpenAIAvailability
   } = useStoryBot();
   
   /**
@@ -35,9 +38,16 @@ export const useStoryGeneration = () => {
       setProgress(5);
       setCurrentStage("Iniciando a criação da história...");
       
-      // Verificar se a API de imagens está disponível
-      if (!leonardoApiAvailable) {
-        toast.warning("API de geração de imagens não está disponível. As ilustrações usarão imagens de placeholder.");
+      // Verificar disponibilidade da API de imagens
+      const isLeonardoAvailable = leonardoApiAvailable;
+      const isOpenAIAvailable = checkOpenAIAvailability();
+      
+      if (!isLeonardoAvailable && !isOpenAIAvailable) {
+        toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
+      } else if (useOpenAIForStories) {
+        toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações.`);
+      } else {
+        toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações.");
       }
       
       // Etapa 1: Preparar dados do personagem para consistência nas ilustrações

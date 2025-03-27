@@ -44,6 +44,25 @@ export const initializeOpenAI = (apiKey: string) => {
   }
 };
 
+// Get an instance of the OpenAI client
+export const getOpenAIClient = () => {
+  const apiKey = getOpenAIApiKey();
+  if (!apiKey) {
+    console.error('Chave da API OpenAI não encontrada');
+    return null;
+  }
+  
+  try {
+    return new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true
+    });
+  } catch (error) {
+    console.error('Erro ao criar cliente OpenAI:', error);
+    return null;
+  }
+};
+
 // Function to reinitialize Gemini with a new API key
 export const reinitializeGeminiAI = (apiKey: string) => {
   if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
@@ -79,6 +98,12 @@ export const setOpenAIApiKey = (apiKey: string) => {
     const trimmedKey = apiKey.trim();
     localStorage.setItem('openai_api_key', trimmedKey);
     
+    // Test the key by initializing a client
+    const client = initializeOpenAI(trimmedKey);
+    if (!client) {
+      return false;
+    }
+    
     // Clear any previous API issues
     localStorage.removeItem("storybot_api_issue");
     
@@ -106,7 +131,7 @@ export const ensureStoryBotPromptsTable = async () => {
 
 // For development without API keys, we can detect if the API key is valid
 export const isOpenAIKeyValid = () => {
-  const apiKey = getGeminiApiKey();
+  const apiKey = getOpenAIApiKey();
   return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
 };
 
@@ -114,6 +139,44 @@ export const isOpenAIKeyValid = () => {
 export const isOpenAIApiKeyValid = () => {
   const apiKey = getOpenAIApiKey();
   return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
+};
+
+// Generate an image using OpenAI
+export const generateImageWithOpenAI = async (prompt: string, size: string = "1024x1024") => {
+  try {
+    const client = getOpenAIClient();
+    if (!client) {
+      throw new Error('Cliente OpenAI não inicializado');
+    }
+    
+    console.log(`Gerando imagem com OpenAI: "${prompt.substring(0, 50)}..." (tamanho: ${size})`);
+    
+    const response = await client.images.generate({
+      model: "dall-e-3",
+      prompt,
+      n: 1,
+      size: size as "1024x1024" | "1792x1024" | "1024x1792",
+      quality: "standard",
+      response_format: "url",
+    });
+    
+    console.log('Imagem gerada com sucesso:', response);
+    
+    return response.data[0].url;
+  } catch (error: any) {
+    console.error('Erro ao gerar imagem com OpenAI:', error);
+    
+    // Check for API errors
+    if (error.status === 429) {
+      toast.error('Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.');
+    } else if (error.status === 400) {
+      toast.error('Erro na requisição: ' + (error.message || 'Verifique o prompt e tente novamente.'));
+    } else {
+      toast.error('Erro ao gerar imagem: ' + (error.message || 'Tente novamente.'));
+    }
+    
+    throw error;
+  }
 };
 
 // Keep OpenAI interface for backward compatibility
