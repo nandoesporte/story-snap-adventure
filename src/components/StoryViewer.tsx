@@ -76,8 +76,15 @@ const StoryViewer: React.FC = () => {
     ? storyData.pages[currentPage - 1].text 
     : "";
   
-  const typedText = useTypingEffect(currentText, currentPage, 30, true, 800);
-
+  const typedText = useTypingEffect(
+    currentText, 
+    currentPage, 
+    30, 
+    true, 
+    800, 
+    isMobile ? 400 : undefined
+  );
+  
   useEffect(() => {
     const loadStory = async () => {
       try {
@@ -429,31 +436,29 @@ const StoryViewer: React.FC = () => {
       <div className="w-full h-full flex flex-col">
         {isMobile ? (
           <div className="w-full h-full flex flex-col relative overflow-hidden">
-            <div className="w-full story-image-container bg-gradient-to-br from-violet-50 to-indigo-50">
+            <div className="story-image-fullscreen">
               <img 
                 src={imageUrl} 
                 alt={`Ilustração da página ${pageIndex + 1}`}
-                className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md p-4"
+                className="w-full h-full object-cover"
                 onClick={() => handleImageClick(imageUrl)}
                 onError={() => handleImageError(page.imageUrl || page.image_url || "")}
               />
             </div>
             
-            <div className="w-full story-text-container bg-white flex flex-col justify-between">
-              <ScrollArea className="h-full p-4 pb-0">
-                <div>
-                  <h2 className="text-lg font-bold mb-2 text-gray-800">{storyData.title}</h2>
-                  <div className="prose prose-sm story-text">
-                    {typedText.split('\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-2 leading-relaxed">{paragraph}</p>
-                    ))}
-                    <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
-                  </div>
+            <div className="story-text-overlay">
+              <div className="relative z-10 p-4 pb-0">
+                <h2 className="text-xl font-bold mb-3 text-white text-shadow">{storyData.title}</h2>
+                <div className="prose prose-sm story-text text-white">
+                  {typedText.split('\n').map((paragraph, idx) => (
+                    <p key={idx} className="mb-2 leading-relaxed text-shadow">{paragraph}</p>
+                  ))}
+                  <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
                 </div>
-              </ScrollArea>
-              <div className="p-3 pt-2 border-t text-xs text-gray-500 flex justify-between">
-                <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
-                <span>{storyData.childName}</span>
+                <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
+                  <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                  <span>{storyData.childName}</span>
+                </div>
               </div>
             </div>
           </div>
