@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useTypingEffect } from "@/hooks/useTypingEffect";
 
 interface StoryPage {
   text: string;
@@ -69,6 +70,12 @@ const StoryViewer: React.FC = () => {
   const isMobile = useIsMobile();
   
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  
+  const currentText = storyData && currentPage > 0 && storyData.pages[currentPage - 1] 
+    ? storyData.pages[currentPage - 1].text 
+    : "";
+  
+  const typedText = useTypingEffect(currentText, currentPage);
 
   useEffect(() => {
     const loadStory = async () => {
@@ -414,31 +421,33 @@ const StoryViewer: React.FC = () => {
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
     return (
-      <div className="w-full h-full flex flex-col md:flex-row">
-        <div className="w-full md:w-1/2 h-1/2 md:h-full p-3 md:p-6 lg:p-8 bg-white overflow-auto flex flex-col justify-between">
+      <div className="w-full h-full flex flex-col">
+        <div className="w-full h-1/2 bg-gray-100 relative overflow-hidden">
+          <div className="w-full h-full flex items-center justify-center">
+            <img 
+              src={imageUrl} 
+              alt={`Ilustração da página ${pageIndex + 1}`}
+              className="max-w-full max-h-full object-contain cursor-pointer p-4"
+              onClick={() => handleImageClick(imageUrl)}
+              onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+            />
+          </div>
+        </div>
+        
+        <div className="w-full h-1/2 p-4 md:p-6 lg:p-8 bg-white overflow-auto flex flex-col justify-between">
           <ScrollArea className="h-full pr-2">
             <div className="mb-4">
               <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">{storyData.title}</h2>
               <div className="prose prose-sm md:prose-lg">
-                {page.text.split('\n').map((paragraph, idx) => (
+                {typedText.split('\n').map((paragraph, idx) => (
                   <p key={idx} className="mb-2 md:mb-3 text-base">{paragraph}</p>
                 ))}
+                <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
               </div>
             </div>
           </ScrollArea>
           <div className="mt-3 md:mt-4 text-xs md:text-sm text-gray-500">
             Página {pageIndex + 1} de {storyData.pages.length}
-          </div>
-        </div>
-        <div className="w-full md:w-1/2 h-1/2 md:h-full bg-gray-100 relative overflow-hidden p-4">
-          <div className="w-full h-full flex items-center justify-center">
-            <img 
-              src={imageUrl} 
-              alt={`Ilustração da página ${pageIndex + 1}`}
-              className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
-              onClick={() => handleImageClick(imageUrl)}
-              onError={() => handleImageError(page.imageUrl || page.image_url || "")}
-            />
           </div>
         </div>
       </div>
