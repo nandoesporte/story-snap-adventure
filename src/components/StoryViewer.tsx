@@ -428,32 +428,30 @@ const StoryViewer: React.FC = () => {
     return (
       <div className="w-full h-full flex flex-col">
         {isMobile ? (
-          <div className="w-full h-full flex flex-col relative rounded-lg overflow-hidden">
-            <div className="w-full h-3/5 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden">
-              <div className="w-full h-full flex items-center justify-center p-3">
-                <img 
-                  src={imageUrl} 
-                  alt={`Ilustração da página ${pageIndex + 1}`}
-                  className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
-                  onClick={() => handleImageClick(imageUrl)}
-                  onError={() => handleImageError(page.imageUrl || page.image_url || "")}
-                />
-              </div>
+          <div className="w-full h-full flex flex-col relative overflow-hidden">
+            <div className="w-full story-image-container bg-gradient-to-br from-violet-50 to-indigo-50">
+              <img 
+                src={imageUrl} 
+                alt={`Ilustração da página ${pageIndex + 1}`}
+                className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md p-4"
+                onClick={() => handleImageClick(imageUrl)}
+                onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+              />
             </div>
             
-            <div className="w-full h-2/5 bg-white overflow-hidden flex flex-col justify-between">
+            <div className="w-full story-text-container bg-white flex flex-col justify-between">
               <ScrollArea className="h-full p-4 pb-0">
                 <div>
                   <h2 className="text-lg font-bold mb-2 text-gray-800">{storyData.title}</h2>
-                  <div className="prose prose-sm">
+                  <div className="prose prose-sm story-text">
                     {typedText.split('\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-2 text-sm leading-relaxed text-gray-700">{paragraph}</p>
+                      <p key={idx} className="mb-2 leading-relaxed">{paragraph}</p>
                     ))}
                     <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
                   </div>
                 </div>
               </ScrollArea>
-              <div className="p-4 pt-2 border-t text-xs text-gray-500 flex justify-between">
+              <div className="p-3 pt-2 border-t text-xs text-gray-500 flex justify-between">
                 <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
                 <span>{storyData.childName}</span>
               </div>
@@ -579,7 +577,7 @@ const StoryViewer: React.FC = () => {
         className={`w-full max-w-7xl bg-white shadow-2xl rounded-2xl overflow-hidden mb-4 md:mb-8 
                    ${isFullscreen ? 'fixed inset-0 z-40 max-w-none rounded-none' : ''}`}
       >
-        <div className="flex justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600 p-3 text-white">
+        <div className={`${isMobile ? 'hidden' : 'flex'} justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600 p-3 text-white`}>
           <div className="flex items-center">
             <BookText className="mr-2 h-5 w-5 md:h-6 md:w-6" />
             <h1 className="text-lg md:text-xl font-bold truncate">{storyData?.title}</h1>
