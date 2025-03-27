@@ -25,6 +25,8 @@ interface LeonardoResponse {
 export class LeonardoAIAgent {
   private characterPrompts: Map<string, string> = new Map();
   private characterImageStyles: Map<string, string> = new Map();
+  private characterModels: Map<string, string> = new Map();
+  private characterFirstImageUrl: Map<string, string> = new Map();
   private isAvailable: boolean = true;
   private apiKey: string | null = null;
 
@@ -60,6 +62,24 @@ export class LeonardoAIAgent {
         const styles = JSON.parse(savedStyles);
         Object.entries(styles).forEach(([name, style]) => {
           this.characterImageStyles.set(name, style as string);
+        });
+      }
+      
+      // Carregar modelos de personagens
+      const savedModels = localStorage.getItem('character_models');
+      if (savedModels) {
+        const models = JSON.parse(savedModels);
+        Object.entries(models).forEach(([name, model]) => {
+          this.characterModels.set(name, model as string);
+        });
+      }
+      
+      // Carregar URLs de imagens de referência
+      const savedImageUrls = localStorage.getItem('character_reference_images');
+      if (savedImageUrls) {
+        const imageUrls = JSON.parse(savedImageUrls);
+        Object.entries(imageUrls).forEach(([name, url]) => {
+          this.characterFirstImageUrl.set(name, url as string);
         });
       }
     } catch (e) {
@@ -104,6 +124,44 @@ export class LeonardoAIAgent {
       localStorage.setItem('character_styles', JSON.stringify(styles));
     } catch (e) {
       console.error("Erro ao salvar estilo do personagem:", e);
+    }
+  }
+
+  /**
+   * Salva o modelo a ser usado para um personagem específico
+   */
+  public saveCharacterModel(characterName: string, model: string): void {
+    if (!characterName || !model) return;
+    
+    this.characterModels.set(characterName, model);
+    
+    try {
+      const models: Record<string, string> = {};
+      this.characterModels.forEach((value, key) => {
+        models[key] = value;
+      });
+      localStorage.setItem('character_models', JSON.stringify(models));
+    } catch (e) {
+      console.error("Erro ao salvar modelo do personagem:", e);
+    }
+  }
+
+  /**
+   * Salva a URL da primeira imagem gerada para um personagem como referência
+   */
+  public saveCharacterReferenceImage(characterName: string, imageUrl: string): void {
+    if (!characterName || !imageUrl) return;
+    
+    this.characterFirstImageUrl.set(characterName, imageUrl);
+    
+    try {
+      const imageUrls: Record<string, string> = {};
+      this.characterFirstImageUrl.forEach((value, key) => {
+        imageUrls[key] = value;
+      });
+      localStorage.setItem('character_reference_images', JSON.stringify(imageUrls));
+    } catch (e) {
+      console.error("Erro ao salvar imagem de referência do personagem:", e);
     }
   }
 
@@ -160,8 +218,17 @@ export class LeonardoAIAgent {
     // Usar o estilo visual salvo, se existir
     const savedStyle = this.characterImageStyles.get(characterName) || style;
     
+    // Usar o modelo salvo para o personagem, se existir
+    const modelId = this.characterModels.get(characterName) || "b820ea11-02bf-4652-97ae-93b22e02a0a9"; // Leonardo Creative como padrão
+    
+    // Verificar se já temos uma imagem de referência para este personagem
+    const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
+    
     // Enriquecer o prompt para garantir consistência do personagem e melhorar as ilustrações
     let enhancedPrompt = prompt;
+    
+    // Adicionar um prefixo para garantir consistência
+    enhancedPrompt = `Ilustração consistente do personagem ${characterName}. ${enhancedPrompt}`;
     
     // Adicionar contexto da história, se disponível
     if (storyContext) {
@@ -170,7 +237,7 @@ export class LeonardoAIAgent {
     
     // Adicionar detalhes específicos do personagem ao prompt
     if (finalCharacterPrompt) {
-      enhancedPrompt += ` O personagem ${characterName} possui as seguintes características: ${finalCharacterPrompt}`;
+      enhancedPrompt += ` O personagem ${characterName} possui as seguintes características visuais que DEVEM ser mantidas em todas as imagens: ${finalCharacterPrompt}`;
     }
     
     // Adicionar instruções para estilo de ilustração de livro infantil
@@ -179,15 +246,40 @@ export class LeonardoAIAgent {
     // Adicionar instruções para composição e foco
     enhancedPrompt += " Composição central, foco no personagem principal, expressões faciais claras, cores vibrantes.";
     
+    // Adicionar instruções específicas para manter consistência
+    enhancedPrompt += " IMPORTANTE: mantenha EXATAMENTE a mesma aparência física, roupas, cores e características faciais do personagem em todas as ilustrações para garantir consistência.";
+    
     console.log("Gerando imagem com Leonardo.ai API:", {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
       hasStoryContext: !!storyContext,
       style: savedStyle,
+      hasReferenceImage: !!referenceImageUrl,
+      modelId,
       promptLength: enhancedPrompt.length
     });
     
     try {
+      // Configurar o corpo da requisição
+      const requestBody: any = {
+        prompt: enhancedPrompt,
+        modelId: modelId,
+        width: 768,
+        height: 768,
+        num_images: 1,
+        promptMagic: true,
+        presetStyle: savedStyle === "cartoon" ? "ANIME" : (savedStyle === "realistic" ? "CINEMATIC" : "CREATIVE"),
+        public: false,
+        nsfw: false
+      };
+      
+      // Se tivermos uma imagem de referência, adicionar ao corpo da requisição para maior consistência
+      if (referenceImageUrl) {
+        requestBody.referenceImageUrl = referenceImageUrl;
+        requestBody.promptMagicVersion = "v2"; // Usar v2 para melhor processamento de imagens de referência
+        requestBody.imageGuidanceScale = 0.8; // Escala de orientação da imagem (0.1 a 1)
+      }
+      
       // Chamar a API do Leonardo.ai para iniciar a geração
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
         method: "POST",
@@ -195,17 +287,7 @@ export class LeonardoAIAgent {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          prompt: enhancedPrompt,
-          modelId: "b820ea11-02bf-4652-97ae-93b22e02a0a9", // Leonardo Creative
-          width: 768,
-          height: 768,
-          num_images: 1,
-          promptMagic: true,
-          presetStyle: savedStyle === "cartoon" ? "ANIME" : (savedStyle === "realistic" ? "CINEMATIC" : "CREATIVE"),
-          public: false,
-          nsfw: false
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -223,6 +305,12 @@ export class LeonardoAIAgent {
       // Quando bem-sucedido, salvar o prompt para uso futuro
       if (characterPrompt && !savedPrompt) {
         this.saveCharacterPrompt(characterName, characterPrompt);
+      }
+      
+      // Se não tivermos uma imagem de referência para este personagem, salvar esta como referência
+      if (!referenceImageUrl) {
+        this.saveCharacterReferenceImage(characterName, imageUrl);
+        console.log(`Imagem de referência salva para ${characterName}:`, imageUrl);
       }
       
       return imageUrl;
@@ -333,8 +421,48 @@ export class LeonardoAIAgent {
     try {
       const imageUrls: string[] = [];
       
-      // Gerar imagens para cada página sequencialmente para manter consistência
-      for (let i = 0; i < storyPages.length; i++) {
+      // Primeiro, gerar a primeira imagem que servirá como referência para consistência
+      if (storyPages.length > 0 && imagePrompts.length > 0) {
+        const firstPagePrompt = imagePrompts[0] || `Ilustração da primeira página: ${storyPages[0].substring(0, 100)}...`;
+        
+        toast.info(`Gerando ilustração de referência do personagem ${characterName}...`);
+        
+        try {
+          // Criar um prompt específico para a primeira ilustração
+          let enhancedPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência visual. ${firstPagePrompt}`;
+          
+          // Adicionar contexto geral da história se disponível
+          if (storyTitle) {
+            enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
+          }
+          
+          // Adicionar contexto de tema e cenário
+          enhancedPrompt += ` (Tema: ${theme}, Cenário: ${setting})`;
+          
+          const firstImageUrl = await this.generateImage({
+            prompt: enhancedPrompt,
+            characterName,
+            theme,
+            setting,
+            style,
+            characterPrompt,
+            childImage,
+            storyContext: storyTitle ? `Personagem de referência para a história "${storyTitle}"` : null
+          });
+          
+          // Salvar explicitamente como imagem de referência
+          this.saveCharacterReferenceImage(characterName, firstImageUrl);
+          
+          // Adicionar à lista de URLs
+          imageUrls.push(firstImageUrl);
+        } catch (error) {
+          console.error(`Erro ao gerar imagem de referência:`, error);
+          imageUrls.push(this.getFallbackImage(theme));
+        }
+      }
+      
+      // Gerar imagens para as páginas restantes sequencialmente, usando a referência
+      for (let i = 1; i < storyPages.length; i++) {
         const pageText = storyPages[i];
         const imagePrompt = imagePrompts[i] || `Ilustração para a página ${i+1}: ${pageText.substring(0, 100)}...`;
         const pageNumber = i + 1;
@@ -343,7 +471,7 @@ export class LeonardoAIAgent {
         
         try {
           // Criar um prompt específico para livro infantil
-          let enhancedPrompt = imagePrompt;
+          let enhancedPrompt = `Mantenha a EXATA aparência do personagem ${characterName} conforme a imagem de referência. ${imagePrompt}`;
           
           // Adicionar contexto geral da história se disponível
           if (storyTitle) {
@@ -353,10 +481,8 @@ export class LeonardoAIAgent {
           // Adicionar contexto de número da página e tema
           enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
           
-          // Se for a primeira ou última página, adicionar indicações especiais
-          if (i === 0) {
-            enhancedPrompt += " Esta é a primeira página da história, mostre o início da aventura.";
-          } else if (i === storyPages.length - 1) {
+          // Se for a última página, adicionar indicações especiais
+          if (i === storyPages.length - 1) {
             enhancedPrompt += " Esta é a última página da história, mostre a conclusão ou celebração.";
           }
           
@@ -399,11 +525,36 @@ export class LeonardoAIAgent {
     characterPrompt: string | null = null,
     childImage: string | null = null
   ): Promise<string> {
-    const coverPrompt = `Capa de livro infantil para "${title}" com ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}. 
+    const coverPrompt = `Capa de livro infantil para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
                         A ilustração deve ser vibrante, colorida e conter o título "${title}" integrado ao design. 
-                        O personagem deve estar em destaque na cena, com uma expressão alegre e aventureira.`;
+                        O personagem deve estar centralizado na cena, com uma expressão alegre e aventureira.
+                        Importante: Mantenha as características visuais consistentes do personagem.`;
+    
+    // Verificar se já temos uma imagem de referência para este personagem
+    const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
     
     try {
+      // Se não tivermos referência, gerar um personagem de referência primeiro
+      if (!referenceImageUrl) {
+        // Gerar uma ilustração de referência para o personagem
+        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo ${style}.`;
+        
+        const referenceImage = await this.generateImage({
+          prompt: characterRefPrompt,
+          characterName,
+          theme,
+          setting,
+          style,
+          characterPrompt,
+          childImage,
+          storyContext: `Referência visual para o personagem da história "${title}"`
+        });
+        
+        // Salvar como imagem de referência
+        this.saveCharacterReferenceImage(characterName, referenceImage);
+      }
+      
+      // Agora gerar a capa usando a referência
       const imageUrl = await this.generateImage({
         prompt: coverPrompt,
         characterName,
