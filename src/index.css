@@ -6,15 +6,15 @@
     left: 0;
     width: 100%;
     background: linear-gradient(transparent, rgba(0, 0, 0, 0.8) 30%);
-    padding-top: 35vh; /* Increased from 25vh to push text lower */
-    min-height: 65vh; /* Adjusted to accommodate lower text placement */
+    padding-top: 35vh; // Increased from 25vh to push text lower
+    min-height: 65vh; // Adjusted to accommodate lower text placement
     z-index: 10;
   }
   
   .story-text {
     font-size: 1rem;
     line-height: 1.6;
-    max-height: 35vh; /* Reduced from 40vh to match new layout */
+    max-height: 35vh; // Reduced from 40vh to match new layout
     overflow: hidden;
     padding: 0 12px;
   }
