@@ -343,8 +343,9 @@ const StoryViewer: React.FC = () => {
                 className="w-full h-full object-cover cursor-pointer"
                 onClick={() => handleImageClick(coverImage)}
                 onError={(e) => {
-                  console.log("Erro ao carregar imagem da capa, usando placeholder");
                   const target = e.target as HTMLImageElement;
+                  target.onerror = null; // Prevent infinite error loop
+                  console.log("Erro ao carregar imagem da capa, usando placeholder");
                   target.src = "/placeholder.svg";
                 }}
               />
@@ -393,8 +394,9 @@ const StoryViewer: React.FC = () => {
             className="w-full h-full object-contain cursor-pointer"
             onClick={() => handleImageClick(imageUrl)}
             onError={(e) => {
-              console.log(`Erro ao carregar imagem da página ${pageIndex + 1}, usando placeholder`);
               const target = e.target as HTMLImageElement;
+              target.onerror = null; // Prevent infinite error loop
+              console.log(`Erro ao carregar imagem da página ${pageIndex + 1}, usando placeholder`);
               target.src = "/placeholder.svg";
             }}
           />

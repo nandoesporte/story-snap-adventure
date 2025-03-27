@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -40,7 +41,7 @@ const Navbar = () => {
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Personagens', path: '/characters' },
-    { name: 'StoryBot', path: '/storybot' },
+    // Removed StoryBot menu item
     { name: 'Configurações', path: '/settings' },
   ];
 
