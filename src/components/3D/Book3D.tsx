@@ -206,17 +206,7 @@ const BookPage: React.FC<BookPageProps> = ({
   );
 };
 
-interface Book3DProps {
-  coverImage?: string;
-  pages: Array<{
-    text: string;
-    imageUrl?: string;
-  }>;
-  currentPage: number;
-  onPageTurn: (newPage: number) => void;
-  title: string;
-}
-
+// Create this as a proper React component that receives props
 const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, pages, currentPage, onPageTurn, title }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [openAmount, setOpenAmount] = useState(0);
@@ -265,15 +255,21 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
     }
   });
   
-  // Set camera position and lookAt
-  const { camera } = useThree();
-  useEffect(() => {
-    camera.position.set(0, 0, 10);
-    camera.lookAt(0, 0, 0);
-  }, [camera]);
+  // Set camera position and lookAt within the Canvas context
+  const CameraSetup = () => {
+    const { camera } = useThree();
+    
+    useEffect(() => {
+      camera.position.set(0, 0, 10);
+      camera.lookAt(0, 0, 0);
+    }, [camera]);
+    
+    return null;
+  };
   
   return (
     <group ref={groupRef} position={[0, 0, 0]} rotation={[0, 0, 0]}>
+      <CameraSetup />
       {book3DPages.map((page, index) => {
         const isRightPage = index >= Math.floor(totalPages / 2);
         const pageRotation: [number, number, number] = [
@@ -312,6 +308,17 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
   );
 };
 
+interface Book3DProps {
+  coverImage?: string;
+  pages: Array<{
+    text: string;
+    imageUrl?: string;
+  }>;
+  currentPage: number;
+  onPageTurn: (newPage: number) => void;
+  title: string;
+}
+
 // Error boundary class to prevent blank screen on 3D rendering errors
 class ErrorFallback extends React.Component<{ children: React.ReactNode }> {
   state = { hasError: false };
@@ -336,6 +343,7 @@ class ErrorFallback extends React.Component<{ children: React.ReactNode }> {
   }
 }
 
+// Main component that wraps everything with Canvas and Error Boundary
 const Book3DViewer: React.FC<Book3DProps> = (props) => {
   return (
     <div className="w-full h-full" style={{ minHeight: '400px' }}>
