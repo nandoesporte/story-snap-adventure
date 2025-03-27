@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -206,7 +207,7 @@
     /* Mobile-specific story reader improvements */
     @media (max-width: 640px) {
       .story-text-container {
-        max-height: 50vh;
+        max-height: 40vh;
         overflow-y: auto;
         padding: 1rem;
         background-color: white;
@@ -214,13 +215,13 @@
       }
       
       .story-text {
-        font-size: 1rem;
-        line-height: 1.5;
+        font-size: 0.875rem;
+        line-height: 1.4;
         color: #4b5563;
       }
       
       .story-image-container {
-        height: 45vh;
+        height: 60vh;
         display: flex;
         align-items: center;
         justify-content: center;

@@ -428,8 +428,8 @@ const StoryViewer: React.FC = () => {
     return (
       <div className="w-full h-full flex flex-col">
         {isMobile ? (
-          <>
-            <div className="w-full h-1/2 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden rounded-t-lg">
+          <div className="w-full h-full flex flex-col relative rounded-lg overflow-hidden">
+            <div className="w-full h-3/5 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden">
               <div className="w-full h-full flex items-center justify-center p-3">
                 <img 
                   src={imageUrl} 
@@ -441,10 +441,10 @@ const StoryViewer: React.FC = () => {
               </div>
             </div>
             
-            <div className="w-full min-h-1/2 p-4 bg-white overflow-auto flex flex-col justify-between rounded-b-lg">
-              <ScrollArea className="h-full pr-2 mb-3">
+            <div className="w-full h-2/5 bg-white overflow-hidden flex flex-col justify-between">
+              <ScrollArea className="h-full p-4 pb-0">
                 <div>
-                  <h2 className="text-xl font-bold mb-2 text-gray-800">{storyData.title}</h2>
+                  <h2 className="text-lg font-bold mb-2 text-gray-800">{storyData.title}</h2>
                   <div className="prose prose-sm">
                     {typedText.split('\n').map((paragraph, idx) => (
                       <p key={idx} className="mb-2 text-sm leading-relaxed text-gray-700">{paragraph}</p>
@@ -453,12 +453,12 @@ const StoryViewer: React.FC = () => {
                   </div>
                 </div>
               </ScrollArea>
-              <div className="mt-2 pt-2 border-t text-xs text-gray-500 flex justify-between">
+              <div className="p-4 pt-2 border-t text-xs text-gray-500 flex justify-between">
                 <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
                 <span>{storyData.childName}</span>
               </div>
             </div>
-          </>
+          </div>
         ) : (
           <div className="w-full h-full flex flex-row">
             <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6">
