@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Save, RefreshCw, Check } from 'lucide-react';
+import { Save, RefreshCw, Check, Wand2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +15,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { BookGenerationService } from '@/services/BookGenerationService';
 import { useAuth } from '@/context/AuthContext';
+import { Textarea } from '@/components/ui/textarea';
+import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
 
 const Settings = () => {
   const { user } = useAuth();
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [leonardoApiKey, setLeonardoApiKey] = useState('');
+  const [imagePromptTemplate, setImagePromptTemplate] = useState('');
   const [preferredModel, setPreferredModel] = useState('gemini');
   const [openaiModelType, setOpenaiModelType] = useState('gpt-4o-mini');
   const [useOpenAI, setUseOpenAI] = useState(false);
@@ -32,6 +35,7 @@ const Settings = () => {
     const savedGeminiKey = localStorage.getItem('gemini_api_key') || '';
     const savedOpenAIKey = localStorage.getItem('openai_api_key') || '';
     const savedLeonardoKey = localStorage.getItem('leonardo_api_key') || '';
+    const savedImagePromptTemplate = localStorage.getItem('image_prompt_template') || '';
     const savedPreferredModel = localStorage.getItem('preferred_ai_model') || 'gemini';
     const savedOpenAIModel = localStorage.getItem('openai_model_type') || 'gpt-4o-mini';
     const savedUseOpenAI = localStorage.getItem('use_openai') === 'true';
@@ -39,6 +43,7 @@ const Settings = () => {
     setGeminiApiKey(savedGeminiKey);
     setOpenaiApiKey(savedOpenAIKey);
     setLeonardoApiKey(savedLeonardoKey);
+    setImagePromptTemplate(savedImagePromptTemplate);
     setPreferredModel(savedPreferredModel);
     setOpenaiModelType(savedOpenAIModel);
     setUseOpenAI(savedUseOpenAI);
@@ -65,6 +70,11 @@ const Settings = () => {
       // Save Leonardo API key
       if (leonardoApiKey) {
         localStorage.setItem('leonardo_api_key', leonardoApiKey);
+      }
+      
+      // Save image prompt template
+      if (imagePromptTemplate) {
+        localStorage.setItem('image_prompt_template', imagePromptTemplate);
       }
       
       // Save AI model preferences
@@ -118,6 +128,55 @@ const Settings = () => {
     }
   };
 
+  const testImageGeneration = async () => {
+    // Verificar se a chave da API Leonardo está configurada
+    if (!leonardoApiKey) {
+      toast.error('Configure a chave da API Leonardo.ai antes de testar');
+      return;
+    }
+
+    toast.info('Testando geração de imagem...');
+
+    try {
+      const leonardoAgent = new LeonardoAIAgent();
+      
+      // Definir a chave da API
+      leonardoAgent.setApiKey(leonardoApiKey);
+      
+      if (!leonardoAgent.isAgentAvailable()) {
+        toast.error('Agente Leonardo.ai não está disponível. Verifique a chave da API');
+        return;
+      }
+      
+      // Salvar o template de prompt no localStorage antes de testar
+      if (imagePromptTemplate) {
+        localStorage.setItem('image_prompt_template', imagePromptTemplate);
+      }
+      
+      // Gerar uma imagem de teste
+      const imageUrl = await leonardoAgent.generateImage({
+        prompt: "Uma raposa laranja com roupas verdes em uma floresta colorida, cercada por árvores e flores",
+        characterName: "Raposa Aventureira",
+        theme: "adventure",
+        setting: "forest",
+        style: "papercraft",
+        characterPrompt: "Raposa de pelo laranja vibrante, com roupas verdes de aventureiro, olhos grandes e expressivos, e uma cauda fofa",
+        storyContext: "A Raposa Aventureira explorando a Floresta Encantada"
+      });
+      
+      if (imageUrl) {
+        toast.success('Imagem gerada com sucesso!');
+        // Mostrar imagem gerada
+        window.open(imageUrl, '_blank');
+      } else {
+        toast.error('Falha ao gerar imagem');
+      }
+    } catch (error) {
+      console.error('Erro ao testar geração de imagem:', error);
+      toast.error('Erro ao gerar imagem de teste');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -131,9 +190,10 @@ const Settings = () => {
           <h1 className="text-3xl font-bold text-violet-800 mb-8">Configurações</h1>
           
           <Tabs defaultValue="ai-models" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="ai-models">Modelos de IA</TabsTrigger>
               <TabsTrigger value="image-generation">Geração de Imagens</TabsTrigger>
+              <TabsTrigger value="image-prompts">Prompts de Imagem</TabsTrigger>
             </TabsList>
             
             <TabsContent value="ai-models">
@@ -262,12 +322,46 @@ const Settings = () => {
                       Obtenha sua chave em <a href="https://leonardo.ai/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">leonardo.ai/settings/api-keys</a>
                     </p>
                   </div>
+                  
+                  <div className="mt-6">
+                    <h3 className="text-lg font-medium mb-2">Estilo Papercraft</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-md overflow-hidden border shadow-sm">
+                        <img 
+                          src="/lovable-uploads/4d1a379f-0b24-48da-9f0f-e66feccc4e59.png" 
+                          alt="Exemplo de ilustração papercraft" 
+                          className="w-full h-auto object-cover"
+                        />
+                        <div className="p-2 bg-white">
+                          <p className="text-xs text-gray-500">Exemplo de ilustração no estilo papercraft</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Características do estilo:</h4>
+                        <ul className="text-sm space-y-1 list-disc pl-5">
+                          <li>Elementos que parecem recortados e colados em camadas</li>
+                          <li>Texturas de papel visíveis</li>
+                          <li>Efeito tridimensional como um livro pop-up</li>
+                          <li>Cores vibrantes e saturadas</li>
+                          <li>Bordas ligeiramente elevadas com sombras sutis</li>
+                          <li>Composição central focando os personagens principais</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    variant="outline"
+                    onClick={testImageGeneration}
+                    className="flex items-center gap-2"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    Testar Geração
+                  </Button>
                   <Button 
                     onClick={handleSaveSettings}
                     disabled={isSaving}
-                    className="ml-auto"
                   >
                     {isSaving ? (
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -275,6 +369,63 @@ const Settings = () => {
                       <Save className="mr-2 h-4 w-4" />
                     )}
                     Salvar Configurações
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="image-prompts">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Template de Prompts para Ilustrações</CardTitle>
+                  <CardDescription>
+                    Personalize o template usado para gerar ilustrações no estilo papercraft
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="image-prompt-template">Template para Geração de Ilustrações</Label>
+                    <Textarea
+                      id="image-prompt-template"
+                      placeholder="Insira o template para geração de ilustrações..."
+                      className="min-h-[300px] font-mono text-sm"
+                      value={imagePromptTemplate}
+                      onChange={(e) => setImagePromptTemplate(e.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Este template será usado para a geração de ilustrações com Leonardo AI. 
+                      As variáveis entre chaves {'{exemplo}'} são substituídas pelos dados da história.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-md border mt-4">
+                    <h4 className="text-sm font-medium mb-2">Variáveis disponíveis:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <div className="space-y-1">
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{personagem}'}</span> - Nome do personagem principal</p>
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{caracteristicas_do_personagem}'}</span> - Descrição do personagem</p>
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{cenario}'}</span> - Cenário da história</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{tema}'}</span> - Tema da história</p>
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{elementos_da_cena}'}</span> - Elementos importantes da cena</p>
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{texto_da_pagina}'}</span> - Texto completo do prompt original</p>
+                        <p><span className="font-mono bg-gray-100 px-1 rounded">{'{emocao}'}</span> - Emoção detectada na cena</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-end">
+                  <Button 
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Salvar Template
                   </Button>
                 </CardFooter>
               </Card>

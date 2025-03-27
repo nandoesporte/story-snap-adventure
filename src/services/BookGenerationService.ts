@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { reinitializeGeminiAI } from '@/lib/openai';
@@ -396,6 +395,8 @@ export class BookGenerationService {
         throw new Error('Não foi possível extrair páginas da história gerada. Por favor, tente novamente.');
       }
       
+      this.enhanceImagePrompts(parsedStory, storyParams);
+      
       progressCallback?.('Salvando sua história...', 85);
       
       if (this.currentStoryId !== storyId) {
@@ -527,7 +528,7 @@ Personalidade: ${data.personality || 'Não especificada'}`;
       prompt += `\nDetalhes do personagem:\n${characterDetails}\n`;
     }
     
-    prompt += `\nCada página deve ser claramente separada por "PÁGINA X:" e após o texto de cada página, inclua "PROMPT DA IMAGEM:" com uma descrição detalhada da cena para geração de ilustração.\n`;
+    prompt += `\nCada página deve ser claramente separada por "PÁGINA X:" e após o texto de cada página, inclua "PROMPT DA IMAGEM:" com uma descrição detalhada da cena para geração de ilustração no estilo PAPERCRAFT (arte em camadas de papel recortado com efeito 3D). Garanta que todos os elementos importantes da cena estejam incluídos no prompt da imagem e que as características do personagem principal permaneçam consistentes em toda a história.\n`;
     
     return prompt;
   }
@@ -846,5 +847,106 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
       console.error("Error retrieving story from session storage:", error);
       return null;
     }
+  }
+  
+  static enhanceImagePrompts(story: CompleteStory, storyParams: Story): void {
+    // Tentar carregar o template personalizado
+    const imagePromptTemplate = localStorage.getItem('image_prompt_template');
+    
+    if (!imagePromptTemplate) {
+      console.log("Nenhum template de prompt de imagem personalizado encontrado, usando o padrão");
+      return;
+    }
+    
+    // Aprimorar cada prompt de imagem usando o template
+    for (let i = 0; i < story.pages.length; i++) {
+      const page = story.pages[i];
+      const originalPrompt = page.image_prompt || `Ilustração para a página ${i+1}: ${page.text.substring(0, 100)}...`;
+      
+      // Extrair elementos importantes da cena
+      const sceneElements = this.extractSceneElements(page.text);
+      const emotion = this.detectEmotion(page.text);
+      
+      // Substituir as variáveis no template
+      let enhancedPrompt = imagePromptTemplate
+        .replace(/{personagem}/g, storyParams.character_name)
+        .replace(/{caracteristicas_do_personagem}/g, storyParams.character_prompt || 'personagem colorido')
+        .replace(/{cenario}/g, storyParams.setting || '')
+        .replace(/{tema}/g, storyParams.theme || '')
+        .replace(/{elementos_da_cena}/g, sceneElements)
+        .replace(/{texto_da_pagina}/g, originalPrompt)
+        .replace(/{emocao}/g, emotion);
+        
+      // Adicionar informações sobre o número da página
+      enhancedPrompt += ` (Página ${i+1} de ${story.pages.length})`;
+      
+      // Atualizar o prompt da imagem na história
+      story.pages[i].image_prompt = enhancedPrompt;
+    }
+    
+    console.log("Prompts de imagem aprimorados com o template papercraft");
+  }
+  
+  static extractSceneElements(pageText: string): string {
+    // Lista de palavras-chave para procurar (substantivos comuns em histórias)
+    const keywords = [
+      'árvore', 'floresta', 'castelo', 'montanha', 'rio', 'lago', 'oceano', 'praia',
+      'nave', 'estrela', 'planeta', 'lua', 'sol', 'céu', 'nuvem', 'animal', 'pássaro',
+      'peixe', 'dinossauro', 'dragão', 'monstro', 'caverna', 'casa', 'porta', 'janela',
+      'jardim', 'flor', 'planta', 'barco', 'navio', 'ponte', 'caminho', 'estrada'
+    ];
+    
+    // Identificar os elementos presentes no texto
+    const foundElements: string[] = [];
+    for (const keyword of keywords) {
+      if (pageText.toLowerCase().includes(keyword)) {
+        foundElements.push(keyword);
+      }
+    }
+    
+    // Se não encontrar elementos suficientes, extrair substantivos do texto
+    if (foundElements.length < 3) {
+      const words = pageText.split(/\s+/).filter(word => word.length > 4);
+      const additionalElements = words.slice(0, 5);
+      foundElements.push(...additionalElements);
+    }
+    
+    // Retornar uma lista formatada dos elementos
+    return foundElements.length > 0 
+      ? foundElements.slice(0, 6).join(', ')
+      : 'elementos da cena baseados no texto da história';
+  }
+  
+  static detectEmotion(pageText: string): string {
+    const emotionKeywords: Record<string, string[]> = {
+      'alegria': ['feliz', 'alegre', 'contente', 'sorriso', 'sorriu', 'divertido', 'gargalhada', 'brincava'],
+      'tristeza': ['triste', 'chorou', 'lágrima', 'solitário', 'sozinho', 'desanimado', 'chateado'],
+      'surpresa': ['surpresa', 'espanto', 'assustado', 'chocado', 'impressionado', 'maravilhado'],
+      'medo': ['medo', 'assustado', 'terrível', 'perigoso', 'tremendo', 'apavorado'],
+      'curiosidade': ['curioso', 'interessado', 'explorou', 'descobriu', 'investigou', 'procurou'],
+      'determinação': ['determinado', 'forte', 'corajoso', 'persistente', 'tentava', 'decidido'],
+      'amizade': ['amigo', 'juntos', 'ajudou', 'companheiro', 'parceiro', 'compartilhar']
+    };
+    
+    // Contar ocorrências de cada emoção no texto
+    const counts: Record<string, number> = {};
+    for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+      counts[emotion] = keywords.reduce((count, word) => {
+        return count + (pageText.toLowerCase().includes(word) ? 1 : 0);
+      }, 0);
+    }
+    
+    // Identificar a emoção predominante
+    let predominantEmotion = 'curiosidade'; // emoção padrão
+    let highestCount = 0;
+    
+    for (const [emotion, count] of Object.entries(counts)) {
+      if (count > highestCount) {
+        highestCount = count;
+        predominantEmotion = emotion;
+      }
+    }
+    
+    return predominantEmotion;
   }
 }

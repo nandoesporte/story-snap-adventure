@@ -55,16 +55,25 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 
 IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.`);
 
-  const [imagePromptTemplate] = useState<string>(`Crie ilustrações para um livro infantil no estilo {estilo_visual}, com um visual colorido, encantador e adequado para crianças. O protagonista da história é {personagem}, e cada imagem deve representar fielmente a cena descrita no texto. O cenário principal será {cenario}, que deve ser detalhado de forma vibrante e mágica. As ilustrações devem expressar emoções, ação e aventura, transmitindo a essência da história de forma visualmente envolvente. Garanta que os elementos do ambiente, cores e expressões dos personagens estejam bem definidos e alinhados ao tom infantil da narrativa.
+  const [imagePromptTemplate] = useState<string>(`Crie uma ilustração para um livro infantil no estilo papercraft, com elementos que parecem recortados e colados, texturas de papel sobrepostas, e efeito tridimensional como um livro pop-up. A ilustração deve apresentar:
+
+1. O personagem principal {personagem} que DEVE manter EXATAMENTE as mesmas características visuais em todas as ilustrações: {caracteristicas_do_personagem}. Mantenha a mesma aparência, expressões, cores, roupas e proporções em todas as imagens para garantir consistência absoluta.
+
+2. Cenário rico em detalhes no estilo papercraft com camadas sobrepostas de papel, representando {cenario} com elementos tridimensionais recortados, dobrados e superpostos.
+
+3. Cores vibrantes e saturadas, com textura visual de papel e bordas ligeiramente elevadas criando sombras sutis.
+
+4. Múltiplos elementos da história como {elementos_da_cena} todos no mesmo estilo de recorte de papel.
+
+5. Composição central focando o personagem principal em ação, com expressão facial bem definida mostrando {emocao}.
+
+6. Iluminação que realça a tridimensionalidade dos elementos de papel, com sombras suaves entre as camadas.
+
+7. Detalhes adicionais como pequenas flores, plantas, animais ou objetos feitos em papercraft distribuídos pela cena para enriquecer a ilustração.
 
 Texto da cena: "{texto_da_pagina}"
 
-Elementos importantes:
-- Personagem principal: {personagem} com {caracteristicas_do_personagem}
-- Cenário: {cenario}
-- Tema: {tema}
-- Estilo visual: {estilo_visual}
-- Tom: mágico, encantador, infantil`);
+IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os elementos importantes da narrativa visíveis e apresentados no estilo distintivo de papercraft com camadas de papel recortado, mantendo consistência absoluta na aparência do personagem principal ao longo de toda a história.`);
 
   // Query to fetch the current StoryBot prompt - now simplified to handle errors better
   const { data: promptData, isLoading } = useQuery({
@@ -211,8 +220,10 @@ Elementos importantes:
   }, [promptData, form, imagePromptTemplate]);
 
   const handleSubmit = (data: { prompt: string, imagePrompt: string }) => {
-    // We're currently only saving the main prompt to the database
-    // The image prompt template is provided as a reference
+    // Save image prompt to localStorage
+    localStorage.setItem('image_prompt_template', data.imagePrompt);
+    
+    // Update the main prompt in the database
     updatePromptMutation.mutate(data.prompt);
   };
 
@@ -290,17 +301,29 @@ Elementos importantes:
                           placeholder="Insira o template para geração de ilustrações..."
                           className="min-h-[400px] font-mono text-sm"
                           {...field}
-                          disabled
                         />
                       </FormControl>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Este é o template de referência usado para a geração de ilustrações com Leonardo AI. 
-                        As variáveis entre chaves são substituídas pelos dados fornecidos pelo usuário.
+                        Este template será usado para a geração de ilustrações com Leonardo AI. 
+                        As variáveis entre chaves {'{exemplo}'} são substituídas pelos dados da história.
                       </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Exemplo de ilustração no estilo papercraft</h4>
+                  <div className="rounded-md overflow-hidden border">
+                    <img 
+                      src="/lovable-uploads/4d1a379f-0b24-48da-9f0f-e66feccc4e59.png" 
+                      alt="Exemplo de ilustração papercraft" 
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Referência visual para o estilo papercraft com elementos 3D em camadas de papel
+                  </p>
+                </div>
               </TabsContent>
             </Tabs>
             

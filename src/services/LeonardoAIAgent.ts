@@ -223,9 +223,8 @@ export class LeonardoAIAgent {
     const savedPrompt = this.characterPrompts.get(characterName);
     const finalCharacterPrompt = savedPrompt || characterPrompt || null;
     
-    // Sempre usar estilo papercraft, independente do que foi passado
-    const effectiveStyle = "papercraft";
-    this.saveCharacterStyle(characterName, effectiveStyle);
+    // Sempre usar estilo papercraft
+    this.saveCharacterStyle(characterName, "papercraft");
     
     // Usar o modelo salvo para o personagem, se existir
     const modelId = this.characterModels.get(characterName) || "b820ea11-02bf-4652-97ae-93b22e02a0a9"; // Leonardo Creative como padrão
@@ -233,29 +232,39 @@ export class LeonardoAIAgent {
     // Verificar se já temos uma imagem de referência para este personagem
     const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
     
-    // Enriquecer o prompt para garantir consistência do personagem e melhorar as ilustrações
-    let enhancedPrompt = prompt;
+    // Tentar usar o template personalizado do localStorage se disponível
+    let imagePromptTemplate = localStorage.getItem('image_prompt_template');
+    let enhancedPrompt: string;
     
-    // Adicionar um prefixo para garantir consistência
-    enhancedPrompt = `Ilustração consistente do personagem ${characterName}. ${enhancedPrompt}`;
-    
-    // Adicionar contexto da história, se disponível
-    if (storyContext) {
-      enhancedPrompt = `${storyContext}: ${enhancedPrompt}`;
+    if (imagePromptTemplate) {
+      // Usar o template personalizado com substituição de variáveis
+      enhancedPrompt = imagePromptTemplate
+        .replace(/{personagem}/g, characterName)
+        .replace(/{caracteristicas_do_personagem}/g, finalCharacterPrompt || 'personagem colorido')
+        .replace(/{cenario}/g, setting)
+        .replace(/{tema}/g, theme)
+        .replace(/{elementos_da_cena}/g, prompt.slice(0, 100))
+        .replace(/{texto_da_pagina}/g, prompt)
+        .replace(/{emocao}/g, prompt.includes('feliz') ? 'alegria' : 
+                               prompt.includes('triste') ? 'tristeza' : 
+                               prompt.includes('surpreso') ? 'surpresa' : 'curiosidade');
+    } else {
+      // Usar a abordagem padrão de construção de prompt
+      enhancedPrompt = `Ilustração no estilo papercraft (arte em camadas de papel recortado com efeito 3D como livro pop-up) para livro infantil, mostrando ${characterName} em ${setting}. Garantir que o personagem tenha EXATAMENTE a mesma aparência em todas as ilustrações. ${prompt}`;
+      
+      if (finalCharacterPrompt) {
+        enhancedPrompt += ` O personagem ${characterName} possui as seguintes características visuais que DEVEM ser mantidas em todas as imagens: ${finalCharacterPrompt}`;
+      }
+      
+      enhancedPrompt += ` Camadas de papel recortado, texturas visíveis, elementos em diferentes níveis de profundidade, cores vibrantes, composição central focando o personagem principal, múltiplos elementos da história como detalhes no cenário, todos no estilo de papel recortado.`;
     }
     
-    // Adicionar detalhes específicos do personagem ao prompt
-    if (finalCharacterPrompt) {
-      enhancedPrompt += ` O personagem ${characterName} possui as seguintes características visuais que DEVEM ser mantidas em todas as imagens: ${finalCharacterPrompt}`;
+    // Adicionar sempre o estilo papercraft como garantia
+    if (!enhancedPrompt.toLowerCase().includes('papercraft')) {
+      enhancedPrompt += " Ilustração em estilo PAPERCRAFT com camadas de papel recortado, textura de papel, elementos em diferentes níveis sobrepostos como um livro pop-up.";
     }
     
-    // Adicionar instruções para estilo de ilustração papercraft
-    enhancedPrompt += ` Ilustração de alta qualidade para livro infantil, estilo papercraft, com textura de papel e elementos que parecem recortados e colados, como um livro pop-up.`;
-    
-    // Adicionar instruções para composição e foco
-    enhancedPrompt += " Composição central, foco no personagem principal, expressões faciais claras, cores vibrantes.";
-    
-    // Adicionar instruções específicas para manter consistência
+    // Adicionar instruções para manter consistência
     enhancedPrompt += " IMPORTANTE: mantenha EXATAMENTE a mesma aparência física, roupas, cores e características faciais do personagem em todas as ilustrações para garantir consistência.";
     
     console.log("Gerando imagem com Leonardo.ai API:", {
@@ -458,13 +467,15 @@ export class LeonardoAIAgent {
         toast.info(`Gerando ilustração de referência do personagem ${characterName}...`);
         
         try {
-          let enhancedPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência visual. ${firstPagePrompt}`;
+          // Criar um prompt mais detalhado para a imagem de referência
+          let enhancedPrompt = `Retrato detalhado do personagem ${characterName} no estilo papercraft (camadas de papel recortado com profundidade 3D). ${firstPagePrompt}`;
           
           if (storyTitle) {
             enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
           }
           
           enhancedPrompt += ` (Tema: ${theme}, Cenário: ${setting})`;
+          enhancedPrompt += ` O personagem deve ter características visuais bem definidas e distintas que possam ser mantidas consistentes em todas as ilustrações.`;
           
           const firstImageUrl = await this.generateImage({
             prompt: enhancedPrompt,
@@ -493,13 +504,15 @@ export class LeonardoAIAgent {
         toast.info(`Gerando ilustração para página ${pageNumber} de ${storyPages.length}...`);
         
         try {
-          let enhancedPrompt = `Mantenha a EXATA aparência do personagem ${characterName} conforme a imagem de referência. ${imagePrompt}`;
+          // Criar um prompt mais detalhado para cada página
+          let enhancedPrompt = `Ilustração papercraft (camadas de papel recortado 3D) para página ${pageNumber}. Mantenha a EXATA aparência do personagem ${characterName} conforme a imagem de referência. ${imagePrompt}`;
           
           if (storyTitle) {
             enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
           }
           
           enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
+          enhancedPrompt += ` Inclua múltiplos elementos da cena: ${pageText.substring(0, 150)}`;
           
           if (i === storyPages.length - 1) {
             enhancedPrompt += " Esta é a última página da história, mostre a conclusão ou celebração.";
@@ -543,15 +556,17 @@ export class LeonardoAIAgent {
     childImage: string | null = null
   ): Promise<string> {
     const coverPrompt = `Capa de livro infantil em estilo papercraft para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
-                        A ilustração deve ser como um livro pop-up com texturas de papel, elementos que parecem recortados e colados, e o título "${title}" integrado ao design. 
+                        A ilustração deve ser como um livro pop-up com texturas de papel, elementos que parecem recortados e colados em camadas, e o título "${title}" integrado ao design. 
                         O personagem deve estar centralizado na cena, com uma expressão alegre e aventureira.
+                        Inclua vários elementos do tema como flores, árvores, nuvens, sol, animais ou objetos, todos em estilo de recorte de papel com profundidade 3D.
+                        Cores vibrantes e saturadas, detalhes ricos, iluminação que realça as camadas de papel.
                         Importante: Mantenha as características visuais consistentes do personagem.`;
     
     const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
     
     try {
       if (!referenceImageUrl) {
-        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo papercraft.`;
+        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo papercraft com camadas de papel recortado.`;
         
         const referenceImage = await this.generateImage({
           prompt: characterRefPrompt,
