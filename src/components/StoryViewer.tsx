@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, BookOpenText, Box } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
@@ -10,8 +11,7 @@ import { jsPDF } from "jspdf";
 import { supabase } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Book3DViewer from "./3D/Book3D";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface StoryPage {
   text: string;
@@ -64,7 +64,6 @@ const StoryViewer: React.FC = () => {
   const [imageZoom, setImageZoom] = useState(1);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
-  const [viewMode, setViewMode] = useState<"2d" | "3d">("2d");
   const bookRef = useRef<HTMLDivElement>(null);
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -254,13 +253,6 @@ const StoryViewer: React.FC = () => {
     }
   };
   
-  const handlePageTurn = (newPage: number) => {
-    if (newPage !== currentPage) {
-      setFlipDirection(newPage > currentPage ? "right" : "left");
-      setCurrentPage(newPage);
-    }
-  };
-  
   const handleDownloadPDF = async () => {
     if (!storyData) return;
     
@@ -419,14 +411,16 @@ const StoryViewer: React.FC = () => {
     return (
       <div className="w-full h-full flex flex-col md:flex-row">
         <div className="w-full md:w-1/2 h-1/2 md:h-full p-3 md:p-6 lg:p-8 bg-white overflow-auto flex flex-col justify-between">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">{storyData.title}</h2>
-            <div className="prose prose-sm md:prose-lg">
-              {page.text.split('\n').map((paragraph, idx) => (
-                <p key={idx} className="mb-2 md:mb-3">{paragraph}</p>
-              ))}
+          <ScrollArea className="h-full pr-2">
+            <div className="mb-4">
+              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">{storyData.title}</h2>
+              <div className="prose prose-sm md:prose-lg">
+                {page.text.split('\n').map((paragraph, idx) => (
+                  <p key={idx} className="mb-2 md:mb-3 text-base">{paragraph}</p>
+                ))}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
           <div className="mt-3 md:mt-4 text-xs md:text-sm text-gray-500">
             Página {pageIndex + 1} de {storyData.pages.length}
           </div>
@@ -536,29 +530,6 @@ const StoryViewer: React.FC = () => {
             <h1 className="text-lg md:text-xl font-bold truncate">{storyData?.title}</h1>
           </div>
           <div className="flex gap-1 md:gap-2">
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) => setViewMode(value as "2d" | "3d")}
-              className="h-8"
-            >
-              <TabsList className="bg-storysnap-blue/30 h-8">
-                <TabsTrigger 
-                  value="2d" 
-                  className="text-white data-[state=active]:bg-white/20 h-7 px-2 text-xs"
-                >
-                  <BookOpenText className="h-4 w-4 mr-1" />
-                  <span className="hidden md:inline">2D</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="3d" 
-                  className="text-white data-[state=active]:bg-white/20 h-7 px-2 text-xs"
-                >
-                  <Box className="h-4 w-4 mr-1" />
-                  <span className="hidden md:inline">3D</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
             {!isMobile && (
               <>
                 <Button 
@@ -605,81 +576,64 @@ const StoryViewer: React.FC = () => {
         </div>
         
         <div className="relative bg-slate-100 min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
-          {viewMode === "2d" && (
-            <>
-              <button 
-                className={`absolute left-2 md:left-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
-                onClick={handlePreviousPage}
-                disabled={currentPage === 0}
-              >
-                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-              </button>
-              
-              <button 
-                className={`absolute right-2 md:right-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
-                onClick={handleNextPage}
-                disabled={currentPage >= totalPages - 1}
-              >
-                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-              </button>
-              
-              <div 
-                className="relative w-full h-full max-w-4xl max-h-[60vh] md:max-h-[70vh] perspective-[1000px]"
-              >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentPage}
-                    initial={{ 
-                      rotateY: flipDirection === "right" ? -90 : 90,
-                      opacity: 0,
-                      scale: 0.9
-                    }}
-                    animate={{ 
-                      rotateY: 0,
-                      opacity: 1,
-                      scale: 1
-                    }}
-                    exit={{ 
-                      rotateY: flipDirection === "right" ? 90 : -90,
-                      opacity: 0,
-                      scale: 0.9
-                    }}
-                    transition={{ 
-                      type: "spring", 
-                      stiffness: 300, 
-                      damping: 25 
-                    }}
-                    style={{ 
-                      transformStyle: "preserve-3d",
-                      backfaceVisibility: "hidden"
-                    }}
-                    className="w-full h-full flex flex-col md:flex-row shadow-2xl rounded-lg overflow-hidden bg-white"
-                    ref={bookRef}
-                  >
-                    {currentPage === 0 
-                      ? renderCoverPage()
-                      : renderStoryPage(currentPage - 1)
-                    }
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </>
-          )}
+          <button 
+            className={`absolute left-2 md:left-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0}
+            aria-label="Página anterior"
+          >
+            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+          </button>
           
-          {viewMode === "3d" && storyData && (
-            <div className="w-full h-full max-w-4xl max-h-[60vh] md:max-h-[70vh]">
-              <Book3DViewer
-                coverImage={getImageUrl(storyData.coverImageUrl || storyData.cover_image_url, storyData.theme)}
-                pages={storyData.pages.map(page => ({ 
-                  text: page.text,
-                  imageUrl: getImageUrl(page.imageUrl || page.image_url, storyData.theme)
-                }))}
-                currentPage={currentPage}
-                onPageTurn={handlePageTurn}
-                title={storyData.title}
-              />
-            </div>
-          )}
+          <button 
+            className={`absolute right-2 md:right-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1}
+            aria-label="Próxima página"
+          >
+            <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+          </button>
+          
+          <div 
+            className="relative w-full h-full max-w-4xl max-h-[60vh] md:max-h-[70vh] perspective-[1000px]"
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentPage}
+                initial={{ 
+                  rotateY: flipDirection === "right" ? -90 : 90,
+                  opacity: 0,
+                  scale: 0.9
+                }}
+                animate={{ 
+                  rotateY: 0,
+                  opacity: 1,
+                  scale: 1
+                }}
+                exit={{ 
+                  rotateY: flipDirection === "right" ? 90 : -90,
+                  opacity: 0,
+                  scale: 0.9
+                }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 25 
+                }}
+                style={{ 
+                  transformStyle: "preserve-3d",
+                  backfaceVisibility: "hidden"
+                }}
+                className="w-full h-full flex flex-col md:flex-row shadow-2xl rounded-lg overflow-hidden bg-white"
+                ref={bookRef}
+              >
+                {currentPage === 0 
+                  ? renderCoverPage()
+                  : renderStoryPage(currentPage - 1)
+                }
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
         
         <div className="flex justify-center items-center py-2 md:py-4 bg-white">
@@ -696,6 +650,7 @@ const StoryViewer: React.FC = () => {
                     setIsFlipping(false);
                   }, 300);
                 }}
+                aria-label={`Ir para página ${idx + 1}`}
               />
             ))}
           </div>
