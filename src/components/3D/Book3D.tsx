@@ -1,18 +1,18 @@
 
-import { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, OrbitControls, PerspectiveCamera, Environment, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Placeholder textures that are guaranteed to exist
+// Placeholder textures that are guaranteed to exist (using Unsplash images that won't expire)
 const PLACEHOLDER_TEXTURE = '/placeholder.svg';
 const FALLBACK_TEXTURES = {
-  adventure: 'https://images.unsplash.com/photo-1472396961693-142e6e269027',
-  fantasy: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23',
-  space: 'https://images.unsplash.com/photo-1543722530-d2c3201371e7',
-  ocean: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21',
-  dinosaurs: 'https://images.unsplash.com/photo-1569240651738-3d1356c8b4bc',
-  forest: 'https://images.unsplash.com/photo-1448375240586-882707db888b'
+  adventure: 'https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=800&q=80',
+  fantasy: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+  space: 'https://images.unsplash.com/photo-1543722530-d2c3201371e7?auto=format&fit=crop&w=800&q=80',
+  ocean: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=800&q=80',
+  dinosaurs: 'https://images.unsplash.com/photo-1569240651738-3d1356c8b4bc?auto=format&fit=crop&w=800&q=80',
+  forest: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80'
 };
 
 interface BookPageProps {
@@ -45,26 +45,41 @@ const BookPage: React.FC<BookPageProps> = ({
   // Use a safe texture path that won't throw errors
   const safeTexturePath = useMemo(() => {
     // If the texture is a URL that doesn't start with http(s), use the placeholder
-    if (texture && !texture.startsWith('http') && !texture.startsWith('/')) {
+    if (!texture || texture === PLACEHOLDER_TEXTURE) {
       return PLACEHOLDER_TEXTURE;
     }
-    return texture || PLACEHOLDER_TEXTURE;
+    
+    if (!texture.startsWith('http') && !texture.startsWith('/')) {
+      console.warn('Invalid texture path:', texture);
+      return PLACEHOLDER_TEXTURE;
+    }
+    
+    return texture;
   }, [texture]);
   
-  // Load textures safely with error handling using useMemo to prevent re-renders
+  // Load textures safely with error handling
   const pageTexture = useMemo(() => {
     try {
       // Wrap in try-catch to handle potential texture loading errors
-      return useTexture(safeTexturePath);
+      const loadedTexture = new THREE.TextureLoader().load(
+        safeTexturePath,
+        undefined,  // onLoad callback
+        undefined,  // onProgress callback
+        () => {     // onError callback
+          console.warn('Failed to load texture:', safeTexturePath);
+          // We don't set state here to avoid re-renders
+        }
+      );
+      return loadedTexture;
     } catch (error) {
       console.error("Failed to load texture, using placeholder:", error);
-      return useTexture(PLACEHOLDER_TEXTURE);
+      return new THREE.TextureLoader().load(PLACEHOLDER_TEXTURE);
     }
   }, [safeTexturePath]);
   
-  // Load paper texture once, not on every render
+  // Load paper texture once
   const paperTexture = useMemo(() => {
-    const texture = useTexture(PLACEHOLDER_TEXTURE);
+    const texture = new THREE.TextureLoader().load(PLACEHOLDER_TEXTURE);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(1, 1);
     return texture;
@@ -255,18 +270,7 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
   );
 };
 
-interface Book3DViewerProps {
-  coverImage?: string;
-  pages: Array<{
-    text: string;
-    imageUrl?: string;
-  }>;
-  currentPage: number;
-  onPageTurn: (newPage: number) => void;
-  title: string;
-}
-
-// Use error boundary to prevent blank screen on 3D rendering errors
+// Error boundary class to prevent blank screen on 3D rendering errors
 class ErrorFallback extends React.Component<{ children: React.ReactNode }> {
   state = { hasError: false };
   
@@ -290,7 +294,7 @@ class ErrorFallback extends React.Component<{ children: React.ReactNode }> {
   }
 }
 
-const Book3DViewer: React.FC<Book3DViewerProps> = (props) => {
+const Book3DViewer: React.FC<Book3DProps> = (props) => {
   return (
     <div className="w-full h-full" style={{ minHeight: '400px' }}>
       <ErrorFallback>
