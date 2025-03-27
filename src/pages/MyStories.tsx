@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -30,7 +29,6 @@ import {
 import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-// Define a StoryListItem type that doesn't require the pages property
 type StoryListItem = Omit<Story, 'pages'> & {
   pages?: Story['pages'];
 };
@@ -54,7 +52,7 @@ const MyStories = () => {
         console.log("Fetching user stories...");
         const result = await getUserStories();
         console.log("Stories fetched successfully:", result);
-        return result as StoryListItem[]; // Cast the result to StoryListItem[]
+        return result as StoryListItem[];
       } catch (err: any) {
         console.error("Error fetching stories:", err);
         throw err;
@@ -102,7 +100,7 @@ const MyStories = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <motion.div
-        className="flex-grow pt-24 pb-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50" // Added pt-24 for more top padding
+        className="flex-grow pt-24 pb-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -143,8 +141,8 @@ const MyStories = () => {
           ) : stories && stories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {stories.map((story: StoryListItem) => (
-                <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md">
-                  <div className="aspect-[16/9] relative overflow-hidden bg-violet-100">
+                <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md hover:scale-[1.02] hover:border-violet-300">
+                  <div className="aspect-[4/5] relative overflow-hidden bg-violet-100">
                     {story.cover_image_url ? (
                       <img
                         src={typeof story.cover_image_url === 'string' ? story.cover_image_url : '/placeholder.svg'}
@@ -160,6 +158,46 @@ const MyStories = () => {
                         <BookOpen className="h-12 w-12 text-violet-500" />
                       </div>
                     )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                      <Link to={`/view-story/${story.id}`} className="w-full">
+                        <Button variant="secondary" className="w-full mb-2 bg-white/90 hover:bg-white">
+                          <BookOpen className="mr-2 h-4 w-4" />
+                          Ler História
+                        </Button>
+                      </Link>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full text-red-500 border-red-200 bg-white/90 hover:bg-red-50 hover:text-red-600"
+                            onClick={() => setStoryToDelete(story.id)}
+                          >
+                            <Trash className="mr-2 h-4 w-4" />
+                            Excluir
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Excluir História</DialogTitle>
+                            <DialogDescription>
+                              Tem certeza que deseja excluir a história "{story.title}"? Esta ação não pode ser desfeita.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter className="flex space-x-2 justify-end">
+                            <DialogClose asChild>
+                              <Button variant="outline">Cancelar</Button>
+                            </DialogClose>
+                            <Button
+                              variant="destructive"
+                              onClick={handleDeleteStory}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? 'Excluindo...' : 'Excluir'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
                   <CardHeader className="p-4">
                     <CardTitle className="text-lg truncate">{story.title}</CardTitle>
@@ -179,43 +217,12 @@ const MyStories = () => {
                     </p>
                   </CardContent>
                   <CardFooter className="p-4 pt-0 flex justify-between">
-                    <Link to={`/view-story/${story.id}`}>
-                      <Button variant="story">
+                    <Link to={`/view-story/${story.id}`} className="w-full">
+                      <Button variant="story" className="w-full">
                         <BookOpen className="mr-2 h-4 w-4" />
                         Ler História
                       </Button>
                     </Link>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-                          onClick={() => setStoryToDelete(story.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Excluir História</DialogTitle>
-                          <DialogDescription>
-                            Tem certeza que deseja excluir a história "{story.title}"? Esta ação não pode ser desfeita.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="flex space-x-2 justify-end">
-                          <DialogClose asChild>
-                            <Button variant="outline">Cancelar</Button>
-                          </DialogClose>
-                          <Button
-                            variant="destructive"
-                            onClick={handleDeleteStory}
-                            disabled={isDeleting}
-                          >
-                            {isDeleting ? 'Excluindo...' : 'Excluir'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
                   </CardFooter>
                 </Card>
               ))}
