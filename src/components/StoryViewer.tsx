@@ -13,6 +13,7 @@ import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface StoryPage {
   text: string;
@@ -75,7 +76,7 @@ const StoryViewer: React.FC = () => {
     ? storyData.pages[currentPage - 1].text 
     : "";
   
-  const typedText = useTypingEffect(currentText, currentPage);
+  const typedText = useTypingEffect(currentText, currentPage, 30, true, 800);
 
   useEffect(() => {
     const loadStory = async () => {
@@ -381,28 +382,32 @@ const StoryViewer: React.FC = () => {
     
     return (
       <div className="w-full h-full flex flex-col">
-        <div className="w-full h-full relative overflow-hidden rounded-lg">
-          <div className="w-full h-full">
+        <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
+          <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
             <img 
               src={coverImage} 
               alt={storyData.title}
-              className="w-full h-full object-contain cursor-pointer"
+              className="w-full h-full object-contain p-4 transition-all duration-300"
               onClick={() => handleImageClick(coverImage)}
               onError={() => handleImageError(coverImage)}
             />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6 md:p-8">
-            <h2 className="text-3xl md:text-5xl font-bold mb-3 text-white drop-shadow-md">{storyData.title}</h2>
-            <p className="text-xl md:text-2xl text-white/90 mb-2 drop-shadow-md">Uma história para {storyData.childName}</p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-sm">
-                {storyData.theme}
-              </span>
-              <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-sm">
-                {storyData.setting}
-              </span>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8 md:p-10">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white drop-shadow-md">{storyData.title}</h2>
+            <p className="text-xl md:text-2xl text-white/90 mb-3 drop-shadow-md">Uma história para {storyData.childName}</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {storyData.theme && (
+                <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
+                  {storyData.theme}
+                </span>
+              )}
+              {storyData.setting && (
+                <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
+                  {storyData.setting}
+                </span>
+              )}
               {storyData.style && (
-                <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-sm">
+                <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
                   {storyData.style}
                 </span>
               )}
@@ -422,41 +427,76 @@ const StoryViewer: React.FC = () => {
     
     return (
       <div className="w-full h-full flex flex-col">
-        <div className="w-full h-1/2 bg-gray-100 relative overflow-hidden">
-          <div className="w-full h-full flex items-center justify-center">
-            <img 
-              src={imageUrl} 
-              alt={`Ilustração da página ${pageIndex + 1}`}
-              className="max-w-full max-h-full object-contain cursor-pointer p-4"
-              onClick={() => handleImageClick(imageUrl)}
-              onError={() => handleImageError(page.imageUrl || page.image_url || "")}
-            />
-          </div>
-        </div>
-        
-        <div className="w-full h-1/2 p-4 md:p-6 lg:p-8 bg-white overflow-auto flex flex-col justify-between">
-          <ScrollArea className="h-full pr-2">
-            <div className="mb-4">
-              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">{storyData.title}</h2>
-              <div className="prose prose-sm md:prose-lg">
-                {typedText.split('\n').map((paragraph, idx) => (
-                  <p key={idx} className="mb-2 md:mb-3 text-base">{paragraph}</p>
-                ))}
-                <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
+        {isMobile ? (
+          <>
+            <div className="w-full h-1/2 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden rounded-t-lg">
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <img 
+                  src={imageUrl} 
+                  alt={`Ilustração da página ${pageIndex + 1}`}
+                  className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
+                  onClick={() => handleImageClick(imageUrl)}
+                  onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+                />
               </div>
             </div>
-          </ScrollArea>
-          <div className="mt-3 md:mt-4 text-xs md:text-sm text-gray-500">
-            Página {pageIndex + 1} de {storyData.pages.length}
+            
+            <div className="w-full h-1/2 p-6 bg-white overflow-auto flex flex-col justify-between rounded-b-lg">
+              <ScrollArea className="h-full pr-2">
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
+                  <div className="prose prose-sm">
+                    {typedText.split('\n').map((paragraph, idx) => (
+                      <p key={idx} className="mb-2 text-base">{paragraph}</p>
+                    ))}
+                    <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-gray-500"></div>
+                  </div>
+                </div>
+              </ScrollArea>
+              <div className="mt-4 pt-2 border-t text-xs text-gray-500 flex justify-between">
+                <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                <span>{storyData.childName}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-row">
+            <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6">
+              <img 
+                src={imageUrl} 
+                alt={`Ilustração da página ${pageIndex + 1}`}
+                className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
+                onClick={() => handleImageClick(imageUrl)}
+                onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+              />
+            </div>
+            
+            <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between">
+              <ScrollArea className="h-full pr-2">
+                <div className="mb-6">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{storyData.title}</h2>
+                  <div className="prose prose-lg">
+                    {typedText.split('\n').map((paragraph, idx) => (
+                      <p key={idx} className="mb-3 text-lg">{paragraph}</p>
+                    ))}
+                    <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
+                  </div>
+                </div>
+              </ScrollArea>
+              <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
+                <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                <span>{storyData.childName}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
   
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-violet-50 to-indigo-50">
         <LoadingSpinner size="lg" />
         <p className="mt-4 text-lg">Carregando sua história...</p>
       </div>
@@ -465,7 +505,7 @@ const StoryViewer: React.FC = () => {
   
   if (!storyData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-violet-50 to-indigo-50">
         <div className="glass p-8 rounded-xl text-center max-w-md">
           <h2 className="text-2xl font-bold mb-4">História não encontrada</h2>
           <p className="mb-6">Não foi possível encontrar esta história. Crie uma nova história personalizada.</p>
@@ -479,7 +519,7 @@ const StoryViewer: React.FC = () => {
   }
   
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-2 md:p-4 bg-gray-50">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-violet-50 to-indigo-50 p-2 md:p-4">
       {isDownloading && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl text-center">
@@ -490,8 +530,8 @@ const StoryViewer: React.FC = () => {
         </div>
       )}
       
-      {showImageViewer && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex flex-col">
+      <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
+        <DialogContent className="max-w-7xl bg-black/95 border-none p-0" onEscapeKeyDown={() => setShowImageViewer(false)}>
           <div className="p-3 flex justify-between items-center text-white">
             <div className="flex gap-2">
               <Button 
@@ -520,29 +560,26 @@ const StoryViewer: React.FC = () => {
               <X className="h-6 w-6" />
             </Button>
           </div>
-          <div 
-            className="flex-1 overflow-auto flex items-center justify-center p-4"
-            onClick={() => setShowImageViewer(false)}
-          >
+          <div className="flex-1 overflow-auto flex items-center justify-center p-4 h-[80vh]">
             <div className="relative max-w-full max-h-full">
               <img 
                 src={currentImageUrl} 
                 alt="Visualização da imagem"
-                className="max-w-full max-h-[80vh] object-contain transition-transform duration-200 rounded-lg"
+                className="max-w-full max-h-[70vh] object-contain transition-transform duration-200 rounded-lg"
                 style={{ transform: `scale(${imageZoom})` }}
                 onError={() => handleImageError(currentImageUrl)}
               />
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
       
       <div 
         ref={storyContainerRef}
-        className={`w-full max-w-7xl bg-white shadow-2xl rounded-lg overflow-hidden mb-4 md:mb-8 
+        className={`w-full max-w-7xl bg-white shadow-2xl rounded-2xl overflow-hidden mb-4 md:mb-8 
                    ${isFullscreen ? 'fixed inset-0 z-40 max-w-none rounded-none' : ''}`}
       >
-        <div className="flex justify-between items-center bg-storysnap-blue p-2 md:p-4 text-white">
+        <div className="flex justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600 p-3 text-white">
           <div className="flex items-center">
             <BookText className="mr-2 h-5 w-5 md:h-6 md:w-6" />
             <h1 className="text-lg md:text-xl font-bold truncate">{storyData?.title}</h1>
@@ -553,7 +590,7 @@ const StoryViewer: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="text-white hover:text-white hover:bg-storysnap-blue/80"
+                  className="text-white hover:text-white hover:bg-white/10"
                   onClick={handleShareStory}
                 >
                   <Share className="mr-1 md:mr-2 h-4 w-4" />
@@ -562,7 +599,7 @@ const StoryViewer: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="text-white hover:text-white hover:bg-storysnap-blue/80"
+                  className="text-white hover:text-white hover:bg-white/10"
                   onClick={handleDownloadPDF}
                 >
                   <Download className="mr-1 md:mr-2 h-4 w-4" />
@@ -573,7 +610,7 @@ const StoryViewer: React.FC = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-white hover:text-white hover:bg-storysnap-blue/80"
+              className="text-white hover:text-white hover:bg-white/10"
               onClick={toggleFullscreen}
             >
               {isFullscreen ? (
@@ -585,7 +622,7 @@ const StoryViewer: React.FC = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-white hover:text-white hover:bg-storysnap-blue/80"
+              className="text-white hover:text-white hover:bg-white/10"
               onClick={handleGoHome}
             >
               <Home className="h-4 w-4" />
@@ -593,9 +630,9 @@ const StoryViewer: React.FC = () => {
           </div>
         </div>
         
-        <div className="relative bg-slate-100 min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
+        <div className="relative bg-gradient-to-br from-violet-50 to-indigo-50 min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
           <button 
-            className={`absolute left-2 md:left-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            className={`absolute left-3 md:left-6 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
             onClick={handlePreviousPage}
             disabled={currentPage === 0}
             aria-label="Página anterior"
@@ -604,7 +641,7 @@ const StoryViewer: React.FC = () => {
           </button>
           
           <button 
-            className={`absolute right-2 md:right-4 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
+            className={`absolute right-3 md:right-6 z-10 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
             onClick={handleNextPage}
             disabled={currentPage >= totalPages - 1}
             aria-label="Próxima página"
@@ -619,9 +656,9 @@ const StoryViewer: React.FC = () => {
               <motion.div
                 key={currentPage}
                 initial={{ 
-                  rotateY: flipDirection === "right" ? -30 : 30,
+                  rotateY: flipDirection === "right" ? -5 : 5,
                   opacity: 0,
-                  scale: 0.9
+                  scale: 0.95
                 }}
                 animate={{ 
                   rotateY: 0,
@@ -629,16 +666,16 @@ const StoryViewer: React.FC = () => {
                   scale: 1
                 }}
                 exit={{ 
-                  rotateY: flipDirection === "right" ? 30 : -30,
+                  rotateY: flipDirection === "right" ? 5 : -5,
                   opacity: 0,
-                  scale: 0.9
+                  scale: 0.95
                 }}
                 transition={{ 
                   type: "spring", 
                   stiffness: 300, 
                   damping: 25 
                 }}
-                className="w-full h-full flex flex-col md:flex-row shadow-2xl overflow-hidden bg-white"
+                className="w-full h-full overflow-hidden bg-white shadow-lg border border-gray-100 rounded-lg"
                 ref={bookRef}
               >
                 {currentPage === 0 
@@ -650,12 +687,15 @@ const StoryViewer: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex justify-center items-center py-2 md:py-4 bg-white">
+        <div className="flex justify-center items-center py-3 md:py-4 bg-white">
           <div className="flex space-x-1 md:space-x-2">
             {Array.from({ length: totalPages }).map((_, idx) => (
               <button
                 key={idx}
-                className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-colors ${currentPage === idx ? 'bg-storysnap-blue' : 'bg-gray-300 hover:bg-gray-400'}`}
+                className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-colors duration-200 
+                  ${currentPage === idx 
+                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 scale-125' 
+                    : 'bg-gray-300 hover:bg-gray-400'}`}
                 onClick={() => {
                   setFlipDirection(idx > currentPage ? "right" : "left");
                   setIsFlipping(true);
@@ -674,13 +714,13 @@ const StoryViewer: React.FC = () => {
       {isMobile ? (
         <Drawer>
           <DrawerTrigger asChild>
-            <Button variant="outline" className="mb-4 w-full">
+            <Button className="mb-4 w-full bg-gradient-to-r from-violet-600 to-indigo-600 border-none">
               Opções da História
             </Button>
           </DrawerTrigger>
           <DrawerContent>
             <div className="p-4 space-y-3">
-              <Button variant="default" className="w-full" onClick={handleCreateNew}>
+              <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleCreateNew}>
                 <BookText className="mr-2 h-4 w-4" />
                 Criar Nova História
               </Button>
@@ -705,11 +745,11 @@ const StoryViewer: React.FC = () => {
             <Home className="mr-2 h-4 w-4" />
             Voltar ao Início
           </Button>
-          <Button variant="default" onClick={handleCreateNew}>
+          <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleCreateNew}>
             <BookText className="mr-2 h-4 w-4" />
             Criar Nova História
           </Button>
-          <Button variant="default" onClick={handleDownloadPDF}>
+          <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" />
             Baixar como PDF
           </Button>
