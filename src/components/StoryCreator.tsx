@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
@@ -45,7 +45,7 @@ const StoryCreator = () => {
           setting: parsedData.setting,
           characterId: parsedData.characterId,
           characterName: parsedData.characterName,
-          style: parsedData.style || "cartoon",
+          style: parsedData.style || "papercraft",
           length: parsedData.length || "medium",
           readingLevel: parsedData.readingLevel || "intermediate",
           language: parsedData.language || "portuguese",
@@ -93,7 +93,7 @@ const StoryCreator = () => {
   }, [formData?.characterId]);
   
   const handleFormSubmit = (data: StoryFormData) => {
-    const updatedData = {
+    const updatedData: StoryFormData = {
       ...data,
       style: "papercraft"
     };

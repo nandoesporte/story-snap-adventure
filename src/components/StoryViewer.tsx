@@ -1,20 +1,7 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Download, 
-  Home, 
-  BookText, 
-  Share, 
-  Maximize, 
-  Minimize,
-  ZoomIn,
-  ZoomOut,
-  X
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
@@ -348,25 +335,29 @@ const StoryViewer: React.FC = () => {
     return (
       <div className="w-full h-full relative flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-3 md:p-6">
         <div className="absolute inset-0 bg-white shadow-md m-2 md:m-3 rounded-lg overflow-hidden">
-          <div className="w-full h-full relative">
-            <img 
-              src={coverImage} 
-              alt={storyData.title}
-              className="w-full h-full object-cover cursor-pointer"
-              onClick={() => handleImageClick(coverImage)}
-              onError={(e) => {
-                console.log("Erro ao carregar imagem da capa, usando placeholder");
-                const target = e.target as HTMLImageElement;
-                target.src = "/placeholder.svg";
-              }}
-            />
-            <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-6 bg-gradient-to-t from-black/70 to-transparent text-white">
-              <h2 className="text-2xl md:text-4xl font-bold mb-2">{storyData.title}</h2>
-              <p className="text-lg md:text-xl mb-1">Uma história para {storyData.childName}</p>
-              <p className="text-xs md:text-sm opacity-80">Tema: {storyData.theme} • Cenário: {storyData.setting}</p>
-              {storyData.characterName && (
-                <p className="text-xs md:text-sm opacity-80">Com {storyData.characterName}</p>
-              )}
+          <div className="w-full h-full relative flex flex-col">
+            <div className="flex-grow relative">
+              <img 
+                src={coverImage} 
+                alt={storyData.title}
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => handleImageClick(coverImage)}
+                onError={(e) => {
+                  console.log("Erro ao carregar imagem da capa, usando placeholder");
+                  const target = e.target as HTMLImageElement;
+                  target.src = "/placeholder.svg";
+                }}
+              />
+            </div>
+            <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-6 bg-gradient-to-t from-black/70 to-transparent text-white space-y-1">
+              <h2 className="text-2xl md:text-4xl font-bold mb-1 line-clamp-2">{storyData.title}</h2>
+              <p className="text-lg md:text-xl opacity-90">Uma história para {storyData.childName}</p>
+              <div className="text-xs md:text-sm opacity-80 space-y-1">
+                <p>Tema: {storyData.theme} • Cenário: {storyData.setting}</p>
+                {storyData.characterName && (
+                  <p>Com {storyData.characterName}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
