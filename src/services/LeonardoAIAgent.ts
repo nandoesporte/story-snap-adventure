@@ -205,7 +205,7 @@ export class LeonardoAIAgent {
       characterName, 
       theme, 
       setting, 
-      style = "cartoon", 
+      style = "papercraft", 
       characterPrompt, 
       childImage, 
       storyContext 
@@ -223,8 +223,9 @@ export class LeonardoAIAgent {
     const savedPrompt = this.characterPrompts.get(characterName);
     const finalCharacterPrompt = savedPrompt || characterPrompt || null;
     
-    // Usar o estilo visual salvo, se existir
-    const savedStyle = this.characterImageStyles.get(characterName) || style;
+    // Sempre usar estilo papercraft, independente do que foi passado
+    const effectiveStyle = "papercraft";
+    this.saveCharacterStyle(characterName, effectiveStyle);
     
     // Usar o modelo salvo para o personagem, se existir
     const modelId = this.characterModels.get(characterName) || "b820ea11-02bf-4652-97ae-93b22e02a0a9"; // Leonardo Creative como padrão
@@ -248,8 +249,8 @@ export class LeonardoAIAgent {
       enhancedPrompt += ` O personagem ${characterName} possui as seguintes características visuais que DEVEM ser mantidas em todas as imagens: ${finalCharacterPrompt}`;
     }
     
-    // Adicionar instruções para estilo de ilustração de livro infantil
-    enhancedPrompt += ` Ilustração de alta qualidade para livro infantil, colorida, estilo ${savedStyle === "cartoon" ? "desenho animado" : savedStyle}.`;
+    // Adicionar instruções para estilo de ilustração papercraft
+    enhancedPrompt += ` Ilustração de alta qualidade para livro infantil, estilo papercraft, com textura de papel e elementos que parecem recortados e colados, como um livro pop-up.`;
     
     // Adicionar instruções para composição e foco
     enhancedPrompt += " Composição central, foco no personagem principal, expressões faciais claras, cores vibrantes.";
@@ -261,7 +262,7 @@ export class LeonardoAIAgent {
       characterName,
       hasPrompt: !!finalCharacterPrompt,
       hasStoryContext: !!storyContext,
-      style: savedStyle,
+      style: "papercraft",
       hasReferenceImage: !!referenceImageUrl,
       modelId,
       apiKeyLength: this.apiKey.length,
@@ -277,7 +278,7 @@ export class LeonardoAIAgent {
         height: 768,
         num_images: 1,
         promptMagic: true,
-        presetStyle: savedStyle === "cartoon" ? "ANIME" : (savedStyle === "realistic" ? "CINEMATIC" : "CREATIVE"),
+        presetStyle: "CREATIVE",
         public: false,
         nsfw: false
       };
@@ -285,8 +286,8 @@ export class LeonardoAIAgent {
       // Se tivermos uma imagem de referência, adicionar ao corpo da requisição para maior consistência
       if (referenceImageUrl) {
         requestBody.referenceImageUrl = referenceImageUrl;
-        requestBody.promptMagicVersion = "v2"; // Usar v2 para melhor processamento de imagens de referência
-        requestBody.imageGuidanceScale = 0.8; // Escala de orientação da imagem (0.1 a 1)
+        requestBody.promptMagicVersion = "v2";
+        requestBody.imageGuidanceScale = 0.8;
       }
       
       // Teste de conexão antes de fazer a chamada completa
@@ -371,7 +372,7 @@ export class LeonardoAIAgent {
     }
     
     let attempts = 0;
-    const maxAttempts = 30; // 5 minutos no máximo (10 segundos * 30)
+    const maxAttempts = 30;
     
     while (attempts < maxAttempts) {
       attempts++;
@@ -387,16 +388,13 @@ export class LeonardoAIAgent {
           const errorData = await response.json();
           console.error(`Error checking generation status (attempt ${attempts}):`, errorData);
           
-          // Aguardar antes da próxima tentativa
-          await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+          await new Promise(resolve => setTimeout(resolve, 10000));
           continue;
         }
         
         const data = await response.json();
         
-        // Verificar se a geração foi concluída
         if (data.generations_by_pk.status === "COMPLETE") {
-          // Pegar a primeira imagem gerada
           const generatedImages = data.generations_by_pk.generated_images;
           if (generatedImages && generatedImages.length > 0) {
             return generatedImages[0].url;
@@ -406,13 +404,11 @@ export class LeonardoAIAgent {
           throw new Error("Generation failed");
         }
         
-        // Aguardar antes da próxima tentativa
-        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+        await new Promise(resolve => setTimeout(resolve, 10000));
       } catch (error) {
         console.error(`Error in polling attempt ${attempts}:`, error);
         
-        // Aguardar antes da próxima tentativa
-        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
     }
     
@@ -445,7 +441,7 @@ export class LeonardoAIAgent {
     theme: string,
     setting: string,
     characterPrompt: string | null = null,
-    style: string = "cartoon",
+    style: string = "papercraft",
     childImage: string | null = null,
     storyTitle: string | null = null
   ): Promise<string[]> {
@@ -456,22 +452,18 @@ export class LeonardoAIAgent {
     try {
       const imageUrls: string[] = [];
       
-      // Primeiro, gerar a primeira imagem que servirá como referência para consistência
       if (storyPages.length > 0 && imagePrompts.length > 0) {
         const firstPagePrompt = imagePrompts[0] || `Ilustração da primeira página: ${storyPages[0].substring(0, 100)}...`;
         
         toast.info(`Gerando ilustração de referência do personagem ${characterName}...`);
         
         try {
-          // Criar um prompt específico para a primeira ilustração
           let enhancedPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência visual. ${firstPagePrompt}`;
           
-          // Adicionar contexto geral da história se disponível
           if (storyTitle) {
             enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
           }
           
-          // Adicionar contexto de tema e cenário
           enhancedPrompt += ` (Tema: ${theme}, Cenário: ${setting})`;
           
           const firstImageUrl = await this.generateImage({
@@ -479,16 +471,13 @@ export class LeonardoAIAgent {
             characterName,
             theme,
             setting,
-            style,
+            style: "papercraft",
             characterPrompt,
             childImage,
             storyContext: storyTitle ? `Personagem de referência para a história "${storyTitle}"` : null
           });
           
-          // Salvar explicitamente como imagem de referência
           this.saveCharacterReferenceImage(characterName, firstImageUrl);
-          
-          // Adicionar à lista de URLs
           imageUrls.push(firstImageUrl);
         } catch (error) {
           console.error(`Erro ao gerar imagem de referência:`, error);
@@ -496,7 +485,6 @@ export class LeonardoAIAgent {
         }
       }
       
-      // Gerar imagens para as páginas restantes sequencialmente, usando a referência
       for (let i = 1; i < storyPages.length; i++) {
         const pageText = storyPages[i];
         const imagePrompt = imagePrompts[i] || `Ilustração para a página ${i+1}: ${pageText.substring(0, 100)}...`;
@@ -505,18 +493,14 @@ export class LeonardoAIAgent {
         toast.info(`Gerando ilustração para página ${pageNumber} de ${storyPages.length}...`);
         
         try {
-          // Criar um prompt específico para livro infantil
           let enhancedPrompt = `Mantenha a EXATA aparência do personagem ${characterName} conforme a imagem de referência. ${imagePrompt}`;
           
-          // Adicionar contexto geral da história se disponível
           if (storyTitle) {
             enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
           }
           
-          // Adicionar contexto de número da página e tema
           enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
           
-          // Se for a última página, adicionar indicações especiais
           if (i === storyPages.length - 1) {
             enhancedPrompt += " Esta é a última página da história, mostre a conclusão ou celebração.";
           }
@@ -526,7 +510,7 @@ export class LeonardoAIAgent {
             characterName,
             theme,
             setting,
-            style,
+            style: "papercraft",
             characterPrompt,
             childImage,
             storyContext: storyTitle ? `Página ${pageNumber} da história "${storyTitle}"` : null
@@ -535,7 +519,6 @@ export class LeonardoAIAgent {
           imageUrls.push(imageUrl);
         } catch (error) {
           console.error(`Erro ao gerar imagem para página ${pageNumber}:`, error);
-          // Usar uma imagem de placeholder para não interromper todo o processo
           imageUrls.push(this.getFallbackImage(theme));
         }
       }
@@ -543,7 +526,6 @@ export class LeonardoAIAgent {
       return imageUrls;
     } catch (error) {
       console.error("Erro ao gerar imagens da história:", error);
-      // Retornar placeholders para todas as páginas
       return storyPages.map(() => this.getFallbackImage(theme));
     }
   }
@@ -556,46 +538,41 @@ export class LeonardoAIAgent {
     characterName: string,
     theme: string,
     setting: string,
-    style: string = "cartoon",
+    style: string = "papercraft",
     characterPrompt: string | null = null,
     childImage: string | null = null
   ): Promise<string> {
-    const coverPrompt = `Capa de livro infantil para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
-                        A ilustração deve ser vibrante, colorida e conter o título "${title}" integrado ao design. 
+    const coverPrompt = `Capa de livro infantil em estilo papercraft para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
+                        A ilustração deve ser como um livro pop-up com texturas de papel, elementos que parecem recortados e colados, e o título "${title}" integrado ao design. 
                         O personagem deve estar centralizado na cena, com uma expressão alegre e aventureira.
                         Importante: Mantenha as características visuais consistentes do personagem.`;
     
-    // Verificar se já temos uma imagem de referência para este personagem
     const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
     
     try {
-      // Se não tivermos referência, gerar um personagem de referência primeiro
       if (!referenceImageUrl) {
-        // Gerar uma ilustração de referência para o personagem
-        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo ${style}.`;
+        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo papercraft.`;
         
         const referenceImage = await this.generateImage({
           prompt: characterRefPrompt,
           characterName,
           theme,
           setting,
-          style,
+          style: "papercraft",
           characterPrompt,
           childImage,
           storyContext: `Referência visual para o personagem da história "${title}"`
         });
         
-        // Salvar como imagem de referência
         this.saveCharacterReferenceImage(characterName, referenceImage);
       }
       
-      // Agora gerar a capa usando a referência
       const imageUrl = await this.generateImage({
         prompt: coverPrompt,
         characterName,
         theme,
         setting,
-        style,
+        style: "papercraft",
         characterPrompt,
         childImage,
         storyContext: `Capa do livro "${title}"`

@@ -31,7 +31,7 @@ export const useStoryGeneration = () => {
     readingLevel: string = "intermediate",
     language: string = "portuguese",
     childImageBase64: string | null = null,
-    style: string = "cartoon"
+    style: string = "papercraft" // Changed default style to papercraft
   ) => {
     try {
       setIsGenerating(true);
@@ -45,9 +45,9 @@ export const useStoryGeneration = () => {
       if (!isLeonardoAvailable && !isOpenAIAvailable) {
         toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
       } else if (useOpenAIForStories && isOpenAIAvailable) {
-        toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações.`);
+        toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações em estilo papercraft.`);
       } else if (isLeonardoAvailable) {
-        toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações.");
+        toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações em estilo papercraft.");
       } else {
         toast.warning("Usando imagens de placeholder para ilustrações.");
       }
@@ -77,9 +77,10 @@ export const useStoryGeneration = () => {
         readingLevel,
         language,
         hasChildImage: !!childImageBase64,
-        style
+        style: "papercraft" // Force papercraft style for consistent logging
       });
       
+      // Always use papercraft style regardless of what was passed in
       const result = await storyBotGenerateCompleteStory(
         childName,
         childAge,
@@ -91,7 +92,7 @@ export const useStoryGeneration = () => {
         readingLevel,
         language,
         childImageBase64,
-        style
+        "papercraft" // Force papercraft style
       );
       
       setProgress(100);

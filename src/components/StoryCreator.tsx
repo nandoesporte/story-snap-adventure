@@ -93,8 +93,12 @@ const StoryCreator = () => {
   }, [formData?.characterId]);
   
   const handleFormSubmit = (data: StoryFormData) => {
-    setFormData(data);
-    generateStory(data);
+    const updatedData = {
+      ...data,
+      style: "papercraft"
+    };
+    setFormData(updatedData);
+    generateStory(updatedData);
   };
   
   const saveStoryToSupabase = async (storyData: any) => {
@@ -195,7 +199,7 @@ const StoryCreator = () => {
         data.readingLevel,
         data.language,
         imagePreview,
-        data.style
+        "papercraft"
       );
       
       console.log("História gerada com sucesso:", {
@@ -218,7 +222,7 @@ const StoryCreator = () => {
         characterName: selectedCharacter?.name,
         pages: completeBook.pages,
         language: data.language,
-        style: data.style,
+        style: "papercraft",
         moral: data.moral,
         readingLevel: data.readingLevel
       });
@@ -243,12 +247,12 @@ const StoryCreator = () => {
             image_url: page.imageUrl
           })),
           language: data.language,
-          style: data.style,
+          style: "papercraft",
           moral: data.moral,
           readingLevel: data.readingLevel
         };
         
-        const maxLength = 5000000; // ~5MB limite aproximado
+        const maxLength = 5000000;
         const jsonString = JSON.stringify(sessionData);
         
         if (jsonString.length > maxLength) {
