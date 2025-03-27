@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -69,6 +70,12 @@ IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com u
 6. Iluminação que realça a tridimensionalidade dos elementos de papel, com sombras suaves entre as camadas.
 
 7. Detalhes adicionais como pequenas flores, plantas, animais ou objetos feitos em papercraft distribuídos pela cena para enriquecer a ilustração.
+
+8. Elementos secundários da história como {elementos_secundarios} também em estilo papercraft para enriquecer a narrativa visual.
+
+9. Uma paleta de cores consistente ao longo de todas as ilustrações do livro, mantendo a identidade visual da história.
+
+10. Detalhes de textura de papel em todos os elementos, com pequenas dobras, recortes e sobreposições que dão profundidade realista ao estilo papercraft.
 
 Texto da cena: "{texto_da_pagina}"
 
@@ -237,7 +244,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
           </div>
           <AlertTitle>Novos recursos disponíveis</AlertTitle>
           <AlertDescription>
-            O StoryBot agora suporta configurações adicionais como nível de leitura, idioma, moral da história, e integração com Leonardo AI para geração de ilustrações personalizadas usando os personagens cadastrados.
+            O StoryBot agora suporta configurações adicionais como nível de leitura, idioma, moral da história, e integração com Leonardo AI para geração de ilustrações personalizadas usando os personagens cadastrados no estilo papercraft.
           </AlertDescription>
         </Alert>
         

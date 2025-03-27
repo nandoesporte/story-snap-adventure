@@ -237,6 +237,9 @@ export class LeonardoAIAgent {
     let enhancedPrompt: string;
     
     if (imagePromptTemplate) {
+      // Extrair elementos secundários do prompt para enriquecer a cena
+      const elementosSecundarios = this.extractSecondaryElements(prompt, theme);
+      
       // Usar o template personalizado com substituição de variáveis
       enhancedPrompt = imagePromptTemplate
         .replace(/{personagem}/g, characterName)
@@ -244,6 +247,7 @@ export class LeonardoAIAgent {
         .replace(/{cenario}/g, setting)
         .replace(/{tema}/g, theme)
         .replace(/{elementos_da_cena}/g, prompt.slice(0, 100))
+        .replace(/{elementos_secundarios}/g, elementosSecundarios)
         .replace(/{texto_da_pagina}/g, prompt)
         .replace(/{emocao}/g, prompt.includes('feliz') ? 'alegria' : 
                                prompt.includes('triste') ? 'tristeza' : 
@@ -370,6 +374,45 @@ export class LeonardoAIAgent {
       // Retornar uma imagem placeholder baseada no tema
       return this.getFallbackImage(theme);
     }
+  }
+
+  /**
+   * Extrai elementos secundários do prompt para enriquecer a cena
+   */
+  private extractSecondaryElements(prompt: string, theme: string): string {
+    // Palavras-chave para cada tema
+    const themeKeywords: Record<string, string[]> = {
+      adventure: ["mapas", "bússola", "mochilas", "binóculos", "cordas", "lanternas", "barcos", "montanhas"],
+      fantasy: ["varinhas", "fadas", "dragões", "castelos", "poções", "livros mágicos", "cristais", "estrelas brilhantes"],
+      space: ["planetas", "estrelas", "foguetes", "astronautas", "aliens", "satélites", "asteroides", "cometas"],
+      ocean: ["peixes", "conchas", "corais", "algas", "ondas", "barcos", "tesouros", "âncoras"],
+      dinosaurs: ["pegadas", "fósseis", "vulcões", "ovos", "plantas pré-históricas", "rochas", "ossos", "pterodáctilos"]
+    };
+    
+    // Elementos padrão para qualquer tema
+    const defaultElements = ["árvores", "nuvens", "flores", "animais", "pedras", "plantas", "casas", "caminhos"];
+    
+    // Obter palavras-chave do tema atual
+    const keywords = themeKeywords[theme as keyof typeof themeKeywords] || defaultElements;
+    
+    // Selecionar aleatoriamente 3-4 elementos
+    const selectedElements = [];
+    for (let i = 0; i < 4; i++) {
+      const randomIndex = Math.floor(Math.random() * keywords.length);
+      if (keywords[randomIndex] && !selectedElements.includes(keywords[randomIndex])) {
+        selectedElements.push(keywords[randomIndex]);
+      }
+    }
+    
+    // Analisar o prompt para identificar elementos específicos mencionados
+    const promptWords = prompt.toLowerCase().split(' ');
+    const possibleObjects = promptWords.filter(word => 
+      word.length > 4 && 
+      !["para", "como", "quando", "onde", "porque", "então", "muito", "também"].includes(word)
+    ).slice(0, 3);
+    
+    // Combinar elementos do tema com elementos do prompt
+    return [...selectedElements, ...possibleObjects].join(', ');
   }
 
   /**
