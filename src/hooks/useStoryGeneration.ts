@@ -21,7 +21,7 @@ export const useStoryGeneration = () => {
    * com personagens consistentes ao longo da narrativa
    */
   const generateCompleteStory = async (
-    childName: string,
+    characterName: string, // This is now the selected character name, not child name
     childAge: string,
     theme: string,
     setting: string,
@@ -53,21 +53,23 @@ export const useStoryGeneration = () => {
       }
       
       // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
-      setCurrentStage("Definindo personagem principal...");
+      setCurrentStage(`Definindo personagem principal "${characterName}"...`);
       setProgress(10);
       
       // Verificar se há um prompt de personagem detalhado
       if (!characterPrompt || characterPrompt.trim().length < 10) {
         console.log("Character prompt is minimal, generating a basic description...");
-        characterPrompt = `Personagem ${childName}: uma criança de ${childAge} anos, alegre e curiosa.`;
+        characterPrompt = `Personagem ${characterName}: um personagem de ${childAge} anos, alegre e curioso.`;
+      } else {
+        console.log(`Using provided character prompt for ${characterName}: ${characterPrompt.substring(0, 50)}...`);
       }
       
       // Etapa 2: Gerar história com personagens consistentes
-      setCurrentStage("Criando a narrativa com personagens consistentes...");
+      setCurrentStage(`Criando a narrativa com o personagem ${characterName}...`);
       setProgress(15);
       
       console.log("Generating complete story with params:", {
-        childName,
+        characterName,
         childAge,
         theme,
         setting,
@@ -82,7 +84,7 @@ export const useStoryGeneration = () => {
       
       // Always use papercraft style regardless of what was passed in
       const result = await storyBotGenerateCompleteStory(
-        childName,
+        characterName,
         childAge,
         theme,
         setting,

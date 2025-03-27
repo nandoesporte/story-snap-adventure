@@ -188,10 +188,13 @@ const StoryCreator = () => {
     setStep("generating");
     
     try {
+      // Use character data from selected character instead of just child name
       const characterPrompt = selectedCharacter?.generation_prompt || "";
+      const characterName = selectedCharacter?.name || data.childName;
       
       const completeBook = await generateCompleteStory(
-        data.childName,
+        // Use character name as first parameter instead of child name
+        characterName,
         data.childAge,
         data.theme,
         data.setting,
@@ -207,7 +210,8 @@ const StoryCreator = () => {
       console.log("História gerada com sucesso:", {
         title: completeBook.title,
         coverImagePreview: completeBook.coverImageUrl.substring(0, 50) + "...",
-        pagesCount: completeBook.pages.length
+        pagesCount: completeBook.pages.length,
+        characterName: characterName
       });
       
       setStep("finalizing");
@@ -221,7 +225,7 @@ const StoryCreator = () => {
         theme: data.theme,
         setting: data.setting,
         characterId: data.characterId,
-        characterName: selectedCharacter?.name,
+        characterName: selectedCharacter?.name || data.childName,
         pages: completeBook.pages,
         language: data.language,
         style: "papercraft" as StoryStyle,
@@ -236,13 +240,13 @@ const StoryCreator = () => {
           cover_image_url: completeBook.coverImageUrl,
           childImage: imagePreview,
           childName: data.childName,
-          character_name: data.childName,
+          character_name: characterName, // Use character name here
           childAge: data.childAge,
           character_age: data.childAge,
           theme: data.theme,
           setting: data.setting,
           characterId: data.characterId,
-          characterName: selectedCharacter?.name,
+          characterName: selectedCharacter?.name || data.childName,
           pages: completeBook.pages.map(page => ({
             text: page.text,
             imageUrl: page.imageUrl,

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -75,24 +74,19 @@ Texto da cena: "{texto_da_pagina}"
 
 IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os elementos importantes da narrativa visíveis e apresentados no estilo distintivo de papercraft com camadas de papel recortado, mantendo consistência absoluta na aparência do personagem principal ao longo de toda a história.`);
 
-  // Query to fetch the current StoryBot prompt - now simplified to handle errors better
   const { data: promptData, isLoading } = useQuery({
     queryKey: ["storybot-prompt"],
     queryFn: async () => {
       try {
-        // Execute the SQL function to create the table if it doesn't exist
         await supabase.rpc('create_storybot_prompt_if_not_exists');
-        
-        // Now try to get the existing prompt
         const { data, error } = await supabase
           .from("storybot_prompts")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(1)
           .single();
-
+        
         if (error) {
-          // If table doesn't exist or any other error, use default prompt
           console.log("Using default prompt due to error:", error.message);
           return {
             id: 'new',
@@ -103,7 +97,6 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
         return data as StoryBotPrompt;
       } catch (err) {
         console.error("Error fetching StoryBot prompt:", err);
-        // Use default prompt on any error
         return {
           id: 'new',
           prompt: defaultPrompt
@@ -112,29 +105,24 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
     }
   });
 
-  // Mutation to update or create the StoryBot prompt - now with better error handling
   const updatePromptMutation = useMutation({
     mutationFn: async (prompt: string) => {
       setIsSubmitting(true);
       
       try {
-        // Execute the SQL function to create the table if it doesn't exist
         await supabase.rpc('create_storybot_prompt_if_not_exists');
         
-        // First check if the table exists by trying to select from it
         const { error: checkError } = await supabase
           .from("storybot_prompts")
           .select("count")
           .limit(1);
           
-        // If the table doesn't exist, we'll save the prompt to localStorage as a fallback
         if (checkError) {
           console.log("Saving prompt to localStorage due to database error:", checkError.message);
           localStorage.setItem('storybot_prompt', prompt);
           return { id: 'local', prompt };
         }
         
-        // Table exists, proceed with saving to database
         const { data: existingPrompt, error: fetchError } = await supabase
           .from("storybot_prompts")
           .select("id")
@@ -145,14 +133,12 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
         let result;
         
         if (fetchError && fetchError.code === 'PGRST116') {
-          // No prompt exists, create a new one
           result = await supabase
             .from("storybot_prompts")
             .insert({ prompt })
             .select()
             .single();
         } else if (existingPrompt) {
-          // Update the existing prompt
           result = await supabase
             .from("storybot_prompts")
             .update({ 
@@ -163,7 +149,6 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
             .select()
             .single();
         } else {
-          // Fallback case - create new prompt
           result = await supabase
             .from("storybot_prompts")
             .insert({ prompt })
@@ -201,7 +186,6 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
     }
   });
 
-  // Form setup
   const form = useForm({
     defaultValues: {
       prompt: promptData?.prompt || defaultPrompt,
@@ -209,7 +193,6 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
     },
   });
 
-  // Update form values when data is loaded
   useEffect(() => {
     if (promptData) {
       form.reset({ 
@@ -220,10 +203,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
   }, [promptData, form, imagePromptTemplate]);
 
   const handleSubmit = (data: { prompt: string, imagePrompt: string }) => {
-    // Save image prompt to localStorage
     localStorage.setItem('image_prompt_template', data.imagePrompt);
-    
-    // Update the main prompt in the database
     updatePromptMutation.mutate(data.prompt);
   };
 
@@ -306,6 +286,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
                       <p className="text-sm text-muted-foreground mt-2">
                         Este template será usado para a geração de ilustrações com Leonardo AI. 
                         As variáveis entre chaves {'{exemplo}'} são substituídas pelos dados da história.
+                        O estilo papercraft garante consistência visual entre as ilustrações.
                       </p>
                       <FormMessage />
                     </FormItem>
