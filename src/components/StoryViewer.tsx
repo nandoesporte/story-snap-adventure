@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, BookOpenText, Cube } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, BookOpenText, Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
@@ -503,7 +503,7 @@ const StoryViewer: React.FC = () => {
         <div className="flex justify-between items-center bg-storysnap-blue p-2 md:p-4 text-white">
           <div className="flex items-center">
             <BookText className="mr-2 h-5 w-5 md:h-6 md:w-6" />
-            <h1 className="text-lg md:text-xl font-bold truncate">{storyData.title}</h1>
+            <h1 className="text-lg md:text-xl font-bold truncate">{storyData?.title}</h1>
           </div>
           <div className="flex gap-1 md:gap-2">
             <Tabs
@@ -523,7 +523,7 @@ const StoryViewer: React.FC = () => {
                   value="3d" 
                   className="text-white data-[state=active]:bg-white/20 h-7 px-2 text-xs"
                 >
-                  <Cube className="h-4 w-4 mr-1" />
+                  <Box className="h-4 w-4 mr-1" />
                   <span className="hidden md:inline">3D</span>
                 </TabsTrigger>
               </TabsList>
