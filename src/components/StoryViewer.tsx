@@ -69,6 +69,8 @@ const StoryViewer: React.FC = () => {
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     const loadStory = async () => {
       try {
@@ -171,6 +173,38 @@ const StoryViewer: React.FC = () => {
     
     loadStory();
   }, [id]);
+  
+  const getFallbackImage = (theme: string = ""): string => {
+    const themeImages: {[key: string]: string} = {
+      adventure: "/images/placeholders/adventure.jpg",
+      fantasy: "/images/placeholders/fantasy.jpg",
+      space: "/images/placeholders/space.jpg",
+      ocean: "/images/placeholders/ocean.jpg",
+      dinosaurs: "/images/placeholders/dinosaurs.jpg",
+      forest: "/images/placeholders/adventure.jpg"
+    };
+    
+    return themeImages[theme.toLowerCase() as keyof typeof themeImages] || "/placeholder.svg";
+  };
+  
+  const handleImageError = (url: string) => {
+    console.log("Failed to load image URL:", url);
+    setFailedImages(prev => ({...prev, [url]: true}));
+    
+    if (Object.keys(failedImages).length < 2) {
+      toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
+        id: "image-load-error",
+        duration: 3000
+      });
+    }
+  };
+  
+  const getImageUrl = (url?: string, theme: string = ""): string => {
+    if (!url || failedImages[url]) {
+      return getFallbackImage(theme);
+    }
+    return url;
+  };
   
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -324,6 +358,9 @@ const StoryViewer: React.FC = () => {
   };
   
   const handleImageClick = (url: string) => {
+    if (url === "/placeholder.svg" || url.includes("/images/placeholders/")) {
+      return;
+    }
     setCurrentImageUrl(url);
     setShowImageViewer(true);
     setImageZoom(1);
@@ -340,7 +377,8 @@ const StoryViewer: React.FC = () => {
   const renderCoverPage = () => {
     if (!storyData) return null;
     
-    const coverImage = storyData.coverImageUrl || storyData.cover_image_url || "/placeholder.svg";
+    const theme = storyData.theme || "";
+    const coverImage = getImageUrl(storyData.coverImageUrl || storyData.cover_image_url, theme);
     
     return (
       <div className="w-full h-full relative flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-3 md:p-6">
@@ -352,12 +390,7 @@ const StoryViewer: React.FC = () => {
                 alt={storyData.title}
                 className="w-full h-full object-cover cursor-pointer"
                 onClick={() => handleImageClick(coverImage)}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null; // Prevent infinite error loop
-                  console.log("Erro ao carregar imagem da capa, usando placeholder");
-                  target.src = "/placeholder.svg";
-                }}
+                onError={() => handleImageError(coverImage)}
               />
             </div>
             <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-6 bg-gradient-to-t from-black/70 to-transparent text-white space-y-1">
@@ -380,7 +413,8 @@ const StoryViewer: React.FC = () => {
     if (!storyData || !storyData.pages[pageIndex]) return null;
     
     const page = storyData.pages[pageIndex];
-    const imageUrl = page.imageUrl || page.image_url || "/placeholder.svg";
+    const theme = storyData.theme || "";
+    const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
     return (
       <div className="w-full h-full flex flex-col md:flex-row">
@@ -403,12 +437,7 @@ const StoryViewer: React.FC = () => {
             alt={`Ilustração da página ${pageIndex + 1}`}
             className="w-full h-full object-contain cursor-pointer"
             onClick={() => handleImageClick(imageUrl)}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.onerror = null; // Prevent infinite error loop
-              console.log(`Erro ao carregar imagem da página ${pageIndex + 1}, usando placeholder`);
-              target.src = "/placeholder.svg";
-            }}
+            onError={() => handleImageError(page.imageUrl || page.image_url || "")}
           />
         </div>
       </div>
@@ -490,6 +519,7 @@ const StoryViewer: React.FC = () => {
               alt="Visualização da imagem"
               className="max-w-full max-h-full object-contain transition-transform duration-200"
               style={{ transform: `scale(${imageZoom})` }}
+              onError={() => handleImageError(currentImageUrl)}
             />
           </div>
         </div>
@@ -639,10 +669,10 @@ const StoryViewer: React.FC = () => {
           {viewMode === "3d" && storyData && (
             <div className="w-full h-full max-w-4xl max-h-[60vh] md:max-h-[70vh]">
               <Book3DViewer
-                coverImage={storyData.coverImageUrl || storyData.cover_image_url}
+                coverImage={getImageUrl(storyData.coverImageUrl || storyData.cover_image_url, storyData.theme)}
                 pages={storyData.pages.map(page => ({ 
                   text: page.text,
-                  imageUrl: page.imageUrl || page.image_url
+                  imageUrl: getImageUrl(page.imageUrl || page.image_url, storyData.theme)
                 }))}
                 currentPage={currentPage}
                 onPageTurn={handlePageTurn}
