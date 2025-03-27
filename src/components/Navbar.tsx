@@ -41,7 +41,6 @@ const Navbar = () => {
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Personagens', path: '/characters' },
-    // Removed StoryBot menu item
     { name: 'Configurações', path: '/settings' },
   ];
 

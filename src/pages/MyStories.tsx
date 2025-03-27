@@ -102,7 +102,7 @@ const MyStories = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <motion.div
-        className="flex-grow py-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50"
+        className="flex-grow pt-24 pb-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50" // Added pt-24 for more top padding
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -147,7 +147,7 @@ const MyStories = () => {
                   <div className="aspect-[16/9] relative overflow-hidden bg-violet-100">
                     {story.cover_image_url ? (
                       <img
-                        src={story.cover_image_url}
+                        src={typeof story.cover_image_url === 'string' ? story.cover_image_url : '/placeholder.svg'}
                         alt={story.title}
                         className="w-full h-full object-cover"
                         onError={(e) => {
