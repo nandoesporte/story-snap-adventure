@@ -25,6 +25,8 @@ interface BookPageProps {
   turnPage: (direction: 'next' | 'prev') => void;
   isCurrentPage: boolean;
   textContent?: string;
+  isCover?: boolean;
+  title?: string;
 }
 
 const BookPage: React.FC<BookPageProps> = ({ 
@@ -36,11 +38,14 @@ const BookPage: React.FC<BookPageProps> = ({
   isActive,
   turnPage,
   isCurrentPage,
-  textContent
+  textContent,
+  isCover = false,
+  title = ""
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [targetRotation, setTargetRotation] = useState<[number, number, number]>(rotation);
+  const [textureLoaded, setTextureLoaded] = useState(false);
   
   // Use a safe texture path that won't throw errors
   const safeTexturePath = useMemo(() => {
@@ -63,16 +68,20 @@ const BookPage: React.FC<BookPageProps> = ({
       // Wrap in try-catch to handle potential texture loading errors
       const loadedTexture = new THREE.TextureLoader().load(
         safeTexturePath,
-        undefined,  // onLoad callback
+        () => {
+          // onLoad callback
+          setTextureLoaded(true);
+        },
         undefined,  // onProgress callback
         () => {     // onError callback
           console.warn('Failed to load texture:', safeTexturePath);
-          // We don't set state here to avoid re-renders
+          setTextureLoaded(false);
         }
       );
       return loadedTexture;
     } catch (error) {
       console.error("Failed to load texture, using placeholder:", error);
+      setTextureLoaded(false);
       return new THREE.TextureLoader().load(PLACEHOLDER_TEXTURE);
     }
   }, [safeTexturePath]);
@@ -112,6 +121,36 @@ const BookPage: React.FC<BookPageProps> = ({
       ? new THREE.Color(0x8a2be2)
       : new THREE.Color(0xfafafa);
   
+  // Create a dynamic cover material if this is the cover page
+  const coverMaterial = useMemo(() => {
+    if (!isCover) return null;
+    
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: pageTexture },
+        title: { value: title },
+        time: { value: 0 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        uniform float time;
+        varying vec2 vUv;
+        void main() {
+          vec4 texColor = texture2D(map, vUv);
+          gl_FragColor = texColor;
+        }
+      `,
+      side: THREE.FrontSide,
+    });
+  }, [isCover, pageTexture, title]);
+  
   return (
     <group position={position}>
       <mesh
@@ -134,7 +173,7 @@ const BookPage: React.FC<BookPageProps> = ({
           color={pageColor}
           roughness={0.7}
           metalness={0.1}
-          map={isFirstPage || isLastPage ? pageTexture : undefined}
+          map={isFirstPage ? pageTexture : undefined}
           attach="material-4"
         />
         
@@ -246,6 +285,7 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
         ];
         
         const offset = 0.02 * (index - Math.floor(totalPages / 2));
+        const isCover = index === 0 || index === totalPages - 1;
         
         return (
           <BookPage
@@ -259,6 +299,8 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
             turnPage={turnPage}
             isCurrentPage={index === currentPage}
             textContent={page.text}
+            isCover={isCover}
+            title={isCover ? title : undefined}
           />
         );
       })}
