@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -19,7 +18,6 @@ import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Create a stable QueryClient instance outside the component
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -79,7 +77,6 @@ function App() {
   );
 }
 
-// Export the app wrapped with the QueryClientProvider
 export default function AppWithProviders() {
   return (
     <QueryClientProvider client={queryClient}>
