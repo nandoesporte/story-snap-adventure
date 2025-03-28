@@ -47,32 +47,29 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     }
   };
 
-  // Ensure the narration bucket exists
-  const ensureBucketExists = async (bucketName: string) => {
+  // Function to save audio to local storage as fallback
+  const saveAudioToLocalStorage = async (audioBlob: Blob, key: string) => {
     try {
-      // Check if bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-      
-      if (!bucketExists) {
-        // Create the bucket if it doesn't exist
-        const { error } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 50000000, // 50MB limit
-        });
-        
-        if (error) {
-          console.error('Erro ao criar bucket:', error);
-          return false;
-        }
-        console.log(`Bucket ${bucketName} criado com sucesso`);
-      }
-      
-      return true;
+      // Convert blob to base64
+      const reader = new FileReader();
+      return new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64Audio = reader.result as string;
+          localStorage.setItem(key, base64Audio);
+          resolve(base64Audio);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
     } catch (error) {
-      console.error('Erro ao verificar/criar bucket:', error);
-      return false;
+      console.error('Erro ao salvar áudio no localStorage:', error);
+      throw error;
     }
+  };
+
+  // Function to get audio from local storage
+  const getAudioFromLocalStorage = (key: string) => {
+    return localStorage.getItem(key);
   };
 
   const generateAudio = async (voiceId: string) => {
@@ -89,12 +86,16 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     toast.info('Gerando narração...');
 
     try {
-      // Ensure the story_narrations bucket exists
-      const bucketName = 'story_narrations';
-      const bucketReady = await ensureBucketExists(bucketName);
+      // Generate a unique storage key for this audio
+      const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
       
-      if (!bucketReady) {
-        throw new Error('Falha ao preparar o bucket de armazenamento');
+      // Try to get cached audio first
+      const cachedAudio = getAudioFromLocalStorage(localStorageKey);
+      if (cachedAudio) {
+        setAudioUrl(cachedAudio);
+        toast.success('Narração carregada do cache!');
+        setIsGenerating(false);
+        return;
       }
 
       const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
@@ -116,35 +117,96 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao gerar áudio');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta da API ElevenLabs:', errorData);
+        throw new Error(`Erro ao gerar áudio: ${response.status} ${response.statusText}`);
       }
 
       const audioBlob = await response.blob();
-      const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, audioBlob);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
-
-      const { error: dbError } = await supabase
-        .from('story_narrations')
-        .upsert({
-          story_id: storyId,
-          page_index: pageIndex,
-          audio_url: publicUrl,
-          voice_id: voiceId
-        });
-
-      if (dbError) throw dbError;
-
-      setAudioUrl(publicUrl);
-      toast.success('Narração gerada com sucesso!');
+      
+      // First try to save to Supabase
+      try {
+        const bucketName = 'story_narrations';
+        let bucketExists = false;
+        
+        // Check if bucket exists
+        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        
+        if (bucketsError) {
+          console.error('Erro ao listar buckets:', bucketsError);
+          // Continue with local storage fallback
+        } else {
+          bucketExists = buckets?.some(bucket => bucket.name === bucketName) || false;
+          
+          if (!bucketExists) {
+            // Try to create bucket
+            const { error: createError } = await supabase.storage.createBucket(bucketName, {
+              public: true,
+              fileSizeLimit: 50000000, // 50MB limit
+            });
+            
+            if (!createError) {
+              bucketExists = true;
+            } else {
+              console.error('Erro ao criar bucket:', createError);
+            }
+          }
+        }
+        
+        // If bucket exists or was created successfully, try to upload
+        if (bucketExists) {
+          const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, audioBlob);
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
+            
+            // Try to save to the database too
+            try {
+              await supabase
+                .from('story_narrations')
+                .upsert({
+                  story_id: storyId,
+                  page_index: pageIndex,
+                  audio_url: publicUrl,
+                  voice_id: voiceId
+                });
+                
+              setAudioUrl(publicUrl);
+              
+              // Still save to localStorage as backup
+              await saveAudioToLocalStorage(audioBlob, localStorageKey);
+              
+              toast.success('Narração gerada com sucesso!');
+              return;
+            } catch (dbError) {
+              console.error('Erro ao salvar no banco de dados:', dbError);
+              // Continue with local storage only approach
+            }
+          } else {
+            console.error('Erro ao fazer upload do arquivo:', uploadError);
+            // Fall back to local storage only
+          }
+        }
+        
+        // If we get here, we couldn't save to Supabase, so use localStorage only
+        const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
+        setAudioUrl(base64Audio);
+        toast.success('Narração gerada e salva localmente!');
+        
+      } catch (storageError) {
+        console.error('Erro ao salvar no storage:', storageError);
+        
+        // Last resort: just use the blob directly
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setAudioUrl(audioUrl);
+        toast.success('Narração gerada com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao gerar narração:', error);
       toast.error('Erro ao gerar narração. Tente novamente.');
