@@ -1,26 +1,39 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
-interface AuthProps {
-  type?: "login" | "register";
-}
-
-const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
-  const isRegister = type === "register";
-  const { signIn, signUp } = useAuth();
+const Auth: React.FC = () => {
+  const location = useLocation();
+  const isRegister = location.pathname === "/register";
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      // Check if there's a returnTo parameter in the URL
+      const params = new URLSearchParams(location.search);
+      const returnTo = params.get("returnTo");
+      
+      // Navigate to the returnTo path or default to home
+      if (returnTo) {
+        navigate(returnTo);
+      } else {
+        navigate("/");
+      }
+    }
+  }, [user, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +49,21 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       if (isRegister) {
         await signUp(email, password);
         toast.success("Conta criada com sucesso! Você já pode fazer login.");
-        navigate("/login");
+        navigate("/auth");
       } else {
         await signIn(email, password);
         toast.success("Login realizado com sucesso!");
-        navigate("/");
+        
+        // Check if there's a returnTo parameter in the URL
+        const params = new URLSearchParams(location.search);
+        const returnTo = params.get("returnTo");
+        
+        // Navigate to the returnTo path or default to home
+        if (returnTo) {
+          navigate(returnTo);
+        } else {
+          navigate("/");
+        }
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
@@ -147,7 +170,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
               <p className="text-center mt-6 text-slate-700">
                 {isRegister ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
                 <a
-                  href={isRegister ? "/login" : "/register"}
+                  href={isRegister ? "/auth" : "/register"}
                   className="font-bold text-violet-500 hover:text-violet-800"
                 >
                   {isRegister ? "Entrar" : "Criar uma conta"}

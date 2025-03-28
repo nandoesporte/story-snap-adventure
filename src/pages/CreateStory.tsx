@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,16 +13,44 @@ import Footer from "../components/Footer";
 import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import FileUpload from "@/components/FileUpload";
 import StoryPromptInput from "@/components/StoryPromptInput";
+import { useAuth } from "@/context/AuthContext";
 
 type CreationStep = "photo" | "prompt" | "details";
 
 const CreateStory = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [step, setStep] = useState<CreationStep>("photo");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      toast.error("Você precisa estar logado para criar histórias");
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+        <Navbar />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-t-4 border-violet-600 border-solid rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-violet-700 font-medium">Carregando...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  
+  if (!user && !loading) {
+    return null;
+  }
   
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
@@ -44,7 +71,6 @@ const CreateStory = () => {
     setStoryPrompt(prompt);
     setStep("details");
     
-    // Pré-preencher o formulário com sugestões baseadas no prompt
     const suggestedTheme = getSuggestedTheme(prompt);
     const suggestedSetting = getSuggestedSetting(prompt);
     
@@ -72,7 +98,6 @@ const CreateStory = () => {
       return "fantasy";
     }
     
-    // Default para aventura se nenhum tema específico for detectado
     return "adventure";
   };
   
@@ -96,19 +121,16 @@ const CreateStory = () => {
       return "dinosaurland";
     }
     
-    // Default para floresta se nenhum cenário específico for detectado
     return "forest";
   };
   
   const handleFormSubmit = (data: StoryFormData) => {
-    // Salvar dados no sessionStorage
     sessionStorage.setItem("create_story_data", JSON.stringify({
       ...data,
       storyPrompt,
       imagePreview
     }));
     
-    // Redirecionar para o criador de histórias
     navigate("/story-creator");
   };
   
