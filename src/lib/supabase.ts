@@ -431,10 +431,10 @@ export const getUserStories = async () => {
     
     console.log('Fetching stories for user:', userSession.user.id);
     
-    // Use a simplified query to avoid any potential issues with RLS policies
+    // Update query to include pages data for cover image fallback
     const { data, error } = await supabase
       .from('stories')
-      .select('id, title, cover_image_url, character_name, character_age, theme, setting, style, created_at')
+      .select('id, title, cover_image_url, character_name, character_age, theme, setting, style, created_at, pages')
       .eq('user_id', userSession.user.id)
       .order('created_at', { ascending: false });
     

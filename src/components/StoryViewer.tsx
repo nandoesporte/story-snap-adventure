@@ -109,23 +109,30 @@ const StoryViewer: React.FC = () => {
           
           if (data) {
             console.log("Dados da história carregados:", data);
+            console.log("Cover image URL:", data.cover_image_url);
+            console.log("First page image:", data.pages && data.pages.length > 0 ? data.pages[0].image_url : "N/A");
+            
+            const coverImage = data.cover_image_url || (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null);
+            console.log("Selected cover image:", coverImage);
+            
             const formattedStory: StoryData = {
               title: data.title,
-              coverImageUrl: data.pages && data.pages.length > 0 && data.pages[0].image_url ? 
-                data.pages[0].image_url : (data.cover_image_url || "/placeholder.svg"),
-              cover_image_url: data.pages && data.pages.length > 0 && data.pages[0].image_url ? 
-                data.pages[0].image_url : (data.cover_image_url || "/placeholder.svg"),
+              coverImageUrl: coverImage || "/placeholder.svg",
+              cover_image_url: coverImage || "/placeholder.svg",
               childName: data.character_name,
               childAge: data.character_age || "",
               theme: data.theme || "",
               setting: data.setting || "",
               style: data.style,
               pages: Array.isArray(data.pages) 
-                ? data.pages.map((page: any) => ({
-                    text: page.text,
-                    imageUrl: page.image_url || "/placeholder.svg",
-                    image_url: page.image_url || "/placeholder.svg"
-                  }))
+                ? data.pages.map((page: any) => {
+                    console.log("Page image URL:", page.image_url);
+                    return {
+                      text: page.text,
+                      imageUrl: page.image_url || "/placeholder.svg",
+                      image_url: page.image_url || "/placeholder.svg"
+                    };
+                  })
                 : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
             };
             
@@ -199,15 +206,22 @@ const StoryViewer: React.FC = () => {
   
   const getFallbackImage = (theme: string = ""): string => {
     const themeImages: {[key: string]: string} = {
-      adventure: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      fantasy: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      space: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      ocean: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21",
-      dinosaurs: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      forest: "https://images.unsplash.com/photo-1472396961693-142e6e269027"
+      adventure: "/images/covers/adventure.jpg",
+      fantasy: "/images/covers/fantasy.jpg",
+      space: "/images/covers/space.jpg",
+      ocean: "/images/covers/ocean.jpg",
+      dinosaurs: "/images/covers/dinosaurs.jpg",
+      forest: "/images/placeholders/adventure.jpg"
     };
     
-    return themeImages[theme.toLowerCase() as keyof typeof themeImages] || "/placeholder.svg";
+    const themeLower = theme.toLowerCase();
+    for (const [key, url] of Object.entries(themeImages)) {
+      if (themeLower.includes(key)) {
+        return url;
+      }
+    }
+    
+    return "/placeholder.svg";
   };
   
   const handleImageError = (url: string) => {
@@ -223,10 +237,28 @@ const StoryViewer: React.FC = () => {
   };
   
   const getImageUrl = (url?: string, theme: string = ""): string => {
-    if (!url || failedImages[url]) {
+    if (!url || url === "" || url === "null" || url === "undefined") {
       return getFallbackImage(theme);
     }
-    return url;
+    
+    if (url.startsWith("/") && !url.startsWith("//")) {
+      return url;
+    }
+    
+    if (url.includes("supabase") && url.includes("storage")) {
+      return url;
+    }
+    
+    if (failedImages[url]) {
+      return getFallbackImage(theme);
+    }
+    
+    if (url.startsWith("http") || url.startsWith("data:")) {
+      return url;
+    }
+    
+    const baseUrl = window.location.origin;
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
   
   useEffect(() => {
@@ -407,7 +439,7 @@ const StoryViewer: React.FC = () => {
             <img 
               src={coverImage} 
               alt={storyData.title}
-              className="w-full h-full object-contain p-4 transition-all duration-300"
+              className="w-full h-full object-cover p-4 transition-all duration-300"
               onClick={() => handleImageClick(coverImage)}
               onError={() => handleImageError(coverImage)}
             />
@@ -444,6 +476,7 @@ const StoryViewer: React.FC = () => {
     const page = storyData.pages[pageIndex];
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
+    console.log(`Page ${pageIndex} image URL:`, imageUrl);
     
     return (
       <div className="w-full h-full flex flex-col">
