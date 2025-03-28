@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'son/ner';
+import { toast } from 'sonner';
 
 interface UseStoryNarrationProps {
   storyId: string;
@@ -15,7 +14,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Vozes escolhidas do ElevenLabs (pt-BR)
   const VOICE_IDS = {
     female: "EXAVITQu4vr4xnSDxMaL", // Sarah
     male: "TX3LPaxmHKxFdv7VOQHJ"    // Liam
@@ -74,19 +72,16 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       const audioBlob = await response.blob();
       const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
 
-      // Upload do áudio para o Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('story_narrations')
         .upload(fileName, audioBlob);
 
       if (uploadError) throw uploadError;
 
-      // Obter URL pública do áudio
       const { data: { publicUrl } } = supabase.storage
         .from('story_narrations')
         .getPublicUrl(fileName);
 
-      // Salvar referência no banco de dados
       const { error: dbError } = await supabase
         .from('story_narrations')
         .upsert({
