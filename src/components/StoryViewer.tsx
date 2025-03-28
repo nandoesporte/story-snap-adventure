@@ -491,7 +491,7 @@ const StoryViewer: React.FC = () => {
             
             {hideText && (
               <Button 
-                className="absolute bottom-4 right-4 z-20 rounded-full bg-transparent hover:bg-white/20"
+                className="absolute bottom-4 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30"
                 size="icon"
                 variant="ghost"
                 onClick={toggleTextVisibility}
