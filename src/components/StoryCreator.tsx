@@ -207,6 +207,10 @@ const StoryCreator = () => {
         "papercraft" as StoryStyle
       );
       
+      if (!completeBook) {
+        throw new Error("Falha ao gerar o livro completo");
+      }
+      
       console.log("História gerada com sucesso:", {
         title: completeBook.title,
         coverImagePreview: completeBook.coverImageUrl.substring(0, 50) + "...",

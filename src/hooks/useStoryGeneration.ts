@@ -45,24 +45,16 @@ export const useStoryGeneration = () => {
       setTotalImages(0);
       setImageGenerationAttempts(0);
       
-      // Verificar disponibilidade da API OpenAI
-      const isOpenAIAvailable = checkOpenAIAvailability();
-      
-      if (isOpenAIAvailable) {
-        // Forçar o uso da OpenAI para a geração de imagens
-        setUseOpenAIForStories(true, 'gpt-4o-mini');
-        toast.info(`Usando OpenAI para gerar a história e ilustrações em estilo papercraft.`);
-      } else {
-        toast.warning("API OpenAI não está disponível. Verifique a configuração da chave API.");
-        
-        // Verificar disponibilidade da API Leonardo como fallback
-        const isLeonardoAvailable = leonardoApiAvailable;
-        if (isLeonardoAvailable) {
-          toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações em estilo papercraft.");
-        } else {
-          toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
-        }
+      // Always forcefully set to use OpenAI for image generation
+      const openAiApiKey = localStorage.getItem('openai_api_key');
+      if (!openAiApiKey) {
+        toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
+        return null;
       }
+      
+      // Force use of OpenAI regardless of other settings
+      setUseOpenAIForStories(true, 'gpt-4o-mini');
+      toast.info("Usando OpenAI para gerar a história e ilustrações em estilo papercraft.");
       
       // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
       setCurrentStage(`Definindo personagem principal "${characterName}"...`);
