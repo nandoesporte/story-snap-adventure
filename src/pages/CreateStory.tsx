@@ -1,12 +1,15 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { 
   Sparkles, 
-  MessageSquare
+  MessageSquare,
+  LogIn
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StoryForm, { StoryFormData } from "@/components/StoryForm";
@@ -16,6 +19,7 @@ type CreationStep = "prompt" | "details";
 
 const CreateStory = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState<CreationStep>("prompt");
   const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
@@ -90,6 +94,46 @@ const CreateStory = () => {
     // Redirecionar para o criador de histórias
     navigate("/story-creator");
   };
+  
+  // Not authenticated content
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+        <Navbar />
+        
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+          <div className="container max-w-4xl px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-8 text-center"
+            >
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center">
+                  <LogIn className="h-8 w-8 text-violet-600" />
+                </div>
+                <h1 className="text-3xl font-bold">Login Necessário</h1>
+                <p className="text-gray-600 max-w-md mb-4">
+                  Para criar histórias personalizadas, você precisa estar conectado à sua conta.
+                </p>
+                <div className="flex gap-4">
+                  <Button variant="outline" onClick={() => navigate("/")}>
+                    Voltar para Início
+                  </Button>
+                  <Button variant="storyPrimary" onClick={() => navigate("/auth")}>
+                    Entrar na Conta
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </main>
+        
+        <Footer />
+      </div>
+    );
+  }
   
   const renderStep = () => {
     switch (step) {
