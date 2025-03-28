@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 interface StoryPromptInputProps {
   onSubmit: (prompt: string) => void;
-  onBack: () => void;
+  onBack?: () => void; // Make this prop optional
 }
 
 const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
@@ -113,17 +113,19 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
       </div>
 
       <div className="flex justify-between pt-4">
-        <Button
-          variant="outline"
-          onClick={onBack}
-        >
-          Voltar
-        </Button>
+        {onBack && (
+          <Button
+            variant="outline"
+            onClick={onBack}
+          >
+            Voltar
+          </Button>
+        )}
         
         <Button
           onClick={handleSubmit}
           disabled={isLoading}
-          className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+          className={`gap-1.5 bg-violet-600 hover:bg-violet-700 ${!onBack ? 'ml-auto' : ''}`}
         >
           {isLoading ? (
             <>
