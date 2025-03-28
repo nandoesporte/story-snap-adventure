@@ -450,73 +450,112 @@ const StoryViewer: React.FC = () => {
     
     return (
       <div className="w-full h-full flex flex-col">
-        <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
-          {isMobile ? (
-            <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
+        {!isMobile && (
+          <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
+            <div className="flex-1 p-4 flex items-center justify-center">
               <img 
                 src={coverImage} 
                 alt={storyData.title}
-                className="w-full h-full object-cover p-4 transition-all duration-300"
+                className="max-w-full max-h-[70vh] object-contain rounded-xl transition-all duration-300 shadow-md"
                 onClick={() => handleImageClick(coverImage)}
                 onError={() => handleImageError(coverImage)}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
-                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white drop-shadow-md">{storyData.title}</h2>
-                <p className="text-xl text-white/90 mb-3 drop-shadow-md">Uma história para {storyData.childName}</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {storyData.theme && (
-                    <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
-                      {storyData.theme}
-                    </span>
-                  )}
-                  {storyData.setting && (
-                    <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
-                      {storyData.setting}
-                    </span>
-                  )}
-                  {storyData.style && (
-                    <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
-                      {storyData.style}
-                    </span>
-                  )}
-                </div>
+            </div>
+            <div className="p-6 bg-white border-t border-gray-100 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
+              <p className="text-lg text-gray-600 mb-3">Uma história para {storyData.childName}</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {storyData.theme && (
+                  <span className="px-3 py-1 bg-violet-100 text-violet-800 rounded-full text-sm">
+                    {storyData.theme}
+                  </span>
+                )}
+                {storyData.setting && (
+                  <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                    {storyData.setting}
+                  </span>
+                )}
+                {storyData.style && (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    {storyData.style}
+                  </span>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
-              <div className="flex-1 p-4">
-                <img 
-                  src={coverImage} 
-                  alt={storyData.title}
-                  className="w-full h-full object-cover rounded-xl transition-all duration-300 shadow-md"
-                  onClick={() => handleImageClick(coverImage)}
-                  onError={() => handleImageError(coverImage)}
-                />
-              </div>
-              <div className="p-6 bg-white border-t border-gray-100 flex flex-col items-center text-center">
-                <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
-                <p className="text-lg text-gray-600 mb-3">Uma história para {storyData.childName}</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {storyData.theme && (
-                    <span className="px-3 py-1 bg-violet-100 text-violet-800 rounded-full text-sm">
-                      {storyData.theme}
-                    </span>
-                  )}
-                  {storyData.setting && (
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                      {storyData.setting}
-                    </span>
-                  )}
-                  {storyData.style && (
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                      {storyData.style}
-                    </span>
-                  )}
+          </div>
+        )}
+        
+        {isMobile && (
+          <div className="w-full h-full flex flex-col">
+            <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
+              {isMobile ? (
+                <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
+                  <img 
+                    src={coverImage} 
+                    alt={storyData.title}
+                    className="w-full h-full object-cover p-4 transition-all duration-300"
+                    onClick={() => handleImageClick(coverImage)}
+                    onError={() => handleImageError(coverImage)}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white drop-shadow-md">{storyData.title}</h2>
+                    <p className="text-xl text-white/90 mb-3 drop-shadow-md">Uma história para {storyData.childName}</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {storyData.theme && (
+                        <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
+                          {storyData.theme}
+                        </span>
+                      )}
+                      {storyData.setting && (
+                        <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
+                          {storyData.setting}
+                        </span>
+                      )}
+                      {storyData.style && (
+                        <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
+                          {storyData.style}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
+                  <div className="flex-1 p-4">
+                    <img 
+                      src={coverImage} 
+                      alt={storyData.title}
+                      className="w-full h-full object-cover rounded-xl transition-all duration-300 shadow-md"
+                      onClick={() => handleImageClick(coverImage)}
+                      onError={() => handleImageError(coverImage)}
+                    />
+                  </div>
+                  <div className="p-6 bg-white border-t border-gray-100 flex flex-col items-center text-center">
+                    <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
+                    <p className="text-lg text-gray-600 mb-3">Uma história para {storyData.childName}</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {storyData.theme && (
+                        <span className="px-3 py-1 bg-violet-100 text-violet-800 rounded-full text-sm">
+                          {storyData.theme}
+                        </span>
+                      )}
+                      {storyData.setting && (
+                        <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                          {storyData.setting}
+                        </span>
+                      )}
+                      {storyData.style && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                          {storyData.style}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   };
