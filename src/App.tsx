@@ -29,7 +29,17 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
+// Use this component in main.tsx
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+};
+
+// The actual app content, now wrapped by QueryClientProvider in the App component
+function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useAuth();
@@ -76,14 +86,4 @@ function App() {
   );
 }
 
-// Export the app wrapped with the QueryClientProvider
 export default App;
-
-// This is the component that main.tsx will use
-export function AppWithProviders() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  );
-}
