@@ -21,10 +21,16 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
   };
 
   useEffect(() => {
+    // Reset state when the page changes
+    setIsPlaying(false);
+    setAudioUrl(null);
     checkExistingAudio();
   }, [storyId, pageIndex]);
 
   const checkExistingAudio = async () => {
+    // Don't try to check for audio if we don't have a valid storyId
+    if (!storyId || storyId === '') return;
+    
     try {
       const { data: audioData } = await supabase
         .from('story_narrations')
@@ -42,7 +48,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
   };
 
   const generateAudio = async (voiceId: string) => {
-    if (!text || isGenerating) return;
+    if (!text || isGenerating || !storyId) return;
 
     setIsGenerating(true);
     toast.info('Gerando narração...');
@@ -105,7 +111,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
   };
 
   const playAudio = async (voiceId: string) => {
-    if (!audioUrl && !isGenerating) {
+    if (!audioUrl && !isGenerating && text) {
       await generateAudio(voiceId);
       return;
     }
@@ -114,9 +120,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
-      } else {
+      } else if (audioUrl) {
         try {
-          audioRef.current.src = audioUrl || '';
+          audioRef.current.src = audioUrl;
           await audioRef.current.play();
           setIsPlaying(true);
         } catch (error) {

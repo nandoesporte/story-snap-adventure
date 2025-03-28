@@ -75,10 +75,17 @@ const StoryViewer: React.FC = () => {
   
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   
-  const dummyNarration = useStoryNarration({
-    storyId: '',
-    text: '',
-    pageIndex: 0
+  // Create a single instance of the narration hook with memoized parameters
+  // This ensures we don't conditionally render hooks
+  const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
+  const currentPageText = storyData && currentPage > 0 && storyData.pages[currentPageIndex] 
+    ? storyData.pages[currentPageIndex].text 
+    : "";
+  
+  const narration = useStoryNarration({
+    storyId: id || '',
+    text: currentPageText,
+    pageIndex: currentPageIndex
   });
   
   const currentText = storyData && currentPage > 0 && storyData.pages[currentPage - 1] 
@@ -574,11 +581,9 @@ const StoryViewer: React.FC = () => {
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
-    const { isGenerating, isPlaying, playAudio, VOICE_IDS } = useStoryNarration({
-      storyId: id || '',
-      text: page.text,
-      pageIndex
-    });
+    // Use the narration hook instance that was created at the component level
+    // instead of creating a new one here
+    const { isGenerating, isPlaying, playAudio, VOICE_IDS } = narration;
     
     return (
       <div className="w-full h-full flex flex-col">
@@ -785,144 +790,4 @@ const StoryViewer: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-white hover:bg-white/20"
-                onClick={handleZoomIn}
-              >
-                <ZoomIn className="h-5 w-5" />
-              </Button>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="text-white hover:bg-white/20"
-              onClick={() => setShowImageViewer(false)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          
-          <div className="flex-1 w-full h-[80vh] flex items-center justify-center overflow-hidden">
-            <div 
-              className="transition-transform duration-300 ease-out"
-              style={{ transform: `scale(${imageZoom})` }}
-            >
-              <img 
-                src={currentImageUrl} 
-                alt="Visualização da imagem"
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <div ref={storyContainerRef} className="w-full max-w-5xl h-[85vh] overflow-hidden bg-white rounded-xl shadow-xl">
-        {isFlipping && (
-          <div className="absolute inset-0 z-10 bg-white/80 flex items-center justify-center">
-            <div className="relative">
-              <div className={`page-flip ${flipDirection === "left" ? "flip-left" : "flip-right"}`}></div>
-            </div>
-          </div>
-        )}
-        
-        <div className="relative w-full h-full">
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              key={currentPage}
-              className="w-full h-full"
-              ref={bookRef}
-            >
-              {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
-            </motion.div>
-          </AnimatePresence>
-          
-          <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between items-center z-10">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePreviousPage}
-              disabled={currentPage === 0}
-              className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </Button>
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleGoHome} 
-                className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-              >
-                <Home className="h-5 w-5" />
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleFullscreen} 
-                className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-              >
-                {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-              </Button>
-              
-              {!isMobile && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={toggleTextVisibility} 
-                  className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-                >
-                  {hideText ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                </Button>
-              )}
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleShareStory} 
-                className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-              >
-                <Share className="h-5 w-5" />
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleDownloadPDF} 
-                disabled={isDownloading} 
-                className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleNextPage}
-              disabled={!storyData || currentPage >= totalPages - 1}
-              className="bg-white/80 hover:bg-white shadow-md text-gray-800"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-4 text-center text-sm text-gray-600">
-        {storyData && (
-          <>
-            <p>{storyData.title} - {currentPage + 1}/{totalPages}</p>
-            <p className="text-xs mt-1">História criada para {storyData.childName}</p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default StoryViewer;
+                className
