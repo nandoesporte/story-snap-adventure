@@ -481,8 +481,8 @@ const StoryViewer: React.FC = () => {
                       variant="ghost"
                       onClick={toggleTextVisibility}
                     >
-                      {hideText ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      {hideText ? "Mostrar texto" : "Ocultar texto"}
+                      <EyeOff className="w-4 h-4" />
+                      Ocultar texto
                     </Button>
                   </div>
                 </div>
@@ -491,12 +491,13 @@ const StoryViewer: React.FC = () => {
             
             {hideText && (
               <Button 
-                className="absolute bottom-4 right-4 z-20 rounded-full bg-white/20 hover:bg-white/30"
+                className="absolute bottom-4 right-4 z-20 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 flex items-center gap-1"
                 size="sm"
                 variant="ghost"
                 onClick={toggleTextVisibility}
               >
-                <Eye className="w-5 h-5 text-white" />
+                <Eye className="w-4 h-4" />
+                Mostrar texto
               </Button>
             )}
           </div>
