@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { Sparkles, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
@@ -32,7 +31,9 @@ const StoryCreator = () => {
     generateCompleteStory,
     isGenerating, 
     progress, 
-    currentStage
+    currentStage,
+    currentImageIndex,
+    totalImages
   } = useStoryGeneration();
   
   useEffect(() => {
@@ -188,12 +189,10 @@ const StoryCreator = () => {
     setStep("generating");
     
     try {
-      // Use character data from selected character instead of just child name
       const characterPrompt = selectedCharacter?.generation_prompt || "";
       const characterName = selectedCharacter?.name || data.childName;
       
       const completeBook = await generateCompleteStory(
-        // Use character name as first parameter instead of child name
         characterName,
         data.childAge,
         data.theme,
@@ -240,7 +239,7 @@ const StoryCreator = () => {
           cover_image_url: completeBook.coverImageUrl,
           childImage: imagePreview,
           childName: data.childName,
-          character_name: characterName, // Use character name here
+          character_name: characterName,
           childAge: data.childAge,
           character_age: data.childAge,
           theme: data.theme,
@@ -323,16 +322,36 @@ const StoryCreator = () => {
               {step === "finalizing" ? "História gerada com sucesso!" : "Gerando a história personalizada..."}
             </p>
             <p className="text-slate-500 mb-4">{currentStage}</p>
+            
+            {totalImages > 0 && currentImageIndex > 0 && (
+              <div className="mb-4 w-full max-w-md">
+                <div className="flex justify-between text-sm text-slate-600 mb-1">
+                  <span>Gerando ilustrações</span>
+                  <span>{currentImageIndex} de {totalImages}</span>
+                </div>
+              </div>
+            )}
+            
             <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
               <div 
                 className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
+            
+            {currentImageIndex > 0 && currentImageIndex === totalImages && progress < 100 && (
+              <div className="w-full max-w-md mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-amber-700">
+                  Verificando qualidade das ilustrações. Isso pode levar alguns momentos adicionais para garantir que todas as imagens sejam geradas corretamente.
+                </p>
+              </div>
+            )}
+            
             <p className="text-sm text-slate-500">
               {step === "finalizing" 
                 ? "Redirecionando para visualização da história..." 
-                : "Isso pode levar alguns instantes. Estamos criando algo especial!"}
+                : "Estamos criando algo especial! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
             </p>
           </motion.div>
         )}

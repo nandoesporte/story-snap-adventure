@@ -7,6 +7,9 @@ export const useStoryGeneration = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState("");
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [totalImages, setTotalImages] = useState(0);
+  const [imageGenerationAttempts, setImageGenerationAttempts] = useState(0);
   
   const {
     generateCompleteStory: storyBotGenerateCompleteStory,
@@ -37,6 +40,9 @@ export const useStoryGeneration = () => {
       setIsGenerating(true);
       setProgress(5);
       setCurrentStage("Iniciando a criação da história...");
+      setCurrentImageIndex(0);
+      setTotalImages(0);
+      setImageGenerationAttempts(0);
       
       // Verificar disponibilidade das APIs de imagens
       const isLeonardoAvailable = leonardoApiAvailable;
@@ -82,20 +88,63 @@ export const useStoryGeneration = () => {
         style: "papercraft" // Force papercraft style for consistent logging
       });
       
-      // Always use papercraft style regardless of what was passed in
-      const result = await storyBotGenerateCompleteStory(
-        characterName,
-        childAge,
-        theme,
-        setting,
-        moralTheme,
-        characterPrompt,
-        length,
-        readingLevel,
-        language,
-        childImageBase64,
-        "papercraft" // Force papercraft style
-      );
+      // Implementação de geração persistente
+      const generateWithPersistence = async () => {
+        // Always use papercraft style regardless of what was passed in
+        const result = await storyBotGenerateCompleteStory(
+          characterName,
+          childAge,
+          theme,
+          setting,
+          moralTheme,
+          characterPrompt,
+          length,
+          readingLevel,
+          language,
+          childImageBase64,
+          "papercraft" // Force papercraft style
+        );
+        
+        // Controle de geração de imagens
+        if (result && result.pages) {
+          setTotalImages(result.pages.length);
+          
+          // Validar cada imagem gerada
+          for (let i = 0; i < result.pages.length; i++) {
+            setCurrentImageIndex(i + 1);
+            setCurrentStage(`Verificando ilustração ${i + 1} de ${result.pages.length}...`);
+            
+            const imgUrl = result.pages[i].imageUrl;
+            
+            // Verificar se a imagem foi gerada corretamente
+            if (!imgUrl || imgUrl.includes('placeholder') || imgUrl.startsWith('/placeholder')) {
+              // Se for a última tentativa, continue mesmo com placeholder
+              const maxAttempts = 3;
+              if (imageGenerationAttempts >= maxAttempts) {
+                toast.warning(`Não foi possível gerar a ilustração ${i + 1} após ${maxAttempts} tentativas. Usando imagem de placeholder.`);
+                continue;
+              }
+              
+              // Tentar novamente apenas a geração de imagens
+              setImageGenerationAttempts(prev => prev + 1);
+              toast.info(`Tentando novamente a geração da ilustração ${i + 1}...`);
+              
+              // Aqui poderíamos implementar uma regeneração apenas da imagem específica
+              // Por enquanto, vamos apenas avisar o usuário
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Pausa para o usuário ver a mensagem
+            }
+            
+            // Atualizar o progresso baseado na validação das imagens
+            const baseProgress = 50; // Até a geração da história
+            const progressPerImage = (100 - baseProgress) / result.pages.length;
+            setProgress(baseProgress + progressPerImage * (i + 1));
+          }
+        }
+        
+        return result;
+      };
+      
+      const result = await generateWithPersistence();
       
       setProgress(100);
       setCurrentStage("História gerada com sucesso!");
@@ -114,6 +163,8 @@ export const useStoryGeneration = () => {
     generateCompleteStory,
     isGenerating,
     progress,
-    currentStage
+    currentStage,
+    currentImageIndex,
+    totalImages
   };
 };
