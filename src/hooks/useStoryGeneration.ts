@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
 import { useStoryNarration } from "./useStoryNarration";
+import { v4 as uuidv4 } from "uuid";
 
 export const useStoryGeneration = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -122,6 +123,9 @@ export const useStoryGeneration = () => {
           toast.error("Erro ao gerar a história. Tente novamente.");
           return null;
         }
+        
+        // Generate a unique ID for this story if it doesn't have one
+        result.id = result.id || uuidv4();
         
         // Primeiro verificar se a capa foi gerada corretamente
         setCurrentStage("Verificando a capa do livro...");
@@ -303,3 +307,4 @@ export const useStoryGeneration = () => {
     currentNarrationIndex
   };
 };
+
