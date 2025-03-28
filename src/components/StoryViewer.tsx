@@ -714,7 +714,9 @@ const StoryViewer: React.FC = () => {
             <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
           </button>
           
-          <div className="w-full h-full max-h-[70vh]">
+          <div 
+            className="w-full h-full max-h-[70vh]"
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPage}
@@ -822,7 +824,7 @@ const StoryViewer: React.FC = () => {
           </Button>
           <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" />
-            Baixar PDF
+            Baixar como PDF
           </Button>
         </div>
       )}
