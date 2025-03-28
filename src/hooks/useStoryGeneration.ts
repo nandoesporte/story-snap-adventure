@@ -1,9 +1,23 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
 import { useStoryNarration } from "./useStoryNarration";
 import { v4 as uuidv4 } from "uuid";
+
+interface StoryResult {
+  id: string;
+  title: string;
+  coverImageUrl: string;
+  childName: string;
+  childAge: string;
+  theme: string;
+  setting: string;
+  characterPrompt: string;
+  pages: Array<{
+    text: string;
+    imageUrl: string;
+  }>;
+}
 
 export const useStoryGeneration = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -26,19 +40,14 @@ export const useStoryGeneration = () => {
     generateImageWithOpenAI
   } = useStoryBot();
   
-  // Add narration hook
   const { generateAudio, VOICE_IDS } = useStoryNarration({
     storyId: '',
     text: '',
     pageIndex: 0
   });
   
-  /**
-   * Gera uma história completa com título, texto e ilustrações
-   * com personagens consistentes ao longo da narrativa
-   */
   const generateCompleteStory = async (
-    characterName: string, // This is now the selected character name, not child name
+    characterName: string,
     childAge: string,
     theme: string,
     setting: string,
@@ -48,7 +57,7 @@ export const useStoryGeneration = () => {
     readingLevel: string = "intermediate",
     language: string = "portuguese",
     childImageBase64: string | null = null,
-    style: string = "papercraft" // Changed default style to papercraft
+    style: string = "papercraft"
   ) => {
     try {
       setIsGenerating(true);
@@ -61,22 +70,18 @@ export const useStoryGeneration = () => {
       setGeneratingNarration(false);
       setCurrentNarrationIndex(0);
       
-      // Always forcefully set to use OpenAI for image generation
       const openAiApiKey = localStorage.getItem('openai_api_key');
       if (!openAiApiKey) {
         toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
         return null;
       }
       
-      // Force use of OpenAI regardless of other settings
       setUseOpenAIForStories(true, 'gpt-4o-mini');
       toast.info("Usando OpenAI para gerar a história e ilustrações em estilo papercraft.");
       
-      // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
       setCurrentStage(`Definindo personagem principal "${characterName}"...`);
       setProgress(10);
       
-      // Verificar se há um prompt de personagem detalhado
       if (!characterPrompt || characterPrompt.trim().length < 10) {
         console.log("Character prompt is minimal, generating a basic description...");
         characterPrompt = `Personagem ${characterName}: um personagem de ${childAge} anos, alegre e curioso.`;
@@ -84,7 +89,6 @@ export const useStoryGeneration = () => {
         console.log(`Using provided character prompt for ${characterName}: ${characterPrompt.substring(0, 50)}...`);
       }
       
-      // Etapa 2: Gerar história com personagens consistentes
       setCurrentStage(`Criando a narrativa com o personagem ${characterName}...`);
       setProgress(15);
       
@@ -99,12 +103,10 @@ export const useStoryGeneration = () => {
         readingLevel,
         language,
         hasChildImage: !!childImageBase64,
-        style: "papercraft" // Force papercraft style for consistent logging
+        style: "papercraft"
       });
       
-      // Implementação de geração persistente
       const generateWithPersistence = async () => {
-        // Always use papercraft style regardless of what was passed in
         let result = await storyBotGenerateCompleteStory(
           characterName,
           childAge,
@@ -116,7 +118,7 @@ export const useStoryGeneration = () => {
           readingLevel,
           language,
           childImageBase64,
-          "papercraft" // Force papercraft style
+          "papercraft"
         );
         
         if (!result) {
@@ -124,33 +126,30 @@ export const useStoryGeneration = () => {
           return null;
         }
         
-        // Generate a unique ID for this story if it doesn't have one
-        result.id = result.id || uuidv4();
+        const storyResult: StoryResult = {
+          ...result,
+          id: result.id || uuidv4()
+        };
         
-        // Primeiro verificar se a capa foi gerada corretamente
         setCurrentStage("Verificando a capa do livro...");
         
-        // Verificar se a capa foi gerada com OpenAI
-        if (!result.coverImageUrl || 
-            result.coverImageUrl.includes('placeholder') || 
-            result.coverImageUrl.startsWith('/placeholder') ||
-            result.coverImageUrl.startsWith('https://images.unsplash.com')) {
+        if (!storyResult.coverImageUrl || 
+            storyResult.coverImageUrl.includes('placeholder') || 
+            storyResult.coverImageUrl.startsWith('/placeholder') ||
+            storyResult.coverImageUrl.startsWith('https://images.unsplash.com')) {
           
-          // Tentar gerar a capa com OpenAI diretamente
           const maxCoverAttempts = 2;
           if (coverImageAttempt < maxCoverAttempts) {
             setCoverImageAttempt(prev => prev + 1);
             toast.info("Gerando capa do livro com OpenAI...");
             
             try {
-              // Use the first page image as cover if available
-              if (result.pages && result.pages.length > 0 && result.pages[0].imageUrl) {
-                result.coverImageUrl = result.pages[0].imageUrl;
-                console.log("Using first page image as cover:", result.coverImageUrl);
+              if (storyResult.pages && storyResult.pages.length > 0 && storyResult.pages[0].imageUrl) {
+                storyResult.coverImageUrl = storyResult.pages[0].imageUrl;
+                console.log("Using first page image as cover:", storyResult.coverImageUrl);
                 toast.success("Usando imagem da primeira página como capa!");
               } else {
-                // Otherwise generate a new cover
-                const coverPrompt = `Book cover illustration in papercraft style for a children's book titled "${result.title}". 
+                const coverPrompt = `Book cover illustration in papercraft style for a children's book titled "${storyResult.title}". 
                 The main character ${characterName} in a ${setting} setting with ${theme} theme. 
                 ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} 
                 Create a captivating, colorful illustration suitable for a book cover. 
@@ -160,7 +159,7 @@ export const useStoryGeneration = () => {
                 console.log("Generated new cover with OpenAI:", coverUrl);
                 
                 if (coverUrl) {
-                  result.coverImageUrl = coverUrl;
+                  storyResult.coverImageUrl = coverUrl;
                   toast.success("Capa gerada com sucesso!");
                 }
               }
@@ -171,70 +170,57 @@ export const useStoryGeneration = () => {
           }
         }
         
-        // Controle de geração de imagens
-        if (result && result.pages) {
-          setTotalImages(result.pages.length);
+        setTotalImages(storyResult.pages.length);
+        
+        for (let i = 0; i < storyResult.pages.length; i++) {
+          setCurrentImageIndex(i + 1);
+          setCurrentStage(`Verificando ilustração ${i + 1} de ${storyResult.pages.length}...`);
           
-          // Validar cada imagem gerada
-          for (let i = 0; i < result.pages.length; i++) {
-            setCurrentImageIndex(i + 1);
-            setCurrentStage(`Verificando ilustração ${i + 1} de ${result.pages.length}...`);
+          const imgUrl = storyResult.pages[i].imageUrl;
+          
+          if (!imgUrl || 
+              imgUrl.includes('placeholder') || 
+              imgUrl.startsWith('/placeholder') ||
+              imgUrl.startsWith('https://images.unsplash.com')) {
             
-            const imgUrl = result.pages[i].imageUrl;
-            
-            // Verificar se a imagem foi gerada corretamente
-            if (!imgUrl || 
-                imgUrl.includes('placeholder') || 
-                imgUrl.startsWith('/placeholder') ||
-                imgUrl.startsWith('https://images.unsplash.com')) {
-              
-              // Se for a última tentativa, continue mesmo com placeholder
-              const maxAttempts = 3;
-              if (imageGenerationAttempts >= maxAttempts) {
-                toast.warning(`Não foi possível gerar a ilustração ${i + 1} após ${maxAttempts} tentativas. Usando imagem de placeholder.`);
-                continue;
-              }
-              
-              // Tentar novamente apenas a geração de imagens
-              setImageGenerationAttempts(prev => prev + 1);
-              toast.info(`Tentando novamente a geração da ilustração ${i + 1}...`);
-              
-              // Tentar gerar diretamente com OpenAI
-              try {
-                const pageText = result.pages[i].text;
-                const enhancedPrompt = `Papercraft style illustration for a children's book showing ${characterName} in ${setting} with ${theme} theme. 
-                Scene: ${pageText.substring(0, 200)}... 
-                ${characterPrompt ? `Character details: ${characterPrompt}` : ''}
-                Style: Layered colorful paper with depth effect (papercraft).`;
-                
-                const newImageUrl = await generateImageWithOpenAI(enhancedPrompt);
-                if (newImageUrl) {
-                  result.pages[i].imageUrl = newImageUrl;
-                  console.log(`Regenerated image ${i+1} successfully with OpenAI`);
-                  continue;
-                }
-              } catch (error) {
-                console.error(`Failed to regenerate image ${i+1} with OpenAI:`, error);
-              }
-              
-              // Aguardar 2 segundos antes de tentar novamente
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Retornar para o início do loop para tentar novamente
-              i = i - 1;
+            const maxAttempts = 3;
+            if (imageGenerationAttempts >= maxAttempts) {
+              toast.warning(`Não foi possível gerar a ilustração ${i + 1} após ${maxAttempts} tentativas. Usando imagem de placeholder.`);
               continue;
             }
             
-            // Atualizar o progresso baseado na validação das imagens
-            const baseProgress = 50; // Até a geração da história
-            const progressPerImage = (100 - baseProgress) / result.pages.length;
-            setProgress(baseProgress + progressPerImage * (i + 1));
+            setImageGenerationAttempts(prev => prev + 1);
+            toast.info(`Tentando novamente a geração da ilustração ${i + 1}...`);
+            
+            try {
+              const pageText = storyResult.pages[i].text;
+              const enhancedPrompt = `Papercraft style illustration for a children's book showing ${characterName} in ${setting} with ${theme} theme. 
+              Scene: ${pageText.substring(0, 200)}... 
+              ${characterPrompt ? `Character details: ${characterPrompt}` : ''}
+              Style: Layered colorful paper with depth effect (papercraft).`;
+              
+              const newImageUrl = await generateImageWithOpenAI(enhancedPrompt);
+              if (newImageUrl) {
+                storyResult.pages[i].imageUrl = newImageUrl;
+                console.log(`Regenerated image ${i+1} successfully with OpenAI`);
+                continue;
+              }
+            } catch (error) {
+              console.error(`Failed to regenerate image ${i+1} with OpenAI:`, error);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            i = i - 1;
+            continue;
           }
+          
+          const baseProgress = 50;
+          const progressPerImage = (100 - baseProgress) / storyResult.pages.length;
+          setProgress(baseProgress + progressPerImage * (i + 1));
         }
         
-        // Adicionar geração automática de narrações após geração de imagens
-        if (result && result.pages && result.id) {
-          // Verificar se a chave da API ElevenLabs está configurada
+        if (storyResult && storyResult.pages && storyResult.id) {
           const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
           if (!elevenlabsApiKey) {
             console.warn("ElevenLabs API key not configured, skipping narration generation");
@@ -244,32 +230,27 @@ export const useStoryGeneration = () => {
             setCurrentStage("Gerando narrações para as páginas...");
             toast.info("Iniciando geração de narrações para as páginas...");
             
-            // Determinar qual voz usar baseado no idioma da história
             const voiceId = language && language.toLowerCase() === 'english' ? 
-                VOICE_IDS.male : // Usar voz masculina em inglês (Liam)
-                VOICE_IDS.female; // Usar voz feminina em português (Sarah)
+                VOICE_IDS.male : 
+                VOICE_IDS.female;
             
-            // Gerar narração para cada página
-            for (let i = 0; i < result.pages.length; i++) {
+            for (let i = 0; i < storyResult.pages.length; i++) {
               setCurrentNarrationIndex(i + 1);
-              setCurrentStage(`Gerando narração ${i + 1} de ${result.pages.length}...`);
+              setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
               
               try {
                 await generateAudio(voiceId, {
-                  storyId: result.id,
-                  text: result.pages[i].text,
+                  storyId: storyResult.id,
+                  text: storyResult.pages[i].text,
                   pageIndex: i
                 });
                 
-                // Atualizar o progresso (de 80% a 100%)
-                const narrationProgress = 80 + (20 * (i + 1) / result.pages.length);
-                setProgress(Math.min(narrationProgress, 99)); // Manter abaixo de 100% até finalizar
+                const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
+                setProgress(Math.min(narrationProgress, 99));
               } catch (error) {
                 console.error(`Error generating narration for page ${i+1}:`, error);
-                // Continue with next page if one fails
               }
               
-              // Pequeno delay entre gerações para evitar sobrecarregar a API
               await new Promise(resolve => setTimeout(resolve, 500));
             }
             
@@ -277,7 +258,7 @@ export const useStoryGeneration = () => {
           }
         }
         
-        return result;
+        return storyResult;
       };
       
       const result = await generateWithPersistence();
@@ -307,4 +288,3 @@ export const useStoryGeneration = () => {
     currentNarrationIndex
   };
 };
-
