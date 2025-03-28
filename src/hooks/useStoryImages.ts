@@ -32,10 +32,15 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
             const urlObj = new URL(imageUrl);
             const pathParts = urlObj.pathname.split('/');
             const fileName = pathParts[pathParts.length - 1];
-            const storageUrl = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+            
+            // Use getPublicUrl method instead of direct property access
+            const { data } = supabase
+              .storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
             
             // Verificar se o arquivo existe
-            const { data, error } = await supabase
+            const { data: fileData, error } = await supabase
               .storage
               .from(bucketName)
               .download(fileName);
@@ -45,7 +50,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               setProcessedUrl('/placeholder.svg');
               setHasError(true);
             } else {
-              setProcessedUrl(storageUrl);
+              setProcessedUrl(data.publicUrl);
             }
           } catch (error) {
             console.error('Failed to process storage URL:', error);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -242,19 +241,20 @@ const StoryViewer: React.FC = () => {
       return getFallbackImage(theme);
     }
     
-    // Fix for storage URLs - ensure they use the correct format
     if (url.includes("supabase") && url.includes("storage") && !url.includes("object")) {
-      // Parse the URL to get the correct path components
       try {
         const urlObj = new URL(url);
         const pathParts = urlObj.pathname.split('/');
         const bucketName = pathParts[pathParts.length - 2];
         const fileName = pathParts[pathParts.length - 1];
         
-        // Construct the correct object URL format
-        const publicUrl = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
-        console.log("Reformatted storage URL:", publicUrl);
-        return publicUrl;
+        const { data } = supabase
+          .storage
+          .from(bucketName)
+          .getPublicUrl(fileName);
+        
+        console.log("Reformatted storage URL:", data.publicUrl);
+        return data.publicUrl;
       } catch (error) {
         console.error("Failed to parse storage URL:", error);
       }

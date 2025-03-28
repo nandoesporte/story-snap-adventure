@@ -5,8 +5,11 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Add storage URL for convenience
-supabase.storageUrl = supabaseUrl + '/storage/v1';
+// Helper function to get the public URL for storage objects
+export const getStorageUrl = (bucket: string, fileName: string): string => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  return data.publicUrl;
+};
 
 // Initialize necessary database structure
 export const initializeDatabaseStructure = async () => {
@@ -457,7 +460,14 @@ export const getUserStories = async () => {
             const pathParts = urlObj.pathname.split('/');
             const bucketName = pathParts[pathParts.length - 2]; 
             const fileName = pathParts[pathParts.length - 1];
-            story.cover_image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+            
+            // Use getPublicUrl instead of direct storageUrl access
+            const { data: publicUrlData } = supabase
+              .storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
+              
+            story.cover_image_url = publicUrlData.publicUrl;
           } catch (e) {
             console.error('Error formatting cover image URL:', e);
           }
@@ -473,7 +483,14 @@ export const getUserStories = async () => {
                 const pathParts = urlObj.pathname.split('/');
                 const bucketName = pathParts[pathParts.length - 2];
                 const fileName = pathParts[pathParts.length - 1];
-                page.image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+                
+                // Use getPublicUrl instead of direct storageUrl access
+                const { data: publicUrlData } = supabase
+                  .storage
+                  .from(bucketName)
+                  .getPublicUrl(fileName);
+                  
+                page.image_url = publicUrlData.publicUrl;
               } catch (e) {
                 console.error('Error formatting page image URL:', e);
               }
@@ -514,7 +531,14 @@ export const getStoryById = async (id: string) => {
           const pathParts = urlObj.pathname.split('/');
           const bucketName = pathParts[pathParts.length - 2];
           const fileName = pathParts[pathParts.length - 1];
-          data.cover_image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+          
+          // Use getPublicUrl instead of direct storageUrl access
+          const { data: publicUrlData } = supabase
+            .storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+            
+          data.cover_image_url = publicUrlData.publicUrl;
         } catch (e) {
           console.error('Error formatting cover image URL:', e);
         }
@@ -530,7 +554,14 @@ export const getStoryById = async (id: string) => {
               const pathParts = urlObj.pathname.split('/');
               const bucketName = pathParts[pathParts.length - 2];
               const fileName = pathParts[pathParts.length - 1];
-              page.image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+              
+              // Use getPublicUrl instead of direct storageUrl access
+              const { data: publicUrlData } = supabase
+                .storage
+                .from(bucketName)
+                .getPublicUrl(fileName);
+                
+              page.image_url = publicUrlData.publicUrl;
             } catch (e) {
               console.error('Error formatting page image URL:', e);
             }
