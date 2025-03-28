@@ -461,7 +461,7 @@ const StoryViewer: React.FC = () => {
             
             {!hideText && (
               <div className="story-text-overlay">
-                <div className="relative z-10 p-4 pb-0">
+                <div className="relative z-10 p-4 pb-6">
                   <h2 className="text-xl font-bold mb-3 text-white text-shadow">{storyData.title}</h2>
                   <div className="prose prose-sm story-text text-white">
                     {typedText.split('\n').map((paragraph, idx) => (
@@ -473,18 +473,32 @@ const StoryViewer: React.FC = () => {
                     <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
                     <span>{storyData.childName}</span>
                   </div>
+                  
+                  <div className="mt-4 flex justify-center">
+                    <Button 
+                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
+                      size="sm"
+                      variant="ghost"
+                      onClick={toggleTextVisibility}
+                    >
+                      {hideText ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {hideText ? "Mostrar texto" : "Ocultar texto"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
             
-            <Button 
-              className="absolute bottom-4 right-4 z-20 rounded-full"
-              size="sm"
-              variant="ghost"
-              onClick={toggleTextVisibility}
-            >
-              {hideText ? <Eye className="w-5 h-5 text-white" /> : <EyeOff className="w-5 h-5 text-white" />}
-            </Button>
+            {hideText && (
+              <Button 
+                className="absolute bottom-4 right-4 z-20 rounded-full bg-white/20 hover:bg-white/30"
+                size="sm"
+                variant="ghost"
+                onClick={toggleTextVisibility}
+              >
+                <Eye className="w-5 h-5 text-white" />
+              </Button>
+            )}
           </div>
         ) : (
           <div className="w-full h-full flex flex-row">
