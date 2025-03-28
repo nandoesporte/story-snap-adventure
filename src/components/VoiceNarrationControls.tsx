@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { VolumeIcon, Volume2Icon, Play, Pause, MaleIcon, FemaleIcon } from 'lucide-react';
+import { VolumeIcon, Volume2Icon, Play, Pause, UserIcon, UserRoundIcon } from 'lucide-react';
 import { VoiceType } from '@/hooks/useVoiceNarration';
 
 interface VoiceNarrationControlsProps {

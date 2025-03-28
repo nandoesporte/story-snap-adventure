@@ -1,4 +1,3 @@
-
 export const customScrollbarStyles = `
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -309,4 +308,81 @@ export const customScrollbarStyles = `
   width: 60px;
   height: 60px;
 }
-`;
+
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Story } from '@/lib/supabase';
+
+export const generatePDF = async (story: Story): Promise<void> => {
+  try {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pages = story.pages || [];
+    
+    // Add cover page
+    pdf.setFillColor(230, 230, 250); // Light purple background
+    pdf.rect(0, 0, 210, 297, 'F');
+    
+    // Add title
+    pdf.setFontSize(24);
+    pdf.setTextColor(75, 0, 130); // Indigo color
+    const titleWidth = pdf.getStringUnitWidth(story.title) * 24 / pdf.internal.scaleFactor;
+    const titleX = (210 - titleWidth) / 2;
+    pdf.text(story.title, titleX, 40);
+    
+    // Add character name
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    const characterText = `Personagem: ${story.character_name}`;
+    const characterWidth = pdf.getStringUnitWidth(characterText) * 16 / pdf.internal.scaleFactor;
+    const characterX = (210 - characterWidth) / 2;
+    pdf.text(characterText, characterX, 60);
+    
+    // Add cover image if available
+    if (story.cover_image_url) {
+      try {
+        const imgData = story.cover_image_url;
+        pdf.addImage(imgData, 'JPEG', 55, 80, 100, 120);
+      } catch (error) {
+        console.error("Error adding cover image to PDF:", error);
+      }
+    }
+    
+    // Add each story page
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      
+      // Add new page after cover
+      pdf.addPage();
+      
+      // Add page number
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Página ${i+1}`, 180, 10);
+      
+      // Add page text
+      if (page.text) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        
+        const splitText = pdf.splitTextToSize(page.text, 170);
+        pdf.text(splitText, 20, 40);
+      }
+      
+      // Add page image if available
+      if (page.image_url) {
+        try {
+          pdf.addImage(page.image_url, 'JPEG', 55, 140, 100, 100);
+        } catch (error) {
+          console.error(`Error adding image to page ${i+1}:`, error);
+        }
+      }
+    }
+    
+    // Save the PDF
+    pdf.save(`${story.title.replace(/\s+/g, '_')}.pdf`);
+    
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    throw new Error("Failed to generate PDF");
+  }
+};
