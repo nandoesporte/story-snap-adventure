@@ -22,8 +22,7 @@ BEGIN
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       prompt TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-      voice_narration_settings JSONB DEFAULT '{"enabled": true, "defaultVoice": "female", "femaleVoiceId": "pFZP5JQG7iQjIQuC4Bku", "maleVoiceId": "onwK4e9ZLuTAKqWW03F9", "model": "eleven_multilingual_v2", "language": "pt-BR"}'::jsonb
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
 
     -- Add comment to the table
@@ -62,18 +61,6 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 
 IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.'
     );
-  ELSE
-    -- Check if voice_narration_settings column exists
-    IF NOT EXISTS (
-      SELECT FROM information_schema.columns 
-      WHERE table_schema = 'public' 
-      AND table_name = 'storybot_prompts'
-      AND column_name = 'voice_narration_settings'
-    ) THEN
-      -- Add the column if it doesn't exist
-      ALTER TABLE public.storybot_prompts 
-      ADD COLUMN voice_narration_settings JSONB DEFAULT '{"enabled": true, "defaultVoice": "female", "femaleVoiceId": "pFZP5JQG7iQjIQuC4Bku", "maleVoiceId": "onwK4e9ZLuTAKqWW03F9", "model": "eleven_multilingual_v2", "language": "pt-BR"}'::jsonb;
-    END IF;
   END IF;
 END;
 $$ LANGUAGE plpgsql;

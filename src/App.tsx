@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import Index from './pages/Index';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
@@ -18,6 +18,7 @@ import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// Create a stable QueryClient instance outside the component
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -54,30 +55,32 @@ function App() {
   }, [user, loading, navigate, location]);
 
   return (
-    <TooltipProvider>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/create-story" element={<CreateStory />} />
-          <Route path="/story-creator" element={<StoryCreator />} />
-          <Route path="/my-stories" element={<MyStories />} />
-          <Route path="/view-story/:id" element={<StoryViewer />} />
-          <Route path="/view-story" element={<StoryViewer />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/storybot" element={<StoryBot />} />
-          <Route path="/characters" element={<Characters />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
-      </div>
-    </TooltipProvider>
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/view-story/:id" element={<StoryViewer />} />
+        <Route path="/view-story" element={<StoryViewer />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/storybot" element={<StoryBot />} />
+        <Route path="/characters" element={<Characters />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </div>
   );
 }
 
-export default function AppWithProviders() {
+// Export the app wrapped with the QueryClientProvider
+export default App;
+
+// This is the component that main.tsx will use
+export function AppWithProviders() {
   return (
     <QueryClientProvider client={queryClient}>
       <App />
