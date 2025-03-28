@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
@@ -67,6 +66,7 @@ const StoryViewer: React.FC = () => {
   const [imageZoom, setImageZoom] = useState(1);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
+  const [hideText, setHideText] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -111,8 +111,10 @@ const StoryViewer: React.FC = () => {
             console.log("Dados da história carregados:", data);
             const formattedStory: StoryData = {
               title: data.title,
-              coverImageUrl: data.cover_image_url || "/placeholder.svg",
-              cover_image_url: data.cover_image_url || "/placeholder.svg",
+              coverImageUrl: data.pages && data.pages.length > 0 && data.pages[0].image_url ? 
+                data.pages[0].image_url : (data.cover_image_url || "/placeholder.svg"),
+              cover_image_url: data.pages && data.pages.length > 0 && data.pages[0].image_url ? 
+                data.pages[0].image_url : (data.cover_image_url || "/placeholder.svg"),
               childName: data.character_name,
               childAge: data.character_age || "",
               theme: data.theme || "",
@@ -154,8 +156,14 @@ const StoryViewer: React.FC = () => {
           
           const formattedStory: StoryData = {
             title: parsedData.title,
-            coverImageUrl: parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg",
-            cover_image_url: parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg",
+            coverImageUrl: parsedData.pages && parsedData.pages.length > 0 && 
+              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) ? 
+              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
+              (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
+            cover_image_url: parsedData.pages && parsedData.pages.length > 0 && 
+              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) ? 
+              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
+              (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
             childName: parsedData.childName || parsedData.character_name,
             childAge: parsedData.childAge || parsedData.character_age || "",
             theme: parsedData.theme || "",
@@ -382,6 +390,10 @@ const StoryViewer: React.FC = () => {
     setImageZoom(prev => Math.max(prev - 0.2, 0.5));
   };
   
+  const toggleTextVisibility = () => {
+    setHideText(!hideText);
+  };
+  
   const renderCoverPage = () => {
     if (!storyData) return null;
     
@@ -447,21 +459,32 @@ const StoryViewer: React.FC = () => {
               />
             </div>
             
-            <div className="story-text-overlay">
-              <div className="relative z-10 p-4 pb-0">
-                <h2 className="text-xl font-bold mb-3 text-white text-shadow">{storyData.title}</h2>
-                <div className="prose prose-sm story-text text-white">
-                  {typedText.split('\n').map((paragraph, idx) => (
-                    <p key={idx} className="mb-2 leading-relaxed text-shadow">{paragraph}</p>
-                  ))}
-                  <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
-                </div>
-                <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
-                  <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
-                  <span>{storyData.childName}</span>
+            {!hideText && (
+              <div className="story-text-overlay">
+                <div className="relative z-10 p-4 pb-0">
+                  <h2 className="text-xl font-bold mb-3 text-white text-shadow">{storyData.title}</h2>
+                  <div className="prose prose-sm story-text text-white">
+                    {typedText.split('\n').map((paragraph, idx) => (
+                      <p key={idx} className="mb-2 leading-relaxed text-shadow">{paragraph}</p>
+                    ))}
+                    <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
+                  </div>
+                  <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
+                    <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                    <span>{storyData.childName}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            
+            <Button 
+              className="absolute bottom-4 right-4 z-20 rounded-full"
+              size="sm"
+              variant="ghost"
+              onClick={toggleTextVisibility}
+            >
+              {hideText ? <Eye className="w-5 h-5 text-white" /> : <EyeOff className="w-5 h-5 text-white" />}
+            </Button>
           </div>
         ) : (
           <div className="w-full h-full flex flex-row">
@@ -475,22 +498,40 @@ const StoryViewer: React.FC = () => {
               />
             </div>
             
-            <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between">
-              <ScrollArea className="h-full pr-2">
-                <div className="mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{storyData.title}</h2>
-                  <div className="prose prose-lg">
-                    {typedText.split('\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-3 text-lg">{paragraph}</p>
-                    ))}
-                    <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
+            <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between relative">
+              {!hideText ? (
+                <>
+                  <ScrollArea className="h-full pr-2">
+                    <div className="mb-6">
+                      <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{storyData.title}</h2>
+                      <div className="prose prose-lg">
+                        {typedText.split('\n').map((paragraph, idx) => (
+                          <p key={idx} className="mb-3 text-lg">{paragraph}</p>
+                        ))}
+                        <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
+                      </div>
+                    </div>
+                  </ScrollArea>
+                  <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
+                    <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                    <span>{storyData.childName}</span>
                   </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-400 italic">Texto oculto</p>
                 </div>
-              </ScrollArea>
-              <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
-                <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
-                <span>{storyData.childName}</span>
-              </div>
+              )}
+              
+              <Button 
+                className="absolute bottom-4 right-4 z-10"
+                size="sm"
+                variant="secondary"
+                onClick={toggleTextVisibility}
+              >
+                {hideText ? <Eye className="mr-2 w-4 h-4" /> : <EyeOff className="mr-2 w-4 h-4" />}
+                {hideText ? "Mostrar Texto" : "Ocultar Texto"}
+              </Button>
             </div>
           </div>
         )}
@@ -736,6 +777,10 @@ const StoryViewer: React.FC = () => {
                 <Share className="mr-2 h-4 w-4" />
                 Compartilhar História
               </Button>
+              <Button variant="outline" className="w-full" onClick={toggleTextVisibility}>
+                {hideText ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
+                {hideText ? "Mostrar Texto" : "Ocultar Texto"}
+              </Button>
               <Button variant="outline" className="w-full" onClick={handleGoHome}>
                 <Home className="mr-2 h-4 w-4" />
                 Voltar ao Início
@@ -752,6 +797,10 @@ const StoryViewer: React.FC = () => {
           <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleCreateNew}>
             <BookText className="mr-2 h-4 w-4" />
             Criar Nova História
+          </Button>
+          <Button variant="secondary" onClick={toggleTextVisibility}>
+            {hideText ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
+            {hideText ? "Mostrar Texto" : "Ocultar Texto"}
           </Button>
           <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" />

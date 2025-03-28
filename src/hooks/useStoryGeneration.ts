@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -127,18 +126,26 @@ export const useStoryGeneration = () => {
             toast.info("Gerando capa do livro com OpenAI...");
             
             try {
-              const coverPrompt = `Book cover illustration in papercraft style for a children's book titled "${result.title}". 
-              The main character ${characterName} in a ${setting} setting with ${theme} theme. 
-              ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} 
-              Create a captivating, colorful illustration suitable for a book cover. 
-              Use papercraft visual style (layered colorful paper with depth).`;
-              
-              const coverUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024");
-              console.log("Generated new cover with OpenAI:", coverUrl);
-              
-              if (coverUrl) {
-                result.coverImageUrl = coverUrl;
-                toast.success("Capa gerada com sucesso!");
+              // Use the first page image as cover if available
+              if (result.pages && result.pages.length > 0 && result.pages[0].imageUrl) {
+                result.coverImageUrl = result.pages[0].imageUrl;
+                console.log("Using first page image as cover:", result.coverImageUrl);
+                toast.success("Usando imagem da primeira página como capa!");
+              } else {
+                // Otherwise generate a new cover
+                const coverPrompt = `Book cover illustration in papercraft style for a children's book titled "${result.title}". 
+                The main character ${characterName} in a ${setting} setting with ${theme} theme. 
+                ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} 
+                Create a captivating, colorful illustration suitable for a book cover. 
+                Use papercraft visual style (layered colorful paper with depth).`;
+                
+                const coverUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024");
+                console.log("Generated new cover with OpenAI:", coverUrl);
+                
+                if (coverUrl) {
+                  result.coverImageUrl = coverUrl;
+                  toast.success("Capa gerada com sucesso!");
+                }
               }
             } catch (error) {
               console.error("Failed to generate cover with OpenAI:", error);
