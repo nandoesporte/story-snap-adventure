@@ -26,7 +26,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw, Image } from 'lucide-react';
+import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw, Image, Volume2, Settings } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
@@ -39,6 +39,12 @@ const MyStories = () => {
   const navigate = useNavigate();
   const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasElevenLabsApiKey, setHasElevenLabsApiKey] = useState(false);
+  
+  useEffect(() => {
+    const apiKey = localStorage.getItem('elevenlabs_api_key');
+    setHasElevenLabsApiKey(!!apiKey);
+  }, []);
 
   const {
     data: stories,
@@ -130,6 +136,10 @@ const MyStories = () => {
     return '/placeholder.svg';
   };
 
+  const goToApiSettings = () => {
+    navigate('/settings');
+  };
+
   if (!user) {
     navigate('/auth');
     return null;
@@ -147,12 +157,25 @@ const MyStories = () => {
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-violet-800">Minhas Histórias</h1>
-            <Link to="/create-story">
-              <Button variant="storyPrimary">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova História
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              {!hasElevenLabsApiKey && (
+                <Button 
+                  variant="outline" 
+                  onClick={goToApiSettings} 
+                  className="flex items-center gap-2 text-amber-600 border-amber-200 hover:bg-amber-50"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span className="hidden md:inline">Configurar Narração</span>
+                  <span className="inline md:hidden">Narração</span>
+                </Button>
+              )}
+              <Link to="/create-story">
+                <Button variant="storyPrimary">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova História
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {isLoading ? (
