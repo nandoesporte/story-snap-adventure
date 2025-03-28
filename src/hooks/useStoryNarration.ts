@@ -47,6 +47,34 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     }
   };
 
+  // Ensure the narration bucket exists
+  const ensureBucketExists = async (bucketName: string) => {
+    try {
+      // Check if bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+      
+      if (!bucketExists) {
+        // Create the bucket if it doesn't exist
+        const { error } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 50000000, // 50MB limit
+        });
+        
+        if (error) {
+          console.error('Erro ao criar bucket:', error);
+          return false;
+        }
+        console.log(`Bucket ${bucketName} criado com sucesso`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar/criar bucket:', error);
+      return false;
+    }
+  };
+
   const generateAudio = async (voiceId: string) => {
     if (!text || isGenerating || !storyId) return;
     
@@ -61,6 +89,14 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     toast.info('Gerando narração...');
 
     try {
+      // Ensure the story_narrations bucket exists
+      const bucketName = 'story_narrations';
+      const bucketReady = await ensureBucketExists(bucketName);
+      
+      if (!bucketReady) {
+        throw new Error('Falha ao preparar o bucket de armazenamento');
+      }
+
       const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
         method: 'POST',
         headers: {
@@ -87,13 +123,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('story_narrations')
+        .from(bucketName)
         .upload(fileName, audioBlob);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('story_narrations')
+        .from(bucketName)
         .getPublicUrl(fileName);
 
       const { error: dbError } = await supabase
