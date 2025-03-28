@@ -5,6 +5,9 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Add storage URL for convenience
+supabase.storageUrl = supabaseUrl + '/storage/v1';
+
 // Initialize necessary database structure
 export const initializeDatabaseStructure = async () => {
   try {
@@ -330,7 +333,7 @@ export const saveStory = async (story: Story) => {
             console.error('Error uploading image to storage:', storageError);
             // Keep the original image URL if upload fails
           } else {
-            // Get public URL
+            // Get public URL with the correct format
             const { data: publicUrlData } = supabase
               .storage
               .from('story_images')
@@ -374,7 +377,7 @@ export const saveStory = async (story: Story) => {
           console.error('Error uploading cover image to storage:', storageError);
           // Keep the original image URL if upload fails
         } else {
-          // Get public URL
+          // Get public URL with the correct format
           const { data: publicUrlData } = supabase
             .storage
             .from('story_images')
@@ -443,6 +446,43 @@ export const getUserStories = async () => {
       throw error;
     }
     
+    // Ensure image URLs use the correct storage URL format
+    if (data) {
+      data.forEach(story => {
+        // Fix cover image URL if needed
+        if (story.cover_image_url && story.cover_image_url.includes('supabase') && 
+            story.cover_image_url.includes('storage') && !story.cover_image_url.includes('object')) {
+          try {
+            const urlObj = new URL(story.cover_image_url);
+            const pathParts = urlObj.pathname.split('/');
+            const bucketName = pathParts[pathParts.length - 2]; 
+            const fileName = pathParts[pathParts.length - 1];
+            story.cover_image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+          } catch (e) {
+            console.error('Error formatting cover image URL:', e);
+          }
+        }
+        
+        // Fix page image URLs if needed
+        if (story.pages && Array.isArray(story.pages)) {
+          story.pages.forEach(page => {
+            if (page.image_url && page.image_url.includes('supabase') && 
+                page.image_url.includes('storage') && !page.image_url.includes('object')) {
+              try {
+                const urlObj = new URL(page.image_url);
+                const pathParts = urlObj.pathname.split('/');
+                const bucketName = pathParts[pathParts.length - 2];
+                const fileName = pathParts[pathParts.length - 1];
+                page.image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+              } catch (e) {
+                console.error('Error formatting page image URL:', e);
+              }
+            }
+          });
+        }
+      });
+    }
+    
     console.log('Stories fetched successfully, count:', data?.length);
     return data || [];
   } catch (err) {
@@ -462,6 +502,41 @@ export const getStoryById = async (id: string) => {
     if (error) {
       console.error('Error fetching story by ID:', error);
       throw error;
+    }
+    
+    // Ensure image URLs use the correct storage URL format
+    if (data) {
+      // Fix cover image URL if needed
+      if (data.cover_image_url && data.cover_image_url.includes('supabase') && 
+          data.cover_image_url.includes('storage') && !data.cover_image_url.includes('object')) {
+        try {
+          const urlObj = new URL(data.cover_image_url);
+          const pathParts = urlObj.pathname.split('/');
+          const bucketName = pathParts[pathParts.length - 2];
+          const fileName = pathParts[pathParts.length - 1];
+          data.cover_image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+        } catch (e) {
+          console.error('Error formatting cover image URL:', e);
+        }
+      }
+      
+      // Fix page image URLs if needed
+      if (data.pages && Array.isArray(data.pages)) {
+        data.pages.forEach(page => {
+          if (page.image_url && page.image_url.includes('supabase') && 
+              page.image_url.includes('storage') && !page.image_url.includes('object')) {
+            try {
+              const urlObj = new URL(page.image_url);
+              const pathParts = urlObj.pathname.split('/');
+              const bucketName = pathParts[pathParts.length - 2];
+              const fileName = pathParts[pathParts.length - 1];
+              page.image_url = `${supabase.storageUrl}/object/public/${bucketName}/${fileName}`;
+            } catch (e) {
+              console.error('Error formatting page image URL:', e);
+            }
+          }
+        });
+      }
     }
     
     return data;
