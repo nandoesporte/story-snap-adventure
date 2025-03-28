@@ -80,10 +80,7 @@ function App() {
 }
 
 // Export the app wrapped with the QueryClientProvider
-export default App;
-
-// This is the component that main.tsx will use
-export function AppWithProviders() {
+export default function AppWithProviders() {
   return (
     <QueryClientProvider client={queryClient}>
       <App />

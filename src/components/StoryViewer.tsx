@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Home, Share, Download, Book, Volume2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Story } from "@/lib/supabase";
+import { Story, getStoryById } from "@/lib/supabase";
 import { generatePDF } from "@/utils/cssStyles";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Badge } from "@/components/ui/badge";
@@ -16,48 +16,92 @@ interface StoryViewerProps {
   isLoading?: boolean;
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) => {
+const StoryViewer: React.FC<StoryViewerProps> = ({ story: propStory, isLoading: propIsLoading = false }) => {
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(0);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [hasElevenLabsApiKey, setHasElevenLabsApiKey] = useState(false);
   const [localStory, setLocalStory] = useState<Story | null>(null);
+  const [isLoading, setIsLoading] = useState(propIsLoading);
+  const [error, setError] = useState<string | null>(null);
   const params = useParams<{ id: string }>();
+  const navigate = useNavigate();
   
   useEffect(() => {
-    if (story) {
-      setLocalStory(story);
+    if (propStory) {
+      setLocalStory(propStory);
       return;
     }
     
     const fetchStory = async () => {
-      if (params.id) {
-        const storedStories = localStorage.getItem('user_stories');
-        if (storedStories) {
-          const parsedStories: Story[] = JSON.parse(storedStories);
-          const foundStory = parsedStories.find(s => s.id === params.id);
-          if (foundStory) {
-            setLocalStory(foundStory);
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        if (params.id) {
+          console.log("Fetching story with ID:", params.id);
+          // First try to get from Supabase
+          try {
+            const fetchedStory = await getStoryById(params.id);
+            if (fetchedStory) {
+              console.log("Story fetched from Supabase:", fetchedStory);
+              setLocalStory(fetchedStory);
+              setIsLoading(false);
+              return;
+            }
+          } catch (err) {
+            console.error("Error fetching from Supabase:", err);
           }
+          
+          // If not found in Supabase, try local storage
+          const storedStories = localStorage.getItem('user_stories');
+          if (storedStories) {
+            const parsedStories: Story[] = JSON.parse(storedStories);
+            const foundStory = parsedStories.find(s => s.id === params.id);
+            if (foundStory) {
+              console.log("Story found in localStorage:", foundStory);
+              setLocalStory(foundStory);
+              setIsLoading(false);
+              return;
+            }
+          }
+          
+          // If we get here, story wasn't found
+          setError("Não foi possível encontrar a história solicitada.");
+        } else {
+          setError("ID da história não especificado.");
         }
+      } catch (err) {
+        console.error("Error in fetchStory:", err);
+        setError("Erro ao carregar a história. Por favor, tente novamente.");
+      } finally {
+        setIsLoading(false);
       }
     };
     
     fetchStory();
-  }, [story, params.id]);
+  }, [propStory, params.id]);
   
   useEffect(() => {
     const apiKey = localStorage.getItem('elevenlabs_api_key');
     setHasElevenLabsApiKey(!!apiKey);
   }, []);
 
-  const activeStory = localStory || story;
+  const activeStory = localStory || propStory;
   
-  if (!activeStory && !isLoading) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-6rem)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+      </div>
+    );
+  }
+  
+  if (!activeStory && error) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-6rem)] p-4">
         <h2 className="text-xl font-bold text-gray-700 mb-4">História não encontrada</h2>
-        <p className="text-gray-600 mb-6">Não foi possível encontrar a história solicitada.</p>
+        <p className="text-gray-600 mb-6">{error}</p>
         <Link to="/my-stories">
           <Button variant="story">
             <Home className="mr-2 h-4 w-4" />
@@ -68,10 +112,17 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
     );
   }
 
-  if (isLoading || !activeStory) {
+  if (!activeStory) {
     return (
-      <div className="flex justify-center items-center h-[calc(100vh-6rem)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-6rem)] p-4">
+        <h2 className="text-xl font-bold text-gray-700 mb-4">História não encontrada</h2>
+        <p className="text-gray-600 mb-6">Não foi possível encontrar a história solicitada.</p>
+        <Link to="/my-stories">
+          <Button variant="story">
+            <Home className="mr-2 h-4 w-4" />
+            Voltar para Minhas Histórias
+          </Button>
+        </Link>
       </div>
     );
   }
