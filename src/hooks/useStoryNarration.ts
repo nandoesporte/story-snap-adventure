@@ -9,6 +9,12 @@ interface UseStoryNarrationProps {
   pageIndex: number;
 }
 
+interface GenerateAudioParams {
+  storyId: string;
+  text: string;
+  pageIndex: number;
+}
+
 export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarrationProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,8 +78,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     return localStorage.getItem(key);
   };
 
-  const generateAudio = async (voiceId: string) => {
-    if (!text || isGenerating || !storyId) return;
+  const generateAudio = async (voiceId: string, params?: GenerateAudioParams) => {
+    // Use provided params or fall back to the hook's props
+    const textToUse = params?.text || text;
+    const storyIdToUse = params?.storyId || storyId;
+    const pageIndexToUse = params?.pageIndex !== undefined ? params.pageIndex : pageIndex;
+    
+    if (!textToUse || isGenerating || !storyIdToUse) return;
     
     // Get the API key from localStorage
     const apiKey = localStorage.getItem('elevenlabs_api_key');
@@ -83,17 +94,23 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     }
 
     setIsGenerating(true);
-    toast.info('Gerando narração...');
+    
+    // Only show toast if not batch processing (when called directly, not via story generation)
+    if (!params) {
+      toast.info('Gerando narração...');
+    }
 
     try {
       // Generate a unique storage key for this audio
-      const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
+      const localStorageKey = `audio_${storyIdToUse}_page_${pageIndexToUse}`;
       
       // Try to get cached audio first
       const cachedAudio = getAudioFromLocalStorage(localStorageKey);
       if (cachedAudio) {
         setAudioUrl(cachedAudio);
-        toast.success('Narração carregada do cache!');
+        if (!params) { // Only show toast if not batch processing
+          toast.success('Narração carregada do cache!');
+        }
         setIsGenerating(false);
         return;
       }
@@ -105,7 +122,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
           'xi-api-key': apiKey,
         },
         body: JSON.stringify({
-          text,
+          text: textToUse,
           model_id: "eleven_multilingual_v2",
           voice_settings: {
             stability: 0.5,
@@ -155,7 +172,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         
         // If bucket exists or was created successfully, try to upload
         if (bucketExists) {
-          const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
+          const fileName = `${storyIdToUse}_page_${pageIndexToUse}_${Date.now()}.mp3`;
           
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from(bucketName)
@@ -171,8 +188,8 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
               await supabase
                 .from('story_narrations')
                 .upsert({
-                  story_id: storyId,
-                  page_index: pageIndex,
+                  story_id: storyIdToUse,
+                  page_index: pageIndexToUse,
                   audio_url: publicUrl,
                   voice_id: voiceId
                 });
@@ -182,7 +199,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
               // Still save to localStorage as backup
               await saveAudioToLocalStorage(audioBlob, localStorageKey);
               
-              toast.success('Narração gerada com sucesso!');
+              if (!params) { // Only show toast if not batch processing
+                toast.success('Narração gerada com sucesso!');
+              }
               return;
             } catch (dbError) {
               console.error('Erro ao salvar no banco de dados:', dbError);
@@ -197,7 +216,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         // If we get here, we couldn't save to Supabase, so use localStorage only
         const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
         setAudioUrl(base64Audio);
-        toast.success('Narração gerada e salva localmente!');
+        if (!params) { // Only show toast if not batch processing
+          toast.success('Narração gerada e salva localmente!');
+        }
         
       } catch (storageError) {
         console.error('Erro ao salvar no storage:', storageError);
@@ -205,11 +226,15 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         // Last resort: just use the blob directly
         const audioUrl = URL.createObjectURL(audioBlob);
         setAudioUrl(audioUrl);
-        toast.success('Narração gerada com sucesso!');
+        if (!params) { // Only show toast if not batch processing
+          toast.success('Narração gerada com sucesso!');
+        }
       }
     } catch (error) {
       console.error('Erro ao gerar narração:', error);
-      toast.error('Erro ao gerar narração. Tente novamente.');
+      if (!params) { // Only show toast if not batch processing
+        toast.error('Erro ao gerar narração. Tente novamente.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -256,6 +281,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     isGenerating,
     isPlaying,
     playAudio,
+    generateAudio,
     VOICE_IDS
   };
 };

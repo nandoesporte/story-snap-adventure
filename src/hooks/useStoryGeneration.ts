@@ -1,6 +1,8 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
+import { useStoryNarration } from "./useStoryNarration";
 
 export const useStoryGeneration = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -10,6 +12,8 @@ export const useStoryGeneration = () => {
   const [totalImages, setTotalImages] = useState(0);
   const [imageGenerationAttempts, setImageGenerationAttempts] = useState(0);
   const [coverImageAttempt, setCoverImageAttempt] = useState(0);
+  const [generatingNarration, setGeneratingNarration] = useState(false);
+  const [currentNarrationIndex, setCurrentNarrationIndex] = useState(0);
   
   const {
     generateCompleteStory: storyBotGenerateCompleteStory,
@@ -20,6 +24,13 @@ export const useStoryGeneration = () => {
     setUseOpenAIForStories,
     generateImageWithOpenAI
   } = useStoryBot();
+  
+  // Add narration hook
+  const { generateAudio, VOICE_IDS } = useStoryNarration({
+    storyId: '',
+    text: '',
+    pageIndex: 0
+  });
   
   /**
    * Gera uma história completa com título, texto e ilustrações
@@ -46,6 +57,8 @@ export const useStoryGeneration = () => {
       setTotalImages(0);
       setImageGenerationAttempts(0);
       setCoverImageAttempt(0);
+      setGeneratingNarration(false);
+      setCurrentNarrationIndex(0);
       
       // Always forcefully set to use OpenAI for image generation
       const openAiApiKey = localStorage.getItem('openai_api_key');
@@ -215,6 +228,51 @@ export const useStoryGeneration = () => {
           }
         }
         
+        // Adicionar geração automática de narrações após geração de imagens
+        if (result && result.pages && result.id) {
+          // Verificar se a chave da API ElevenLabs está configurada
+          const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
+          if (!elevenlabsApiKey) {
+            console.warn("ElevenLabs API key not configured, skipping narration generation");
+            toast.warning("Chave da API ElevenLabs não configurada. As narrações não serão geradas.");
+          } else {
+            setGeneratingNarration(true);
+            setCurrentStage("Gerando narrações para as páginas...");
+            toast.info("Iniciando geração de narrações para as páginas...");
+            
+            // Determinar qual voz usar baseado no idioma da história
+            const voiceId = language && language.toLowerCase() === 'english' ? 
+                VOICE_IDS.male : // Usar voz masculina em inglês (Liam)
+                VOICE_IDS.female; // Usar voz feminina em português (Sarah)
+            
+            // Gerar narração para cada página
+            for (let i = 0; i < result.pages.length; i++) {
+              setCurrentNarrationIndex(i + 1);
+              setCurrentStage(`Gerando narração ${i + 1} de ${result.pages.length}...`);
+              
+              try {
+                await generateAudio(voiceId, {
+                  storyId: result.id,
+                  text: result.pages[i].text,
+                  pageIndex: i
+                });
+                
+                // Atualizar o progresso (de 80% a 100%)
+                const narrationProgress = 80 + (20 * (i + 1) / result.pages.length);
+                setProgress(Math.min(narrationProgress, 99)); // Manter abaixo de 100% até finalizar
+              } catch (error) {
+                console.error(`Error generating narration for page ${i+1}:`, error);
+                // Continue with next page if one fails
+              }
+              
+              // Pequeno delay entre gerações para evitar sobrecarregar a API
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            toast.success("Narrações geradas com sucesso!");
+          }
+        }
+        
         return result;
       };
       
@@ -230,6 +288,7 @@ export const useStoryGeneration = () => {
       throw error;
     } finally {
       setIsGenerating(false);
+      setGeneratingNarration(false);
     }
   };
   
@@ -239,6 +298,8 @@ export const useStoryGeneration = () => {
     progress,
     currentStage,
     currentImageIndex,
-    totalImages
+    totalImages,
+    generatingNarration,
+    currentNarrationIndex
   };
 };

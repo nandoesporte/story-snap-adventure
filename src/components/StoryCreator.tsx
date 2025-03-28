@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, AlertTriangle, ImageIcon } from "lucide-react";
+import { Sparkles, AlertTriangle, ImageIcon, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
@@ -34,7 +34,9 @@ const StoryCreator = () => {
     progress, 
     currentStage,
     currentImageIndex,
-    totalImages
+    totalImages,
+    generatingNarration,
+    currentNarrationIndex
   } = useStoryGeneration();
   
   useEffect(() => {
@@ -185,6 +187,12 @@ const StoryCreator = () => {
     if (!openAiApiKey) {
       toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
       return;
+    }
+    
+    // Verificar se a chave da API ElevenLabs está configurada
+    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
+    if (!elevenlabsApiKey) {
+      toast.warning("A chave da API ElevenLabs não está configurada. As narrações não serão geradas automaticamente.");
     }
     
     setStep("generating");
@@ -341,6 +349,20 @@ const StoryCreator = () => {
               </div>
             )}
             
+            {/* Add narration progress indicator */}
+            {generatingNarration && (
+              <div className="mb-4 w-full max-w-md">
+                <div className="flex justify-between text-sm text-slate-600 mb-1">
+                  <span>Gerando narrações</span>
+                  <span>{currentNarrationIndex} de {totalImages}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-violet-50 px-4 py-2 rounded-md">
+                  <Volume2 className="h-4 w-4 text-violet-500" />
+                  <span className="text-sm text-violet-700">Gerando narração para página {currentNarrationIndex}...</span>
+                </div>
+              </div>
+            )}
+            
             <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
               <div 
                 className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
@@ -360,7 +382,9 @@ const StoryCreator = () => {
             <p className="text-sm text-slate-500">
               {step === "finalizing" 
                 ? "Redirecionando para visualização da história..." 
-                : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
+                : generatingNarration 
+                  ? "Estamos gerando narrações para cada página da história. Isso proporcionará uma experiência de leitura mais completa!"
+                  : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
             </p>
           </motion.div>
         )}
