@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home, BookText, Share, Maximize, Minimize, ZoomIn, ZoomOut, X, Eye, EyeOff, Volume, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import { useTypingEffect } from "@/hooks/useTypingEffect";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useStoryImages } from "@/hooks/useStoryImages";
 import { useStoryNarration } from '@/hooks/useStoryNarration';
-import { Volume, VolumeX } from 'lucide-react';
 
 interface StoryPage {
   text: string;
@@ -75,6 +74,14 @@ const StoryViewer: React.FC = () => {
   const isMobile = useIsMobile();
   
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  
+  // Initialize a dummy narration hook that will be used if we're not on a story page
+  // This ensures hooks are always called in the same order
+  const dummyNarration = useStoryNarration({
+    storyId: '',
+    text: '',
+    pageIndex: 0
+  });
   
   const currentText = storyData && currentPage > 0 && storyData.pages[currentPage - 1] 
     ? storyData.pages[currentPage - 1].text 
@@ -569,6 +576,7 @@ const StoryViewer: React.FC = () => {
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
+    // The important fix: always create the narration hook, never conditionally
     const { isGenerating, isPlaying, playAudio, VOICE_IDS } = useStoryNarration({
       storyId: id || '',
       text: page.text,
@@ -604,8 +612,28 @@ const StoryViewer: React.FC = () => {
                     <span>{storyData.childName}</span>
                   </div>
                   
-                  <div className="mt-4 flex justify-center">
-                    {isMobile ? (
+                  <div className="mt-4 flex justify-center gap-2">
+                    <Button 
+                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => playAudio(VOICE_IDS.female)}
+                    >
+                      {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
+                      {isPlaying ? "Parar" : "Voz Feminina"}
+                    </Button>
+                    
+                    <Button 
+                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => playAudio(VOICE_IDS.male)}
+                    >
+                      {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
+                      {isPlaying ? "Parar" : "Voz Masculina"}
+                    </Button>
+                    
+                    {isMobile && (
                       <Button 
                         className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
                         size="sm"
@@ -615,7 +643,7 @@ const StoryViewer: React.FC = () => {
                         <EyeOff className="w-4 h-4" />
                         Ocultar texto
                       </Button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </div>
@@ -661,6 +689,27 @@ const StoryViewer: React.FC = () => {
                   </ScrollArea>
                   <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
                     <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => playAudio(VOICE_IDS.female)}
+                        className="flex items-center gap-1"
+                      >
+                        {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
+                        {isPlaying ? "Parar" : "Voz Feminina"}
+                      </Button>
+                      
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => playAudio(VOICE_IDS.male)}
+                        className="flex items-center gap-1"
+                      >
+                        {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
+                        {isPlaying ? "Parar" : "Voz Masculina"}
+                      </Button>
+                    </div>
                     <span>{storyData.childName}</span>
                   </div>
                 </>
@@ -744,203 +793,3 @@ const StoryViewer: React.FC = () => {
               >
                 <ZoomIn className="h-5 w-5" />
               </Button>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-white/20"
-              onClick={() => setShowImageViewer(false)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-auto flex items-center justify-center p-4 h-[80vh]">
-            <div className="relative max-w-full max-h-full">
-              <img 
-                src={currentImageUrl} 
-                alt="Visualização da imagem"
-                className="max-w-full max-h-[70vh] object-contain transition-transform duration-200 rounded-lg"
-                style={{ transform: `scale(${imageZoom})` }}
-                onError={() => handleImageError(currentImageUrl)}
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <div 
-        ref={storyContainerRef}
-        className={`w-full max-w-7xl bg-white shadow-2xl rounded-2xl overflow-hidden mb-4 md:mb-8 
-                   ${isFullscreen ? 'fixed inset-0 z-40 max-w-none rounded-none' : ''}`}
-      >
-        <div className={`${isMobile ? 'hidden' : 'flex'} justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600 p-3 text-white`}>
-          <div className="flex items-center">
-            <BookText className="mr-2 h-5 w-5 md:h-6 md:w-6" />
-            <h1 className="text-lg md:text-xl font-bold truncate">{storyData?.title}</h1>
-          </div>
-          <div className="flex gap-1 md:gap-2">
-            {!isMobile && (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-white hover:text-white hover:bg-white/10"
-                  onClick={handleShareStory}
-                >
-                  <Share className="mr-1 md:mr-2 h-4 w-4" />
-                  <span className="hidden md:inline">Compartilhar</span>
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-white hover:text-white hover:bg-white/10"
-                  onClick={handleDownloadPDF}
-                >
-                  <Download className="mr-1 md:mr-2 h-4 w-4" />
-                  <span className="hidden md:inline">Baixar PDF</span>
-                </Button>
-              </>
-            )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:text-white hover:bg-white/10"
-              onClick={toggleFullscreen}
-            >
-              {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
-              ) : (
-                <Maximize className="h-4 w-4" />
-              )}
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:text-white hover:bg-white/10"
-              onClick={handleGoHome}
-            >
-              <Home className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        
-        <div className="relative bg-gradient-to-br from-violet-50 to-indigo-50 min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
-          <button 
-            className={`absolute left-3 md:left-6 z-20 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
-            onClick={handlePreviousPage}
-            disabled={currentPage === 0}
-            aria-label="Página anterior"
-          >
-            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-          </button>
-          
-          <button 
-            className={`absolute right-3 md:right-6 z-20 p-2 md:p-3 rounded-full bg-white/90 shadow-lg transition-opacity ${currentPage >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : 'opacity-100 hover:bg-white'}`}
-            onClick={handleNextPage}
-            disabled={currentPage >= totalPages - 1}
-            aria-label="Próxima página"
-          >
-            <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-          </button>
-          
-          <div 
-            className="w-full h-full max-h-[70vh]"
-          >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentPage}
-                initial={{ 
-                  rotateY: flipDirection === "right" ? -5 : 5,
-                  opacity: 0,
-                  scale: 0.95
-                }}
-                animate={{ 
-                  rotateY: 0,
-                  opacity: 1,
-                  scale: 1
-                }}
-                exit={{ 
-                  rotateY: flipDirection === "right" ? 5 : -5,
-                  opacity: 0,
-                  scale: 0.95
-                }}
-                transition={{ 
-                  type: "spring", 
-                  stiffness: 300, 
-                  damping: 25 
-                }}
-                className="w-full h-full overflow-hidden bg-white shadow-lg border border-gray-100 rounded-lg"
-                ref={bookRef}
-              >
-                {currentPage === 0 
-                  ? renderCoverPage()
-                  : renderStoryPage(currentPage - 1)
-                }
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-        
-        <div className="flex justify-center items-center py-3 md:py-4 bg-white">
-          <div className="flex space-x-1 md:space-x-2">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <button
-                key={idx}
-                className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${currentPage === idx ? 'bg-violet-600' : 'bg-gray-300'}`}
-                onClick={() => {
-                  setFlipDirection(idx < currentPage ? "left" : "right");
-                  setCurrentPage(idx);
-                }}
-                aria-label={`Ir para página ${idx + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex gap-2 md:gap-4 mt-2">
-        <Button
-          variant="outline"
-          onClick={handleGoHome}
-          className="gap-2"
-        >
-          <Home className="h-4 w-4" />
-          <span className="hidden md:inline">Início</span>
-        </Button>
-        
-        {isMobile && (
-          <Button
-            variant="outline"
-            onClick={handleShareStory}
-            className="gap-2"
-          >
-            <Share className="h-4 w-4" />
-            <span className="hidden md:inline">Compartilhar</span>
-          </Button>
-        )}
-        
-        {isMobile && (
-          <Button
-            variant="outline"
-            onClick={handleDownloadPDF}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden md:inline">Baixar PDF</span>
-          </Button>
-        )}
-        
-        <Button
-          variant="default"
-          onClick={handleCreateNew}
-          className="gap-2"
-        >
-          <BookText className="h-4 w-4" />
-          <span>Nova História</span>
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-export default StoryViewer;
