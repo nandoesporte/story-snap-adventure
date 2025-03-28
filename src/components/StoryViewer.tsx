@@ -179,8 +179,7 @@ const StoryViewer: React.FC = () => {
               (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
             cover_image_url: parsedData.pages && parsedData.pages.length > 0 && 
               (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) ? 
-              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
-              (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
+              (parsedData.pages[0].imageUrl || parsedData.cover_image_url || "/placeholder.svg"),
             childName: parsedData.childName || parsedData.character_name,
             childAge: parsedData.childAge || parsedData.character_age || "",
             theme: parsedData.theme || "",
@@ -793,3 +792,7 @@ const StoryViewer: React.FC = () => {
               >
                 <ZoomIn className="h-5 w-5" />
               </Button>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
