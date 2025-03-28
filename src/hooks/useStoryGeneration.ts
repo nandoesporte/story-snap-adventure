@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -126,9 +127,19 @@ export const useStoryGeneration = () => {
           return null;
         }
         
+        // Make sure result has an id property
+        const storyId = result.id || uuidv4();
+        
         const storyResult: StoryResult = {
-          ...result,
-          id: result.id || uuidv4()
+          id: storyId,
+          title: result.title,
+          coverImageUrl: result.coverImageUrl,
+          childName: characterName,
+          childAge,
+          theme,
+          setting,
+          characterPrompt,
+          pages: result.pages
         };
         
         setCurrentStage("Verificando a capa do livro...");
