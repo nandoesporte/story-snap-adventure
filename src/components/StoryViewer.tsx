@@ -523,15 +523,17 @@ const StoryViewer: React.FC = () => {
                   </div>
                   
                   <div className="mt-4 flex justify-center">
-                    <Button 
-                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
-                      size="sm"
-                      variant="ghost"
-                      onClick={toggleTextVisibility}
-                    >
-                      <EyeOff className="w-4 h-4" />
-                      Ocultar texto
-                    </Button>
+                    {isMobile ? (
+                      <Button 
+                        className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
+                        size="sm"
+                        variant="ghost"
+                        onClick={toggleTextVisibility}
+                      >
+                        <EyeOff className="w-4 h-4" />
+                        Ocultar texto
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -586,15 +588,17 @@ const StoryViewer: React.FC = () => {
                 </div>
               )}
               
-              <Button 
-                className="absolute bottom-4 right-4 z-10"
-                size="sm"
-                variant="secondary"
-                onClick={toggleTextVisibility}
-              >
-                {hideText ? <Eye className="mr-2 w-4 h-4" /> : <EyeOff className="mr-2 w-4 h-4" />}
-                {hideText ? "Mostrar Texto" : "Ocultar Texto"}
-              </Button>
+              {!isMobile && !hideText ? (
+                <Button 
+                  className="absolute bottom-4 right-4 z-10"
+                  size="sm"
+                  variant="secondary"
+                  onClick={toggleTextVisibility}
+                >
+                  <EyeOff className="mr-2 w-4 h-4" />
+                  Ocultar Texto
+                </Button>
+              ) : null}
             </div>
           </div>
         )}
@@ -800,79 +804,4 @@ const StoryViewer: React.FC = () => {
             {Array.from({ length: totalPages }).map((_, idx) => (
               <button
                 key={idx}
-                className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-colors duration-200 
-                  ${currentPage === idx 
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 scale-125' 
-                    : 'bg-gray-300 hover:bg-gray-400'}`}
-                onClick={() => {
-                  setFlipDirection(idx > currentPage ? "right" : "left");
-                  setIsFlipping(true);
-                  setTimeout(() => {
-                    setCurrentPage(idx);
-                    setIsFlipping(false);
-                  }, 300);
-                }}
-                aria-label={`Ir para página ${idx + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {isMobile ? (
-        <Drawer>
-          <DrawerTrigger asChild>
-            <Button className="mb-4 w-full bg-gradient-to-r from-violet-600 to-indigo-600 border-none">
-              Opções da História
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent>
-            <div className="p-4 space-y-3">
-              <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleCreateNew}>
-                <BookText className="mr-2 h-4 w-4" />
-                Criar Nova História
-              </Button>
-              <Button variant="outline" className="w-full" onClick={handleDownloadPDF}>
-                <Download className="mr-2 h-4 w-4" />
-                Baixar como PDF
-              </Button>
-              <Button variant="outline" className="w-full" onClick={handleShareStory}>
-                <Share className="mr-2 h-4 w-4" />
-                Compartilhar História
-              </Button>
-              <Button variant="outline" className="w-full" onClick={toggleTextVisibility}>
-                {hideText ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
-                {hideText ? "Mostrar Texto" : "Ocultar Texto"}
-              </Button>
-              <Button variant="outline" className="w-full" onClick={handleGoHome}>
-                <Home className="mr-2 h-4 w-4" />
-                Voltar ao Início
-              </Button>
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <div className="flex gap-4 mb-8">
-          <Button variant="outline" onClick={handleGoHome}>
-            <Home className="mr-2 h-4 w-4" />
-            Voltar ao Início
-          </Button>
-          <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleCreateNew}>
-            <BookText className="mr-2 h-4 w-4" />
-            Criar Nova História
-          </Button>
-          <Button variant="secondary" onClick={toggleTextVisibility}>
-            {hideText ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
-            {hideText ? "Mostrar Texto" : "Ocultar Texto"}
-          </Button>
-          <Button className="bg-gradient-to-r from-violet-600 to-indigo-600" onClick={handleDownloadPDF}>
-            <Download className="mr-2 h-4 w-4" />
-            Baixar como PDF
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default StoryViewer;
+                className={`w-2 h-2
