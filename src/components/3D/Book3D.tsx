@@ -3,6 +3,8 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import * as THREE from 'three';
+import { Button } from '@/components/ui/button';
+import { EyeOff, Eye } from 'lucide-react';
 
 // Placeholder textures that are guaranteed to exist (using Unsplash images that won't expire)
 const PLACEHOLDER_TEXTURE = '/placeholder.svg';
@@ -27,6 +29,8 @@ interface BookPageProps {
   textContent?: string;
   isCover?: boolean;
   title?: string;
+  hideText?: boolean;
+  onToggleTextVisibility?: () => void;
 }
 
 const BookPage: React.FC<BookPageProps> = ({ 
@@ -40,7 +44,9 @@ const BookPage: React.FC<BookPageProps> = ({
   isCurrentPage,
   textContent,
   isCover = false,
-  title = ""
+  title = "",
+  hideText = false,
+  onToggleTextVisibility
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
@@ -150,6 +156,9 @@ const BookPage: React.FC<BookPageProps> = ({
       side: THREE.FrontSide,
     });
   }, [isCover, pageTexture, title]);
+
+  // Show toggle button on non-cover pages
+  const showToggleButton = isCurrentPage && !isCover && isActive && onToggleTextVisibility;
   
   return (
     <group position={position}>
@@ -202,14 +211,79 @@ const BookPage: React.FC<BookPageProps> = ({
           <meshBasicMaterial color={0xffdd00} transparent opacity={0.6} />
         </mesh>
       )}
+
+      {/* Toggle text visibility button for non-cover pages */}
+      {showToggleButton && (
+        <group position={[0, -3.6, 0.2]} scale={[0.2, 0.2, 0.2]}>
+          <mesh 
+            onClick={onToggleTextVisibility}
+            position={[0, 0, 0.5]}
+          >
+            <circleGeometry args={[1, 32]} />
+            <meshBasicMaterial color={hideText ? 0x4caf50 : 0xf44336} transparent opacity={0.8} />
+          </mesh>
+          {/* Add eye icon representation */}
+          <mesh position={[0, 0, 0.6]}>
+            <planeGeometry args={[1.5, 1.5]} />
+            <meshBasicMaterial 
+              color={0xffffff} 
+              transparent 
+              opacity={0.9}
+              side={THREE.DoubleSide}
+            >
+              <primitive attach="map" object={new THREE.CanvasTexture(createIconCanvas(hideText))} />
+            </meshBasicMaterial>
+          </mesh>
+        </group>
+      )}
     </group>
   );
 };
+
+// Helper function to create a canvas with an eye icon
+function createIconCanvas(isEyeOpen: boolean) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#ffffff';
+    ctx.clearRect(0, 0, 64, 64);
+    
+    // Draw eye or crossed-out eye
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    if (isEyeOpen) {
+      // Open eye
+      ctx.arc(32, 32, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(32, 32, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Closed eye with slash
+      ctx.arc(32, 32, 15, 0, Math.PI, false);
+      ctx.moveTo(47, 32);
+      ctx.arc(32, 32, 15, Math.PI, Math.PI * 2, false);
+      ctx.stroke();
+      // Add slash
+      ctx.beginPath();
+      ctx.moveTo(15, 15);
+      ctx.lineTo(49, 49);
+      ctx.stroke();
+    }
+  }
+  return canvas;
+}
 
 // Create this as a proper React component that receives props
 const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, pages, currentPage, onPageTurn, title }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [openAmount, setOpenAmount] = useState(0);
+  const [hideText, setHideText] = useState(false);
   
   // Use useMemo to prevent recreating this array on every render
   const book3DPages = useMemo(() => [
@@ -222,6 +296,10 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
   ], [coverImage, pages, title]);
   
   const totalPages = book3DPages.length;
+
+  const toggleTextVisibility = () => {
+    setHideText(prev => !prev);
+  };
   
   const turnPage = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentPage < totalPages - 1) {
@@ -297,9 +375,25 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
             textContent={page.text}
             isCover={isCover}
             title={isCover ? title : undefined}
+            hideText={hideText}
+            onToggleTextVisibility={toggleTextVisibility}
           />
         );
       })}
+      
+      {/* Add UI-based text visibility toggle */}
+      <group position={[0, -4, 2]}>
+        <mesh onClick={toggleTextVisibility}>
+          <planeGeometry args={[2, 0.5]} />
+          <meshBasicMaterial color={0x5a5a9a} transparent opacity={0.7} />
+        </mesh>
+        <mesh position={[0, 0, 0.1]}>
+          <planeGeometry args={[1.8, 0.4]} />
+          <meshBasicMaterial color={0xffffff} transparent opacity={0.8}>
+            <primitive attach="map" object={new THREE.CanvasTexture(createTextToggleCanvas(hideText))} />
+          </meshBasicMaterial>
+        </mesh>
+      </group>
       
       <pointLight position={[5, 5, 5]} intensity={0.8} />
       <pointLight position={[-5, 5, 5]} intensity={0.5} />
@@ -307,6 +401,23 @@ const Book3DScene: React.FC<Book3DProps> = ({ coverImage = PLACEHOLDER_TEXTURE, 
     </group>
   );
 };
+
+// Helper function to create text for toggle button
+function createTextToggleCanvas(isHidden: boolean) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 180;
+  canvas.height = 40;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.clearRect(0, 0, 180, 40);
+    ctx.fillStyle = '#000000';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(isHidden ? 'Mostrar Texto' : 'Ocultar Texto', 90, 20);
+  }
+  return canvas;
+}
 
 interface Book3DProps {
   coverImage?: string;
