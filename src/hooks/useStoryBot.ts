@@ -622,6 +622,7 @@ export const useStoryBot = () => {
     setUseOpenAIForStories,
     checkOpenAIAvailability,
     initializeOpenAIClient,
-    generateCompleteStory
+    generateCompleteStory,
+    generateImageWithOpenAI
   };
 };
