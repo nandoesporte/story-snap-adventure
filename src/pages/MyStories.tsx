@@ -26,7 +26,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw, Image } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
@@ -92,6 +92,44 @@ const MyStories = () => {
     }
   };
 
+  const getCoverImageUrl = (story: StoryListItem): string => {
+    if (story.cover_image_url && typeof story.cover_image_url === 'string') {
+      return story.cover_image_url;
+    }
+    
+    if (story.pages && story.pages.length > 0 && story.pages[0].image_url) {
+      return story.pages[0].image_url;
+    }
+    
+    if (story.theme) {
+      const theme = story.theme.toLowerCase();
+      const themeMap: Record<string, string> = {
+        aventura: '/images/covers/adventure.jpg',
+        aventuras: '/images/covers/adventure.jpg',
+        adventure: '/images/covers/adventure.jpg',
+        fantasia: '/images/covers/fantasy.jpg',
+        fantasy: '/images/covers/fantasy.jpg',
+        espaço: '/images/covers/space.jpg',
+        space: '/images/covers/space.jpg',
+        oceano: '/images/covers/ocean.jpg',
+        ocean: '/images/covers/ocean.jpg',
+        mar: '/images/covers/ocean.jpg',
+        dinossauros: '/images/covers/dinosaurs.jpg',
+        dinosaurs: '/images/covers/dinosaurs.jpg'
+      };
+      
+      if (Object.keys(themeMap).some(key => theme.includes(key))) {
+        for (const [key, url] of Object.entries(themeMap)) {
+          if (theme.includes(key)) {
+            return url;
+          }
+        }
+      }
+    }
+    
+    return '/placeholder.svg';
+  };
+
   if (!user) {
     navigate('/auth');
     return null;
@@ -145,21 +183,15 @@ const MyStories = () => {
                 <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md hover:scale-[1.02] hover:border-violet-300">
                   <div className="aspect-[4/5] relative overflow-hidden bg-violet-100">
                     <AspectRatio ratio={4/5} className="h-full">
-                      {story.cover_image_url ? (
-                        <img
-                          src={typeof story.cover_image_url === 'string' ? story.cover_image_url : '/placeholder.svg'}
-                          alt={story.title}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder.svg";
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-violet-200 to-indigo-200">
-                          <BookOpen className="h-12 w-12 text-violet-500" />
-                        </div>
-                      )}
+                      <img
+                        src={getCoverImageUrl(story)}
+                        alt={story.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
+                      />
                     </AspectRatio>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                       <Link to={`/view-story/${story.id}`} className="w-full">
