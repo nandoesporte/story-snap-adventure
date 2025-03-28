@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import UserProfile from './UserProfile';
 import { Button } from '@/components/ui/button';
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { AdminLink } from './AdminLink';
 
 const NavbarUser = () => {
@@ -30,7 +30,7 @@ const NavbarUser = () => {
           Entrar
         </Link>
         <Link to="/register">
-          <Button variant="storyPrimary">Inscreva-se gratuitamente</Button>
+          <Button variant="storyPrimary">Inscreva-se</Button>
         </Link>
       </div>
     );

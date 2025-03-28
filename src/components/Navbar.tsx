@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -171,7 +170,7 @@ const Navbar = () => {
                     to="/auth"
                     className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
                   >
-                    Inscreva-se gratuitamente
+                    Inscreva-se
                   </Link>
                 </li>
               </ul>
