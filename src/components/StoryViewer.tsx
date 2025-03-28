@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -790,4 +791,146 @@ const StoryViewer: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className
+                className="text-white hover:bg-white/20"
+                onClick={handleZoomIn}
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-white hover:bg-white/20"
+              onClick={() => setShowImageViewer(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center justify-center h-[80vh] p-4">
+            <img 
+              src={currentImageUrl} 
+              alt="Imagem ampliada"
+              className="max-w-full max-h-full object-contain transition-all duration-300"
+              style={{ transform: `scale(${imageZoom})` }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <div className="w-full max-w-6xl bg-white shadow-xl rounded-xl overflow-hidden" ref={storyContainerRef}>
+        <div className="relative flex justify-between items-center p-3 border-b bg-white">
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={handleGoHome}>
+              <Home className="w-4 h-4 mr-1" />
+              Início
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleCreateNew}>
+              <BookText className="w-4 h-4 mr-1" />
+              Nova História
+            </Button>
+          </div>
+          
+          <div className="text-sm font-medium text-gray-500">
+            {currentPage === 0 ? 'Capa' : `Página ${currentPage} de ${totalPages - 1}`}
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={handleShareStory}>
+              <Share className="w-4 h-4 mr-1" />
+              Compartilhar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleDownloadPDF}>
+              <Download className="w-4 h-4 mr-1" />
+              Baixar PDF
+            </Button>
+            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        <div className="relative" ref={bookRef}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPage}
+              initial={{ 
+                opacity: 0,
+                x: flipDirection === "right" ? 100 : -100
+              }}
+              animate={{ 
+                opacity: 1,
+                x: 0 
+              }}
+              exit={{ 
+                opacity: 0,
+                x: flipDirection === "right" ? -100 : 100
+              }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+              style={{ aspectRatio: isMobile ? "9/16" : "16/9" }}
+            >
+              {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
+            </motion.div>
+          </AnimatePresence>
+          
+          <div className="absolute inset-y-0 left-0 w-1/6 flex items-center justify-start p-2">
+            <Button
+              variant="ghost"
+              size={isMobile ? "sm" : "icon"}
+              className="rounded-full bg-white/40 hover:bg-white/70 shadow-md"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 0 || isFlipping}
+            >
+              <ChevronLeft className="h-6 w-6" />
+              <span className="sr-only">Página anterior</span>
+            </Button>
+          </div>
+          
+          <div className="absolute inset-y-0 right-0 w-1/6 flex items-center justify-end p-2">
+            <Button
+              variant="ghost"
+              size={isMobile ? "sm" : "icon"}
+              className="rounded-full bg-white/40 hover:bg-white/70 shadow-md"
+              onClick={handleNextPage}
+              disabled={currentPage >= totalPages - 1 || isFlipping}
+            >
+              <ChevronRight className="h-6 w-6" />
+              <span className="sr-only">Próxima página</span>
+            </Button>
+          </div>
+        </div>
+        
+        <div className="md:hidden flex justify-between items-center p-3 border-t bg-white">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0 || isFlipping}
+            className="flex-1"
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Anterior
+          </Button>
+          
+          <div className="text-sm font-medium text-gray-500 px-2">
+            {currentPage + 1} / {totalPages}
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1 || isFlipping}
+            className="flex-1"
+          >
+            Próxima
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StoryViewer;
