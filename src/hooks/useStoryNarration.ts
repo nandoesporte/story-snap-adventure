@@ -49,6 +49,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
 
   const generateAudio = async (voiceId: string) => {
     if (!text || isGenerating || !storyId) return;
+    
+    // Get the API key from localStorage
+    const apiKey = localStorage.getItem('elevenlabs_api_key');
+    if (!apiKey) {
+      toast.error('Chave da API ElevenLabs não configurada. Configure em Configurações.');
+      return;
+    }
 
     setIsGenerating(true);
     toast.info('Gerando narração...');
@@ -58,7 +65,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'xi-api-key': process.env.ELEVEN_LABS_API_KEY || '',
+          'xi-api-key': apiKey,
         },
         body: JSON.stringify({
           text,
