@@ -459,16 +459,7 @@ const StoryViewer: React.FC = () => {
               />
             </div>
             
-            {hideText ? (
-              <Button 
-                className="absolute bottom-2 right-2 z-20 rounded-full bg-white/20 hover:bg-white/30"
-                size="icon"
-                variant="ghost"
-                onClick={toggleTextVisibility}
-              >
-                <Eye className="w-5 h-5 text-white" />
-              </Button>
-            ) : (
+            {!hideText && (
               <div className="story-text-overlay">
                 <div className="relative z-10 p-4 pb-6">
                   <h2 className="text-xl font-bold mb-3 text-white text-shadow">{storyData.title}</h2>
@@ -496,6 +487,17 @@ const StoryViewer: React.FC = () => {
                   </div>
                 </div>
               </div>
+            )}
+            
+            {hideText && (
+              <Button 
+                className="absolute bottom-4 right-4 z-20 rounded-full bg-transparent hover:bg-white/20"
+                size="icon"
+                variant="ghost"
+                onClick={toggleTextVisibility}
+              >
+                <Eye className="w-5 h-5 text-white" />
+              </Button>
             )}
           </div>
         ) : (
