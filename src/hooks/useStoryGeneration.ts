@@ -16,7 +16,8 @@ export const useStoryGeneration = () => {
     leonardoApiAvailable,
     useOpenAIForStories,
     openAIModel,
-    checkOpenAIAvailability
+    checkOpenAIAvailability,
+    setUseOpenAIForStories
   } = useStoryBot();
   
   /**
@@ -44,18 +45,23 @@ export const useStoryGeneration = () => {
       setTotalImages(0);
       setImageGenerationAttempts(0);
       
-      // Verificar disponibilidade das APIs de imagens
-      const isLeonardoAvailable = leonardoApiAvailable;
+      // Verificar disponibilidade da API OpenAI
       const isOpenAIAvailable = checkOpenAIAvailability();
       
-      if (!isLeonardoAvailable && !isOpenAIAvailable) {
-        toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
-      } else if (useOpenAIForStories && isOpenAIAvailable) {
-        toast.info(`Usando OpenAI ${openAIModel} para gerar a história e ilustrações em estilo papercraft.`);
-      } else if (isLeonardoAvailable) {
-        toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações em estilo papercraft.");
+      if (isOpenAIAvailable) {
+        // Forçar o uso da OpenAI para a geração de imagens
+        setUseOpenAIForStories(true, 'gpt-4o-mini');
+        toast.info(`Usando OpenAI para gerar a história e ilustrações em estilo papercraft.`);
       } else {
-        toast.warning("Usando imagens de placeholder para ilustrações.");
+        toast.warning("API OpenAI não está disponível. Verifique a configuração da chave API.");
+        
+        // Verificar disponibilidade da API Leonardo como fallback
+        const isLeonardoAvailable = leonardoApiAvailable;
+        if (isLeonardoAvailable) {
+          toast.info("Usando Gemini para gerar a história e Leonardo.ai para ilustrações em estilo papercraft.");
+        } else {
+          toast.warning("APIs de geração de imagens não estão disponíveis. As ilustrações usarão imagens de placeholder.");
+        }
       }
       
       // Etapa 1: Preparar dados do personagem para consistência nas ilustrações
@@ -129,9 +135,12 @@ export const useStoryGeneration = () => {
               setImageGenerationAttempts(prev => prev + 1);
               toast.info(`Tentando novamente a geração da ilustração ${i + 1}...`);
               
-              // Aqui poderíamos implementar uma regeneração apenas da imagem específica
-              // Por enquanto, vamos apenas avisar o usuário
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Pausa para o usuário ver a mensagem
+              // Aguardar 2 segundos antes de tentar novamente
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Retornar para o início do loop para tentar novamente
+              i = i - 1;
+              continue;
             }
             
             // Atualizar o progresso baseado na validação das imagens

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, AlertTriangle } from "lucide-react";
+import { Sparkles, AlertTriangle, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
@@ -329,6 +330,10 @@ const StoryCreator = () => {
                   <span>Gerando ilustrações</span>
                   <span>{currentImageIndex} de {totalImages}</span>
                 </div>
+                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-md">
+                  <ImageIcon className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm text-indigo-700">Processando ilustração {currentImageIndex}...</span>
+                </div>
               </div>
             )}
             
@@ -351,7 +356,7 @@ const StoryCreator = () => {
             <p className="text-sm text-slate-500">
               {step === "finalizing" 
                 ? "Redirecionando para visualização da história..." 
-                : "Estamos criando algo especial! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
+                : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
             </p>
           </motion.div>
         )}
