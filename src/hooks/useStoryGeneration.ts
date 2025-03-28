@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -127,8 +126,7 @@ export const useStoryGeneration = () => {
           return null;
         }
         
-        // Make sure result has an id property
-        const storyId = result.id || uuidv4();
+        const storyId = uuidv4();
         
         const storyResult: StoryResult = {
           id: storyId,
@@ -231,7 +229,7 @@ export const useStoryGeneration = () => {
           setProgress(baseProgress + progressPerImage * (i + 1));
         }
         
-        if (storyResult && storyResult.pages && storyResult.id) {
+        if (storyResult && storyResult.pages) {
           const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
           if (!elevenlabsApiKey) {
             console.warn("ElevenLabs API key not configured, skipping narration generation");
