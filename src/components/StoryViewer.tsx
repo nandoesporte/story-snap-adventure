@@ -72,6 +72,7 @@ const StoryViewer: React.FC = () => {
   const isMobile = useIsMobile();
   
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [retryingImages, setRetryingImages] = useState<Record<string, boolean>>({});
   
   const currentText = storyData && currentPage > 0 && storyData.pages[currentPage - 1] 
     ? storyData.pages[currentPage - 1].text 
@@ -199,31 +200,57 @@ const StoryViewer: React.FC = () => {
   
   const getFallbackImage = (theme: string = ""): string => {
     const themeImages: {[key: string]: string} = {
-      adventure: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      fantasy: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      space: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      ocean: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21",
-      dinosaurs: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-      forest: "https://images.unsplash.com/photo-1472396961693-142e6e269027"
+      adventure: "/images/placeholders/adventure.jpg",
+      fantasy: "/images/placeholders/fantasy.jpg",
+      space: "/images/placeholders/space.jpg",
+      ocean: "/images/placeholders/ocean.jpg",
+      dinosaurs: "/images/placeholders/dinosaurs.jpg",
+      forest: "/images/placeholders/adventure.jpg"
     };
     
-    return themeImages[theme.toLowerCase() as keyof typeof themeImages] || "/placeholder.svg";
+    return themeImages[theme.toLowerCase()] || "/placeholder.svg";
   };
   
-  const handleImageError = (url: string) => {
+  const handleImageError = (url: string, theme: string = "") => {
     console.log("Failed to load image URL:", url);
-    setFailedImages(prev => ({...prev, [url]: true}));
     
-    if (Object.keys(failedImages).length < 2) {
-      toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
-        id: "image-load-error",
-        duration: 3000
-      });
+    if (retryingImages[url] || url.includes('/placeholder') || url.includes('/images/placeholders/')) {
+      setFailedImages(prev => ({...prev, [url]: true}));
+      return;
     }
+    
+    setRetryingImages(prev => ({...prev, [url]: true}));
+    
+    setTimeout(() => {
+      const img = new Image();
+      const cacheBuster = `?t=${Date.now()}`;
+      const retryUrl = url.includes('?') ? `${url}&retry=true` : `${url}${cacheBuster}`;
+      
+      img.onload = () => {
+        setFailedImages(prev => {
+          const newFailedImages = {...prev};
+          delete newFailedImages[url];
+          return newFailedImages;
+        });
+      };
+      
+      img.onerror = () => {
+        setFailedImages(prev => ({...prev, [url]: true}));
+        
+        if (Object.keys(failedImages).length < 2) {
+          toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
+            id: "image-load-error",
+            duration: 3000
+          });
+        }
+      };
+      
+      img.src = retryUrl;
+    }, 1000);
   };
   
   const getImageUrl = (url?: string, theme: string = ""): string => {
-    if (!url || failedImages[url]) {
+    if (!url || url === "" || failedImages[url] || url.includes('/placeholder') || url === "/placeholder.svg") {
       return getFallbackImage(theme);
     }
     return url;
@@ -398,7 +425,8 @@ const StoryViewer: React.FC = () => {
     if (!storyData) return null;
     
     const theme = storyData.theme || "";
-    const coverImage = getImageUrl(storyData.coverImageUrl || storyData.cover_image_url, theme);
+    const rawCoverImage = storyData.coverImageUrl || storyData.cover_image_url;
+    const coverImage = getImageUrl(rawCoverImage, theme);
     
     return (
       <div className="w-full h-full flex flex-col">
@@ -409,7 +437,7 @@ const StoryViewer: React.FC = () => {
               alt={storyData.title}
               className="w-full h-full object-contain p-4 transition-all duration-300"
               onClick={() => handleImageClick(coverImage)}
-              onError={() => handleImageError(coverImage)}
+              onError={() => handleImageError(rawCoverImage || "", theme)}
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8 md:p-10">
@@ -443,7 +471,8 @@ const StoryViewer: React.FC = () => {
     
     const page = storyData.pages[pageIndex];
     const theme = storyData.theme || "";
-    const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
+    const rawImageUrl = page.imageUrl || page.image_url || "";
+    const imageUrl = getImageUrl(rawImageUrl, theme);
     
     return (
       <div className="w-full h-full flex flex-col">
@@ -455,7 +484,7 @@ const StoryViewer: React.FC = () => {
                 alt={`Ilustração da página ${pageIndex + 1}`}
                 className="w-full h-full object-cover"
                 onClick={() => handleImageClick(imageUrl)}
-                onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+                onError={() => handleImageError(rawImageUrl, theme)}
               />
             </div>
             
@@ -509,7 +538,7 @@ const StoryViewer: React.FC = () => {
                 alt={`Ilustração da página ${pageIndex + 1}`}
                 className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
                 onClick={() => handleImageClick(imageUrl)}
-                onError={() => handleImageError(page.imageUrl || page.image_url || "")}
+                onError={() => handleImageError(rawImageUrl, theme)}
               />
             </div>
             
@@ -627,7 +656,11 @@ const StoryViewer: React.FC = () => {
                 alt="Visualização da imagem"
                 className="max-w-full max-h-[70vh] object-contain transition-transform duration-200 rounded-lg"
                 style={{ transform: `scale(${imageZoom})` }}
-                onError={() => handleImageError(currentImageUrl)}
+                onError={() => {
+                  const theme = storyData?.theme || "";
+                  handleImageError(currentImageUrl, theme);
+                  setCurrentImageUrl(getFallbackImage(theme));
+                }}
               />
             </div>
           </div>
