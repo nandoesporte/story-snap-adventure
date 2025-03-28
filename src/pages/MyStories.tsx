@@ -219,13 +219,44 @@ const MyStories = () => {
                       <span className="font-medium">Estilo:</span> {story.style}
                     </p>
                   </CardContent>
-                  <CardFooter className="p-4 pt-0 flex justify-between">
-                    <Link to={`/view-story/${story.id}`} className="w-full">
+                  <CardFooter className="p-4 pt-0 flex justify-between gap-2">
+                    <Link to={`/view-story/${story.id}`} className="flex-1">
                       <Button variant="story" className="w-full">
                         <BookOpen className="mr-2 h-4 w-4" />
-                        Ler História
+                        Ler
                       </Button>
                     </Link>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => setStoryToDelete(story.id)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Excluir História</DialogTitle>
+                          <DialogDescription>
+                            Tem certeza que deseja excluir a história "{story.title}"? Esta ação não pode ser desfeita.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex space-x-2 justify-end">
+                          <DialogClose asChild>
+                            <Button variant="outline">Cancelar</Button>
+                          </DialogClose>
+                          <Button
+                            variant="destructive"
+                            onClick={handleDeleteStory}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? 'Excluindo...' : 'Excluir'}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </CardFooter>
                 </Card>
               ))}
