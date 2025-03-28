@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -8,9 +9,6 @@ import StoryForm, { StoryFormData } from "./StoryForm";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryGeneration } from "@/hooks/useStoryGeneration";
 import { StoryStyle } from "@/services/BookGenerationService";
-import { useAuth } from "@/context/AuthContext";
-import Navbar from "./Navbar";
-import Footer from "./Footer";
 
 type CreationStep = "details" | "generating" | "finalizing";
 
@@ -25,7 +23,6 @@ interface Character {
 
 const StoryCreator = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
   const [step, setStep] = useState<CreationStep>("details");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
@@ -39,32 +36,6 @@ const StoryCreator = () => {
     currentImageIndex,
     totalImages
   } = useStoryGeneration();
-  
-  useEffect(() => {
-    if (!loading && !user) {
-      toast.error("Você precisa estar logado para criar histórias");
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
-        <Navbar />
-        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-t-4 border-violet-600 border-solid rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-violet-700 font-medium">Carregando...</p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  
-  if (!user && !loading) {
-    return null;
-  }
   
   useEffect(() => {
     const savedData = sessionStorage.getItem("create_story_data");
@@ -329,77 +300,71 @@ const StoryCreator = () => {
   };
   
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
-      <Navbar />
-      <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
-        <div className="container max-w-4xl px-4">
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-8">
-            {step === "details" && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <h2 className="text-2xl font-bold mb-6 text-center">
-                  Personalize sua história
-                </h2>
-                <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
-              </motion.div>
+    <div className="container mx-auto max-w-4xl px-4 py-12">
+      <div className="glass rounded-2xl p-8 md:p-12 shadow-xl">
+        {step === "details" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="text-2xl font-bold mb-6 text-center">
+              Personalize sua história
+            </h2>
+            <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
+          </motion.div>
+        )}
+        
+        {(step === "generating" || step === "finalizing") && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="min-h-[400px] flex flex-col items-center justify-center"
+          >
+            <LoadingSpinner size="lg" />
+            <p className="mt-6 text-lg font-medium">
+              {step === "finalizing" ? "História gerada com sucesso!" : "Gerando a história personalizada..."}
+            </p>
+            <p className="text-slate-500 mb-4">{currentStage}</p>
+            
+            {totalImages > 0 && currentImageIndex > 0 && (
+              <div className="mb-4 w-full max-w-md">
+                <div className="flex justify-between text-sm text-slate-600 mb-1">
+                  <span>Gerando ilustrações</span>
+                  <span>{currentImageIndex} de {totalImages}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-md">
+                  <ImageIcon className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm text-indigo-700">Processando ilustração {currentImageIndex}...</span>
+                </div>
+              </div>
             )}
             
-            {(step === "generating" || step === "finalizing") && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="min-h-[400px] flex flex-col items-center justify-center"
-              >
-                <LoadingSpinner size="lg" />
-                <p className="mt-6 text-lg font-medium">
-                  {step === "finalizing" ? "História gerada com sucesso!" : "Gerando a história personalizada..."}
+            <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
+              <div 
+                className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            
+            {currentImageIndex > 0 && currentImageIndex === totalImages && progress < 100 && (
+              <div className="w-full max-w-md mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-amber-700">
+                  Verificando qualidade das ilustrações. Isso pode levar alguns momentos adicionais para garantir que todas as imagens sejam geradas corretamente.
                 </p>
-                <p className="text-slate-500 mb-4">{currentStage}</p>
-                
-                {totalImages > 0 && currentImageIndex > 0 && (
-                  <div className="mb-4 w-full max-w-md">
-                    <div className="flex justify-between text-sm text-slate-600 mb-1">
-                      <span>Gerando ilustrações</span>
-                      <span>{currentImageIndex} de {totalImages}</span>
-                    </div>
-                    <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-md">
-                      <ImageIcon className="h-4 w-4 text-indigo-500" />
-                      <span className="text-sm text-indigo-700">Processando ilustração {currentImageIndex}...</span>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
-                  <div 
-                    className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-                
-                {currentImageIndex > 0 && currentImageIndex === totalImages && progress < 100 && (
-                  <div className="w-full max-w-md mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-amber-700">
-                      Verificando qualidade das ilustrações. Isso pode levar alguns momentos adicionais para garantir que todas as imagens sejam geradas corretamente.
-                    </p>
-                  </div>
-                )}
-                
-                <p className="text-sm text-slate-500">
-                  {step === "finalizing" 
-                    ? "Redirecionando para visualização da história..." 
-                    : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
-                </p>
-              </motion.div>
+              </div>
             )}
-          </div>
-        </div>
-      </main>
-      <Footer />
+            
+            <p className="text-sm text-slate-500">
+              {step === "finalizing" 
+                ? "Redirecionando para visualização da história..." 
+                : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
+            </p>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };

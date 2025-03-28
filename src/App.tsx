@@ -48,14 +48,9 @@ function App() {
     initialize();
   }, []);
 
-  // Modified redirect logic to exclude public routes
   useEffect(() => {
-    const publicRoutes = ['/', '/auth', '/register'];
-    const isPublicRoute = publicRoutes.includes(location.pathname);
-    
-    if (!loading && !user && !isPublicRoute) {
-      // Add returnTo parameter to redirect back after login
-      navigate(`/auth?returnTo=${encodeURIComponent(location.pathname)}`);
+    if (!loading && !user && location.pathname !== '/auth') {
+      navigate('/auth');
     }
   }, [user, loading, navigate, location]);
 
@@ -64,7 +59,6 @@ function App() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/register" element={<Auth />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/create-story" element={<CreateStory />} />
         <Route path="/story-creator" element={<StoryCreator />} />
