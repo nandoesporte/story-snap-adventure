@@ -65,7 +65,6 @@ function App() {
           <Route path="/create-story" element={<CreateStory />} />
           <Route path="/story-creator" element={<StoryCreator />} />
           <Route path="/my-stories" element={<MyStories />} />
-          {/* Using render pattern to pass empty story prop to StoryViewer */}
           <Route path="/view-story/:id" element={<StoryViewer />} />
           <Route path="/view-story" element={<StoryViewer />} />
           <Route path="/settings" element={<Settings />} />

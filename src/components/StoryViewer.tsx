@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Home, Share, Download, Book, Volume2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Story } from "@/lib/supabase";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import VoiceNarrationPlayer from "./VoiceNarrationPlayer";
 
 interface StoryViewerProps {
-  story: Story;
+  story?: Story;
   isLoading?: boolean;
 }
 
@@ -22,14 +21,62 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
   const [currentPage, setCurrentPage] = useState(0);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [hasElevenLabsApiKey, setHasElevenLabsApiKey] = useState(false);
+  const [localStory, setLocalStory] = useState<Story | null>(null);
+  const params = useParams<{ id: string }>();
   
   useEffect(() => {
-    // Check if user has configured ElevenLabs API key
+    if (story) {
+      setLocalStory(story);
+      return;
+    }
+    
+    const fetchStory = async () => {
+      if (params.id) {
+        const storedStories = localStorage.getItem('user_stories');
+        if (storedStories) {
+          const parsedStories: Story[] = JSON.parse(storedStories);
+          const foundStory = parsedStories.find(s => s.id === params.id);
+          if (foundStory) {
+            setLocalStory(foundStory);
+          }
+        }
+      }
+    };
+    
+    fetchStory();
+  }, [story, params.id]);
+  
+  useEffect(() => {
     const apiKey = localStorage.getItem('elevenlabs_api_key');
     setHasElevenLabsApiKey(!!apiKey);
   }, []);
 
-  const pages = story?.pages || [];
+  const activeStory = localStory || story;
+  
+  if (!activeStory && !isLoading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-6rem)] p-4">
+        <h2 className="text-xl font-bold text-gray-700 mb-4">História não encontrada</h2>
+        <p className="text-gray-600 mb-6">Não foi possível encontrar a história solicitada.</p>
+        <Link to="/my-stories">
+          <Button variant="story">
+            <Home className="mr-2 h-4 w-4" />
+            Voltar para Minhas Histórias
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (isLoading || !activeStory) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-6rem)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+      </div>
+    );
+  }
+
+  const pages = activeStory?.pages || [];
   const totalPages = pages.length;
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === totalPages - 1;
@@ -50,8 +97,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
     try {
       if (navigator.share) {
         await navigator.share({
-          title: story.title,
-          text: `Confira esta história: ${story.title}`,
+          title: activeStory.title,
+          text: `Confira esta história: ${activeStory.title}`,
           url: window.location.href,
         });
       } else {
@@ -69,7 +116,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
   const handleDownloadPDF = async () => {
     try {
       setPdfGenerating(true);
-      await generatePDF(story);
+      await generatePDF(activeStory);
       toast({
         title: "PDF gerado com sucesso",
         description: "O arquivo PDF foi baixado",
@@ -90,14 +137,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
     return pages.map(page => page.text || '');
   };
 
-  if (!story || isLoading) {
-    return (
-      <div className="flex justify-center items-center h-[calc(100vh-6rem)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full mt-2 md:mt-0">
       <AnimatePresence mode="wait">
@@ -114,8 +153,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
               <div className="w-full max-w-md">
                 <AspectRatio ratio={3/4} className="bg-violet-50 rounded-lg overflow-hidden border-2 border-violet-100 shadow-md">
                   <img
-                    src={story.cover_image_url || (story.pages && story.pages[0]?.image_url) || "/placeholder.svg"}
-                    alt={`Capa da história ${story.title}`}
+                    src={activeStory.cover_image_url || (activeStory.pages && activeStory.pages[0]?.image_url) || "/placeholder.svg"}
+                    alt={`Capa da história ${activeStory.title}`}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -127,28 +166,28 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
               
               <div className="w-full mt-6 flex flex-col items-center">
                 <div className="text-center max-w-md">
-                  <h1 className="text-3xl font-bold text-violet-800 mb-2">{story.title}</h1>
+                  <h1 className="text-3xl font-bold text-violet-800 mb-2">{activeStory.title}</h1>
                   <p className="text-lg mb-4">
-                    Personagem: <span className="font-medium">{story.character_name}</span>
-                    {story.character_age && (
-                      <span>, {story.character_age}</span>
+                    Personagem: <span className="font-medium">{activeStory.character_name}</span>
+                    {activeStory.character_age && (
+                      <span>, {activeStory.character_age}</span>
                     )}
                   </p>
                   
                   <div className="flex flex-wrap justify-center gap-2 mb-6">
-                    {story.theme && (
+                    {activeStory.theme && (
                       <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">
-                        {story.theme}
+                        {activeStory.theme}
                       </Badge>
                     )}
-                    {story.setting && (
+                    {activeStory.setting && (
                       <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                        {story.setting}
+                        {activeStory.setting}
                       </Badge>
                     )}
-                    {story.style && (
+                    {activeStory.style && (
                       <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        {story.style}
+                        {activeStory.style}
                       </Badge>
                     )}
                   </div>
@@ -156,7 +195,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
                 
                 {hasElevenLabsApiKey && (
                   <VoiceNarrationPlayer
-                    storyId={story.id || ''}
+                    storyId={activeStory.id || ''}
                     pages={extractPageTexts()}
                     currentPage={currentPage}
                     onPageChange={setCurrentPage}
@@ -218,10 +257,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
                 
                 <div className="prose prose-violet">
                   <p className="text-gray-700 mb-4">
-                    Uma emocionante história sobre {story.character_name}, 
-                    {story.character_age && ` de ${story.character_age},`} em uma aventura 
-                    {story.theme && ` que aborda o tema de ${story.theme}`}
-                    {story.setting && ` e se passa em ${story.setting}`}.
+                    Uma emocionante história sobre {activeStory.character_name}, 
+                    {activeStory.character_age && ` de ${activeStory.character_age},`} em uma aventura 
+                    {activeStory.theme && ` que aborda o tema de ${activeStory.theme}`}
+                    {activeStory.setting && ` e se passa em ${activeStory.setting}`}.
                   </p>
                   
                   <div className="mt-4">
@@ -293,7 +332,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
               <div className="md:w-1/2 flex flex-col">
                 <div className="prose prose-violet flex-grow">
                   <h2 className="text-xl font-bold text-violet-800 mb-4">
-                    {story.title} - Página {currentPage} de {totalPages - 1}
+                    {activeStory.title} - Página {currentPage} de {totalPages - 1}
                   </h2>
                   <div>
                     {pages[currentPage]?.text?.split("\n").map((paragraph, i) => (
@@ -306,7 +345,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ story, isLoading = false }) =
 
                 {hasElevenLabsApiKey && (
                   <VoiceNarrationPlayer
-                    storyId={story.id || ''}
+                    storyId={activeStory.id || ''}
                     pages={extractPageTexts()}
                     currentPage={currentPage}
                     onPageChange={setCurrentPage}

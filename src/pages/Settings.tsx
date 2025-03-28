@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import ElevenLabsSettings from "@/components/ElevenLabsSettings";
+import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Settings = () => {
@@ -46,6 +47,7 @@ const Settings = () => {
             <TabsContent value="api-keys">
               <div className="space-y-6">
                 <ElevenLabsSettings />
+                <LeonardoWebhookConfig />
               </div>
             </TabsContent>
           </Tabs>
