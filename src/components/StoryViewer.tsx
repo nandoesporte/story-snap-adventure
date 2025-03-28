@@ -15,6 +15,8 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useStoryImages } from "@/hooks/useStoryImages";
+import { useStoryNarration } from '@/hooks/useStoryNarration';
+import { Volume, VolumeX } from 'lucide-react';
 
 interface StoryPage {
   text: string;
@@ -566,7 +568,12 @@ const StoryViewer: React.FC = () => {
     const page = storyData.pages[pageIndex];
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
-    console.log(`Page ${pageIndex} image URL:`, imageUrl);
+    
+    const { isGenerating, isPlaying, playAudio, VOICE_IDS } = useStoryNarration({
+      storyId: id || '',
+      text: page.text,
+      pageIndex
+    });
     
     return (
       <div className="w-full h-full flex flex-col">
