@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useStoryImages } from "@/hooks/useStoryImages";
 
 interface StoryPage {
   text: string;
@@ -804,4 +805,61 @@ const StoryViewer: React.FC = () => {
             {Array.from({ length: totalPages }).map((_, idx) => (
               <button
                 key={idx}
-                className={`w-2 h-2
+                className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${currentPage === idx ? 'bg-violet-600' : 'bg-gray-300'}`}
+                onClick={() => {
+                  setFlipDirection(idx < currentPage ? "left" : "right");
+                  setCurrentPage(idx);
+                }}
+                aria-label={`Ir para página ${idx + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 md:gap-4 mt-2">
+        <Button
+          variant="outline"
+          onClick={handleGoHome}
+          className="gap-2"
+        >
+          <Home className="h-4 w-4" />
+          <span className="hidden md:inline">Início</span>
+        </Button>
+        
+        {isMobile && (
+          <Button
+            variant="outline"
+            onClick={handleShareStory}
+            className="gap-2"
+          >
+            <Share className="h-4 w-4" />
+            <span className="hidden md:inline">Compartilhar</span>
+          </Button>
+        )}
+        
+        {isMobile && (
+          <Button
+            variant="outline"
+            onClick={handleDownloadPDF}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden md:inline">Baixar PDF</span>
+          </Button>
+        )}
+        
+        <Button
+          variant="default"
+          onClick={handleCreateNew}
+          className="gap-2"
+        >
+          <BookText className="h-4 w-4" />
+          <span>Nova História</span>
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default StoryViewer;
