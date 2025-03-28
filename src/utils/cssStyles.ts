@@ -1,3 +1,4 @@
+
 export const customScrollbarStyles = `
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -308,9 +309,9 @@ export const customScrollbarStyles = `
   width: 60px;
   height: 60px;
 }
+`;
 
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Story } from '@/lib/supabase';
 
 export const generatePDF = async (story: Story): Promise<void> => {
