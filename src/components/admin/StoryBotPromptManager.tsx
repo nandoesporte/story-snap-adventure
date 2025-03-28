@@ -8,10 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wand2, BookOpen, Globe, Award, ImageIcon } from "lucide-react";
+import { Wand2, BookOpen, Globe, Award, ImageIcon, Save, RefreshCw } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface StoryBotPrompt {
   id: string;
@@ -20,10 +22,18 @@ interface StoryBotPrompt {
   updated_at?: string;
 }
 
+const promptFormSchema = z.object({
+  prompt: z.string().min(10, "O prompt deve ter pelo menos 10 caracteres"),
+  imagePrompt: z.string().min(10, "O template de imagem deve ter pelo menos 10 caracteres"),
+});
+
+type PromptFormValues = z.infer<typeof promptFormSchema>;
+
 export const StoryBotPromptManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [defaultPrompt] = useState<string>(`Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
 
 Suas respostas devem ser:
@@ -81,7 +91,7 @@ Texto da cena: "{texto_da_pagina}"
 
 IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os elementos importantes da narrativa visíveis e apresentados no estilo distintivo de papercraft com camadas de papel recortado, mantendo consistência absoluta na aparência do personagem principal ao longo de toda a história.`);
 
-  const { data: promptData, isLoading } = useQuery({
+  const { data: promptData, isLoading, refetch } = useQuery({
     queryKey: ["storybot-prompt"],
     queryFn: async () => {
       try {
@@ -172,6 +182,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
         return result.data;
       } finally {
         setIsSubmitting(false);
+        setIsEditing(false);
       }
     },
     onSuccess: (data) => {
@@ -193,7 +204,8 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
     }
   });
 
-  const form = useForm({
+  const form = useForm<PromptFormValues>({
+    resolver: zodResolver(promptFormSchema),
     defaultValues: {
       prompt: promptData?.prompt || defaultPrompt,
       imagePrompt: imagePromptTemplate,
@@ -204,14 +216,52 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
     if (promptData) {
       form.reset({ 
         prompt: promptData.prompt,
-        imagePrompt: imagePromptTemplate, 
+        imagePrompt: localStorage.getItem('image_prompt_template') || imagePromptTemplate, 
       });
     }
   }, [promptData, form, imagePromptTemplate]);
 
-  const handleSubmit = (data: { prompt: string, imagePrompt: string }) => {
+  const handleSubmit = (data: PromptFormValues) => {
     localStorage.setItem('image_prompt_template', data.imagePrompt);
     updatePromptMutation.mutate(data.prompt);
+  };
+  
+  const handleEnableEditing = () => {
+    setIsEditing(true);
+  };
+  
+  const handleCancelEditing = () => {
+    form.reset({ 
+      prompt: promptData?.prompt || defaultPrompt,
+      imagePrompt: localStorage.getItem('image_prompt_template') || imagePromptTemplate, 
+    });
+    setIsEditing(false);
+  };
+  
+  const handleResetToDefault = () => {
+    const confirmReset = window.confirm("Tem certeza que deseja restaurar os prompts para os valores padrão? Esta ação não pode ser desfeita.");
+    if (confirmReset) {
+      form.reset({ 
+        prompt: defaultPrompt,
+        imagePrompt: imagePromptTemplate, 
+      });
+      
+      if (isEditing) {
+        // Se estiver editando, não salva automaticamente
+        toast({
+          title: "Prompts restaurados",
+          description: "Os prompts foram restaurados para os valores padrão. Clique em Salvar para aplicar as alterações.",
+        });
+      } else {
+        // Se não estiver editando, salva automaticamente
+        localStorage.setItem('image_prompt_template', imagePromptTemplate);
+        updatePromptMutation.mutate(defaultPrompt);
+        toast({
+          title: "Prompts restaurados",
+          description: "Os prompts foram restaurados para os valores padrão e salvos.",
+        });
+      }
+    }
   };
 
   if (isLoading) {
@@ -268,6 +318,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
                           placeholder="Insira o prompt de sistema para o StoryBot..."
                           className="min-h-[400px] font-mono text-sm"
                           {...field}
+                          disabled={!isEditing}
                         />
                       </FormControl>
                       <FormMessage />
@@ -288,6 +339,7 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
                           placeholder="Insira o template para geração de ilustrações..."
                           className="min-h-[400px] font-mono text-sm"
                           {...field}
+                          disabled={!isEditing}
                         />
                       </FormControl>
                       <p className="text-sm text-muted-foreground mt-2">
@@ -315,24 +367,61 @@ IMPORTANTE: A ilustração deve capturar fielmente a cena descrita, com todos os
               </TabsContent>
             </Tabs>
             
-            <div className="flex justify-end">
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="flex items-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span>Salvando...</span>
-                  </>
+            <div className="flex justify-between">
+              <div className="flex gap-2">
+                {!isEditing ? (
+                  <Button 
+                    type="button" 
+                    onClick={handleEnableEditing}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    <span>Editar Prompts</span>
+                  </Button>
                 ) : (
                   <>
-                    <Wand2 className="h-4 w-4" />
-                    <span>Salvar Configurações</span>
+                    <Button 
+                      type="button" 
+                      onClick={handleCancelEditing}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Cancelar</span>
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={handleResetToDefault}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Restaurar Padrão</span>
+                    </Button>
                   </>
                 )}
-              </Button>
+              </div>
+              
+              {isEditing && (
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || !form.formState.isDirty}
+                  className="flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Salvar</span>
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </Form>

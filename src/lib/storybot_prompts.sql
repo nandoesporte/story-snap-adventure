@@ -9,6 +9,14 @@ BEGIN
     WHERE table_schema = 'public' 
     AND table_name = 'storybot_prompts'
   ) THEN
+    -- Check if uuid-ossp extension exists
+    IF NOT EXISTS (
+      SELECT FROM pg_extension WHERE extname = 'uuid-ossp'
+    ) THEN
+      -- Create uuid-ossp extension if it doesn't exist
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    END IF;
+    
     -- Create the table
     CREATE TABLE public.storybot_prompts (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
