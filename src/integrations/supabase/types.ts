@@ -819,6 +819,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_table_exists: {
+        Args: {
+          p_table_name: string
+          p_schema_name?: string
+        }
+        Returns: boolean
+      }
       check_user_credits: {
         Args: {
           user_uuid: string
