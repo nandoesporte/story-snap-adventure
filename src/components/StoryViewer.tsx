@@ -812,4 +812,4 @@ const StoryViewer: React.FC = () => {
                   variant="secondary"
                   onClick={toggleTextVisibility}
                 >
-                  <EyeOff
+                  <EyeOff className="
