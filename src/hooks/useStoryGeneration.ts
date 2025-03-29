@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -73,6 +74,22 @@ export const useStoryGeneration = () => {
       const openAiApiKey = localStorage.getItem('openai_api_key');
       if (!openAiApiKey) {
         toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
+        setIsGenerating(false);
+        return null;
+      }
+      
+      // Validar a chave da API OpenAI antes de continuar
+      try {
+        const isValid = await checkOpenAIAvailability();
+        if (!isValid) {
+          toast.error("A chave da API OpenAI fornecida parece ser inválida. Por favor, verifique suas configurações.");
+          setIsGenerating(false);
+          return null;
+        }
+      } catch (error) {
+        console.error("Erro ao verificar chave da API OpenAI:", error);
+        toast.error("Não foi possível validar a chave da API OpenAI. Verifique sua conexão e configurações.");
+        setIsGenerating(false);
         return null;
       }
       
@@ -107,23 +124,39 @@ export const useStoryGeneration = () => {
       });
       
       const generateWithPersistence = async () => {
-        let result = await storyBotGenerateCompleteStory(
-          characterName,
-          childAge,
-          theme,
-          setting,
-          moralTheme,
-          characterPrompt,
-          length,
-          readingLevel,
-          language,
-          childImageBase64,
-          "papercraft"
-        );
+        let result;
+        try {
+          result = await storyBotGenerateCompleteStory(
+            characterName,
+            childAge,
+            theme,
+            setting,
+            moralTheme,
+            characterPrompt,
+            length,
+            readingLevel,
+            language,
+            childImageBase64,
+            "papercraft"
+          );
+        } catch (error) {
+          console.error("Erro na geração de história:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          if (errorMessage.includes("API key") || errorMessage.includes("401")) {
+            toast.error("Erro na chave da API OpenAI. Por favor, verifique suas configurações.");
+          } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
+            toast.error("Limite de requisições excedido na API OpenAI. Tente novamente mais tarde.");
+          } else {
+            toast.error("Erro ao gerar a história. Tente novamente.");
+          }
+          
+          throw new Error("Falha na geração da história");
+        }
         
         if (!result) {
           toast.error("Erro ao gerar a história. Tente novamente.");
-          return null;
+          throw new Error("Resultado da geração de história é nulo");
         }
         
         const storyId = uuidv4();
