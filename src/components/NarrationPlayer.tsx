@@ -123,6 +123,13 @@ export const NarrationPlayer = ({
         toggleMute();
         return;
       }
+      
+      // If we already have an audio URL, use it directly
+      if (audioUrl) {
+        playAudio(selectedVoice, audioUrl);
+        return;
+      }
+      
       await playAudio(selectedVoice);
     } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);

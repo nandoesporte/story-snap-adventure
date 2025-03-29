@@ -294,15 +294,18 @@ export const useStoryGeneration = () => {
                     attempts++;
                     console.log(`Tentativa ${attempts} de gerar narração humanizada para página ${i+1}`);
                     
-                    await generateAudio(voiceType, {
+                    // Generate and save narration to database
+                    const audioUrl = await generateAudio(voiceType, {
                       storyId: storyResult.id,
                       text: storyResult.pages[i].text,
                       pageIndex: i,
                       voiceType: voiceType
                     });
                     
-                    narrationSuccess = true;
-                    console.log(`Narração humanizada gerada com sucesso para página ${i+1}`);
+                    if (audioUrl) {
+                      narrationSuccess = true;
+                      console.log(`Narração humanizada gerada com sucesso para página ${i+1}: ${audioUrl}`);
+                    }
                     
                     const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
                     setProgress(Math.min(narrationProgress, 99));
@@ -339,7 +342,7 @@ export const useStoryGeneration = () => {
                 toast.warning(`${narrationFailures} narrações não puderam ser geradas. As demais estão disponíveis.`);
               }
             } else {
-              toast.success("Todas as narrações humanizadas foram geradas com sucesso!");
+              toast.success("Todas as narrações humanizadas foram geradas com sucesso e salvas no banco de dados!");
             }
           }
         }

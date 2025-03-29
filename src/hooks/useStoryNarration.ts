@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -189,8 +190,28 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     try {
       console.log(`Generating child-friendly audio for story ${storyId}, page ${pageIndex} with voice type: ${voiceType}`);
       
+      // Use the story and page information to create a unique key
       const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
       
+      // First, check if we have this narration in the database
+      const { data: existingNarration, error: narrationError } = await supabase
+        .from('story_narrations')
+        .select('audio_url')
+        .eq('story_id', storyId)
+        .eq('page_index', pageIndex)
+        .single();
+        
+      if (!narrationError && existingNarration?.audio_url) {
+        console.log(`Using existing narration from database for story ${storyId}, page ${pageIndex}`);
+        setAudioUrl(existingNarration.audio_url);
+        if (!params) {
+          toast.success('Narração carregada do banco de dados!');
+        }
+        setIsGenerating(false);
+        return existingNarration.audio_url;
+      }
+      
+      // If not in database, check local storage as fallback
       let cachedAudio;
       try {
         cachedAudio = getAudioFromLocalStorage(localStorageKey);
@@ -381,26 +402,45 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     }
   };
 
-  const playAudio = async (voiceType: 'male' | 'female' = 'female') => {
-    if (!audioUrl && !isGenerating && text) {
-      await generateAudio(voiceType);
-      return;
-    }
-
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else if (audioUrl) {
+  const playAudio = async (voiceType: 'male' | 'female' = 'female', existingAudioUrl?: string) => {
+    // If an existing URL is provided, use it directly
+    if (existingAudioUrl) {
+      if (audioRef.current) {
         try {
-          audioRef.current.src = audioUrl;
+          audioRef.current.src = existingAudioUrl;
           await audioRef.current.play();
           setIsPlaying(true);
+          return;
         } catch (error) {
-          console.error('Erro ao reproduzir áudio:', error);
-          toast.error('Erro ao reproduzir narração');
+          console.error('Erro ao reproduzir áudio existente:', error);
+          toast.error('Erro ao reproduzir narração existente');
         }
       }
+    }
+    
+    // If we have an audio URL from state, use it
+    if (audioUrl && !isGenerating) {
+      if (audioRef.current) {
+        try {
+          if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+          } else {
+            audioRef.current.src = audioUrl;
+            await audioRef.current.play();
+            setIsPlaying(true);
+          }
+          return;
+        } catch (error) {
+          console.error('Erro ao reproduzir áudio do estado:', error);
+          // Continue to generate new audio if playback fails
+        }
+      }
+    }
+    
+    // If we need to generate new audio
+    if (!audioUrl && !isGenerating && text) {
+      await generateAudio(voiceType);
     }
   };
 
@@ -424,6 +464,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     };
   }, []);
 
+  // Helper function to convert regular text to SSML
   const formatTextWithSSML = (text: string): string => {
     let ssml = text.replace(/\./g, '.<break time="500ms"/>');
     
