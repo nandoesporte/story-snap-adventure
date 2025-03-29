@@ -70,7 +70,7 @@ export const validateAndFixStoryImages = async (storyId: string) => {
 /**
  * Valida e corrige uma URL de imagem
  */
-const validateImageUrl = async (
+export const validateImageUrl = async (
   imageUrl: string, 
   bucketName = 'story_images'
 ): Promise<string | null> => {
@@ -82,17 +82,22 @@ const validateImageUrl = async (
     
     // É uma URL de armazenamento do Supabase que precisa ser corrigida
     if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
-      const urlObj = new URL(imageUrl);
-      const pathParts = urlObj.pathname.split('/');
-      const fileName = pathParts[pathParts.length - 1];
-      
-      // Use getPublicUrl para obter a URL correta
-      const { data } = supabase
-        .storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
+      try {
+        const urlObj = new URL(imageUrl);
+        const pathParts = urlObj.pathname.split('/');
+        const fileName = pathParts[pathParts.length - 1];
         
-      return data.publicUrl;
+        // Use getPublicUrl para obter a URL correta
+        const { data } = supabase
+          .storage
+          .from(bucketName)
+          .getPublicUrl(fileName);
+          
+        return data.publicUrl;
+      } catch (error) {
+        console.error("Erro ao processar URL do Supabase:", error);
+        return null;
+      }
     }
     
     // Outros formatos de URL mantemos como estão
@@ -130,10 +135,10 @@ export const getImageFromCache = (imageUrl: string | undefined): string | null =
 /**
  * Armazena uma imagem no cache
  */
-export const storeImageInCache = (imageUrl: string) => {
+export const storeImageInCache = (imageUrl: string | undefined) => {
+  if (!imageUrl) return;
+  
   try {
-    if (!imageUrl) return;
-    
     // Extrair o nome do arquivo da URL
     if (imageUrl.includes('/')) {
       const parts = imageUrl.split('/');
@@ -141,6 +146,7 @@ export const storeImageInCache = (imageUrl: string) => {
       
       // Armazenar no cache
       localStorage.setItem(`image_cache_${fileName}`, imageUrl);
+      console.log(`Imagem armazenada no cache: ${fileName}`);
     }
   } catch (e) {
     console.error("Erro ao armazenar imagem no cache:", e);

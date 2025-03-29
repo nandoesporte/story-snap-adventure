@@ -17,6 +17,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
         if (!imageUrl) {
           setProcessedUrl('/placeholder.svg');
           setHasError(true);
+          setIsLoading(false);
           return;
         }
 
@@ -27,6 +28,18 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           console.log("Using cached image URL:", cachedUrl);
           setProcessedUrl(cachedUrl);
           setIsLoading(false);
+          
+          // Verificar se a URL em cache ainda é válida
+          setTimeout(() => {
+            const img = new Image();
+            img.onload = () => console.log("Cached image loaded successfully");
+            img.onerror = () => {
+              console.warn("Cached image failed to load, clearing cache");
+              localStorage.removeItem(cachedUrlKey);
+            };
+            img.src = cachedUrl;
+          }, 1000);
+          
           return;
         }
         
@@ -47,7 +60,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           // Verificar se expirou tentando fazer um fetch
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout mais baixo para evitar esperas longas
             
             const response = await fetch(imageUrl, { 
               method: 'HEAD',
@@ -94,6 +107,19 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
             setIsLoading(false);
             return;
           }
+        }
+        
+        // Para caminhos de imagem estáticos no projeto
+        if (imageUrl.startsWith('/images/') || imageUrl === '/placeholder.svg') {
+          const fullUrl = `${window.location.origin}${imageUrl}`;
+          setProcessedUrl(fullUrl);
+          try {
+            localStorage.setItem(cachedUrlKey, fullUrl);
+          } catch (error) {
+            console.error("Error saving URL to cache:", error);
+          }
+          setIsLoading(false);
+          return;
         }
         
         // Se é uma URL de armazenamento do Supabase, mas com formato antigo

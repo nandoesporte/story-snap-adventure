@@ -541,7 +541,7 @@ const StoryViewer: React.FC = () => {
                 imageUrl={coverImageSrc}
                 fallbackImage={fallbackImage}
                 alt={storyData.title}
-                className="w-full h-full object-cover transition-all duration-300"
+                className="w-full h-full"
                 onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />
@@ -576,14 +576,15 @@ const StoryViewer: React.FC = () => {
       <div className="w-full h-full flex flex-col">
         <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
           <div className="flex-1 p-4 flex items-center justify-center">
-            <CoverImage 
-              imageUrl={coverImageSrc}
-              fallbackImage={fallbackImage}
-              alt={storyData.title}
-              className="max-w-full max-h-[70vh] object-contain rounded-xl transition-all duration-300 shadow-md"
-              onClick={() => handleImageClick(coverImageSrc)}
-              onError={() => handleImageError(coverImageSrc)}
-            />
+            <div className="w-4/5 h-4/5 max-h-[70vh] relative rounded-xl shadow-md overflow-hidden">
+              <CoverImage 
+                imageUrl={coverImageSrc}
+                fallbackImage={fallbackImage}
+                alt={storyData.title}
+                onClick={() => handleImageClick(coverImageSrc)}
+                onError={() => handleImageError(coverImageSrc)}
+              />
+            </div>
           </div>
           <div className="p-6 bg-white border-t border-gray-100 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">{storyData.title}</h2>
