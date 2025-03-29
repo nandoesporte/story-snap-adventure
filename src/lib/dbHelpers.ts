@@ -1,76 +1,90 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { Json } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 /**
- * Helper function to safely execute RPC functions
+ * Helper function for safely querying the database and handling errors
+ * @param queryFn Function that executes the database query
+ * @returns Query result or null if error occurs
  */
-export async function callRpcFunction<T = any>(functionName: string, params?: Record<string, any>): Promise<{ data: T | null, error: Error | null }> {
+export async function safeQuery<T>(queryFn: () => Promise<{ data: T | null; error: any }>): Promise<T | null> {
   try {
-    // @ts-ignore - We need to allow any function name here
-    const { data, error } = await supabase.rpc(functionName, params || {});
-    
+    const { data, error } = await queryFn();
     if (error) {
-      console.error(`Error calling RPC function ${functionName}:`, error);
-      return { data: null, error };
+      console.error("Database query error:", error);
+      return null;
     }
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error(`Exception in RPC function ${functionName}:`, error);
-    return { data: null, error: error as Error };
+    return data as T;
+  } catch (err) {
+    console.error("Error executing query:", err);
+    return null;
   }
 }
 
 /**
- * Helper function to check if a table exists in the database
+ * Checks if a table exists in the database schema
+ * @param tableName Name of the table to check
+ * @returns Boolean indicating if table exists
  */
-export async function checkTableExists(tableName: string, schema = 'public') {
+export async function tableExists(tableName: string): Promise<boolean> {
+  const { data } = await supabase
+    .rpc('check_table_exists', { table_name: tableName })
+    .single();
+  
+  return !!data;
+}
+
+/**
+ * Safely converts database JSON to a typed object
+ * @param json JSON data from database
+ * @returns Parsed object or default value
+ */
+export function safeJsonParse<T>(json: any, defaultValue: T): T {
+  if (!json) return defaultValue;
+  
   try {
-    const { data, error } = await callRpcFunction<boolean>('check_table_exists', {
-      p_table_name: tableName,
-      p_schema_name: schema
-    });
-    
+    if (typeof json === 'string') {
+      return JSON.parse(json) as T;
+    }
+    return json as T;
+  } catch (error) {
+    console.error("Error parsing JSON:", error);
+    return defaultValue;
+  }
+}
+
+/**
+ * Helper function to safely cast database types
+ * @param value Value to cast
+ * @param fallback Fallback value if casting fails
+ * @returns Casted value or fallback
+ */
+export function safeTypeCast<T>(value: any, fallback: T): T {
+  if (value === null || value === undefined) return fallback;
+  try {
+    return value as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Helper function to check if user has admin privileges
+ */
+export async function checkIsAdmin(userId: string | undefined): Promise<boolean> {
+  if (!userId) return false;
+  
+  try {
+    const { data, error } = await supabase
+      .rpc('is_admin_user', { user_id: userId });
+      
     if (error) {
-      console.error(`Error checking if table ${tableName} exists:`, error);
+      console.error("Error checking admin status:", error);
       return false;
     }
     
-    return data === true;
+    return !!data;
   } catch (error) {
-    console.error(`Exception checking if table ${tableName} exists:`, error);
+    console.error("Error in admin check:", error);
     return false;
-  }
-}
-
-/**
- * Helper to get data from information_schema
- * This is used as a workaround for direct information_schema access
- */
-export async function queryInformationSchema(tableName: string, schemaName = 'public') {
-  return await callRpcFunction('check_table_exists', {
-    p_table_name: tableName,
-    p_schema_name: schemaName
-  });
-}
-
-// Add this function to execute raw SQL queries
-export async function executeRawQuery(sqlQuery: string) {
-  try {
-    // Use the exec_sql RPC function which should be defined in the database
-    const { data, error } = await callRpcFunction('exec_sql', { 
-      sql_query: sqlQuery 
-    });
-    
-    if (error) {
-      console.error('Error executing SQL query:', error);
-      return { success: false, error };
-    }
-    
-    return { success: true, data };
-  } catch (error) {
-    console.error('Exception in executeRawQuery:', error);
-    return { success: false, error };
   }
 }

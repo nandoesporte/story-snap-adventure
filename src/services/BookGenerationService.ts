@@ -1,7 +1,10 @@
+
 import { v4 as uuidv4 } from 'uuid';
-import { Configuration, OpenAIApi } from "openai";
-import { supabase } from '@/integrations/supabase/client';
+import { OpenAI } from "openai";
+import { supabase } from '@/lib/supabase';
 import { getPlaceholderImageUrl } from '@/lib/imageHelper';
+
+export type StoryStyle = 'papercraft' | 'cartoon' | 'watercolor' | '3d' | 'pixel';
 
 export interface StoryInputData {
   childName: string;
@@ -9,7 +12,7 @@ export interface StoryInputData {
   characterAge: string;
   theme: string;
   setting: string;
-  style: string;
+  style: StoryStyle;
   characterPrompt?: string;
   voiceType?: 'male' | 'female';
 }
@@ -27,7 +30,7 @@ export interface CompleteStory {
   characterAge: string;
   theme: string;
   setting: string;
-  style: string;
+  style: StoryStyle;
   characterPrompt?: string;
   coverImageUrl?: string;
   pages: { text: string; imageUrl: string; }[];
@@ -38,7 +41,7 @@ export class BookGenerationService {
   private storyData: StoryInputData;
   private updateProgress: (stage: string, percent: number) => void;
   private handleError: (message: string) => void;
-  private openai: OpenAIApi | null = null;
+  private openai: OpenAI | null = null;
   private cancelFlag: boolean = false;
   
   constructor(
@@ -53,10 +56,9 @@ export class BookGenerationService {
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     
     if (apiKey) {
-      const configuration = new Configuration({
-        apiKey: apiKey,
+      this.openai = new OpenAI({
+        apiKey: apiKey
       });
-      this.openai = new OpenAIApi(configuration);
     } else {
       console.warn("OpenAI API key not found. Using fallback story generator.");
     }
@@ -64,6 +66,78 @@ export class BookGenerationService {
   
   cancel() {
     this.cancelFlag = true;
+  }
+  
+  // Static methods for TestModeManager
+  static generateFallbackStory(data: any): CompleteStory {
+    return {
+      title: data.title || `A ${data.style} Adventure`,
+      childName: data.character_name || "Child",
+      characterName: data.character_name || "Character",
+      characterAge: data.character_age || "7",
+      theme: data.theme || "adventure",
+      setting: data.setting || "magical forest",
+      style: data.style as StoryStyle || "papercraft",
+      pages: [
+        {
+          text: `Once upon a time, ${data.character_name} went on an adventure in a ${data.setting}.`,
+          imageUrl: getPlaceholderImageUrl(data.theme)
+        },
+        {
+          text: `${data.character_name} discovered many wonders and made new friends.`,
+          imageUrl: getPlaceholderImageUrl(data.theme)
+        },
+        {
+          text: `After a day of excitement, ${data.character_name} returned home with amazing stories to tell.`,
+          imageUrl: getPlaceholderImageUrl(data.theme)
+        }
+      ],
+      voiceType: data.voice_type || 'female'
+    };
+  }
+  
+  static async saveStoryToDatabase(storyData: Record<string, any>): Promise<any> {
+    try {
+      // Ensure required fields are present
+      if (!storyData.title || !storyData.character_name) {
+        throw new Error("Missing required fields: title and character_name");
+      }
+      
+      // Use proper typing for the database insert
+      const { data, error } = await supabase
+        .from('stories')
+        .insert({
+          title: storyData.title,
+          character_name: storyData.character_name,
+          character_age: storyData.character_age || null,
+          character_prompt: storyData.character_prompt || null,
+          cover_image_url: storyData.cover_image_url || null,
+          setting: storyData.setting || null,
+          theme: storyData.theme || null,
+          style: storyData.style || null,
+          pages: storyData.pages || [],
+          user_id: storyData.user_id || null,
+          is_public: storyData.is_public || false,
+          voice_type: storyData.voice_type || 'female'
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.id) {
+        console.log("Story saved to database with ID:", data.id);
+        return data;
+      } else {
+        console.warn("Story saved, but no ID returned.");
+        return null;
+      }
+    } catch (error: any) {
+      console.error("Error saving story to database:", error);
+      throw new Error("Error saving story to database: " + error.message);
+    }
   }
   
   private async generateCoverImage(title: string, theme: string, style: string, characterName: string): Promise<string | null> {
@@ -81,14 +155,14 @@ export class BookGenerationService {
       A história se passa em um ambiente de ${theme} e tem um estilo de arte de ${style}. 
       O personagem principal é ${characterName}. A imagem deve ser vibrante, colorida e convidativa para crianças.`;
       
-      const response = await this.openai.createImage({
+      const response = await this.openai.images.generate({
         prompt: prompt,
         n: 1,
         size: "512x512",
       });
       
-      const imageUrl = response.data.data[0].url;
-      return imageUrl;
+      const imageUrl = response.data[0].url;
+      return imageUrl || null;
     } catch (error: any) {
       console.error("Error generating cover image:", error);
       this.handleError("Erro ao gerar a imagem da capa: " + error.message);
@@ -113,14 +187,14 @@ export class BookGenerationService {
         A história se passa em um ambiente de ${theme} e tem um estilo de arte de ${style}.
         A imagem deve ser vibrante, colorida e adequada para crianças.`;
       
-      const response = await this.openai.createImage({
+      const response = await this.openai.images.generate({
         prompt: prompt,
         n: 1,
         size: "512x512",
       });
       
-      const imageUrl = response.data.data[0].url;
-      return imageUrl;
+      const imageUrl = response.data[0].url;
+      return imageUrl || null;
     } catch (error: any) {
       console.error("Error generating page image:", error);
       this.handleError(`Erro ao gerar a imagem da página ${pageNumber}: ` + error.message);
@@ -241,6 +315,8 @@ export class BookGenerationService {
 
       this.updateProgress("gerando-historia", 40);
 
+      let promptTemplate = "Create a children's story..."; // Default template
+      
       try {
         // Use RPC call instead of direct query for custom tables
         const { data: rpcResult } = await supabase.rpc('create_storybot_prompt_if_not_exists');
@@ -277,14 +353,14 @@ export class BookGenerationService {
         Formate a resposta como um objeto JSON com os campos "title" e "content", onde "content" é um array de strings, cada string representando uma página da história.
       `;
 
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1000,
         temperature: 0.7,
       });
 
-      const storyText = response?.data?.choices?.[0]?.message?.content;
+      const storyText = response?.choices?.[0]?.message?.content;
 
       if (!storyText) {
         throw new Error("Não foi possível gerar a história.");
