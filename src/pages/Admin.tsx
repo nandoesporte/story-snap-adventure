@@ -65,11 +65,19 @@ const Admin = () => {
     );
   }
 
+  const handleTabChange = (value) => {
+    setActiveTab(value);
+    // Update URL with tab parameter
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('tab', value);
+    navigate(`${location.pathname}?${searchParams.toString()}`);
+  };
+
   return (
     <div className="container mx-auto my-8 p-4">
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
-      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid grid-cols-9 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
