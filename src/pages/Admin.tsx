@@ -10,6 +10,7 @@ import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager"
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
+import SubscriptionManager from "@/components/admin/SubscriptionManager";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -25,7 +26,7 @@ const Admin = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis'].includes(tabParam)) {
+    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis', 'subscriptions'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -124,7 +125,7 @@ const Admin = () => {
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
       <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-8 w-full">
+        <TabsList className="grid grid-cols-9 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="characters">Personagens</TabsTrigger>
@@ -133,6 +134,7 @@ const Admin = () => {
           <TabsTrigger value="config">Configurações</TabsTrigger>
           <TabsTrigger value="apis">APIs</TabsTrigger>
           <TabsTrigger value="test">Modo Teste</TabsTrigger>
+          <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
         </TabsList>
         
         <TabsContent value="stories" className="space-y-4">
@@ -182,6 +184,14 @@ const Admin = () => {
             Gere histórias de teste sem usar APIs externas, facilitando testes do sistema.
           </p>
           <TestModeManager />
+        </TabsContent>
+        
+        <TabsContent value="subscriptions" className="space-y-4">
+          <h2 className="text-2xl font-bold">Gerenciar Assinaturas</h2>
+          <p className="text-muted-foreground mb-4">
+            Configure os planos de assinatura e gerencie as assinaturas dos usuários.
+          </p>
+          <SubscriptionManager />
         </TabsContent>
       </Tabs>
     </div>

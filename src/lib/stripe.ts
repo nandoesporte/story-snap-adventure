@@ -1,0 +1,155 @@
+
+import { supabase } from './supabase';
+
+// Check if user has a valid subscription
+export async function checkUserSubscription(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select(`
+        id,
+        status,
+        current_period_end,
+        subscription_plans(
+          id,
+          name,
+          price,
+          interval,
+          stories_limit
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single();
+
+    if (error) {
+      console.error('Error checking subscription:', error);
+      return null;
+    }
+
+    // Check if subscription is still valid
+    if (data) {
+      const currentTime = new Date().getTime();
+      const periodEnd = new Date(data.current_period_end).getTime();
+      
+      if (currentTime > periodEnd) {
+        // Subscription expired, should be updated by webhook but just in case
+        return null;
+      }
+      
+      return data;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error in checkUserSubscription:', error);
+    return null;
+  }
+}
+
+// Check if user has reached the story limit for their subscription
+export async function checkStoryLimitReached(userId: string) {
+  try {
+    // Get user's active subscription
+    const subscription = await checkUserSubscription(userId);
+    
+    if (!subscription) {
+      // No active subscription, check if they are within the free tier limit
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('stories_created_count, story_credits')
+        .eq('id', userId)
+        .single();
+        
+      if (profileError) {
+        console.error('Error checking user profile:', profileError);
+        return true; // Fail safe - assume limit reached
+      }
+      
+      // Check if user still has free credits
+      return profile.story_credits <= 0;
+    }
+    
+    // User has subscription, check if they've reached their plan limit
+    const storiesLimit = subscription.subscription_plans.stories_limit;
+    
+    // Get count of stories created this billing period
+    const periodStart = new Date(subscription.current_period_start);
+    
+    const { count, error } = await supabase
+      .from('stories')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .gte('created_at', periodStart.toISOString());
+      
+    if (error) {
+      console.error('Error checking story count:', error);
+      return true; // Fail safe - assume limit reached
+    }
+    
+    return count >= storiesLimit;
+  } catch (error) {
+    console.error('Error in checkStoryLimitReached:', error);
+    return true; // Fail safe - assume limit reached
+  }
+}
+
+// Create a checkout session for a subscription
+export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string) {
+  try {
+    // Call the Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('create-checkout', {
+      body: { planId, returnUrl }
+    });
+    
+    if (error) {
+      console.error('Error creating checkout:', error);
+      throw new Error('Falha ao criar sessão de pagamento');
+    }
+    
+    return data.url;
+  } catch (error) {
+    console.error('Error in createSubscriptionCheckout:', error);
+    throw error;
+  }
+}
+
+// Cancel a subscription
+export async function cancelSubscription(subscriptionId: string) {
+  try {
+    const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+      body: { subscriptionId }
+    });
+    
+    if (error) {
+      console.error('Error canceling subscription:', error);
+      throw new Error('Falha ao cancelar assinatura');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in cancelSubscription:', error);
+    throw error;
+  }
+}
+
+// Get subscription plans
+export async function getSubscriptionPlans() {
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('price', { ascending: true });
+      
+    if (error) {
+      console.error('Error fetching subscription plans:', error);
+      throw new Error('Falha ao buscar planos de assinatura');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in getSubscriptionPlans:', error);
+    throw error;
+  }
+}

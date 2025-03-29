@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound';
 import StoryBot from './pages/StoryBot';
 import Characters from './pages/Characters';
 import Admin from './pages/Admin';
+import Subscription from './pages/Subscription';
 import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -85,6 +86,7 @@ function AppContent() {
         <Route path="/storybot" element={<StoryBot />} />
         <Route path="/characters" element={<Characters />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/subscription" element={<Subscription />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
