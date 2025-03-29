@@ -72,31 +72,21 @@ export const getUser = async (): Promise<UserSession> => {
 
 export const getCurrentUser = async () => {
   const { data, error } = await supabase.auth.getUser();
-  return { user: data.user, error };
+  return { user: data?.user, error };
 };
 
 export const getSession = async () => {
   const { data, error } = await supabase.auth.getSession();
-  return { session: data.session, error };
+  return { session: data?.session, error };
 };
 
 // Initialize database structure for admin users
 export const initializeDatabaseStructure = async () => {
   try {
-    // Check if system_configurations table exists
-    const { data: tables, error: tablesError } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'system_configurations');
+    const { checkTableExists } = await import('./dbHelpers');
+    const tableExists = await checkTableExists('system_configurations');
     
-    if (tablesError) {
-      console.error("Error checking if tables exist:", tablesError);
-      return { success: false, error: tablesError };
-    }
-    
-    // If system_configurations table doesn't exist, create it
-    if (tables && tables.length === 0) {
+    if (!tableExists) {
       // Call edge function to initialize database structure
       const { data, error } = await supabase.functions.invoke('initialize-database', {});
       
@@ -135,11 +125,11 @@ export const deleteStory = async (storyId: string) => {
   return { error };
 };
 
-// Export type for Story
-export type Story = {
+// Database Story type (matches DB schema)
+export type DBStory = {
   id: string;
   title: string;
-  content: string[];
+  pages: any; // JSON field
   character_name: string;
   character_age?: string;
   setting?: string;
@@ -150,6 +140,57 @@ export type Story = {
   user_id: string;
   created_at: string;
   updated_at: string;
+  voice_type?: string;
+  character_prompt?: string;
+};
+
+// Application Story type (for using in the application)
+export type Story = {
+  id: string;
+  title: string;
+  content: string[]; // Parsed from pages
+  character_name: string;
+  character_age?: string;
+  setting?: string;
+  theme?: string;
+  style?: string;
+  cover_image_url?: string;
+  is_public: boolean;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  voice_type?: string;
+};
+
+// Converter function to transform DB story to application Story
+export const convertDBStoryToAppStory = (dbStory: DBStory): Story => {
+  // Extract text content from pages JSON
+  const content: string[] = [];
+  
+  if (Array.isArray(dbStory.pages)) {
+    dbStory.pages.forEach((page: any) => {
+      if (page && typeof page === 'object' && 'text' in page) {
+        content.push(page.text);
+      }
+    });
+  }
+  
+  return {
+    id: dbStory.id,
+    title: dbStory.title,
+    content,
+    character_name: dbStory.character_name,
+    character_age: dbStory.character_age,
+    setting: dbStory.setting,
+    theme: dbStory.theme,
+    style: dbStory.style,
+    cover_image_url: dbStory.cover_image_url,
+    is_public: dbStory.is_public,
+    user_id: dbStory.user_id,
+    created_at: dbStory.created_at,
+    updated_at: dbStory.updated_at,
+    voice_type: dbStory.voice_type
+  };
 };
 
 export default supabase;

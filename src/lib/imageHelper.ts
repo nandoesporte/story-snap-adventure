@@ -1,154 +1,118 @@
 
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
+
+const IMAGE_CACHE_KEY = 'story_image_cache';
 
 /**
- * Verifica e corrige URLs de imagens quebradas
- * @param storyId ID da história
+ * Store an image URL in the local cache
+ */
+export const storeImageInCache = (url: string) => {
+  try {
+    if (!url || url.includes('placeholder')) return;
+
+    const currentCache = getImageCache();
+    currentCache[url] = {
+      cachedUrl: url,
+      timestamp: Date.now()
+    };
+
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(currentCache));
+  } catch (error) {
+    console.error("Error storing image in cache:", error);
+  }
+};
+
+/**
+ * Get an image URL from the local cache
+ */
+export const getImageFromCache = (url: string): string | null => {
+  try {
+    const currentCache = getImageCache();
+    return currentCache[url]?.cachedUrl || null;
+  } catch (error) {
+    console.error("Error retrieving image from cache:", error);
+    return null;
+  }
+};
+
+/**
+ * Get the current image cache
+ */
+export const getImageCache = (): Record<string, { cachedUrl: string; timestamp: number }> => {
+  try {
+    const cacheString = localStorage.getItem(IMAGE_CACHE_KEY);
+    return cacheString ? JSON.parse(cacheString) : {};
+  } catch (error) {
+    console.error("Error parsing image cache:", error);
+    return {};
+  }
+};
+
+/**
+ * Validate and fix story images in the database
  */
 export const validateAndFixStoryImages = async (storyId: string) => {
   try {
-    // Buscar a história
-    const { data: story, error: storyError } = await supabase
+    const { data, error } = await supabase
       .from('stories')
-      .select('*')
+      .select('pages')
       .eq('id', storyId)
       .single();
-    
-    if (storyError || !story) {
-      console.error("Erro ao buscar história para validação de imagens:", storyError);
+
+    if (error || !data || !data.pages) {
+      console.error("Error fetching story for image validation:", error);
       return;
     }
-    
-    let updates = false;
-    const updatedStory = { ...story };
-    
-    // Verificar a imagem de capa
-    if (story.cover_image_url) {
-      const fixedCoverUrl = await validateImageUrl(story.cover_image_url, 'story_images');
-      if (fixedCoverUrl && fixedCoverUrl !== story.cover_image_url) {
-        updatedStory.cover_image_url = fixedCoverUrl;
-        updates = true;
-      }
-    }
-    
-    // Verificar imagens das páginas
-    if (Array.isArray(story.pages)) {
-      const updatedPages = await Promise.all(story.pages.map(async (page) => {
-        if (page.image_url) {
-          const fixedPageUrl = await validateImageUrl(page.image_url, 'story_images');
-          if (fixedPageUrl && fixedPageUrl !== page.image_url) {
-            updates = true;
-            return { ...page, image_url: fixedPageUrl };
-          }
-        }
-        return page;
-      }));
-      
-      if (updates) {
-        updatedStory.pages = updatedPages;
-      }
-    }
-    
-    // Atualizar história se houver mudanças
-    if (updates) {
-      const { error: updateError } = await supabase
-        .from('stories')
-        .update(updatedStory)
-        .eq('id', storyId);
-        
-      if (updateError) {
-        console.error("Erro ao atualizar URLs de imagem da história:", updateError);
-      } else {
-        console.log("URLs de imagem da história atualizadas com sucesso");
-      }
-    }
-  } catch (e) {
-    console.error("Erro ao validar e corrigir imagens da história:", e);
-  }
-};
 
-/**
- * Valida e corrige uma URL de imagem
- */
-export const validateImageUrl = async (
-  imageUrl: string, 
-  bucketName = 'story_images'
-): Promise<string | null> => {
-  try {
-    // Já está no formato correto
-    if (imageUrl.includes('object/public')) {
-      return imageUrl;
-    }
-    
-    // É uma URL de armazenamento do Supabase que precisa ser corrigida
-    if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
+    // Safety check for data.pages
+    let pagesArray: any[] = [];
+    if (Array.isArray(data.pages)) {
+      pagesArray = data.pages;
+    } else if (typeof data.pages === 'object') {
       try {
-        const urlObj = new URL(imageUrl);
-        const pathParts = urlObj.pathname.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        
-        // Use getPublicUrl para obter a URL correta
-        const { data } = supabase
-          .storage
-          .from(bucketName)
-          .getPublicUrl(fileName);
-          
-        return data.publicUrl;
-      } catch (error) {
-        console.error("Erro ao processar URL do Supabase:", error);
-        return null;
+        pagesArray = Object.values(data.pages);
+      } catch (e) {
+        console.error("Error converting pages object to array:", e);
+        return;
       }
+    } else {
+      console.error("Pages data is in an unexpected format:", data.pages);
+      return;
     }
-    
-    // Outros formatos de URL mantemos como estão
-    return imageUrl;
-  } catch (e) {
-    console.error("Erro ao validar URL de imagem:", e);
-    return null;
+
+    let needsUpdate = false;
+    const updatedPages = pagesArray.map((page: any) => {
+      if (page && typeof page === 'object') {
+        // Check if image_url is valid
+        if (page.image_url && typeof page.image_url === 'string') {
+          // Store in cache
+          storeImageInCache(page.image_url);
+          return page;
+        } else if (page.imageUrl && typeof page.imageUrl === 'string') {
+          // Fix missing image_url
+          needsUpdate = true;
+          storeImageInCache(page.imageUrl);
+          return { ...page, image_url: page.imageUrl };
+        }
+      }
+      return page;
+    });
+
+    if (needsUpdate) {
+      console.log("Updating story with fixed image URLs...");
+      await supabase
+        .from('stories')
+        .update({ pages: updatedPages })
+        .eq('id', storyId);
+    }
+  } catch (error) {
+    console.error("Error in validateAndFixStoryImages:", error);
   }
 };
 
-/**
- * Carrega a versão em cache da imagem se disponível
- */
-export const getImageFromCache = (imageUrl: string | undefined): string | null => {
-  if (!imageUrl) return null;
-  
-  try {
-    // Extrair o nome do arquivo da URL
-    if (imageUrl.includes('/')) {
-      const parts = imageUrl.split('/');
-      const fileName = parts[parts.length - 1];
-      
-      // Verificar cache
-      const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
-      return cachedUrl;
-    }
-    
-    return null;
-  } catch (e) {
-    console.error("Erro ao buscar imagem do cache:", e);
-    return null;
-  }
-};
-
-/**
- * Armazena uma imagem no cache
- */
-export const storeImageInCache = (imageUrl: string | undefined) => {
-  if (!imageUrl) return;
-  
-  try {
-    // Extrair o nome do arquivo da URL
-    if (imageUrl.includes('/')) {
-      const parts = imageUrl.split('/');
-      const fileName = parts[parts.length - 1];
-      
-      // Armazenar no cache
-      localStorage.setItem(`image_cache_${fileName}`, imageUrl);
-      console.log(`Imagem armazenada no cache: ${fileName}`);
-    }
-  } catch (e) {
-    console.error("Erro ao armazenar imagem no cache:", e);
-  }
+export default {
+  storeImageInCache,
+  getImageFromCache,
+  getImageCache,
+  validateAndFixStoryImages
 };

@@ -78,10 +78,36 @@ export const useStoryData = (id?: string) => {
             console.log("Dados da história carregados:", data);
             
             const coverImage = data.cover_image_url || 
-                              (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+                              (data.pages && typeof data.pages === 'object' && Array.isArray(data.pages) && data.pages.length > 0 ? 
+                                (data.pages[0].image_url || data.pages[0].imageUrl) : null) ||
                               "/placeholder.svg";
                               
             console.log("Selected cover image:", coverImage);
+            
+            // Safety check for data.pages
+            const storyPages: StoryPage[] = [];
+            if (data.pages && typeof data.pages === 'object' && Array.isArray(data.pages)) {
+              data.pages.forEach((page: any) => {
+                if (page) {
+                  storyPages.push({
+                    text: page.text || "",
+                    imageUrl: page.image_url || page.imageUrl || "/placeholder.svg",
+                    image_url: page.image_url || page.imageUrl || "/placeholder.svg"
+                  });
+                  
+                  if (page.image_url || page.imageUrl) {
+                    import('../../lib/imageHelper').then(({ storeImageInCache }) => {
+                      storeImageInCache(page.image_url || page.imageUrl);
+                    });
+                  }
+                }
+              });
+            } else {
+              storyPages.push({
+                text: "Não há conteúdo disponível.",
+                imageUrl: "/placeholder.svg"
+              });
+            }
             
             const formattedStory: StoryData = {
               title: data.title || "História sem título",
@@ -92,24 +118,8 @@ export const useStoryData = (id?: string) => {
               theme: data.theme || "",
               setting: data.setting || "",
               style: data.style || "",
-              voiceType: data.voice_type || 'female',
-              pages: Array.isArray(data.pages) 
-                ? data.pages.map((page: any) => {
-                    console.log("Page image URL:", page.image_url);
-                    
-                    if (page.image_url) {
-                      import('../../lib/imageHelper').then(({ storeImageInCache }) => {
-                        storeImageInCache(page.image_url);
-                      });
-                    }
-                    
-                    return {
-                      text: page.text || "",
-                      imageUrl: page.image_url || "/placeholder.svg",
-                      image_url: page.image_url || "/placeholder.svg"
-                    };
-                  })
-                : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
+              voiceType: data.voice_type as 'male' | 'female' || 'female',
+              pages: storyPages
             };
             
             if (coverImage) {
@@ -119,7 +129,7 @@ export const useStoryData = (id?: string) => {
             }
             
             setStoryData(formattedStory);
-            setTotalPages(formattedStory.pages.length + 1);
+            setTotalPages(storyPages.length + 1);
             setLoading(false);
           } else {
             loadFromSessionStorage();
