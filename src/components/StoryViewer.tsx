@@ -290,4 +290,4 @@ const StoryViewer: React.FC = () => {
   const [isStoryPublicButtonNarrationPlayerVolume1Icon35, setIsStoryPublicButtonNarrationPlayerVolume1Icon35] = useState(<Volume1 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolume2Icon35, setIsStoryPublicButtonNarrationPlayerVolume2Icon35] = useState(<Volume2 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolumeXIcon36, setIsStoryPublicButtonNarrationPlayerVolumeXIcon36] = useState(<VolumeX className="h-4 w-4 mr-2" />);
-  const [isStoryPublicButtonNar
+  const [isStory
