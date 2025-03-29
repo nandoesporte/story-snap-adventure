@@ -23,7 +23,7 @@ export async function safeQuery<T>(queryFn: () => Promise<{ data: T | null; erro
  */
 export async function executeRawQuery<T = any>(sql: string, params?: any[]): Promise<T[] | null> {
   try {
-    const { data, error } = await supabase.rpc('exec_sql', { sql });
+    const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
     if (error) {
       console.error("Error executing raw query:", error);
       return null;
@@ -110,4 +110,3 @@ export async function checkSettingExists(key: string): Promise<boolean> {
     return false;
   }
 }
-

@@ -18,7 +18,7 @@ import { useAdminCheck } from '@/hooks/useAdminCheck';
 const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { isAdmin, loading } = useAdminCheck();
+  const { isAdmin, isLoading } = useAdminCheck();
   
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -80,7 +80,7 @@ const UserProfile = () => {
           </Link>
         </DropdownMenuItem>
         
-        {!loading && isAdmin && (
+        {!isLoading && isAdmin && (
           <DropdownMenuItem asChild>
             <Link to="/admin?tab=apis" className="flex items-center cursor-pointer text-violet-600 font-medium">
               <Shield className="mr-2 h-4 w-4" />
