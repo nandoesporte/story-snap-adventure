@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -28,7 +27,6 @@ const StoryViewer: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState<"left" | "right">("right");
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
@@ -71,34 +69,6 @@ const StoryViewer: React.FC = () => {
     };
   }, []);
   
-  // Set initial page to show cover and mark as rendered
-  useEffect(() => {
-    if (storyData && !loading) {
-      console.log("Story data loaded, showing cover page");
-      setCurrentPage(0);
-      
-      // Mark as rendered to ensure visibility
-      setTimeout(() => {
-        setIsRendered(true);
-        console.log("Story viewer marked as rendered");
-      }, 100);
-    }
-  }, [storyData, loading]);
-  
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      if (storyContainerRef.current) {
-        storyContainerRef.current.requestFullscreen().catch(err => {
-          toast.error(`Erro ao entrar em tela cheia: ${err.message}`);
-        });
-      }
-    } else {
-      document.exitFullscreen().catch(err => {
-        toast.error(`Erro ao sair da tela cheia: ${err.message}`);
-      });
-    }
-  };
-
   const handlePreviousPage = () => {
     if (currentPage > 0) {
       setFlipDirection("left");
@@ -214,12 +184,10 @@ const StoryViewer: React.FC = () => {
             currentPage={currentPage}
             totalPages={totalPages}
             isDownloading={isDownloading}
-            isFullscreen={isFullscreen}
             isMobile={isMobile}
             onPrevious={handlePreviousPage}
             onNext={handleNextPage}
             onDownloadPDF={handleDownloadPDF}
-            onToggleFullscreen={toggleFullscreen}
           />
           
           <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
@@ -258,7 +226,7 @@ const StoryViewer: React.FC = () => {
                       pageCount={storyData.pages.length}
                       childName={storyData.childName}
                       typedText={typedText}
-                      isFullscreen={isFullscreen}
+                      isFullscreen={false}
                       isMobile={isMobile}
                       hideText={hideText}
                       voiceType={storyData.voiceType || 'female'}
