@@ -32,18 +32,19 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   useEffect(() => {
     console.log("CoverPage rendering with image:", formattedImageUrl);
     console.log("Mobile mode:", isMobile);
-  }, [formattedImageUrl, isMobile]);
+    console.log("Original cover image src:", coverImageSrc);
+  }, [formattedImageUrl, isMobile, coverImageSrc]);
 
   if (isMobile) {
     return (
-      <div className="w-full h-full flex flex-col">
+      <div className="w-full h-full flex flex-col" data-testid="cover-page-mobile">
         <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
           <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
             <CoverImage 
               imageUrl={formattedImageUrl}
               fallbackImage={getImageUrl(undefined, theme)}
               alt={title}
-              className="w-full h-full"
+              className="w-full h-full object-cover"
               onClick={() => onImageClick(formattedImageUrl)}
               onError={() => onImageError(coverImageSrc)}
             />
@@ -75,7 +76,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   }
   
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col" data-testid="cover-page-desktop">
       <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
         <div className="flex-1 p-4 flex items-center justify-center">
           <div className="w-4/5 h-4/5 max-h-[70vh] relative rounded-xl shadow-md overflow-hidden">

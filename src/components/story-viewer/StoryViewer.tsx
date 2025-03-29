@@ -33,6 +33,7 @@ const StoryViewer: React.FC = () => {
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [hideText, setHideText] = useState(false);
+  const [isRendered, setIsRendered] = useState(false);
   
   const bookRef = useRef<HTMLDivElement>(null);
   const storyContainerRef = useRef<HTMLDivElement>(null);
@@ -70,11 +71,17 @@ const StoryViewer: React.FC = () => {
     };
   }, []);
   
-  // Set initial page to show cover
+  // Set initial page to show cover and mark as rendered
   useEffect(() => {
     if (storyData && !loading) {
       console.log("Story data loaded, showing cover page");
       setCurrentPage(0);
+      
+      // Mark as rendered to ensure visibility
+      setTimeout(() => {
+        setIsRendered(true);
+        console.log("Story viewer marked as rendered");
+      }, 100);
     }
   }, [storyData, loading]);
   
@@ -215,13 +222,14 @@ const StoryViewer: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden">
+          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
             <div
               ref={bookRef}
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
                 isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
-              }`}
+              } ${isRendered ? 'opacity-100' : 'opacity-0'}`}
               data-testid="story-book-container"
+              style={{ width: '100%', height: '100%' }}
             >
               {storyData && (
                 <>

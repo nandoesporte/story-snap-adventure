@@ -2,15 +2,20 @@
 import { supabase } from "@/lib/supabase";
 
 export const getImageUrl = (url?: string, theme: string = ""): string => {
+  // Debug output
+  console.log("getImageUrl processing:", url, "theme:", theme);
+  
   if (!url || url === "" || url === "null" || url === "undefined") {
-    return getFallbackImage(theme);
+    const fallback = getFallbackImage(theme);
+    console.log("Using fallback image:", fallback);
+    return fallback;
   }
   
   try {
     const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
     const cachedUrl = localStorage.getItem(cachedUrlKey);
     if (cachedUrl) {
-      console.log("Using cached image URL:", url);
+      console.log("Using cached image URL:", cachedUrl);
       return cachedUrl;
     }
   } catch (error) {
@@ -51,6 +56,7 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
     } catch (cacheError) {
       console.error("Failed to cache URL:", cacheError);
     }
+    console.log("Completed local URL:", fullUrl);
     return fullUrl;
   }
   
@@ -62,7 +68,7 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
         console.error("Failed to cache URL:", cacheError);
       }
     }
-    console.log("Processing image URL:", url);
+    console.log("Using direct URL:", url);
     return url;
   }
   
@@ -75,10 +81,12 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
     console.error("Failed to cache URL:", cacheError);
   }
   
+  console.log("Final processed URL:", fullUrl);
   return fullUrl;
 };
 
 export const getFallbackImage = (theme: string = ""): string => {
+  console.log("Getting fallback image for theme:", theme);
   const themeImages: {[key: string]: string} = {
     adventure: "/images/covers/adventure.jpg",
     fantasy: "/images/covers/fantasy.jpg",
@@ -91,9 +99,11 @@ export const getFallbackImage = (theme: string = ""): string => {
   const themeLower = theme.toLowerCase();
   for (const [key, url] of Object.entries(themeImages)) {
     if (themeLower.includes(key)) {
+      console.log("Selected theme fallback:", url);
       return url;
     }
   }
   
+  console.log("Using default placeholder");
   return "/placeholder.svg";
 };
