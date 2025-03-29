@@ -78,6 +78,13 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           localStorage.setItem(`image_cache_${hash}`, imageUrl);
         }
         
+        // Para URLs relativas, adicione o origin
+        if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+          const fullUrl = `${window.location.origin}${imageUrl}`;
+          setProcessedUrl(fullUrl);
+          return;
+        }
+        
         setProcessedUrl(imageUrl);
       } catch (error) {
         console.error('Error processing image URL:', error);

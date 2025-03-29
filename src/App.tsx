@@ -64,7 +64,10 @@ function AppContent() {
     // Redirect non-admin users if they try to access the settings page directly
     if (!loading && user && !isAdmin && location.pathname === '/settings') {
       navigate('/');
-    } else if (!loading && !user && location.pathname !== '/auth') {
+    } else if (!loading && !user && 
+              location.pathname !== '/auth' && 
+              !location.pathname.startsWith('/view-story')) {
+      // Allow viewing stories without login
       navigate('/auth');
     }
   }, [user, loading, isAdmin, navigate, location]);

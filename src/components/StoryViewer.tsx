@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -102,6 +103,10 @@ const StoryViewer: React.FC = () => {
     isMobile ? 400 : undefined
   );
   
+  // Get cover image URL
+  const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
+  const { processedUrl: coverImageUrl, hasError: coverImageError } = useStoryImages(coverImageSrc, "story_images");
+  
   useEffect(() => {
     const loadStory = async () => {
       try {
@@ -130,21 +135,24 @@ const StoryViewer: React.FC = () => {
           
           if (data) {
             console.log("Dados da história carregados:", data);
-            console.log("Cover image URL:", data.cover_image_url);
-            console.log("First page image:", data.pages && data.pages.length > 0 ? data.pages[0].image_url : "N/A");
             
-            const coverImage = data.cover_image_url || (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null);
+            // Determine cover image - either specified or use first page
+            const coverImage = data.cover_image_url || 
+                              (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+                              "/placeholder.svg";
+                              
             console.log("Selected cover image:", coverImage);
             
             const formattedStory: StoryData = {
-              title: data.title,
-              coverImageUrl: coverImage || "/placeholder.svg",
-              cover_image_url: coverImage || "/placeholder.svg",
-              childName: data.character_name,
+              title: data.title || "História sem título",
+              coverImageUrl: coverImage,
+              cover_image_url: coverImage,
+              childName: data.character_name || "Leitor",
               childAge: data.character_age || "",
               theme: data.theme || "",
               setting: data.setting || "",
-              style: data.style,
+              style: data.style || "",
+              voiceType: data.voice_type || 'female',
               pages: Array.isArray(data.pages) 
                 ? data.pages.map((page: any) => {
                     console.log("Page image URL:", page.image_url);
@@ -156,7 +164,7 @@ const StoryViewer: React.FC = () => {
                     }
                     
                     return {
-                      text: page.text,
+                      text: page.text || "",
                       imageUrl: page.image_url || "/placeholder.svg",
                       image_url: page.image_url || "/placeholder.svg"
                     };
@@ -195,24 +203,25 @@ const StoryViewer: React.FC = () => {
           const parsedData = JSON.parse(savedData);
           console.log("Dados carregados do sessionStorage:", parsedData);
           
+          // Determine cover image - either specified or use first page
+          const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
+                           (parsedData.pages && parsedData.pages.length > 0 ? 
+                             (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
+                             "/placeholder.svg");
+          
           const formattedStory: StoryData = {
-            title: parsedData.title,
-            coverImageUrl: parsedData.pages && parsedData.pages.length > 0 && 
-              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) ? 
-              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
-              (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
-            cover_image_url: parsedData.pages && parsedData.pages.length > 0 && 
-              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) ? 
-              (parsedData.pages[0].imageUrl || parsedData.cover_image_url || "/placeholder.svg") : 
-              (parsedData.coverImageUrl || parsedData.cover_image_url || "/placeholder.svg"),
-            childName: parsedData.childName || parsedData.character_name,
+            title: parsedData.title || "História sem título",
+            coverImageUrl: coverImage,
+            cover_image_url: coverImage,
+            childName: parsedData.childName || parsedData.character_name || "Leitor",
             childAge: parsedData.childAge || parsedData.character_age || "",
             theme: parsedData.theme || "",
             setting: parsedData.setting || "",
-            style: parsedData.style,
+            style: parsedData.style || "",
+            voiceType: parsedData.voiceType || 'female',
             pages: Array.isArray(parsedData.pages) 
               ? parsedData.pages.map((page: any) => ({
-                  text: page.text,
+                  text: page.text || "",
                   imageUrl: page.imageUrl || page.image_url || "/placeholder.svg",
                   image_url: page.imageUrl || page.image_url || "/placeholder.svg"
                 }))
@@ -526,7 +535,13 @@ const StoryViewer: React.FC = () => {
     if (!storyData) return null;
     
     const theme = storyData.theme || "";
-    const coverImage = getImageUrl(storyData.coverImageUrl || storyData.cover_image_url, theme);
+    const coverImageSrc = storyData.coverImageUrl || storyData.cover_image_url || "";
+    const { processedUrl: coverImage } = useStoryImages(coverImageSrc, "story_images");
+    
+    // Fallback to themed image if no cover image available
+    const displayImage = coverImage !== "/placeholder.svg" 
+      ? coverImage 
+      : getFallbackImage(theme);
     
     if (isMobile) {
       return (
@@ -534,11 +549,11 @@ const StoryViewer: React.FC = () => {
           <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
             <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
               <img 
-                src={coverImage} 
+                src={displayImage} 
                 alt={storyData.title}
-                className="w-full h-full object-cover p-4 transition-all duration-300"
-                onClick={() => handleImageClick(coverImage)}
-                onError={() => handleImageError(coverImage)}
+                className="w-full h-full object-cover transition-all duration-300"
+                onClick={() => handleImageClick(displayImage)}
+                onError={() => handleImageError(coverImageSrc)}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
                 <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white drop-shadow-md">{storyData.title}</h2>
@@ -572,11 +587,11 @@ const StoryViewer: React.FC = () => {
         <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
           <div className="flex-1 p-4 flex items-center justify-center">
             <img 
-              src={coverImage} 
+              src={displayImage} 
               alt={storyData.title}
               className="max-w-full max-h-[70vh] object-contain rounded-xl transition-all duration-300 shadow-md"
-              onClick={() => handleImageClick(coverImage)}
-              onError={() => handleImageError(coverImage)}
+              onClick={() => handleImageClick(displayImage)}
+              onError={() => handleImageError(coverImageSrc)}
             />
           </div>
           <div className="p-6 bg-white border-t border-gray-100 text-center">
@@ -815,11 +830,11 @@ const StoryViewer: React.FC = () => {
                   size="icon"
                   onClick={handlePreviousPage}
                   disabled={currentPage === 0 || isFlipping}
-                  className="bg-white/20 hover:bg-white/40 border-white/40 shadow-md backdrop-blur-sm"
+                  className="bg-white/80 hover:bg-white/90 border-white/40 shadow-md backdrop-blur-sm"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
-                <span className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm text-white shadow-md">
+                <span className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm text-gray-800 shadow-md">
                   {currentPage} / {totalPages - 1}
                 </span>
                 <Button
@@ -827,7 +842,7 @@ const StoryViewer: React.FC = () => {
                   size="icon"
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages - 1 || isFlipping}
-                  className="bg-white/20 hover:bg-white/40 border-white/40 shadow-md backdrop-blur-sm"
+                  className="bg-white/80 hover:bg-white/90 border-white/40 shadow-md backdrop-blur-sm"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>
