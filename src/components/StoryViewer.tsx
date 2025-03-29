@@ -921,7 +921,7 @@ const StoryViewer: React.FC = () => {
 
       {showImageViewer && (
         <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
-          <DialogContent className="sm:max-w-4xl bg-black/95 border-none" hideCloseButton>
+          <DialogContent className="sm:max-w-4xl bg-black/95 border-none">
             <div className="relative w-full h-[80vh] flex items-center justify-center">
               <div className="absolute top-2 right-2 flex gap-2">
                 <Button 
