@@ -11,9 +11,16 @@ interface NarrationPlayerProps {
   pageIndex: number;
   pageText: string;
   className?: string;
+  voiceType?: 'male' | 'female'; // Add voiceType prop
 }
 
-export const NarrationPlayer = ({ storyId, pageIndex, pageText, className = '' }: NarrationPlayerProps) => {
+export const NarrationPlayer = ({ 
+  storyId, 
+  pageIndex, 
+  pageText, 
+  className = '',
+  voiceType = 'female' // Default to female voice
+}: NarrationPlayerProps) => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +71,7 @@ export const NarrationPlayer = ({ storyId, pageIndex, pageText, className = '' }
   
   const handlePlayPause = async () => {
     try {
-      await playAudio();
+      await playAudio(voiceType);
     } catch (e) {
       console.error("Erro ao reproduzir áudio:", e);
       toast({
