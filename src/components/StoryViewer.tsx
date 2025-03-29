@@ -541,7 +541,7 @@ const StoryViewer: React.FC = () => {
                 imageUrl={coverImageSrc}
                 fallbackImage={fallbackImage}
                 alt={storyData.title}
-                className="w-full h-full absolute inset-0"
+                className="w-full h-full"
                 onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />
@@ -581,7 +581,7 @@ const StoryViewer: React.FC = () => {
                 imageUrl={coverImageSrc}
                 fallbackImage={fallbackImage}
                 alt={storyData.title}
-                className="w-full h-full absolute inset-0"
+                className="w-full h-full"
                 onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />

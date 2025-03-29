@@ -14,14 +14,18 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
       setHasError(false);
 
       try {
+        // Handle empty or undefined URLs
         if (!imageUrl) {
+          console.log("No image URL provided, using placeholder");
           setProcessedUrl('/placeholder.svg');
           setHasError(true);
           setIsLoading(false);
           return;
         }
 
-        // Primeiro verifique se temos uma versão em cache local
+        console.log("Processing image URL:", imageUrl);
+        
+        // Check for cached version first
         const cachedUrlKey = `image_cache_${imageUrl.split('/').pop()}`;
         const cachedUrl = localStorage.getItem(cachedUrlKey);
         if (cachedUrl) {
@@ -29,7 +33,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           setProcessedUrl(cachedUrl);
           setIsLoading(false);
           
-          // Verificar se a URL em cache ainda é válida
+          // Verify if cached URL is still valid
           setTimeout(() => {
             const img = new Image();
             img.onload = () => console.log("Cached image loaded successfully");
@@ -43,8 +47,9 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Verifica se a URL já está no formato correto
+        // Handle URL that's already in correct format
         if (imageUrl.includes('object/public')) {
+          console.log("URL already in correct format:", imageUrl);
           setProcessedUrl(imageUrl);
           try {
             localStorage.setItem(cachedUrlKey, imageUrl);
@@ -55,12 +60,12 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Se é uma URL temporária de DALL-E/OpenAI
+        // Handle temporary OpenAI/DALL-E URLs
         if (imageUrl.includes('oaidalleapiprodscus.blob.core.windows.net')) {
-          // Verificar se expirou tentando fazer um fetch
+          console.log("Processing OpenAI image URL:", imageUrl);
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout mais baixo para evitar esperas longas
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
             
             const response = await fetch(imageUrl, { 
               method: 'HEAD',
@@ -71,7 +76,6 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
             
             if (response.ok) {
               setProcessedUrl(imageUrl);
-              // Armazenar no cache local
               try {
                 localStorage.setItem(cachedUrlKey, imageUrl);
               } catch (error) {
@@ -109,8 +113,9 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           }
         }
         
-        // Para caminhos de imagem estáticos no projeto
+        // Handle static image paths in the project
         if (imageUrl.startsWith('/images/') || imageUrl === '/placeholder.svg') {
+          console.log("Processing static image path:", imageUrl);
           const fullUrl = `${window.location.origin}${imageUrl}`;
           setProcessedUrl(fullUrl);
           try {
@@ -122,20 +127,21 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Se é uma URL de armazenamento do Supabase, mas com formato antigo
+        // Handle old Supabase storage format
         if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
+          console.log("Processing old Supabase storage URL:", imageUrl);
           try {
             const urlObj = new URL(imageUrl);
             const pathParts = urlObj.pathname.split('/');
             const fileName = pathParts[pathParts.length - 1];
             
-            // Use getPublicUrl method instead of direct property access
+            // Get public URL from Supabase
             const { data } = supabase
               .storage
               .from(bucketName)
               .getPublicUrl(fileName);
             
-            // Verificar se o arquivo existe
+            // Verify file exists
             try {
               const { data: fileExists } = await supabase
                 .storage
@@ -146,7 +152,6 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
                 
               if (!fileExists || fileExists.length === 0) {
                 console.warn(`Image not found in storage: ${fileName}`);
-                // Tente buscar do cache se disponível
                 const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
                 if (cachedUrl) {
                   setProcessedUrl(cachedUrl);
@@ -157,7 +162,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
                 setHasError(true);
               } else {
                 const publicUrl = data.publicUrl;
-                // Armazenar no cache local
+                console.log("Processed Supabase URL:", publicUrl);
                 try {
                   localStorage.setItem(`image_cache_${fileName}`, publicUrl);
                 } catch (error) {
@@ -179,10 +184,10 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Se é um caminho local ou URL externa
+        // Handle base64 images
         if (imageUrl.startsWith('data:image')) {
-          // Caso seja uma imagem base64, vamos armazená-la no cache local
-          const hash = await hashString(imageUrl.substring(0, 100)); // Usamos apenas o início para economizar espaço
+          console.log("Processing base64 image");
+          const hash = await hashString(imageUrl.substring(0, 100));
           try {
             localStorage.setItem(`image_cache_${hash}`, imageUrl);
           } catch (error) {
@@ -193,8 +198,9 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Para URLs relativas, adicione o origin
+        // Handle relative URLs
         if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+          console.log("Processing relative URL:", imageUrl);
           const fullUrl = `${window.location.origin}${imageUrl}`;
           setProcessedUrl(fullUrl);
           try {
@@ -206,7 +212,8 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Para qualquer outro tipo de URL externa
+        // Handle any other external URL
+        console.log("Using external URL as-is:", imageUrl);
         setProcessedUrl(imageUrl);
         try {
           localStorage.setItem(cachedUrlKey, imageUrl);
@@ -225,7 +232,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
     processImageUrl();
   }, [imageUrl, bucketName]);
   
-  // Função auxiliar para criar um hash de uma string
+  // Hash function helper
   const hashString = async (str: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(str);
