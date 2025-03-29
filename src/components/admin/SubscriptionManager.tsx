@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Pencil, Trash, Save, X, Plus, DollarSign, Sync, ExternalLink } from 'lucide-react';
+import { Pencil, Trash, Save, X, Plus, DollarSign, RefreshCw, ExternalLink } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -157,14 +157,18 @@ export const SubscriptionManager = () => {
   const { data: stripeProducts, isLoading: loadingStripeProducts, refetch: refetchStripeProducts } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: getStripeProducts,
-    onSuccess: () => {
-      setIsStripeConnected(true);
-    },
     onError: () => {
       setIsStripeConnected(false);
     },
     retry: false
   });
+  
+  // Set isStripeConnected when stripeProducts are successfully loaded
+  useEffect(() => {
+    if (stripeProducts) {
+      setIsStripeConnected(true);
+    }
+  }, [stripeProducts]);
   
   // Get Stripe prices
   const { data: stripePrices, isLoading: loadingStripePrices, refetch: refetchStripePrices } = useQuery({
@@ -431,7 +435,7 @@ export const SubscriptionManager = () => {
               variant="outline" 
               disabled={syncPlansMutation.isPending}
             >
-              <Sync className={`mr-2 h-4 w-4 ${syncPlansMutation.isPending ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncPlansMutation.isPending ? 'animate-spin' : ''}`} />
               Sincronizar com Stripe
             </Button>
           )}
@@ -448,7 +452,7 @@ export const SubscriptionManager = () => {
           <TabsTrigger value="subscriptions">Assinaturas Ativas</TabsTrigger>
           <TabsTrigger value="stripe">
             Stripe API
-            <Badge variant={isStripeConnected ? "success" : "destructive"} className="ml-2">
+            <Badge variant={isStripeConnected ? "default" : "destructive"} className="ml-2">
               {isStripeConnected ? "Conectado" : "Desconectado"}
             </Badge>
           </TabsTrigger>
@@ -658,7 +662,7 @@ export const SubscriptionManager = () => {
                     Status da conexão com a API do Stripe
                   </p>
                 </div>
-                <Badge variant={isStripeConnected ? "success" : "destructive"} className="h-8 px-3 py-1">
+                <Badge variant={isStripeConnected ? "default" : "destructive"} className="h-8 px-3 py-1">
                   {isStripeConnected ? "Conectado" : "Desconectado"}
                 </Badge>
               </div>
@@ -672,7 +676,7 @@ export const SubscriptionManager = () => {
                     variant="outline" 
                     disabled={loadingStripeProducts || loadingStripePrices}
                   >
-                    <Sync className={`mr-2 h-4 w-4 ${loadingStripeProducts || loadingStripePrices ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`mr-2 h-4 w-4 ${loadingStripeProducts || loadingStripePrices ? 'animate-spin' : ''}`} />
                     Atualizar Dados
                   </Button>
                 </div>
