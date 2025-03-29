@@ -1,4 +1,5 @@
 
+
 -- Create system configurations table
 CREATE TABLE IF NOT EXISTS public.system_configurations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,3 +49,4 @@ USING (
 
 -- Grant access to the authenticated users
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.system_configurations TO authenticated;
+
