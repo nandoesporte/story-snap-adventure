@@ -26,7 +26,9 @@ export const StripeWebhookSecretManager = () => {
           toast.error("Erro ao verificar segredo do webhook do Stripe");
           setHasExistingSecret(false);
         } else {
-          setHasExistingSecret(!!data && Array.isArray(data) && data.length > 0);
+          // Properly handle the data with correct type casting
+          const typedData = data as any[] | null;
+          setHasExistingSecret(!!typedData && typedData.length > 0);
         }
       } catch (error) {
         console.error("Error checking Stripe webhook secret:", error);

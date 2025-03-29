@@ -18,14 +18,18 @@ export function StripeApiKeyManager() {
     const checkApiKey = async () => {
       setIsChecking(true);
       try {
-        const { data, error } = await supabase.rpc('exec_sql', { sql_query: `SELECT * FROM system_configurations WHERE key = 'stripe_api_key'` });
+        const { data, error } = await supabase.rpc('exec_sql', { 
+          sql_query: `SELECT * FROM system_configurations WHERE key = 'stripe_api_key'` 
+        });
 
         if (error) {
           throw error;
         }
 
-        if (data && Array.isArray(data) && data.length > 0) {
-          setApiKey(data[0]?.value || "");
+        // Properly handle the data with correct type casting
+        const typedData = data as Array<{ value: string }> | null;
+        if (typedData && typedData.length > 0) {
+          setApiKey(typedData[0]?.value || "");
         }
       } catch (error: any) {
         console.error("Error checking API key:", error);
