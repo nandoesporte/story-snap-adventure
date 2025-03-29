@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -164,15 +163,33 @@ export const SubscriptionManager = () => {
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          *,
-          user_profile:user_id(email:auth.users(email), display_name),
-          subscription_plan:plan_id(name, price, currency, interval)
+          id,
+          user_id,
+          plan_id,
+          status,
+          current_period_start,
+          current_period_end,
+          cancel_at_period_end,
+          stripe_subscription_id,
+          stripe_customer_id,
+          created_at,
+          updated_at,
+          user_profile:user_id(
+            display_name,
+            email:auth.users(email)
+          ),
+          subscription_plan:plan_id(
+            name, 
+            price, 
+            currency, 
+            interval
+          )
         `)
         .order('created_at', { ascending: false });
         
       if (error) throw error;
       
-      return data as UserSubscription[];
+      return data as unknown as UserSubscription[];
     },
   });
   
@@ -370,7 +387,7 @@ export const SubscriptionManager = () => {
                     <TableCell>{formatInterval(plan.interval)}</TableCell>
                     <TableCell>{plan.stories_limit}</TableCell>
                     <TableCell>
-                      <Badge variant={plan.is_active ? "success" : "secondary"}>
+                      <Badge variant={plan.is_active ? "default" : "secondary"}>
                         {plan.is_active ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
@@ -467,7 +484,7 @@ export const SubscriptionManager = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={subscription.status === 'active' ? 'success' : 'secondary'}>
+                      <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
                         {subscription.status === 'active' ? 'Ativa' : 
                          subscription.status === 'canceled' ? 'Cancelada' :
                          subscription.status === 'past_due' ? 'Pagamento Atrasado' :

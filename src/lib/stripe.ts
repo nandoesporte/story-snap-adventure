@@ -1,15 +1,41 @@
 
 import { supabase } from './supabase';
 
+// Define types for subscription plan and user subscription
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  stories_limit: number;
+  is_active: boolean;
+  features: string[];
+  stripe_price_id?: string;
+}
+
+interface UserSubscription {
+  id: string;
+  user_id: string;
+  status: string;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  subscription_plans: SubscriptionPlan;
+}
+
 // Check if user has a valid subscription
-export async function checkUserSubscription(userId: string) {
+export async function checkUserSubscription(userId: string): Promise<UserSubscription | null> {
   try {
     const { data, error } = await supabase
       .from('user_subscriptions')
       .select(`
         id,
         status,
+        current_period_start,
         current_period_end,
+        cancel_at_period_end,
         subscription_plans(
           id,
           name,
@@ -37,7 +63,7 @@ export async function checkUserSubscription(userId: string) {
         return null;
       }
       
-      return data;
+      return data as UserSubscription;
     }
     
     return null;
@@ -134,7 +160,7 @@ export async function cancelSubscription(subscriptionId: string) {
 }
 
 // Get subscription plans
-export async function getSubscriptionPlans() {
+export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   try {
     const { data, error } = await supabase
       .from('subscription_plans')
@@ -147,7 +173,7 @@ export async function getSubscriptionPlans() {
       throw new Error('Falha ao buscar planos de assinatura');
     }
     
-    return data;
+    return data as SubscriptionPlan[];
   } catch (error) {
     console.error('Error in getSubscriptionPlans:', error);
     throw error;

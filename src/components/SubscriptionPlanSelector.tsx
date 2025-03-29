@@ -27,6 +27,30 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+// Define types for subscription plan and user subscription
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  stories_limit: number;
+  is_active: boolean;
+  features: string[];
+  stripe_price_id?: string;
+}
+
+interface UserSubscription {
+  id: string;
+  user_id: string;
+  status: string;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  subscription_plans: SubscriptionPlan;
+}
+
 export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -112,7 +136,7 @@ export const SubscriptionPlanSelector = () => {
         {userSubscription && (
           <div className="mt-4 p-4 bg-muted rounded-lg">
             <p className="font-medium">
-              Você já possui o plano <span className="font-bold">{userSubscription.subscription_plans?.name}</span>
+              Você já possui o plano <span className="font-bold">{userSubscription.subscription_plans.name}</span>
             </p>
             {userSubscription.cancel_at_period_end ? (
               <p className="text-sm text-muted-foreground mt-2">
@@ -128,7 +152,7 @@ export const SubscriptionPlanSelector = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {plans?.map((plan) => (
+        {plans?.map((plan: SubscriptionPlan) => (
           <Card 
             key={plan.id} 
             className={`transition-all ${
