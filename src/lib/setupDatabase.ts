@@ -16,13 +16,14 @@ const MIGRATION_FILES = [
  */
 async function tableExists(tableName: string): Promise<boolean> {
   try {
-    // Using a raw query approach instead of querying information_schema directly
-    const { data, error } = await supabase.rpc('check_column_exists', { 
-      p_table_name: tableName,
-      p_column_name: 'id'  // Just checking for any column, typically 'id'
-    });
+    const { data, error } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', tableName)
+      .single();
 
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       console.error(`Error checking if table ${tableName} exists:`, error);
       return false;
     }
@@ -89,7 +90,7 @@ export async function initializeDatabase(): Promise<boolean> {
   try {
     // Create the exec_sql function if it doesn't exist
     const createExecSqlFn = `
-      CREATE OR REPLACE FUNCTION exec(sql text)
+      CREATE OR REPLACE FUNCTION exec_sql(sql_query text)
       RETURNS JSONB
       LANGUAGE plpgsql
       SECURITY DEFINER
@@ -97,7 +98,7 @@ export async function initializeDatabase(): Promise<boolean> {
       DECLARE
         result JSONB;
       BEGIN
-        EXECUTE sql;
+        EXECUTE sql_query;
         result := '{"status": "success"}'::JSONB;
         RETURN result;
       EXCEPTION WHEN OTHERS THEN
@@ -111,20 +112,16 @@ export async function initializeDatabase(): Promise<boolean> {
       $$;
     `;
     
-    const { error } = await supabase.rpc('exec', { sql: createExecSqlFn });
+    const { error } = await supabase.rpc('exec_sql', { sql_query: createExecSqlFn });
     
     if (error) {
-      // This might fail if exec doesn't exist yet
-      console.log('Failed to create exec function using RPC, trying edge function...');
+      // This might fail if exec_sql doesn't exist yet, so we'll try another approach
+      console.log('Failed to create exec_sql function using RPC, trying direct query...');
       
-      // Try using the edge function to create the exec function
-      const { data, error: edgeFnError } = await supabase.functions.invoke('apply-sql-migration', {
-        body: { sqlScript: createExecSqlFn, source: 'initialization' }
-      });
+      const { error: directError } = await supabase.from('_exec_sql_direct').select('*').limit(1);
       
-      if (edgeFnError || !data?.success) {
-        console.log('Could not initialize database through edge function.');
-        console.log('You may need to run the initial SQL setup manually.');
+      if (directError && directError.message.includes('relation "_exec_sql_direct" does not exist')) {
+        console.log('Could not initialize database. You may need to run the initial SQL setup manually.');
         return false;
       }
     }

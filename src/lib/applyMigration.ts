@@ -10,10 +10,10 @@ import { toast } from "sonner";
  */
 export async function applyMigration(sqlScript: string, source: string = 'manual'): Promise<{success: boolean, message: string}> {
   try {
-    // First try to use exec function directly
+    // First try to use exec_sql function directly
     try {
-      const { error: directError } = await supabase.rpc('exec', { 
-        sql: sqlScript 
+      const { error: directError } = await supabase.rpc('exec_sql', { 
+        sql_query: sqlScript 
       });
       
       if (!directError) {
