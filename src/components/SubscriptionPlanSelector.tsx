@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -47,13 +46,11 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
   const [isCanceling, setIsCanceling] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   
-  // Get subscription plans
   const { data: plans, isLoading: loadingPlans, error: plansError } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: getSubscriptionPlans,
   });
   
-  // Get user's current subscription
   const { data: userSubscription, isLoading: loadingSubscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['user-subscription', user?.id],
     queryFn: async () => {
@@ -69,7 +66,6 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
     }
   }, [plansError, onError]);
   
-  // Format currency
   const formatCurrency = (amount: number, currency: string = 'BRL') => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -77,23 +73,19 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
     }).format(amount);
   };
   
-  // Format interval
   const formatInterval = (interval: string) => {
     return interval === 'month' ? 'mês' : 'ano';
   };
   
-  // Handle plan selection
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
     setCheckoutError(null);
   };
   
-  // Check if plan is the user's current plan
   const isCurrentPlan = (planId: string) => {
     return userSubscription?.subscription_plans?.id === planId;
   };
   
-  // Handle subscription checkout
   const handleCheckout = async () => {
     if (!selectedPlanId || !user) {
       toast.error('Selecione um plano para continuar');
@@ -106,7 +98,6 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
       const returnUrl = window.location.origin + '/my-stories';
       const checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
       
-      // Redirect to Stripe checkout
       window.location.href = checkoutUrl;
     } catch (error) {
       console.error('Error creating checkout:', error);
@@ -119,7 +110,6 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
     }
   };
   
-  // Handle subscription cancellation
   const handleCancelSubscription = async () => {
     if (!userSubscription) return;
     
@@ -195,7 +185,7 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {plans?.map((plan: SubscriptionPlan) => (
+        {plans && plans.length > 0 ? plans.map((plan: SubscriptionPlan) => (
           <Card 
             key={plan.id} 
             className={`transition-all ${
@@ -299,7 +289,11 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
               )}
             </CardFooter>
           </Card>
-        ))}
+        )) : (
+          <div className="col-span-3 text-center py-8">
+            <p className="text-muted-foreground">Nenhum plano disponível no momento.</p>
+          </div>
+        )}
       </div>
       
       {user && selectedPlanId && !isCurrentPlan(selectedPlanId) && (

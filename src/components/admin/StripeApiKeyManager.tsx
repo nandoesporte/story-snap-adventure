@@ -1,179 +1,119 @@
-
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Eye, EyeOff, Shield, Key } from "lucide-react";
+import { Loader2, CheckCircle } from "lucide-react";
 
-export const StripeApiKeyManager = () => {
-  const [apiKey, setApiKey] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showKey, setShowKey] = useState<boolean>(false);
-  const [hasExistingKey, setHasExistingKey] = useState<boolean>(false);
-  
+export function StripeApiKeyManager() {
+  const [apiKey, setApiKey] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+  const [isCopied, setIsCopied] = useState(false);
+
   useEffect(() => {
-    const checkExistingKey = async () => {
-      setIsLoading(true);
+    const checkApiKey = async () => {
+      setIsChecking(true);
       try {
-        // Check if the API key exists without retrieving its value
-        const { data, error } = await supabase
-          .rpc('check_setting_exists', { setting_key: 'stripe_api_key' });
-          
+        const { data, error } = await supabase.rpc('exec_sql', { sql: `SELECT * FROM system_configurations WHERE key = 'stripe_api_key'` });
+
         if (error) {
-          console.error("Error checking Stripe API key:", error);
-          toast.error("Erro ao verificar chave da API do Stripe");
-          setHasExistingKey(false);
-        } else {
-          setHasExistingKey(!!data);
+          throw error;
         }
-      } catch (error) {
-        console.error("Error checking Stripe API key:", error);
-        toast.error("Erro ao verificar chave da API do Stripe");
+
+        if (data && data.length > 0) {
+          setApiKey(data[0].value || "");
+        }
+      } catch (error: any) {
+        console.error("Error checking API key:", error);
+        toast.error(error.message);
       } finally {
-        setIsLoading(false);
+        setIsChecking(false);
       }
     };
-    
-    checkExistingKey();
+
+    checkApiKey();
   }, []);
-  
-  const saveApiKey = async () => {
-    if (!apiKey) {
-      toast.error("Por favor, informe a chave da API");
-      return;
-    }
-    
+
+  const updateApiKey = async () => {
     setIsLoading(true);
-    
     try {
-      // Use the upsert operation to either insert or update
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'stripe_api_key',
-          value: apiKey,
-          description: 'Stripe API Key for payment processing'
-        }, {
-          onConflict: 'key'
-        });
-      
+      const { error } = await supabase.rpc('update_or_insert_setting', {
+        key_name: 'stripe_api_key',
+        key_value: apiKey,
+      });
+
       if (error) {
         throw error;
       }
-      
-      toast.success("Chave da API do Stripe configurada com sucesso!");
-      setHasExistingKey(true);
-      setApiKey("");
-      setShowKey(false);
+
+      toast.success("API Key atualizada com sucesso!");
     } catch (error: any) {
-      console.error("Error saving Stripe API key:", error);
-      toast.error(`Erro ao salvar a chave da API: ${error.message}`);
+      console.error("Error updating API key:", error);
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const deleteApiKey = async () => {
-    setIsLoading(true);
-    
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .delete()
-        .eq('key', 'stripe_api_key');
-      
-      if (error) {
-        throw error;
-      }
-      
-      toast.success("Chave da API do Stripe removida com sucesso");
-      setHasExistingKey(false);
-    } catch (error: any) {
-      console.error("Error deleting Stripe API key:", error);
-      toast.error(`Erro ao remover a chave da API: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+
+  const handleCopyClick = () => {
+    navigator.clipboard.writeText(apiKey);
+    setIsCopied(true);
+    setTimeout(() => {
+      setIsCopied(false);
+    }, 2000);
   };
-  
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Key className="h-5 w-5" />
-          Chave da API do Stripe
-        </CardTitle>
+        <CardTitle>Gerenciar Chave API do Stripe</CardTitle>
         <CardDescription>
-          Configure a chave da API do Stripe para processar pagamentos e assinaturas.
+          Insira ou atualize a chave API do Stripe para habilitar os pagamentos.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {hasExistingKey ? (
-            <div className="bg-green-50 p-4 rounded-md flex items-start gap-2">
-              <Shield className="h-5 w-5 text-green-600 mt-0.5" />
-              <div>
-                <p className="font-medium text-green-800">Chave da API configurada</p>
-                <p className="text-green-700 text-sm">
-                  A chave da API do Stripe está configurada e pronta para uso.
-                  Para trocar a chave, informe uma nova abaixo.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-amber-50 p-4 rounded-md flex items-start gap-2">
-              <Shield className="h-5 w-5 text-amber-600 mt-0.5" />
-              <div>
-                <p className="font-medium text-amber-800">Chave da API não configurada</p>
-                <p className="text-amber-700 text-sm">
-                  Configure a chave da API do Stripe para habilitar funcionalidades de pagamento.
-                </p>
-              </div>
-            </div>
-          )}
-          
-          <div className="relative">
-            <Input
-              type={showKey ? "text" : "password"}
-              placeholder="sk_test_..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="pr-12"
-            />
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowKey(!showKey)}
-            >
-              {showKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
+      <CardContent className="grid gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="api-key">Chave API do Stripe</Label>
+          <Input
+            id="api-key"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk_live_..."
+            disabled={isChecking}
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button onClick={handleCopyClick} disabled={isCopied || isChecking} variant="secondary">
+            {isCopied ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Copiado!
+              </>
+            ) : (
+              "Copiar"
+            )}
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Cole a chave API no painel do Stripe.
+          </span>
         </div>
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row gap-3">
-        <Button
-          disabled={!apiKey || isLoading}
-          onClick={saveApiKey}
-          className="w-full sm:w-auto"
-        >
-          {isLoading ? "Salvando..." : "Salvar Chave API"}
+      <CardFooter>
+        <Button onClick={updateApiKey} disabled={isLoading || isChecking}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Atualizando...
+            </>
+          ) : (
+            "Atualizar Chave API"
+          )}
         </Button>
-        
-        {hasExistingKey && (
-          <Button
-            variant="destructive"
-            disabled={isLoading}
-            onClick={deleteApiKey}
-            className="w-full sm:w-auto"
-          >
-            {isLoading ? "Removendo..." : "Remover Chave"}
-          </Button>
-        )}
       </CardFooter>
     </Card>
   );
-};
-
-export default StripeApiKeyManager;
+}

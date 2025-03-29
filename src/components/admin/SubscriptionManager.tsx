@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { toast } from "sonner";
 import { Trash2, PlusCircle, Edit, Tag, Activity } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useState as useHookState } from "@hookform/resolvers/zod";
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Json } from "@/types";
@@ -97,12 +96,12 @@ export const SubscriptionManager = () => {
       }
       
       // Format features if they are stored as JSON
-      const formattedPlans = data.map(plan => ({
+      setPlans(data.map(plan => ({
         ...plan,
-        features: Array.isArray(plan.features) ? plan.features : []
-      }));
-      
-      setPlans(formattedPlans);
+        features: Array.isArray(plan.features) 
+          ? plan.features.map(feature => typeof feature === 'string' ? feature : String(feature))
+          : []
+      })));
     } catch (error: any) {
       console.error("Error fetching plans:", error);
       toast.error("Erro ao buscar planos: " + error.message);
