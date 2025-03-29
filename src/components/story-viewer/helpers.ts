@@ -6,11 +6,16 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
     return getFallbackImage(theme);
   }
   
-  const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
-  const cachedUrl = localStorage.getItem(cachedUrlKey);
-  if (cachedUrl) {
-    console.log("Using cached image URL:", url);
-    return cachedUrl;
+  try {
+    const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
+    const cachedUrl = localStorage.getItem(cachedUrlKey);
+    if (cachedUrl) {
+      console.log("Using cached image URL:", url);
+      return cachedUrl;
+    }
+  } catch (error) {
+    console.error("Failed to check cache for URL:", url, error);
+    // Continue with normal processing if cache check fails
   }
   
   if (url.includes("supabase") && url.includes("storage") && !url.includes("object")) {
@@ -26,7 +31,11 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
         .getPublicUrl(fileName);
       
       if (data && data.publicUrl) {
-        localStorage.setItem(cachedUrlKey, data.publicUrl);
+        try {
+          localStorage.setItem(`image_cache_${fileName}`, data.publicUrl);
+        } catch (cacheError) {
+          console.error("Failed to cache URL:", cacheError);
+        }
         console.log("Reformatted storage URL:", data.publicUrl);
         return data.publicUrl;
       }
@@ -37,13 +46,21 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
   
   if (url.startsWith("/") && !url.startsWith("//")) {
     const fullUrl = `${window.location.origin}${url}`;
-    localStorage.setItem(cachedUrlKey, fullUrl);
+    try {
+      localStorage.setItem(`image_cache_${url.split('/').pop()}`, fullUrl);
+    } catch (cacheError) {
+      console.error("Failed to cache URL:", cacheError);
+    }
     return fullUrl;
   }
   
   if (url.startsWith("http") || url.startsWith("data:")) {
     if (url.startsWith("http")) {
-      localStorage.setItem(cachedUrlKey, url);
+      try {
+        localStorage.setItem(`image_cache_${url.split('/').pop()}`, url);
+      } catch (cacheError) {
+        console.error("Failed to cache URL:", cacheError);
+      }
     }
     console.log("Processing image URL:", url);
     return url;
@@ -52,7 +69,11 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
   const baseUrl = window.location.origin;
   const fullUrl = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   
-  localStorage.setItem(cachedUrlKey, fullUrl);
+  try {
+    localStorage.setItem(`image_cache_${url.split('/').pop()}`, fullUrl);
+  } catch (cacheError) {
+    console.error("Failed to cache URL:", cacheError);
+  }
   
   return fullUrl;
 };

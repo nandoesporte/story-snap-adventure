@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,57 +30,109 @@ const StripeWebhookSecretManager = () => {
       try {
         console.log("Initializing system configurations...");
         
-        // First ensure the system_configurations table exists
-        const { data: initData, error: initError } = await supabase.functions.invoke('create-system-configurations');
-        
-        if (initError) {
-          console.error('Error initializing system configurations:', initError);
-          setError(`Erro ao inicializar configurações: ${initError.message}`);
-          toast({
-            title: 'Erro',
-            description: 'Não foi possível inicializar as configurações do sistema',
-            variant: 'destructive',
-          });
-          return;
+        // Check if system_configurations table exists
+        const { data: tableExists, error: tableCheckError } = await supabase
+          .from('information_schema.tables')
+          .select('table_name')
+          .eq('table_schema', 'public')
+          .eq('table_name', 'system_configurations');
+          
+        // If table doesn't exist, create it
+        if (tableCheckError || !tableExists || tableExists.length === 0) {
+          console.log("system_configurations table doesn't exist, creating...");
+          const createQuery = `
+            CREATE TABLE IF NOT EXISTS public.system_configurations (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              key TEXT NOT NULL UNIQUE,
+              value TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            
+            -- Create updated_at trigger
+            CREATE OR REPLACE FUNCTION update_timestamp()
+            RETURNS TRIGGER AS $$
+            BEGIN
+              NEW.updated_at = NOW();
+              RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            
+            DROP TRIGGER IF EXISTS update_system_configurations_timestamp ON public.system_configurations;
+            
+            CREATE TRIGGER update_system_configurations_timestamp
+            BEFORE UPDATE ON public.system_configurations
+            FOR EACH ROW
+            EXECUTE FUNCTION update_timestamp();
+            
+            -- Add RLS policies for admin access
+            ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
+            
+            DROP POLICY IF EXISTS "Admin users can do all operations" ON public.system_configurations;
+            CREATE POLICY "Admin users can do all operations" 
+            ON public.system_configurations
+            USING (
+              EXISTS (
+                SELECT 1 FROM user_profiles
+                WHERE user_profiles.id = auth.uid() AND user_profiles.is_admin = true
+              )
+            );
+            
+            -- Add policy for reading non-sensitive configurations
+            DROP POLICY IF EXISTS "Allow reading non-sensitive configurations" ON public.system_configurations;
+            CREATE POLICY "Allow reading non-sensitive configurations" 
+            ON public.system_configurations
+            FOR SELECT
+            USING (
+              key NOT IN ('stripe_api_key', 'stripe_webhook_secret', 'openai_api_key')
+            );
+          `;
+          
+          try {
+            // Try using RPC function if available
+            const { error: rpcError } = await supabase.rpc('exec_sql', { sql_query: createQuery });
+            
+            if (rpcError) {
+              console.error("Error creating system_configurations table with RPC:", rpcError);
+              toast({
+                title: 'Aviso',
+                description: 'Não foi possível criar a tabela de configurações automaticamente. Por favor, execute o script SQL no painel do Supabase.',
+                variant: 'destructive',
+              });
+              setError('A tabela de configurações não existe. Você precisa criar manualmente no painel do Supabase.');
+            } else {
+              console.log("system_configurations table created successfully");
+            }
+          } catch (sqlError) {
+            console.error("Error executing table creation:", sqlError);
+            toast({
+              title: 'Aviso',
+              description: 'Não foi possível criar a tabela de configurações automaticamente. Por favor, execute o script SQL no painel do Supabase.',
+              variant: 'destructive',
+            });
+            setError('A tabela de configurações não existe. Você precisa criar manualmente no painel do Supabase.');
+          }
         }
         
-        console.log("System configurations initialized:", initData);
-        
-        if (!initData?.success) {
-          const errorMsg = initData?.message || 'Resposta inválida do servidor';
-          console.error('Error in initialization response:', errorMsg);
-          setError(`Erro na resposta do servidor: ${errorMsg}`);
-          toast({
-            title: 'Erro',
-            description: 'Inicialização do sistema retornou um erro',
-            variant: 'destructive',
-          });
-          return;
-        }
-        
-        // Then get the webhook secret
-        const { data, error } = await supabase
-          .from('system_configurations')
-          .select('value')
-          .eq('key', 'stripe_webhook_secret')
-          .single();
+        // Try to get the webhook secret regardless if we could create the table or not
+        try {
+          const { data, error } = await supabase
+            .from('system_configurations')
+            .select('value')
+            .eq('key', 'stripe_webhook_secret')
+            .single();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching Stripe webhook secret:', error);
-          setError(`Erro ao buscar segredo do webhook: ${error.message || error.code}`);
-          toast({
-            title: 'Erro',
-            description: 'Não foi possível carregar o segredo do webhook do Stripe',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (data && data.value) {
-          setWebhookSecret(data.value);
-          console.log("Webhook secret loaded successfully");
-        } else {
-          console.log("No webhook secret found");
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error fetching Stripe webhook secret:', error);
+            setError(`Erro ao buscar segredo do webhook: ${error.message || error.code}`);
+          } else if (data && data.value) {
+            setWebhookSecret(data.value);
+            console.log("Webhook secret loaded successfully");
+          } else {
+            console.log("No webhook secret found");
+          }
+        } catch (fetchError) {
+          console.error('Error fetching webhook secret:', fetchError);
         }
       } catch (error) {
         const errorMsg = error.message || 'Erro desconhecido';
@@ -115,13 +166,27 @@ const StripeWebhookSecretManager = () => {
     try {
       console.log("Attempting to save webhook secret...");
       
-      // First verify if the system_configurations table exists
-      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('create-system-configurations');
+      // Check if user is admin
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("Error getting user data:", userError);
+        throw new Error(`Erro ao obter dados do usuário: ${userError.message}`);
+      }
       
-      if (verifyError || !verifyData?.success) {
-        const errorMsg = verifyError?.message || verifyData?.message || 'Erro desconhecido';
-        console.error("Error verifying table:", errorMsg);
-        throw new Error(`Não foi possível verificar a tabela: ${errorMsg}`);
+      // Check if user is admin
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('is_admin')
+        .eq('id', userData?.user?.id)
+        .single();
+        
+      if (profileError) {
+        console.error("Error checking user profile:", profileError);
+        throw new Error(`Erro ao verificar perfil do usuário: ${profileError.message}`);
+      }
+      
+      if (!profileData?.is_admin) {
+        throw new Error("Você não tem permissões de administrador para salvar esta configuração");
       }
       
       // Check if key already exists
@@ -134,30 +199,6 @@ const StripeWebhookSecretManager = () => {
       if (fetchError && fetchError.code !== 'PGRST116') {
         console.error("Error checking if key exists:", fetchError);
         throw new Error(`Erro ao verificar se a chave existe: ${fetchError.message}`);
-      }
-
-      // Log user role to check permissions
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("Error getting user data:", userError);
-      } else {
-        console.log("Current user:", userData?.user?.id);
-        
-        // Check if user is admin
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('id', userData?.user?.id)
-          .single();
-          
-        if (profileError) {
-          console.error("Error checking user profile:", profileError);
-        } else {
-          console.log("User is admin:", profileData?.is_admin);
-          if (!profileData?.is_admin) {
-            throw new Error("Você não tem permissões de administrador para salvar esta configuração");
-          }
-        }
       }
 
       let saveError;
