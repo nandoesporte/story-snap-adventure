@@ -40,17 +40,28 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               .getPublicUrl(fileName);
             
             // Verificar se o arquivo existe
-            const { data: fileData, error } = await supabase
+            const { data: fileExists, error: checkError } = await supabase
               .storage
               .from(bucketName)
-              .download(fileName);
+              .list('', { 
+                search: fileName 
+              });
               
-            if (error) {
-              console.warn(`Image not found in storage: ${fileName}`, error);
+            if (checkError || !fileExists || fileExists.length === 0) {
+              console.warn(`Image not found in storage: ${fileName}`, checkError);
+              // Tente buscar do cache se disponível
+              const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
+              if (cachedUrl) {
+                setProcessedUrl(cachedUrl);
+                return;
+              }
               setProcessedUrl('/placeholder.svg');
               setHasError(true);
             } else {
-              setProcessedUrl(data.publicUrl);
+              const publicUrl = data.publicUrl;
+              // Armazenar no cache local
+              localStorage.setItem(`image_cache_${fileName}`, publicUrl);
+              setProcessedUrl(publicUrl);
             }
           } catch (error) {
             console.error('Failed to process storage URL:', error);
@@ -61,6 +72,12 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
         }
         
         // Se é um caminho local ou URL externa
+        if (imageUrl.startsWith('data:image')) {
+          // Caso seja uma imagem base64, vamos armazená-la no cache local
+          const hash = await hashString(imageUrl.substring(0, 100)); // Usamos apenas o início para economizar espaço
+          localStorage.setItem(`image_cache_${hash}`, imageUrl);
+        }
+        
         setProcessedUrl(imageUrl);
       } catch (error) {
         console.error('Error processing image URL:', error);
@@ -73,6 +90,16 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
 
     processImageUrl();
   }, [imageUrl, bucketName]);
+  
+  // Função auxiliar para criar um hash de uma string
+  const hashString = async (str: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  };
 
   return { processedUrl, isLoading, hasError };
 };

@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import { useStoryImages } from '@/hooks/useStoryImages';
 
 interface NarrationPlayerProps {
   storyId: string;
@@ -57,7 +59,31 @@ export const NarrationPlayer = ({
           console.log("Narração não encontrada:", fetchError.message);
           setAudioUrl(null);
         } else if (data?.audio_url) {
-          setAudioUrl(data.audio_url);
+          // Verifica se a URL está completa
+          if (data.audio_url.startsWith('http')) {
+            setAudioUrl(data.audio_url);
+          } else {
+            // Tenta construir uma URL completa se necessário
+            try {
+              const { data: publicUrlData } = supabase
+                .storage
+                .from('story_narrations')
+                .getPublicUrl(data.audio_url);
+              
+              setAudioUrl(publicUrlData.publicUrl);
+              
+              // Atualiza o registro com a URL completa para uso futuro
+              await supabase
+                .from('story_narrations')
+                .update({ audio_url: publicUrlData.publicUrl })
+                .eq('story_id', storyId)
+                .eq('page_index', pageIndex);
+                
+            } catch (e) {
+              console.error("Erro ao processar URL de áudio:", e);
+              setAudioUrl(data.audio_url);
+            }
+          }
         }
       } catch (e) {
         console.error("Erro ao verificar narração:", e);

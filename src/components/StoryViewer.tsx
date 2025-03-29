@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -111,6 +110,12 @@ const StoryViewer: React.FC = () => {
         
         if (id && id !== ":id") {
           console.log("Carregando história do banco com ID:", id);
+          
+          // Validar e corrigir as URLs de imagem
+          import('../lib/imageHelper').then(({ validateAndFixStoryImages }) => {
+            validateAndFixStoryImages(id);
+          });
+          
           const { data, error } = await supabase
             .from("stories")
             .select("*")
@@ -145,6 +150,14 @@ const StoryViewer: React.FC = () => {
               pages: Array.isArray(data.pages) 
                 ? data.pages.map((page: any) => {
                     console.log("Page image URL:", page.image_url);
+                    
+                    // Armazenar URLs no cache local para persistência
+                    if (page.image_url) {
+                      import('../lib/imageHelper').then(({ storeImageInCache }) => {
+                        storeImageInCache(page.image_url);
+                      });
+                    }
+                    
                     return {
                       text: page.text,
                       imageUrl: page.image_url || "/placeholder.svg",
@@ -153,6 +166,13 @@ const StoryViewer: React.FC = () => {
                   })
                 : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
             };
+            
+            // Cache da imagem de capa também
+            if (coverImage) {
+              import('../lib/imageHelper').then(({ storeImageInCache }) => {
+                storeImageInCache(coverImage);
+              });
+            }
             
             setStoryData(formattedStory);
             setTotalPages(formattedStory.pages.length + 1);
@@ -246,17 +266,58 @@ const StoryViewer: React.FC = () => {
     console.log("Failed to load image URL:", url);
     setFailedImages(prev => ({...prev, [url]: true}));
     
-    if (Object.keys(failedImages).length < 2) {
-      toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
-        id: "image-load-error",
-        duration: 3000
-      });
-    }
+    // Tentar buscar do cache local
+    import('../lib/imageHelper').then(({ getImageFromCache }) => {
+      const cachedUrl = getImageFromCache(url);
+      if (cachedUrl) {
+        console.log("Recovered image from cache:", url);
+        // Atualizar a URL corrompida para a versão em cache
+        if (storyData) {
+          // Atualizar capa se necessário
+          if (storyData.coverImageUrl === url || storyData.cover_image_url === url) {
+            setStoryData({
+              ...storyData,
+              coverImageUrl: cachedUrl,
+              cover_image_url: cachedUrl
+            });
+          }
+          
+          // Atualizar páginas se necessário
+          const updatedPages = storyData.pages.map(page => {
+            if (page.imageUrl === url || page.image_url === url) {
+              return {
+                ...page,
+                imageUrl: cachedUrl,
+                image_url: cachedUrl
+              };
+            }
+            return page;
+          });
+          
+          setStoryData({
+            ...storyData,
+            pages: updatedPages
+          });
+        }
+      } else if (Object.keys(failedImages).length < 2) {
+        toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
+          id: "image-load-error",
+          duration: 3000
+        });
+      }
+    });
   };
   
   const getImageUrl = (url?: string, theme: string = ""): string => {
     if (!url || url === "" || url === "null" || url === "undefined") {
       return getFallbackImage(theme);
+    }
+    
+    // Verificar se está no cache local
+    const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
+    const cachedUrl = localStorage.getItem(cachedUrlKey);
+    if (cachedUrl) {
+      return cachedUrl;
     }
     
     if (url.includes("supabase") && url.includes("storage") && !url.includes("object")) {
@@ -271,6 +332,9 @@ const StoryViewer: React.FC = () => {
           .from(bucketName)
           .getPublicUrl(fileName);
         
+        // Armazenar a URL corrigida no cache
+        localStorage.setItem(cachedUrlKey, data.publicUrl);
+        
         console.log("Reformatted storage URL:", data.publicUrl);
         return data.publicUrl;
       } catch (error) {
@@ -279,7 +343,10 @@ const StoryViewer: React.FC = () => {
     }
     
     if (url.startsWith("/") && !url.startsWith("//")) {
-      return url;
+      const fullUrl = `${window.location.origin}${url}`;
+      // Armazenar no cache
+      localStorage.setItem(cachedUrlKey, fullUrl);
+      return fullUrl;
     }
     
     if (failedImages[url]) {
@@ -287,11 +354,20 @@ const StoryViewer: React.FC = () => {
     }
     
     if (url.startsWith("http") || url.startsWith("data:")) {
+      // Armazenar no cache se for URL completa
+      if (url.startsWith("http")) {
+        localStorage.setItem(cachedUrlKey, url);
+      }
       return url;
     }
     
     const baseUrl = window.location.origin;
-    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    const fullUrl = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    
+    // Armazenar no cache
+    localStorage.setItem(cachedUrlKey, fullUrl);
+    
+    return fullUrl;
   };
   
   useEffect(() => {
@@ -736,199 +812,4 @@ const StoryViewer: React.FC = () => {
                   variant="secondary"
                   onClick={toggleTextVisibility}
                 >
-                  <EyeOff className="mr-2 w-4 h-4" />
-                  Ocultar Texto
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-  
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-violet-50 to-indigo-50">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-lg">Carregando sua história...</p>
-      </div>
-    );
-  }
-  
-  if (!storyData) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-violet-50 to-indigo-50">
-        <div className="glass p-8 rounded-xl text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-4">História não encontrada</h2>
-          <p className="mb-6">Não foi possível encontrar esta história. Crie uma nova história personalizada.</p>
-          <div className="flex gap-4 justify-center">
-            <Button onClick={handleGoHome}>Voltar ao Início</Button>
-            <Button variant="default" onClick={handleCreateNew}>Criar Nova História</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-violet-50 to-indigo-50 p-2 md:p-4">
-      {isDownloading && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl text-center">
-            <LoadingSpinner size="lg" />
-            <p className="mt-4 text-lg font-medium">Gerando PDF da história...</p>
-            <p className="text-sm text-gray-500">Por favor, aguarde um momento.</p>
-          </div>
-        </div>
-      )}
-      
-      <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
-        <DialogContent className="max-w-7xl bg-black/95 border-none p-0" onEscapeKeyDown={() => setShowImageViewer(false)}>
-          <div className="p-3 flex justify-between items-center text-white">
-            <div className="flex gap-2">
-              <Button 
-                variant="ghost"
-                className="text-white hover:text-white hover:bg-white/20"
-                onClick={handleZoomIn}
-              >
-                <ZoomIn className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost"
-                className="text-white hover:text-white hover:bg-white/20"
-                onClick={handleZoomOut}
-              >
-                <ZoomOut className="h-5 w-5" />
-              </Button>
-            </div>
-            <Button 
-              variant="ghost"
-              className="text-white hover:text-white hover:bg-white/20"
-              onClick={() => setShowImageViewer(false)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          
-          <div className="overflow-auto h-[80vh] flex items-center justify-center">
-            <img 
-              src={currentImageUrl}
-              alt="Imagem ampliada"
-              className="transition-transform"
-              style={{ transform: `scale(${imageZoom})` }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <div 
-        ref={storyContainerRef}
-        className="w-full max-w-7xl bg-white rounded-lg shadow-xl overflow-hidden flex flex-col"
-      >
-        <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-2 md:p-4 flex justify-between items-center">
-          <div className="flex gap-2">
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleGoHome}>
-              <Home className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Início</span>
-            </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleCreateNew}>
-              <BookText className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Nova História</span>
-            </Button>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleShareStory}>
-              <Share className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Compartilhar</span>
-            </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleDownloadPDF} disabled={isDownloading}>
-              <Download className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Download PDF</span>
-            </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={toggleFullscreen}>
-              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              <span className="hidden md:inline">{isFullscreen ? 'Minimizar' : 'Tela Cheia'}</span>
-            </Button>
-          </div>
-        </div>
-        
-        <div className="flex-1 relative overflow-hidden">
-          <div ref={bookRef} className="w-full h-full">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentPage}
-                initial={{ 
-                  opacity: 0,
-                  x: flipDirection === "right" ? 50 : -50 
-                }}
-                animate={{ 
-                  opacity: 1,
-                  x: 0 
-                }}
-                exit={{ 
-                  opacity: 0,
-                  x: flipDirection === "right" ? -50 : 50 
-                }}
-                transition={{ 
-                  type: "tween",
-                  duration: 0.3
-                }}
-                className="w-full h-full"
-              >
-                {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-          
-          <Button
-            className="absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
-            variant="outline"
-            size="icon"
-            onClick={handlePreviousPage}
-            disabled={currentPage === 0 || isFlipping}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            className="absolute right-2 md:right-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
-            variant="outline"
-            size="icon"
-            onClick={handleNextPage}
-            disabled={!storyData || currentPage >= totalPages - 1 || isFlipping}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <div className="bg-white p-2 md:p-4 border-t border-gray-100 flex justify-between items-center">
-          <span className="text-sm text-gray-500">
-            Página {currentPage + 1} de {totalPages}
-          </span>
-          
-          <div className="flex gap-2 items-center">
-            <div className="flex gap-1">
-              {Array.from({ length: totalPages }).map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-2 h-2 rounded-full ${
-                    currentPage === index ? "bg-violet-600" : "bg-gray-300"
-                  }`}
-                  onClick={() => {
-                    setFlipDirection(index > currentPage ? "right" : "left");
-                    setCurrentPage(index);
-                  }}
-                  aria-label={`Ir para página ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default StoryViewer;
+                  <EyeOff className="
