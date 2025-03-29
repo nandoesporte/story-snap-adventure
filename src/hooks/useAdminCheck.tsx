@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { checkTableExists } from '@/lib/dbHelpers';
 
 export const useAdminCheck = () => {
   const { user } = useAuth();

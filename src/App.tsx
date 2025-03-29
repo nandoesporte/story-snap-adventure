@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
@@ -70,7 +71,7 @@ function App() {
           element={user ? <EditStory /> : <Navigate to="/login" />}
         />
         
-        {/* Fix the StoryViewer route - pass a dummy story if needed for type safety */}
+        {/* Fix the StoryViewer routes - they don't need the story prop anymore as they use param id */}
         <Route 
           path="/stories/:id" 
           element={<StoryViewer />} 

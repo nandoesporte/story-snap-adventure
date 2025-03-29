@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BookOpen, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { StoryListItem } from '@/types';
+import { Story, StoryListItem, Json } from '@/types';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -44,17 +45,32 @@ const MyStories = () => {
       
       if (storiesData) {
         // Transform to match our StoryListItem interface
-        const formattedStories = storiesData.map(story => ({
-          ...story,
-          // Add content field derived from pages
-          content: Array.isArray(story.pages) 
-            ? story.pages.map((page: any) => page.text || '') 
-            : [],
-          // Ensure voice_type is properly typed
-          voice_type: (story.voice_type === 'male' || story.voice_type === 'female') 
-            ? story.voice_type 
-            : 'female'
-        }));
+        const formattedStories = storiesData.map((story) => {
+          // Create a proper StoryListItem
+          const storyItem: StoryListItem = {
+            id: story.id,
+            title: story.title,
+            user_id: story.user_id || '',
+            character_name: story.character_name,
+            character_age: story.character_age,
+            character_prompt: story.character_prompt,
+            cover_image_url: story.cover_image_url,
+            pages: story.pages as Json,
+            content: Array.isArray(story.pages) 
+              ? story.pages.map((page: any) => page.text || '') 
+              : [],
+            created_at: story.created_at || '',
+            updated_at: story.updated_at || '',
+            is_public: story.is_public || false,
+            setting: story.setting,
+            theme: story.theme,
+            style: story.style,
+            voice_type: (story.voice_type === 'male' || story.voice_type === 'female') 
+              ? story.voice_type 
+              : 'female'
+          };
+          return storyItem;
+        });
         
         setStories(formattedStories);
       }

@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import LoadingSpinner from "../LoadingSpinner";
 import { getImageUrl } from "./helpers";
-import { useStoryData } from "./useStoryData"; // Fixed import
+import { useStoryData } from "./useStoryData"; // Import is now fixed
 import { ViewerControls } from "./ViewerControls";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
@@ -199,7 +199,7 @@ const StoryViewer: React.FC = () => {
                     <CoverPage
                       title={storyData.title}
                       coverImageSrc={coverImageSrc}
-                      childName={storyData.childName}
+                      childName={storyData.childName || storyData.character_name}
                       theme={storyData.theme}
                       setting={storyData.setting}
                       style={storyData.style}
@@ -218,12 +218,12 @@ const StoryViewer: React.FC = () => {
                       )}
                       pageIndex={currentPage - 1}
                       pageCount={storyData.pages.length}
-                      childName={storyData.childName}
+                      childName={storyData.childName || storyData.character_name}
                       typedText={typedText}
                       isFullscreen={false}
                       isMobile={isMobile}
                       hideText={hideText}
-                      voiceType={storyData.voiceType || 'female'}
+                      voiceType={storyData.voiceType || storyData.voice_type || 'female'}
                       onImageClick={handleImageClick}
                       onImageError={() => handleImageError(
                         storyData.pages[currentPage - 1]?.imageUrl || 

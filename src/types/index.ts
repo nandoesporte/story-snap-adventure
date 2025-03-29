@@ -23,6 +23,10 @@ export interface Story {
   theme?: string;
   style?: string;
   voice_type?: 'male' | 'female';
+  // Add these properties for StoryViewer component
+  childName?: string;
+  coverImageUrl?: string;
+  voiceType?: 'male' | 'female';
 }
 
 export interface StoryListItem extends Omit<Story, 'pages'> {

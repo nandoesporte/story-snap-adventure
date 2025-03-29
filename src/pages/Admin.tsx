@@ -1,7 +1,9 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import StoryManager from "@/components/admin/StoryManager";
 import ThemeManager from "@/components/admin/ThemeManager";
 import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
@@ -14,6 +16,7 @@ import StripeWebhookSecretManager from "@/components/admin/StripeWebhookSecretMa
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import { useAdminCheck } from '@/hooks/useAdminCheck';
+import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
 
 const Admin = () => {
   const { user } = useAuth();
@@ -63,7 +66,7 @@ const Admin = () => {
     );
   }
 
-  const handleTabChange = (value) => {
+  const handleTabChange = (value: string) => {
     setActiveTab(value);
     // Update URL with tab parameter
     const searchParams = new URLSearchParams(location.search);

@@ -25,7 +25,7 @@ export const extractPageDetails = (story: Story) => {
 
 export const useStoryData = (storyId?: string) => {
   const [storyData, setStoryData] = useState<Story | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]= useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -65,7 +65,11 @@ export const useStoryData = (storyId?: string) => {
             const transformedData: Story = {
               ...data,
               pages: typeof data.pages === 'string' ? JSON.parse(data.pages) : data.pages,
-              voice_type: data.voice_type as 'male' | 'female' || 'female'
+              voice_type: data.voice_type as 'male' | 'female' || 'female',
+              // Add compatibility fields
+              childName: data.character_name,
+              coverImageUrl: data.cover_image_url,
+              voiceType: data.voice_type as 'male' | 'female' || 'female'
             };
             
             // Add content field if it doesn't exist
