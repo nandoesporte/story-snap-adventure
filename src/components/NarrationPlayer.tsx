@@ -26,11 +26,11 @@ export const NarrationPlayer = ({
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   
-  const { isPlaying, isGenerating, playAudio, toggleMute } = useStoryNarration({
+  // We need to pass only the properties that the hook expects
+  const { isPlaying, isGenerating, playAudio } = useStoryNarration({
     storyId,
     text: pageText,
-    pageIndex,
-    voiceType
+    pageIndex
   });
   
   const { toast } = useToast();
@@ -102,8 +102,13 @@ export const NarrationPlayer = ({
     }
   };
   
+  // Since toggleMute doesn't exist in the hook, we'll implement a simpler mute logic
   const handleToggleMute = () => {
-    toggleMute();
+    // Find the audio element and mute/unmute it directly
+    const audioElements = document.querySelectorAll('audio');
+    audioElements.forEach(audio => {
+      audio.muted = !isMuted;
+    });
     setIsMuted(!isMuted);
   };
   

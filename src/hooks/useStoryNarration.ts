@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -7,6 +6,7 @@ interface UseStoryNarrationProps {
   storyId: string;
   text: string;
   pageIndex: number;
+  voiceType?: 'male' | 'female';  // Add voiceType to the props interface
 }
 
 interface GenerateAudioParams {
@@ -16,7 +16,7 @@ interface GenerateAudioParams {
   voiceType?: 'male' | 'female';
 }
 
-export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarrationProps) => {
+export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'female' }: UseStoryNarrationProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -350,6 +350,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     }
   };
 
+  // Add toggleMute function to match the interface expected in NarrationPlayer
+  const toggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+    }
+  };
+
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
@@ -369,6 +376,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     isPlaying,
     playAudio,
     generateAudio,
+    toggleMute,  // Export the toggleMute function
     VOICE_IDS,
     AVAILABLE_VOICES
   };
