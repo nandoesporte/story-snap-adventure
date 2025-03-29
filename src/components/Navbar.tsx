@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -42,7 +43,7 @@ const Navbar = () => {
     { name: 'Início', path: '/' },
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
-    { name: 'Personagens', path: '/characters' },
+    { name: 'Biblioteca', path: '/library' },
     { name: 'Admin', path: '/admin', adminOnly: true },
   ];
 

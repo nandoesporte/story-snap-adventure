@@ -61,6 +61,28 @@ export const initializeDatabaseStructure = async () => {
       // User needs to run SQL in the Supabase dashboard
     }
     
+    // Add is_public column to stories table
+    const addIsPublicToStories = `
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = 'stories' AND column_name = 'is_public'
+        ) THEN
+          ALTER TABLE public.stories ADD COLUMN is_public BOOLEAN DEFAULT false;
+        END IF;
+      END
+      $$;
+    `;
+    
+    // Execute this query after creating the stories table
+    try {
+      await supabase.rpc('exec', { sql: addIsPublicToStories });
+      console.log("✓ Added is_public column to stories table");
+    } catch (error) {
+      console.error("× Error adding is_public column to stories table:", error);
+    }
+    
     // Try to seed initial data if page_contents table exists
     if (!pageContentsCheckError) {
       // Check if table is empty

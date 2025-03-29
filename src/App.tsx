@@ -11,7 +11,7 @@ import MyStories from './pages/MyStories';
 import StoryViewer from './components/StoryViewer';
 import NotFound from './pages/NotFound';
 import StoryBot from './pages/StoryBot';
-import Characters from './pages/Characters';
+import Library from './pages/Library';
 import Admin from './pages/Admin';
 import Subscription from './pages/Subscription';
 import { initializeDatabaseStructure } from '@/lib/supabase';
@@ -62,8 +62,9 @@ function AppContent() {
   useEffect(() => {
     if (!authLoading && !user && 
         location.pathname !== '/auth' && 
+        location.pathname !== '/library' &&
         !location.pathname.startsWith('/view-story')) {
-      // Allow viewing stories without login
+      // Allow viewing stories and library without login
       navigate('/auth');
     }
   }, [user, authLoading, navigate, location]);
@@ -80,7 +81,7 @@ function AppContent() {
         <Route path="/view-story/:id" element={<StoryViewer />} />
         <Route path="/view-story" element={<StoryViewer />} />
         <Route path="/storybot" element={<StoryBot />} />
-        <Route path="/characters" element={<Characters />} />
+        <Route path="/library" element={<Library />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="*" element={<NotFound />} />
