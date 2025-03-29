@@ -58,7 +58,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   };
 
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{width: '100%', height: '100%'}}>
+    <div className={`relative overflow-hidden ${className}`} style={{width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
       {(!loaded && !imgError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 animate-pulse">
           <span className="text-gray-400">Carregando imagem...</span>
