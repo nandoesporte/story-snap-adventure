@@ -887,6 +887,30 @@ const StoryViewer: React.FC = () => {
               {currentPage === 0 && renderCoverPage()}
               {currentPage > 0 && renderStoryPage(currentPage - 1)}
             </div>
+            
+            {isMobile && (
+              <div className="fixed bottom-20 left-0 right-0 flex justify-between px-4 z-50">
+                <Button
+                  variant="storySecondary"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 0}
+                  className="shadow-lg"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                
+                <Button
+                  variant="storySecondary"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages - 1}
+                  className="shadow-lg"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="bg-white border-t border-gray-200 p-3 flex items-center justify-between">
