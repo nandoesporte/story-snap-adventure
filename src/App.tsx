@@ -61,10 +61,11 @@ function AppContent() {
 
   useEffect(() => {
     if (!authLoading && !user && 
+        location.pathname !== '/' && 
         location.pathname !== '/auth' && 
         location.pathname !== '/library' &&
         !location.pathname.startsWith('/view-story')) {
-      // Allow viewing stories and library without login
+      // Allow index page, viewing stories and library without login
       navigate('/auth');
     }
   }, [user, authLoading, navigate, location]);
