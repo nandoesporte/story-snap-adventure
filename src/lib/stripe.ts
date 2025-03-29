@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 
 // Define types for subscription plan and user subscription

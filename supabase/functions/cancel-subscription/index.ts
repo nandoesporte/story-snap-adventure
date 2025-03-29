@@ -68,14 +68,14 @@ serve(async (req) => {
       );
     }
 
-    // Get the subscription from the database
-    const { data: dbSubscription, error: subError } = await supabaseClient
+    // Get subscription from database
+    const { data: subscription, error: subError } = await supabaseClient
       .from("user_subscriptions")
-      .select("*")
+      .select("id, stripe_subscription_id")
       .eq("id", subscriptionId)
       .single();
 
-    if (subError) {
+    if (subError || !subscription) {
       return new Response(
         JSON.stringify({ error: "Subscription not found" }),
         {
@@ -85,64 +85,25 @@ serve(async (req) => {
       );
     }
 
-    // Check if the subscription belongs to the user or if user is admin
-    const { data: userProfile, error: profileError } = await supabaseClient
-      .from("user_profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) {
-      return new Response(
-        JSON.stringify({ error: "Error fetching user profile" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (dbSubscription.user_id !== user.id && !userProfile.is_admin) {
-      return new Response(
-        JSON.stringify({ error: "Not authorized to cancel this subscription" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Cancel the subscription at the end of the billing period
-    if (dbSubscription.stripe_subscription_id) {
-      await stripe.subscriptions.update(dbSubscription.stripe_subscription_id, {
-        cancel_at_period_end: true,
-      });
-    }
-
-    // Update the subscription in the database
+    // Update subscription to cancel at period end
     await supabaseClient
       .from("user_subscriptions")
       .update({
         cancel_at_period_end: true,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq("id", subscriptionId);
-
-    // Add an entry to the subscription history
-    await supabaseClient
-      .from("subscription_history")
-      .insert({
-        user_id: dbSubscription.user_id,
-        plan_id: dbSubscription.plan_id,
-        action: "updated",
-        details: {
-          cancel_at_period_end: true,
-          updated_by: user.id,
-        },
+    
+    // If there's a Stripe subscription ID, cancel it in Stripe too
+    if (subscription.stripe_subscription_id) {
+      // Cancel the subscription at period end in Stripe
+      await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+        cancel_at_period_end: true
       });
+    }
 
     return new Response(
-      JSON.stringify({ success: true, message: "Subscription will be canceled at the end of the billing period" }),
+      JSON.stringify({ success: true }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

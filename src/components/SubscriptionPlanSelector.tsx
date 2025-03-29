@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { getSubscriptionPlans, createSubscriptionCheckout, checkUserSubscription } from '@/lib/stripe';
+import { getSubscriptionPlans, createSubscriptionCheckout, checkUserSubscription, cancelSubscription } from '@/lib/stripe';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -55,6 +55,7 @@ export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   
   // Get subscription plans
   const { data: plans, isLoading: loadingPlans } = useQuery({
@@ -63,7 +64,7 @@ export const SubscriptionPlanSelector = () => {
   });
   
   // Get user's current subscription
-  const { data: userSubscription, isLoading: loadingSubscription } = useQuery({
+  const { data: userSubscription, isLoading: loadingSubscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['user-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -114,6 +115,23 @@ export const SubscriptionPlanSelector = () => {
       toast.error('Erro ao processar checkout');
     } finally {
       setIsCheckoutLoading(false);
+    }
+  };
+  
+  // Handle subscription cancellation
+  const handleCancelSubscription = async () => {
+    if (!userSubscription) return;
+    
+    try {
+      setIsCanceling(true);
+      await cancelSubscription(userSubscription.id);
+      await refetchSubscription();
+      toast.success('Assinatura cancelada com sucesso');
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      toast.error('Erro ao cancelar assinatura');
+    } finally {
+      setIsCanceling(false);
     }
   };
   
@@ -220,8 +238,10 @@ export const SubscriptionPlanSelector = () => {
                         <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
                         <AlertDialogAction
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={handleCancelSubscription}
+                          disabled={isCanceling}
                         >
-                          Confirmar cancelamento
+                          {isCanceling ? 'Processando...' : 'Confirmar cancelamento'}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

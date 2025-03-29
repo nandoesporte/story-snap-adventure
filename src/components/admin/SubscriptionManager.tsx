@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -156,7 +157,7 @@ export const SubscriptionManager = () => {
     },
   });
   
-  // Get user subscriptions
+  // Get user subscriptions - fixed query to properly format the join
   const { data: subscriptions, isLoading: loadingSubscriptions } = useQuery({
     queryKey: ['user-subscriptions'],
     queryFn: async () => {
@@ -174,11 +175,11 @@ export const SubscriptionManager = () => {
           stripe_customer_id,
           created_at,
           updated_at,
-          user_profile:user_id(
+          user_profile:user_profiles!user_id(
             display_name,
-            email:auth.users(email)
+            email
           ),
-          subscription_plan:plan_id(
+          subscription_plan:subscription_plans!plan_id(
             name, 
             price, 
             currency, 
