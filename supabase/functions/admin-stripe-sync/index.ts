@@ -3,10 +3,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 import Stripe from "https://esm.sh/stripe@11.18.0";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-  apiVersion: "2023-10-16",
-});
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -73,6 +69,28 @@ serve(async (req) => {
   }
 
   try {
+    // Get Stripe API key from database
+    const { data: configData, error: configError } = await supabaseClient
+      .from("system_configurations")
+      .select("value")
+      .eq("key", "stripe_api_key")
+      .single();
+      
+    if (configError || !configData?.value) {
+      return new Response(
+        JSON.stringify({ error: "Stripe API key not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const stripeSecretKey = configData.value;
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2023-10-16",
+    });
+    
     const { action, productId, productData } = await req.json();
 
     switch (action) {

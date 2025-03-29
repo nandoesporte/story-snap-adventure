@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
@@ -7,6 +8,8 @@ import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
+import StripeApiKeyManager from "@/components/admin/StripeApiKeyManager";
+import StripeWebhookSecretManager from "@/components/admin/StripeWebhookSecretManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 import SubscriptionManager from "@/components/admin/SubscriptionManager";
@@ -115,9 +118,15 @@ const Admin = () => {
         <TabsContent value="apis" className="space-y-4">
           <h2 className="text-2xl font-bold">Configuração de APIs</h2>
           <p className="text-muted-foreground mb-4">
-            Configure as APIs para geração de histórias e imagens.
+            Configure as APIs para geração de histórias, imagens e processamento de pagamentos.
           </p>
-          <LeonardoWebhookConfig />
+          <div className="grid grid-cols-1 gap-6">
+            <LeonardoWebhookConfig />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <StripeApiKeyManager />
+              <StripeWebhookSecretManager />
+            </div>
+          </div>
         </TabsContent>
         
         <TabsContent value="test" className="space-y-4">
