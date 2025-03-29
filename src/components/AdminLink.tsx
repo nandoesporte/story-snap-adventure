@@ -11,7 +11,6 @@ export const AdminLink = () => {
   const { user } = useAuth();
   const location = useLocation();
   const isOnAdminPage = location.pathname.startsWith('/admin');
-  const isOnSettingsPage = location.pathname.startsWith('/settings');
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -73,25 +72,13 @@ export const AdminLink = () => {
     checkAdminStatus();
   }, [user]);
 
-  // Redirect users from settings page to admin panel if they're admins
-  useEffect(() => {
-    if (isAdmin && isOnSettingsPage) {
-      window.location.href = '/admin?tab=settings';
-    }
-  }, [isAdmin, isOnSettingsPage]);
-
   // Don't show the admin link if not logged in, loading, or definitely not an admin
   if (!user || loading || !isAdmin) {
     return null;
   }
 
-  // Determine which tab to open based on the current page
-  let adminPath = '/admin';
-  if (location.pathname === '/story-creator') {
-    adminPath = '/admin?tab=test';
-  } else if (location.pathname === '/settings') {
-    adminPath = '/admin?tab=settings';
-  }
+  // Definir para qual aba do admin redirecionar, se estiver no modo de teste
+  const adminPath = location.pathname === '/story-creator' ? '/admin?tab=test' : '/admin';
 
   return (
     <Link to={adminPath}>

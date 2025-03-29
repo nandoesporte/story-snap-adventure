@@ -10,7 +10,6 @@ import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager"
 import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
-import GlobalSettingsManager from "@/components/admin/GlobalSettingsManager";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -27,7 +26,7 @@ const Admin = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'settings'].includes(tabParam)) {
+    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -131,14 +130,13 @@ const Admin = () => {
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
       <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-8 w-full">
+        <TabsList className="grid grid-cols-7 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="characters">Personagens</TabsTrigger>
           <TabsTrigger value="themes">Temas</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="config">APIs</TabsTrigger>
-          <TabsTrigger value="settings">Configurações</TabsTrigger>
+          <TabsTrigger value="config">Configurações</TabsTrigger>
           <TabsTrigger value="test">Modo Teste</TabsTrigger>
         </TabsList>
         
@@ -168,20 +166,12 @@ const Admin = () => {
         </TabsContent>
         
         <TabsContent value="config" className="space-y-6">
-          <h2 className="text-2xl font-bold">Configurações de APIs</h2>
+          <h2 className="text-2xl font-bold">Configurações</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <GeminiApiKeyManager />
             <GoogleTTSApiKeyManager />
           </div>
-        </TabsContent>
-        
-        <TabsContent value="settings" className="space-y-4">
-          <h2 className="text-2xl font-bold">Configurações Globais</h2>
-          <p className="text-muted-foreground mb-4">
-            Configure as opções globais do sistema que serão aplicadas para todos os usuários.
-          </p>
-          <GlobalSettingsManager />
         </TabsContent>
         
         <TabsContent value="test" className="space-y-4">

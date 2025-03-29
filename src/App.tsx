@@ -1,72 +1,89 @@
 
-import { useState, useEffect } from 'react'
-import './App.css'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from './components/ui/toaster'
-import { useAuth } from './context/AuthContext'
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import Profile from './pages/Profile';
+import CreateStory from './pages/CreateStory';
+import StoryCreator from './components/StoryCreator';
+import MyStories from './pages/MyStories';
+import StoryViewer from './components/StoryViewer';
+import NotFound from './pages/NotFound';
+import StoryBot from './pages/StoryBot';
+import Characters from './pages/Characters';
+import Admin from './pages/Admin';
+import Settings from './pages/Settings';
+import { initializeDatabaseStructure } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Pages
-import Index from './pages/Index'
-import Auth from './pages/Auth'
-import NotFound from './pages/NotFound'
-import CreateStory from './pages/CreateStory'
-import MyStories from './pages/MyStories'
-import StoryCreator from './pages/StoryCreator'
-import Profile from './pages/Profile'
-import Settings from './pages/Settings'
-import Admin from './pages/Admin'
-import StoryBot from './pages/StoryBot'
-import Characters from './pages/Characters'
+// Create a stable QueryClient instance outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
-// Initialize the React Query client
-const queryClient = new QueryClient()
-
-// Protected route for admin-only pages
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    // Check admin status from localStorage (set by AdminLink and UserProfile components)
-    const userRole = localStorage.getItem('user_role');
-    setIsAdmin(userRole === 'admin');
-    setLoading(false);
-  }, [user]);
-  
-  if (loading) {
-    return <div>Verificando permissões...</div>;
-  }
-  
-  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
-};
-
-function App() {
+// Use this component in main.tsx
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+};
+
+// The actual app content, now wrapped by QueryClientProvider in the App component
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await initializeDatabaseStructure();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Erro ao inicializar a estrutura do banco de dados:", error);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== '/auth') {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate, location]);
+
+  return (
+    <div className="App">
       <Routes>
         <Route path="/" element={<Index />} />
-        <Route path="/login" element={<Auth type="login" />} />
-        <Route path="/register" element={<Auth type="register" />} />
-        <Route path="/create-story" element={<CreateStory />} />
-        <Route path="/storybot" element={<StoryBot />} />
-        <Route path="/my-stories" element={<MyStories />} />
-        <Route path="/story-creator" element={<StoryCreator />} />
-        <Route path="/story-creator/:id" element={<StoryCreator />} />
+        <Route path="/auth" element={<Auth />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={
-          <AdminRoute>
-            <Settings />
-          </AdminRoute>
-        } />
-        <Route path="/admin/*" element={<Admin />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/view-story/:id" element={<StoryViewer />} />
+        <Route path="/view-story" element={<StoryViewer />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/storybot" element={<StoryBot />} />
         <Route path="/characters" element={<Characters />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
-    </QueryClientProvider>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;

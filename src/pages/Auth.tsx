@@ -5,7 +5,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 interface AuthProps {
@@ -16,11 +16,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const isRegister = type === "register";
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  // Use location.pathname to determine if we're on the register page
-  const isRegisterPath = location.pathname === "/register";
-  const authType = isRegisterPath ? "register" : "login";
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +33,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     setIsSubmitting(true);
     
     try {
-      if (isRegisterPath) {
+      if (isRegister) {
         await signUp(email, password);
         toast.success("Conta criada com sucesso! Você já pode fazer login.");
         navigate("/login");
@@ -77,7 +72,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
           >
             <div className="py-12 px-8">
               <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
-                {isRegisterPath ? "Criar Conta" : "Entrar"}
+                {isRegister ? "Criar Conta" : "Entrar"}
               </h2>
               <form className="space-y-6" onSubmit={handleSubmit}>
                 <div>
@@ -125,14 +120,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                       Lembrar-me
                     </label>
                   </div>
-                  {!isRegisterPath && (
-                    <a
-                      className="inline-block align-baseline font-bold text-sm text-violet-500 hover:text-violet-800"
-                      href="#"
-                    >
-                      Esqueceu a senha?
-                    </a>
-                  )}
+                  <a
+                    className="inline-block align-baseline font-bold text-sm text-violet-500 hover:text-violet-800"
+                    href="#"
+                  >
+                    Esqueceu a senha?
+                  </a>
                 </div>
                 <div>
                   <button
@@ -143,21 +136,21 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        {isRegisterPath ? "Criando conta..." : "Entrando..."}
+                        {isRegister ? "Criando conta..." : "Entrando..."}
                       </>
                     ) : (
-                      isRegisterPath ? "Criar Conta" : "Entrar"
+                      isRegister ? "Criar Conta" : "Entrar"
                     )}
                   </button>
                 </div>
               </form>
               <p className="text-center mt-6 text-slate-700">
-                {isRegisterPath ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
+                {isRegister ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
                 <a
-                  href={isRegisterPath ? "/login" : "/register"}
+                  href={isRegister ? "/login" : "/register"}
                   className="font-bold text-violet-500 hover:text-violet-800"
                 >
-                  {isRegisterPath ? "Entrar" : "Criar uma conta"}
+                  {isRegister ? "Entrar" : "Criar uma conta"}
                 </a>
               </p>
             </div>

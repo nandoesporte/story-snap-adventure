@@ -1,27 +1,20 @@
-
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useIsMobile } from "../hooks/use-mobile";
 import { Sparkles } from "lucide-react";
 import NavbarUser from "./NavbarUser";
-import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
 
 type NavItem = {
   name: string;
   path: string;
-  adminOnly?: boolean;
 };
 
 const Navbar = () => {
   const isMobile = useIsMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
   const location = useLocation();
-  const { user } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -42,71 +35,13 @@ const Navbar = () => {
     setIsMenuOpen(false);
   }, [location]);
 
-  // Check if user is admin
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoading(true);
-      
-      if (!user) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        // First check: direct email match
-        if (user.email === 'nandoesporte1@gmail.com') {
-          localStorage.setItem('user_role', 'admin');
-          setIsAdmin(true);
-          setLoading(false);
-          return;
-        }
-        
-        // Second check: database
-        try {
-          // Try to initialize the table structure first
-          await supabase.rpc('create_user_profiles_if_not_exists');
-          
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single();
-            
-          if (error) {
-            console.error('Error checking admin status:', error);
-            setIsAdmin(false);
-          } else if (data?.is_admin) {
-            localStorage.setItem('user_role', 'admin');
-            setIsAdmin(true);
-          } else {
-            localStorage.setItem('user_role', 'user');
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
-
   const navItems: NavItem[] = [
     { name: 'Início', path: '/' },
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Personagens', path: '/characters' },
-    { name: 'Configurações', path: '/settings', adminOnly: true },
+    { name: 'Configurações', path: '/settings' },
   ];
-
-  // Filter navigation items based on admin status
-  const filteredNavItems = navItems.filter(item => 
-    !item.adminOnly || (item.adminOnly && isAdmin)
-  );
 
   return (
     <header
@@ -139,7 +74,7 @@ const Navbar = () => {
 
           {!isMobile && (
             <ul className="flex items-center space-x-6">
-              {filteredNavItems.map((link) => (
+              {navItems.map((link) => (
                 <li key={link.path}>
                   <NavLink
                     to={link.path}
@@ -214,7 +149,7 @@ const Navbar = () => {
               className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg py-4 px-4"
             >
               <ul className="space-y-3">
-                {filteredNavItems.map((link) => (
+                {navItems.map((link) => (
                   <li key={link.path}>
                     <NavLink
                       to={link.path}
