@@ -29,6 +29,12 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const handleError = () => {
     console.error(`Failed to load image: ${processedUrl}`);
     setImgError(true);
+    // Cache the fallback image for future reference
+    try {
+      localStorage.setItem(`image_cache_fallback_${imageUrl.split('/').pop()}`, fallbackImage);
+    } catch (error) {
+      console.error("Error saving fallback to cache:", error);
+    }
     if (onError) onError();
   };
 

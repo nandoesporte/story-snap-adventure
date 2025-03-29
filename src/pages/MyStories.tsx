@@ -29,6 +29,7 @@ import {
 import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw, Image } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import CoverImage from '@/components/CoverImage';
 
 type StoryListItem = Omit<Story, 'pages'> & {
   pages?: Story['pages'];
@@ -183,14 +184,11 @@ const MyStories = () => {
                 <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md hover:scale-[1.02] hover:border-violet-300">
                   <div className="aspect-[4/5] relative overflow-hidden bg-violet-100">
                     <AspectRatio ratio={4/5} className="h-full">
-                      <img
-                        src={getCoverImageUrl(story)}
+                      <CoverImage
+                        imageUrl={getCoverImageUrl(story)}
+                        fallbackImage="/placeholder.svg"
                         alt={story.title}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "/placeholder.svg";
-                        }}
                       />
                     </AspectRatio>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
