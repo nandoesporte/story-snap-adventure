@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Pencil, Trash, Save, X, Plus, DollarSign } from 'lucide-react';
+import { Pencil, Trash, Save, X, Plus, DollarSign, Sync, ExternalLink } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -65,6 +65,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from '@/components/ui/tabs';
+import {
+  getSubscriptionPlans,
+  syncPlansWithStripe,
+  getStripeProducts,
+  getStripePrices,
+  createStripeProduct,
+  updateStripeProduct,
+  SubscriptionPlan
+} from '@/lib/stripe';
 
 // Form schema for subscription plans
 const planFormSchema = z.object({
@@ -79,23 +94,9 @@ const planFormSchema = z.object({
   is_active: z.boolean().default(true),
   features: z.string().optional(),
   stripe_price_id: z.string().optional(),
+  stripe_product_id: z.string().optional(),
+  create_in_stripe: z.boolean().default(false),
 });
-
-// Type for subscription plan
-type SubscriptionPlan = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  currency: string;
-  interval: 'month' | 'year';
-  stories_limit: number;
-  is_active: boolean;
-  features: string[];
-  stripe_price_id?: string;
-  created_at: string;
-  updated_at: string;
-};
 
 // Type for user subscription
 type UserSubscription = {
@@ -126,6 +127,8 @@ export const SubscriptionManager = () => {
   const queryClient = useQueryClient();
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [activeTab, setActiveTab] = useState('plans');
+  const [isStripeConnected, setIsStripeConnected] = useState(false);
   
   const form = useForm<z.infer<typeof planFormSchema>>({
     resolver: zodResolver(planFormSchema),
@@ -139,22 +142,35 @@ export const SubscriptionManager = () => {
       is_active: true,
       features: '',
       stripe_price_id: '',
+      stripe_product_id: '',
+      create_in_stripe: false,
     },
   });
   
   // Get subscription plans
-  const { data: plans, isLoading: loadingPlans } = useQuery({
+  const { data: plans, isLoading: loadingPlans, refetch: refetchPlans } = useQuery({
     queryKey: ['subscription-plans'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .order('price', { ascending: true });
-        
-      if (error) throw error;
-      
-      return data as SubscriptionPlan[];
+    queryFn: getSubscriptionPlans,
+  });
+  
+  // Get Stripe products
+  const { data: stripeProducts, isLoading: loadingStripeProducts, refetch: refetchStripeProducts } = useQuery({
+    queryKey: ['stripe-products'],
+    queryFn: getStripeProducts,
+    onSuccess: () => {
+      setIsStripeConnected(true);
     },
+    onError: () => {
+      setIsStripeConnected(false);
+    },
+    retry: false
+  });
+  
+  // Get Stripe prices
+  const { data: stripePrices, isLoading: loadingStripePrices, refetch: refetchStripePrices } = useQuery({
+    queryKey: ['stripe-prices'],
+    queryFn: getStripePrices,
+    retry: false
   });
   
   // Get user subscriptions
@@ -194,6 +210,21 @@ export const SubscriptionManager = () => {
     },
   });
   
+  // Sync plans with Stripe
+  const syncPlansMutation = useMutation({
+    mutationFn: syncPlansWithStripe,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['stripe-products'] });
+      queryClient.invalidateQueries({ queryKey: ['stripe-prices'] });
+      toast.success('Planos sincronizados com o Stripe com sucesso');
+    },
+    onError: (error) => {
+      console.error('Error syncing plans with Stripe:', error);
+      toast.error('Erro ao sincronizar planos com o Stripe');
+    },
+  });
+  
   // Create or update a subscription plan
   const planMutation = useMutation({
     mutationFn: async (values: z.infer<typeof planFormSchema>) => {
@@ -207,11 +238,39 @@ export const SubscriptionManager = () => {
         features: featuresArray,
       };
       
+      // If create_in_stripe is true, create product in Stripe first
+      if (values.create_in_stripe) {
+        try {
+          let stripeResponse;
+          
+          if (editingPlan && editingPlan.stripe_product_id) {
+            // Update existing product in Stripe
+            stripeResponse = await updateStripeProduct(editingPlan.stripe_product_id, planData);
+          } else {
+            // Create new product in Stripe
+            stripeResponse = await createStripeProduct(planData);
+            
+            // Update planData with Stripe IDs
+            if (stripeResponse.product && stripeResponse.price) {
+              planData.stripe_product_id = stripeResponse.product.id;
+              planData.stripe_price_id = stripeResponse.price.id;
+            }
+          }
+        } catch (error) {
+          console.error('Error creating/updating product in Stripe:', error);
+          throw new Error('Falha ao criar/atualizar produto no Stripe');
+        }
+      }
+      
+      // Now save to database
       if (editingPlan) {
+        // Remove create_in_stripe from data to save
+        const { create_in_stripe, ...dataToSave } = planData;
+        
         // Update existing plan
         const { data, error } = await supabase
           .from('subscription_plans')
-          .update(planData)
+          .update(dataToSave)
           .eq('id', editingPlan.id)
           .select()
           .single();
@@ -219,10 +278,13 @@ export const SubscriptionManager = () => {
         if (error) throw error;
         return data;
       } else {
+        // Remove create_in_stripe from data to save
+        const { create_in_stripe, ...dataToSave } = planData;
+        
         // Create new plan
         const { data, error } = await supabase
           .from('subscription_plans')
-          .insert(planData)
+          .insert(dataToSave)
           .select()
           .single();
           
@@ -290,7 +352,7 @@ export const SubscriptionManager = () => {
       setEditingPlan(plan);
       form.reset({
         name: plan.name,
-        description: plan.description,
+        description: plan.description || '',
         price: plan.price,
         currency: plan.currency,
         interval: plan.interval,
@@ -298,6 +360,8 @@ export const SubscriptionManager = () => {
         is_active: plan.is_active,
         features: Array.isArray(plan.features) ? plan.features.join('\n') : '',
         stripe_price_id: plan.stripe_price_id || '',
+        stripe_product_id: plan.stripe_product_id || '',
+        create_in_stripe: false,
       });
     } else {
       // Adding new plan
@@ -312,6 +376,8 @@ export const SubscriptionManager = () => {
         is_active: true,
         features: '',
         stripe_price_id: '',
+        stripe_product_id: '',
+        create_in_stripe: isStripeConnected,
       });
     }
     setIsAddPlanOpen(true);
@@ -327,6 +393,13 @@ export const SubscriptionManager = () => {
   // Function to handle form submission
   const onSubmit = (values: z.infer<typeof planFormSchema>) => {
     planMutation.mutate(values);
+  };
+  
+  // Function to refresh Stripe data
+  const refreshStripeData = () => {
+    refetchStripeProducts();
+    refetchStripePrices();
+    refetchPlans();
   };
   
   // Format currency
@@ -351,195 +424,436 @@ export const SubscriptionManager = () => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Gerenciamento de Assinaturas</h2>
-        <Button onClick={() => openPlanDialog()} variant="default">
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Plano
-        </Button>
+        <div className="flex gap-2">
+          {isStripeConnected && (
+            <Button 
+              onClick={() => syncPlansMutation.mutate()} 
+              variant="outline" 
+              disabled={syncPlansMutation.isPending}
+            >
+              <Sync className={`mr-2 h-4 w-4 ${syncPlansMutation.isPending ? 'animate-spin' : ''}`} />
+              Sincronizar com Stripe
+            </Button>
+          )}
+          <Button onClick={() => openPlanDialog()} variant="default">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Plano
+          </Button>
+        </div>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Planos de Assinatura</CardTitle>
-          <CardDescription>
-            Gerencie os planos de assinatura disponíveis para os usuários
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingPlans ? (
-            <div className="text-center py-4">Carregando planos...</div>
-          ) : plans && plans.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Intervalo</TableHead>
-                  <TableHead>Limite de Histórias</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>ID Stripe</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plans.map((plan) => (
-                  <TableRow key={plan.id}>
-                    <TableCell className="font-medium">{plan.name}</TableCell>
-                    <TableCell>{formatCurrency(plan.price, plan.currency)}</TableCell>
-                    <TableCell>{formatInterval(plan.interval)}</TableCell>
-                    <TableCell>{plan.stories_limit}</TableCell>
-                    <TableCell>
-                      <Badge variant={plan.is_active ? "default" : "outline"}>
-                        {plan.is_active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {plan.stripe_price_id ? (
-                        <span className="text-xs text-muted-foreground truncate max-w-xs">
-                          {plan.stripe_price_id}
-                        </span>
-                      ) : (
-                        <Badge variant="outline">Não configurado</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          onClick={() => openPlanDialog(plan)} 
-                          variant="outline" 
-                          size="sm"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Trash className="h-4 w-4 text-destructive" />
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="plans">Planos de Assinatura</TabsTrigger>
+          <TabsTrigger value="subscriptions">Assinaturas Ativas</TabsTrigger>
+          <TabsTrigger value="stripe">
+            Stripe API
+            <Badge variant={isStripeConnected ? "success" : "destructive"} className="ml-2">
+              {isStripeConnected ? "Conectado" : "Desconectado"}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="plans" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Planos de Assinatura</CardTitle>
+              <CardDescription>
+                Gerencie os planos de assinatura disponíveis para os usuários
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPlans ? (
+                <div className="text-center py-4">Carregando planos...</div>
+              ) : plans && plans.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Intervalo</TableHead>
+                      <TableHead>Limite de Histórias</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>ID Stripe</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {plans.map((plan) => (
+                      <TableRow key={plan.id}>
+                        <TableCell className="font-medium">{plan.name}</TableCell>
+                        <TableCell>{formatCurrency(plan.price, plan.currency)}</TableCell>
+                        <TableCell>{formatInterval(plan.interval)}</TableCell>
+                        <TableCell>{plan.stories_limit}</TableCell>
+                        <TableCell>
+                          <Badge variant={plan.is_active ? "default" : "outline"}>
+                            {plan.is_active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {plan.stripe_price_id ? (
+                            <span className="text-xs text-muted-foreground truncate max-w-xs">
+                              {plan.stripe_price_id}
+                            </span>
+                          ) : (
+                            <Badge variant="outline">Não configurado</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              onClick={() => openPlanDialog(plan)} 
+                              variant="outline" 
+                              size="sm"
+                            >
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remover plano</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja remover o plano "{plan.name}"? Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => deletePlanMutation.mutate(plan.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Remover
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remover plano</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja remover o plano "{plan.name}"? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => deletePlanMutation.mutate(plan.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Remover
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Nenhum plano cadastrado. Clique em "Novo Plano" para adicionar.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="subscriptions" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assinaturas Ativas</CardTitle>
+              <CardDescription>
+                Visualize e gerencie as assinaturas ativas dos usuários
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingSubscriptions ? (
+                <div className="text-center py-4">Carregando assinaturas...</div>
+              ) : subscriptions && subscriptions.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Usuário</TableHead>
+                      <TableHead>Plano</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Início</TableHead>
+                      <TableHead>Próxima Cobrança</TableHead>
+                      <TableHead>Cancelamento</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subscriptions.map((subscription) => (
+                      <TableRow key={subscription.id}>
+                        <TableCell>
+                          <div className="font-medium">{subscription.user_profile?.display_name}</div>
+                          <div className="text-xs text-muted-foreground">{subscription.user_profile?.email}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{subscription.subscription_plan?.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatCurrency(subscription.subscription_plan?.price || 0, subscription.subscription_plan?.currency || 'BRL')} / {formatInterval(subscription.subscription_plan?.interval || 'month')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
+                            {subscription.status === 'active' ? 'Ativa' : 
+                             subscription.status === 'canceled' ? 'Cancelada' :
+                             subscription.status === 'past_due' ? 'Pagamento Atrasado' :
+                             subscription.status === 'pending' ? 'Pendente' : 'Período de Teste'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(subscription.current_period_start)}</TableCell>
+                        <TableCell>{formatDate(subscription.current_period_end)}</TableCell>
+                        <TableCell>
+                          {subscription.cancel_at_period_end ? (
+                            <Badge variant="outline">Será cancelada</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-green-50">Renovação automática</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  Cancelar
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Cancelar assinatura</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    A assinatura será cancelada ao final do período atual. Tem certeza que deseja prosseguir?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Não</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => cancelSubscriptionMutation.mutate(subscription.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Sim, cancelar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Nenhuma assinatura ativa encontrada.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="stripe" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Integração com Stripe</CardTitle>
+              <CardDescription>
+                Configure e gerencie a integração com a API do Stripe para processamento de pagamentos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-medium">Status da Conexão</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Status da conexão com a API do Stripe
+                  </p>
+                </div>
+                <Badge variant={isStripeConnected ? "success" : "destructive"} className="h-8 px-3 py-1">
+                  {isStripeConnected ? "Conectado" : "Desconectado"}
+                </Badge>
+              </div>
+              
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-medium mb-4">Dados do Stripe</h3>
+                
+                <div className="flex justify-end mb-4">
+                  <Button 
+                    onClick={refreshStripeData} 
+                    variant="outline" 
+                    disabled={loadingStripeProducts || loadingStripePrices}
+                  >
+                    <Sync className={`mr-2 h-4 w-4 ${loadingStripeProducts || loadingStripePrices ? 'animate-spin' : ''}`} />
+                    Atualizar Dados
+                  </Button>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-md font-medium mb-2">Produtos no Stripe</h4>
+                    {loadingStripeProducts ? (
+                      <div className="text-center py-4">Carregando produtos...</div>
+                    ) : !isStripeConnected ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Não foi possível conectar ao Stripe. Verifique se a chave API está configurada corretamente.
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              Nenhum plano cadastrado. Clique em "Novo Plano" para adicionar.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Assinaturas Ativas</CardTitle>
-          <CardDescription>
-            Visualize e gerencie as assinaturas ativas dos usuários
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingSubscriptions ? (
-            <div className="text-center py-4">Carregando assinaturas...</div>
-          ) : subscriptions && subscriptions.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Plano</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Próxima Cobrança</TableHead>
-                  <TableHead>Cancelamento</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {subscriptions.map((subscription) => (
-                  <TableRow key={subscription.id}>
-                    <TableCell>
-                      <div className="font-medium">{subscription.user_profile?.display_name}</div>
-                      <div className="text-xs text-muted-foreground">{subscription.user_profile?.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{subscription.subscription_plan?.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatCurrency(subscription.subscription_plan?.price || 0, subscription.subscription_plan?.currency || 'BRL')} / {formatInterval(subscription.subscription_plan?.interval || 'month')}
+                    ) : stripeProducts && stripeProducts.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {stripeProducts.map((product: any) => (
+                            <TableRow key={product.id}>
+                              <TableCell className="font-mono text-xs">{product.id}</TableCell>
+                              <TableCell>{product.name}</TableCell>
+                              <TableCell className="truncate max-w-xs">{product.description}</TableCell>
+                              <TableCell>
+                                <Badge variant={product.active ? "default" : "outline"}>
+                                  {product.active ? "Ativo" : "Inativo"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button asChild variant="outline" size="sm">
+                                  <a 
+                                    href={`https://dashboard.stripe.com/products/${product.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Ver no Stripe
+                                  </a>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Nenhum produto encontrado no Stripe.
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
-                        {subscription.status === 'active' ? 'Ativa' : 
-                         subscription.status === 'canceled' ? 'Cancelada' :
-                         subscription.status === 'past_due' ? 'Pagamento Atrasado' :
-                         subscription.status === 'pending' ? 'Pendente' : 'Período de Teste'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(subscription.current_period_start)}</TableCell>
-                    <TableCell>{formatDate(subscription.current_period_end)}</TableCell>
-                    <TableCell>
-                      {subscription.cancel_at_period_end ? (
-                        <Badge variant="outline">Será cancelada</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-green-50">Renovação automática</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {subscription.status === 'active' && !subscription.cancel_at_period_end && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              Cancelar
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Cancelar assinatura</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                A assinatura será cancelada ao final do período atual. Tem certeza que deseja prosseguir?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Não</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => cancelSubscriptionMutation.mutate(subscription.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Sim, cancelar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              Nenhuma assinatura ativa encontrada.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-md font-medium mb-2">Preços no Stripe</h4>
+                    {loadingStripePrices ? (
+                      <div className="text-center py-4">Carregando preços...</div>
+                    ) : !isStripeConnected ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Não foi possível conectar ao Stripe. Verifique se a chave API está configurada corretamente.
+                      </div>
+                    ) : stripePrices && stripePrices.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Produto</TableHead>
+                            <TableHead>Preço</TableHead>
+                            <TableHead>Recorrência</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {stripePrices.map((price: any) => (
+                            <TableRow key={price.id}>
+                              <TableCell className="font-mono text-xs">{price.id}</TableCell>
+                              <TableCell className="font-mono text-xs">{price.product}</TableCell>
+                              <TableCell>
+                                {formatCurrency(price.unit_amount / 100, price.currency)}
+                              </TableCell>
+                              <TableCell>
+                                {price.recurring ? (
+                                  <span>
+                                    {price.recurring.interval_count} {price.recurring.interval}
+                                    {price.recurring.interval_count > 1 ? 's' : ''}
+                                  </span>
+                                ) : (
+                                  <Badge variant="outline">One-time</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button asChild variant="outline" size="sm">
+                                  <a 
+                                    href={`https://dashboard.stripe.com/prices/${price.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Ver no Stripe
+                                  </a>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Nenhum preço encontrado no Stripe.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="border-t pt-6 flex flex-col items-start gap-4">
+              <div>
+                <h3 className="text-lg font-medium mb-2">Links Úteis</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button asChild variant="outline" className="justify-start">
+                    <a 
+                      href="https://dashboard.stripe.com/products" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Dashboard de Produtos
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="justify-start">
+                    <a 
+                      href="https://dashboard.stripe.com/subscriptions" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Dashboard de Assinaturas
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="justify-start">
+                    <a 
+                      href="https://dashboard.stripe.com/test/customers" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Dashboard de Clientes
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="justify-start">
+                    <a 
+                      href="https://dashboard.stripe.com/test/webhooks" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Configuração de Webhooks
+                    </a>
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="text-sm text-muted-foreground mt-4 bg-muted p-4 rounded-md w-full">
+                <p className="font-medium mb-2">Como configurar o Stripe:</p>
+                <ol className="list-decimal list-inside space-y-2">
+                  <li>Crie uma conta no Stripe e obtenha sua chave secreta API</li>
+                  <li>Adicione a chave secreta nas configurações da Edge Function (STRIPE_SECRET_KEY)</li>
+                  <li>Configure o webhook do Stripe para apontar para sua função stripe-webhook</li>
+                  <li>Obtenha o segredo do webhook e adicione-o às configurações (STRIPE_WEBHOOK_SECRET)</li>
+                  <li>Crie produtos e preços no Stripe ou sincronize seus planos existentes</li>
+                </ol>
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
       
       {/* Dialog for adding/editing plans */}
       <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
@@ -659,23 +973,66 @@ export const SubscriptionManager = () => {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="stripe_price_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ID do Preço no Stripe</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="price_..." />
-                      </FormControl>
-                      <FormDescription>
-                        ID do preço criado no Stripe (começa com "price_")
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {isStripeConnected && (
+                  <FormField
+                    control={form.control}
+                    name="create_in_stripe"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-end space-x-3 space-y-0 rounded-md">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div>
+                          <FormLabel>Criar no Stripe</FormLabel>
+                          <FormDescription>
+                            Também criar/atualizar este plano no Stripe
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
+              
+              {isStripeConnected && form.watch('create_in_stripe') === false && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="stripe_product_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID do Produto no Stripe</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="prod_..." />
+                        </FormControl>
+                        <FormDescription>
+                          ID do produto no Stripe (começa com "prod_")
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="stripe_price_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID do Preço no Stripe</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="price_..." />
+                        </FormControl>
+                        <FormDescription>
+                          ID do preço no Stripe (começa com "price_")
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
               
               <FormField
                 control={form.control}

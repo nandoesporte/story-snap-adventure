@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 
 // Define types for subscription plan and user subscription
@@ -13,6 +12,7 @@ export interface SubscriptionPlan {
   is_active: boolean;
   features: string[];
   stripe_price_id?: string;
+  stripe_product_id?: string;
 }
 
 export interface UserSubscription {
@@ -189,5 +189,107 @@ export async function verifyActiveSubscription(userId: string): Promise<boolean>
   } catch (error) {
     console.error('Error verifying subscription:', error);
     return false;
+  }
+}
+
+// New function: Sync plans with Stripe
+export async function syncPlansWithStripe(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
+      body: { action: 'sync_plans' }
+    });
+    
+    if (error) {
+      console.error('Error syncing plans with Stripe:', error);
+      throw new Error('Falha ao sincronizar planos com o Stripe');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in syncPlansWithStripe:', error);
+    throw error;
+  }
+}
+
+// New function: Get Stripe products
+export async function getStripeProducts(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
+      body: { action: 'get_products' }
+    });
+    
+    if (error) {
+      console.error('Error getting Stripe products:', error);
+      throw new Error('Falha ao buscar produtos do Stripe');
+    }
+    
+    return data.products;
+  } catch (error) {
+    console.error('Error in getStripeProducts:', error);
+    throw error;
+  }
+}
+
+// New function: Get Stripe prices
+export async function getStripePrices(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
+      body: { action: 'get_prices' }
+    });
+    
+    if (error) {
+      console.error('Error getting Stripe prices:', error);
+      throw new Error('Falha ao buscar preços do Stripe');
+    }
+    
+    return data.prices;
+  } catch (error) {
+    console.error('Error in getStripePrices:', error);
+    throw error;
+  }
+}
+
+// New function: Create a Stripe product and price
+export async function createStripeProduct(productData: Partial<SubscriptionPlan>): Promise<any> {
+  try {
+    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
+      body: { 
+        action: 'create_product',
+        productData
+      }
+    });
+    
+    if (error) {
+      console.error('Error creating Stripe product:', error);
+      throw new Error('Falha ao criar produto no Stripe');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in createStripeProduct:', error);
+    throw error;
+  }
+}
+
+// New function: Update a Stripe product and price
+export async function updateStripeProduct(productId: string, productData: Partial<SubscriptionPlan>): Promise<any> {
+  try {
+    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
+      body: { 
+        action: 'update_product',
+        productId,
+        productData
+      }
+    });
+    
+    if (error) {
+      console.error('Error updating Stripe product:', error);
+      throw new Error('Falha ao atualizar produto no Stripe');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in updateStripeProduct:', error);
+    throw error;
   }
 }
