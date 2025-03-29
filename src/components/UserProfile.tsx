@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,72 +14,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserRound, LogOut, Settings, BookOpen, Shield } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 
 const UserProfile = () => {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, loading } = useAdminCheck();
   
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoading(true);
-      
-      if (!user) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        console.log("UserProfile: Checking admin status for", user.email);
-        
-        // For simplicity, first check via direct email match
-        if (user.email === 'nandoesporte1@gmail.com') {
-          console.log("Admin dropdown visible: Direct email match for", user.email);
-          localStorage.setItem('user_role', 'admin');
-          setIsAdmin(true);
-          setLoading(false);
-          return;
-        }
-        
-        // Second check: database
-        try {
-          // Try to initialize the table structure first
-          await supabase.rpc('create_user_profiles_if_not_exists');
-          
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single();
-          
-          console.log("UserProfile: Database check result:", { data, error });
-            
-          if (error) {
-            console.error('Error checking admin status:', error);
-            setIsAdmin(false);
-          } else if (data?.is_admin) {
-            console.log("Admin dropdown visible: Database check");
-            localStorage.setItem('user_role', 'admin');
-            setIsAdmin(true);
-          } else {
-            localStorage.setItem('user_role', 'user');
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
-
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
@@ -139,12 +80,16 @@ const UserProfile = () => {
             <span>Minhas Histórias</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings" className="flex items-center cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Configurações</span>
-          </Link>
-        </DropdownMenuItem>
+        
+        {/* Settings link - only for admin users */}
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link to="/settings" className="flex items-center cursor-pointer">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Configurações</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         
         {/* Admin link for admin users */}
         {!loading && isAdmin && (

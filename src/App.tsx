@@ -17,6 +17,7 @@ import Settings from './pages/Settings';
 import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 
 // Create a stable QueryClient instance outside the component
 const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -59,10 +61,13 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && location.pathname !== '/auth') {
+    // Redirect non-admin users if they try to access the settings page directly
+    if (!loading && user && !isAdmin && location.pathname === '/settings') {
+      navigate('/');
+    } else if (!loading && !user && location.pathname !== '/auth') {
       navigate('/auth');
     }
-  }, [user, loading, navigate, location]);
+  }, [user, loading, isAdmin, navigate, location]);
 
   return (
     <div className="App">

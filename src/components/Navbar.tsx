@@ -1,13 +1,16 @@
+
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useIsMobile } from "../hooks/use-mobile";
 import { Sparkles } from "lucide-react";
 import NavbarUser from "./NavbarUser";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 
 type NavItem = {
   name: string;
   path: string;
+  adminOnly?: boolean;
 };
 
 const Navbar = () => {
@@ -15,6 +18,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const { isAdmin } = useAdminCheck();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -40,8 +44,11 @@ const Navbar = () => {
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Personagens', path: '/characters' },
-    { name: 'Configurações', path: '/settings' },
+    { name: 'Configurações', path: '/settings', adminOnly: true },
   ];
+
+  // Filter nav items based on admin status
+  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <header
@@ -74,7 +81,7 @@ const Navbar = () => {
 
           {!isMobile && (
             <ul className="flex items-center space-x-6">
-              {navItems.map((link) => (
+              {filteredNavItems.map((link) => (
                 <li key={link.path}>
                   <NavLink
                     to={link.path}
@@ -149,7 +156,7 @@ const Navbar = () => {
               className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg py-4 px-4"
             >
               <ul className="space-y-3">
-                {navItems.map((link) => (
+                {filteredNavItems.map((link) => (
                   <li key={link.path}>
                     <NavLink
                       to={link.path}
