@@ -581,7 +581,7 @@ const StoryViewer: React.FC = () => {
                 imageUrl={coverImageSrc}
                 fallbackImage={fallbackImage}
                 alt={storyData.title}
-                className="w-full h-full"
+                className="w-full h-full object-cover"
                 onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />
@@ -645,8 +645,12 @@ const StoryViewer: React.FC = () => {
                     <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
                   </div>
                   <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
-                    <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
-                    <span>{storyData.childName}</span>
+                    {!isFullscreen && (
+                      <>
+                        <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                        <span>{storyData.childName}</span>
+                      </>
+                    )}
                   </div>
                   
                   <div className="mt-4 flex justify-center gap-2">
@@ -699,14 +703,18 @@ const StoryViewer: React.FC = () => {
                     </div>
                   </ScrollArea>
                   <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
-                    <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                    {!isFullscreen && (
+                      <>
+                        <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
+                        <span>{storyData.childName}</span>
+                      </>
+                    )}
                     <NarrationPlayer
                       storyId={id || ''}
                       pageIndex={pageIndex}
                       pageText={page.text}
                       voiceType={storyData.voiceType || 'female'}
                     />
-                    <span>{storyData.childName}</span>
                   </div>
                 </>
               ) : (
@@ -825,9 +833,11 @@ const StoryViewer: React.FC = () => {
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
-                <span className="text-sm text-gray-800">
-                  {currentPage} / {totalPages - 1}
-                </span>
+                {!isFullscreen && (
+                  <span className="text-sm text-gray-800">
+                    {currentPage} / {totalPages - 1}
+                  </span>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
