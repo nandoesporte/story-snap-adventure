@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
 import { toast } from 'sonner';
@@ -120,7 +121,7 @@ export const NarrationPlayer = ({
         className="flex items-center gap-2"
       >
         {isPlaying ? (
-          <Pause className="h-4 w-4" />
+          <VolumeX className="h-4 w-4" />
         ) : (
           <Volume2 className="h-4 w-4" />
         )}

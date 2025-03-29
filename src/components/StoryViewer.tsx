@@ -684,18 +684,6 @@ const StoryViewer: React.FC = () => {
                       voiceType={storyData.voiceType || 'female'}
                       className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
                     />
-                    
-                    {isMobile && (
-                      <Button 
-                        className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
-                        size="sm"
-                        variant="ghost"
-                        onClick={toggleTextVisibility}
-                      >
-                        <EyeOff className="w-4 h-4" />
-                        Ocultar texto
-                      </Button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -835,3 +823,99 @@ const StoryViewer: React.FC = () => {
                 size="sm"
                 onClick={handleDownloadPDF}
                 disabled={isDownloading}
+                className="text-gray-600"
+              >
+                <Download className="w-4 h-4" />
+                <span className="ml-1 hidden md:inline">
+                  {isDownloading ? "Processando..." : "Download PDF"}
+                </span>
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex-1 relative overflow-hidden">
+            <div
+              ref={bookRef}
+              className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+                isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
+              }`}
+            >
+              {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
+            </div>
+            
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
+              <div className="flex items-center gap-4 pointer-events-auto">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 0 || isFlipping}
+                  className="bg-white/30 hover:bg-white/50 border-white/50 shadow-md backdrop-blur-sm"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </Button>
+                <span className="bg-white/30 backdrop-blur-sm px-4 py-2 rounded-full text-sm text-white shadow-md">
+                  {currentPage} / {totalPages - 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages - 1 || isFlipping}
+                  className="bg-white/30 hover:bg-white/50 border-white/50 shadow-md backdrop-blur-sm"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
+        <DialogContent className="max-w-4xl w-[90vw] h-[90vh] p-0 bg-black/95">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <div 
+              className="overflow-auto w-full h-full flex items-center justify-center"
+              style={{ transform: `scale(${imageZoom})` }}
+            >
+              <img 
+                src={currentImageUrl} 
+                alt="Visualização ampliada"
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+            <div className="absolute top-4 right-4 flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleZoomIn}
+                className="bg-white/10 hover:bg-white/20 text-white"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleZoomOut}
+                className="bg-white/10 hover:bg-white/20 text-white"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowImageViewer(false)}
+                className="bg-white/10 hover:bg-white/20 text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default StoryViewer;
