@@ -12,26 +12,47 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Eye, EyeOff, Save, Check } from 'lucide-react';
+import { Eye, EyeOff, Save, Check, Loader2 } from 'lucide-react';
 
 const StripeApiKeyManager = () => {
   const [stripeApiKey, setStripeApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const getStripeApiKey = async () => {
+    const initializeSystem = async () => {
+      setInitializing(true);
       try {
+        // First ensure the system_configurations table exists
+        const { error: initError } = await supabase.functions.invoke('create-system-configurations');
+        
+        if (initError) {
+          console.error('Error initializing system configurations:', initError);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível inicializar as configurações do sistema',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Then get the Stripe API key
         const { data, error } = await supabase
           .from('system_configurations')
           .select('value')
           .eq('key', 'stripe_api_key')
           .single();
 
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching Stripe API Key:', error);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível carregar a chave da API do Stripe',
+            variant: 'destructive',
+          });
           return;
         }
 
@@ -40,11 +61,18 @@ const StripeApiKeyManager = () => {
         }
       } catch (error) {
         console.error('Error fetching Stripe API Key:', error);
+        toast({
+          title: 'Erro',
+          description: 'Falha ao carregar a chave da API do Stripe',
+          variant: 'destructive',
+        });
+      } finally {
+        setInitializing(false);
       }
     };
 
-    getStripeApiKey();
-  }, []);
+    initializeSystem();
+  }, [toast]);
 
   const handleSaveApiKey = async () => {
     setLoading(true);
@@ -114,47 +142,59 @@ const StripeApiKeyManager = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="stripe-api-key" className="text-sm font-medium">
-              Chave secreta da API do Stripe (STRIPE_SECRET_KEY)
-            </label>
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1">
-                <Input
-                  id="stripe-api-key"
-                  type={showApiKey ? 'text' : 'password'}
-                  value={stripeApiKey}
-                  onChange={(e) => setStripeApiKey(e.target.value)}
-                  placeholder="sk_test_..."
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={toggleShowApiKey}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              A chave secreta começa com "sk_test_" para ambiente de teste ou "sk_live_" para produção.
-            </p>
+        {initializing ? (
+          <div className="flex justify-center items-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Inicializando...</span>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="stripe-api-key" className="text-sm font-medium">
+                Chave secreta da API do Stripe (STRIPE_SECRET_KEY)
+              </label>
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="stripe-api-key"
+                    type={showApiKey ? 'text' : 'password'}
+                    value={stripeApiKey}
+                    onChange={(e) => setStripeApiKey(e.target.value)}
+                    placeholder="sk_test_..."
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowApiKey}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A chave secreta começa com "sk_test_" para ambiente de teste ou "sk_live_" para produção.
+              </p>
+            </div>
+          </div>
+        )}
       </CardContent>
       <CardFooter>
         <Button
           onClick={handleSaveApiKey}
-          disabled={loading || !stripeApiKey}
+          disabled={loading || !stripeApiKey || initializing}
           className="flex items-center space-x-2"
         >
-          {saved ? (
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Salvando...</span>
+            </>
+          ) : saved ? (
             <>
               <Check className="h-4 w-4" />
               <span>Salvo</span>
@@ -162,7 +202,7 @@ const StripeApiKeyManager = () => {
           ) : (
             <>
               <Save className="h-4 w-4" />
-              <span>{loading ? 'Salvando...' : 'Salvar'}</span>
+              <span>Salvar</span>
             </>
           )}
         </Button>

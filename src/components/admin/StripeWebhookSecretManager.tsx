@@ -12,26 +12,47 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Eye, EyeOff, Save, Check, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Save, Check, ExternalLink, Loader2 } from 'lucide-react';
 
 const StripeWebhookSecretManager = () => {
   const [webhookSecret, setWebhookSecret] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const getWebhookSecret = async () => {
+    const initializeSystem = async () => {
+      setInitializing(true);
       try {
+        // First ensure the system_configurations table exists
+        const { error: initError } = await supabase.functions.invoke('create-system-configurations');
+        
+        if (initError) {
+          console.error('Error initializing system configurations:', initError);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível inicializar as configurações do sistema',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Then get the webhook secret
         const { data, error } = await supabase
           .from('system_configurations')
           .select('value')
           .eq('key', 'stripe_webhook_secret')
           .single();
 
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching Stripe webhook secret:', error);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível carregar o segredo do webhook do Stripe',
+            variant: 'destructive',
+          });
           return;
         }
 
@@ -40,11 +61,18 @@ const StripeWebhookSecretManager = () => {
         }
       } catch (error) {
         console.error('Error fetching Stripe webhook secret:', error);
+        toast({
+          title: 'Erro',
+          description: 'Falha ao carregar o segredo do webhook do Stripe',
+          variant: 'destructive',
+        });
+      } finally {
+        setInitializing(false);
       }
     };
 
-    getWebhookSecret();
-  }, []);
+    initializeSystem();
+  }, [toast]);
 
   const handleSaveWebhookSecret = async () => {
     setLoading(true);
@@ -114,50 +142,57 @@ const StripeWebhookSecretManager = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="webhook-secret" className="text-sm font-medium">
-              Segredo do Webhook do Stripe (STRIPE_WEBHOOK_SECRET)
-            </label>
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1">
-                <Input
-                  id="webhook-secret"
-                  type={showSecret ? 'text' : 'password'}
-                  value={webhookSecret}
-                  onChange={(e) => setWebhookSecret(e.target.value)}
-                  placeholder="whsec_..."
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={toggleShowSecret}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showSecret ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+        {initializing ? (
+          <div className="flex justify-center items-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Inicializando...</span>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="webhook-secret" className="text-sm font-medium">
+                Segredo do Webhook do Stripe (STRIPE_WEBHOOK_SECRET)
+              </label>
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="webhook-secret"
+                    type={showSecret ? 'text' : 'password'}
+                    value={webhookSecret}
+                    onChange={(e) => setWebhookSecret(e.target.value)}
+                    placeholder="whsec_..."
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowSecret}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showSecret ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                O segredo do webhook começa com "whsec_" e é encontrado nas configurações de webhook do painel do Stripe.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              O segredo do webhook começa com "whsec_" e é encontrado nas configurações de webhook do painel do Stripe.
-            </p>
+            
+            <div className="mt-4 text-sm">
+              <p className="font-medium mb-2">Como configurar o webhook:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Acesse o <a href="https://dashboard.stripe.com/webhooks" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Painel de Webhooks do Stripe</a></li>
+                <li>Clique em "Adicionar endpoint"</li>
+                <li>Adicione o URL do seu endpoint: <code className="bg-gray-100 px-1 py-0.5 rounded">{window.location.origin}/functions/stripe-webhook</code></li>
+                <li>Escolha os eventos relevantes (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted)</li>
+                <li>Após criar, copie o "Signing Secret" e cole aqui</li>
+              </ol>
+            </div>
           </div>
-          
-          <div className="mt-4 text-sm">
-            <p className="font-medium mb-2">Como configurar o webhook:</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Acesse o <a href="https://dashboard.stripe.com/webhooks" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Painel de Webhooks do Stripe</a></li>
-              <li>Clique em "Adicionar endpoint"</li>
-              <li>Adicione o URL do seu endpoint: <code className="bg-gray-100 px-1 py-0.5 rounded">{window.location.origin}/functions/stripe-webhook</code></li>
-              <li>Escolha os eventos relevantes (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted)</li>
-              <li>Após criar, copie o "Signing Secret" e cole aqui</li>
-            </ol>
-          </div>
-        </div>
+        )}
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button asChild variant="outline">
@@ -173,10 +208,15 @@ const StripeWebhookSecretManager = () => {
         </Button>
         <Button
           onClick={handleSaveWebhookSecret}
-          disabled={loading || !webhookSecret}
+          disabled={loading || !webhookSecret || initializing}
           className="flex items-center space-x-2"
         >
-          {saved ? (
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Salvando...</span>
+            </>
+          ) : saved ? (
             <>
               <Check className="h-4 w-4" />
               <span>Salvo</span>
@@ -184,7 +224,7 @@ const StripeWebhookSecretManager = () => {
           ) : (
             <>
               <Save className="h-4 w-4" />
-              <span>{loading ? 'Salvando...' : 'Salvar'}</span>
+              <span>Salvar</span>
             </>
           )}
         </Button>
