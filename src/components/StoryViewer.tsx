@@ -152,7 +152,7 @@ const StoryViewer: React.FC = () => {
   const [generatedNarrationUrl, setGeneratedNarrationUrl] = useState<string | null>(null);
   const [isStoryOwner, setIsStoryOwner] = useState(false);
   const [isStoryPublic, setIsStoryPublic] = useState(false);
-  const [isStoryPublicLoading, setIsStoryPublicLoading] = useState(true);
+  const [isStoryPublicLoading, setIsLoadingPublicLoading] = useState(true);
   const [isStoryPublicError, setIsStoryPublicError] = useState<string | null>(null);
   const [isStoryPublicSuccess, setIsStoryPublicSuccess] = useState<boolean | null>(null);
   const [isStoryPublicMessage, setIsStoryPublicMessage] = useState<string | null>(null);
@@ -290,4 +290,4 @@ const StoryViewer: React.FC = () => {
   const [isStoryPublicButtonNarrationPlayerVolume1Icon35, setIsStoryPublicButtonNarrationPlayerVolume1Icon35] = useState(<Volume1 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolume2Icon36, setIsStoryPublicButtonNarrationPlayerVolume2Icon36] = useState(<Volume2 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolumeXIcon36, setIsStoryPublicButtonNarrationPlayerVolumeXIcon36] = useState(<VolumeX className="h-4 w-4 mr-2" />);
-  const [is
+  const [isStory
