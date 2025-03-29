@@ -11,7 +11,7 @@ interface NarrationPlayerProps {
   pageIndex: number;
   pageText: string;
   className?: string;
-  voiceType?: 'male' | 'female'; // Add voiceType prop
+  voiceType?: 'male' | 'female';
 }
 
 export const NarrationPlayer = ({ 
@@ -19,16 +19,18 @@ export const NarrationPlayer = ({
   pageIndex, 
   pageText, 
   className = '',
-  voiceType = 'female' // Default to female voice
+  voiceType = 'female'
 }: NarrationPlayerProps) => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
   
-  const { isPlaying, isGenerating, playAudio } = useStoryNarration({
+  const { isPlaying, isGenerating, playAudio, toggleMute } = useStoryNarration({
     storyId,
     text: pageText,
-    pageIndex
+    pageIndex,
+    voiceType
   });
   
   const { toast } = useToast();
@@ -72,14 +74,37 @@ export const NarrationPlayer = ({
   const handlePlayPause = async () => {
     try {
       await playAudio(voiceType);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);
-      toast({
-        title: "Erro de reprodução",
-        description: "Não foi possível reproduzir a narração",
-        variant: "destructive"
-      });
+      
+      const errorMessage = e.message || "Não foi possível reproduzir a narração";
+      
+      // Handle specific API errors
+      if (errorMessage.includes("API key") || errorMessage.includes("401")) {
+        toast({
+          title: "Erro de API",
+          description: "Chave de API inválida. Verifique suas configurações.",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
+        toast({
+          title: "Limite de API excedido",
+          description: "O limite de requisições foi atingido. Tente mais tarde.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Erro de reprodução",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
     }
+  };
+  
+  const handleToggleMute = () => {
+    toggleMute();
+    setIsMuted(!isMuted);
   };
   
   return (
@@ -103,6 +128,21 @@ export const NarrationPlayer = ({
           </>
         )}
       </Button>
+      
+      {isPlaying && (
+        <Button
+          onClick={handleToggleMute}
+          variant="ghost"
+          size="sm"
+          className="ml-2"
+        >
+          {isMuted ? (
+            <VolumeX className="h-4 w-4" />
+          ) : (
+            <Volume2 className="h-4 w-4" />
+          )}
+        </Button>
+      )}
       
       {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio...</span>}
       {error && <span className="ml-2 text-xs text-red-500">{error}</span>}
