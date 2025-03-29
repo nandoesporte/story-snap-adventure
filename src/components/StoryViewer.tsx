@@ -739,7 +739,7 @@ const StoryViewer: React.FC = () => {
         </div>
       ) : (
         <div ref={storyContainerRef} className="flex-1 flex flex-col h-full">
-          <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-between">
+          <div className="bg-white border-b border-gray-200 p-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Button 
                 variant="ghost" 
@@ -762,7 +762,7 @@ const StoryViewer: React.FC = () => {
               </Button>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {!isMobile && (
                 <Button
                   variant="ghost"
@@ -813,25 +813,25 @@ const StoryViewer: React.FC = () => {
             </div>
             
             <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
-              <div className="flex items-center gap-4 pointer-events-auto">
+              <div className="flex items-center gap-4 bg-white/80 backdrop-blur-sm rounded-full p-2 shadow-md pointer-events-auto">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
                   onClick={handlePreviousPage}
                   disabled={currentPage === 0 || isFlipping}
-                  className="bg-white/80 hover:bg-white/90 border-white/40 shadow-md backdrop-blur-sm"
+                  className="hover:bg-gray-100"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
-                <span className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm text-gray-800 shadow-md">
+                <span className="text-sm text-gray-800">
                   {currentPage} / {totalPages - 1}
                 </span>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages - 1 || isFlipping}
-                  className="bg-white/80 hover:bg-white/90 border-white/40 shadow-md backdrop-blur-sm"
+                  className="hover:bg-gray-100"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>
