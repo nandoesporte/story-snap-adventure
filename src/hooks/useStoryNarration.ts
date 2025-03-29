@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -118,6 +119,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         }
         
         try {
+          // Fix: The getPublicUrl method doesn't return an error property
           const { data } = supabase.storage.from('story_narrations').getPublicUrl('test');
           console.log("Successfully tested public URL policy:", data.publicUrl);
         } catch (e) {
