@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -15,10 +14,9 @@ export type StoryGenerationResult = {
 };
 
 export class StoryBot {
-  private useOpenAI: boolean = false;
+  private useOpenAI: boolean = true;
   private openAIModel: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini';
   private openAIClient: OpenAI | null = null;
-  private geminiClient: GoogleGenerativeAI | null = null;
 
   constructor() {
     this.initializeClients();
@@ -26,15 +24,7 @@ export class StoryBot {
 
   private initializeClients() {
     try {
-      const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
       const openAIApiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY;
-
-      if (geminiApiKey && geminiApiKey !== 'undefined' && geminiApiKey !== 'null' && geminiApiKey.trim() !== '') {
-        this.geminiClient = new GoogleGenerativeAI(geminiApiKey);
-        console.log("Gemini client initialized");
-      } else {
-        console.warn("Gemini API key not found or invalid");
-      }
 
       if (openAIApiKey && openAIApiKey !== 'undefined' && openAIApiKey !== 'null' && openAIApiKey.trim() !== '') {
         this.openAIClient = new OpenAI({ apiKey: openAIApiKey, dangerouslyAllowBrowser: true });
@@ -54,17 +44,9 @@ export class StoryBot {
   }
 
   async generateStoryBotResponse(messages: Message[], userPrompt: string): Promise<string> {
-    if (this.useOpenAI && this.openAIClient) {
-      return this.generateOpenAIResponse(messages, userPrompt);
-    } else if (this.geminiClient) {
-      return this.generateGeminiResponse(messages, userPrompt);
+    if (!this.openAIClient) {
+      throw new Error('Nenhum cliente de IA disponível. Verifique suas configurações de API.');
     }
-
-    throw new Error('Nenhum cliente de IA disponível. Verifique suas configurações de API.');
-  }
-
-  private async generateOpenAIResponse(messages: Message[], userPrompt: string): Promise<string> {
-    if (!this.openAIClient) throw new Error('OpenAI client not initialized');
 
     const response = await this.openAIClient.chat.completions.create({
       model: this.openAIModel,
@@ -82,34 +64,8 @@ export class StoryBot {
     return response.choices[0].message.content || '';
   }
 
-  private async generateGeminiResponse(messages: Message[], userPrompt: string): Promise<string> {
-    if (!this.geminiClient) throw new Error('Gemini client not initialized');
-
-    const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-
-    const chat = model.startChat({
-      history: messages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      })),
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.9,
-        topK: 40,
-        maxOutputTokens: 1000,
-      },
-    });
-
-    const result = await chat.sendMessage(userPrompt);
-    const response = await result.response;
-    return response.text();
-  }
-
   isApiAvailable(): boolean {
-    if (this.useOpenAI) {
-      return !!this.openAIClient;
-    }
-    return !!this.geminiClient;
+    return !!this.openAIClient;
   }
 
   async generateStoryWithPrompts(
@@ -124,12 +80,8 @@ export class StoryBot {
     language: string = "portuguese",
     storyContext: string = ""
   ): Promise<StoryGenerationResult> {
-    if (this.useOpenAI && !this.openAIClient) {
+    if (!this.openAIClient) {
       throw new Error('A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações.');
-    }
-    
-    if (!this.useOpenAI && !this.geminiClient) {
-      throw new Error('A chave da API Gemini não está configurada ou é inválida. Configure-a nas configurações.');
     }
     
     console.log(`Generating complete story with ${length} pages`);
@@ -141,13 +93,7 @@ export class StoryBot {
 
     try {
       let response;
-      if (this.useOpenAI && this.openAIClient) {
-        response = await this.generateOpenAIStory(prompt);
-      } else if (this.geminiClient) {
-        response = await this.generateGeminiStory(prompt);
-      } else {
-        throw new Error('Nenhum cliente de IA disponível');
-      }
+      response = await this.generateOpenAIStory(prompt);
 
       return this.processStoryResponse(response);
     } catch (error: any) {
@@ -236,28 +182,6 @@ export class StoryBot {
     }
   }
 
-  private async generateGeminiStory(prompt: string): Promise<string> {
-    if (!this.geminiClient) throw new Error('Cliente Gemini não inicializado. Verifique suas configurações.');
-    
-    try {
-      const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-      const result = await model.generateContent(prompt);
-      const genResponse = await result.response;
-      
-      return genResponse.text();
-    } catch (error: any) {
-      console.error("Erro na requisição Gemini:", error);
-      
-      if (error.message && error.message.includes("API key")) {
-        throw new Error('Chave da API Gemini inválida. Por favor, verifique suas configurações.');
-      } else if (error.message && error.message.includes("quota")) {
-        throw new Error('Cota da API Gemini excedida. Por favor, verifique seu plano ou tente novamente mais tarde.');
-      }
-      
-      throw error;
-    }
-  }
-
   private processStoryResponse(response: string): StoryGenerationResult {
     const titleMatch = response.match(/TÍTULO:\s*(.*?)(?:\r?\n|$)/i) || 
                      response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
@@ -323,13 +247,7 @@ export class StoryBot {
     );
 
     try {
-      if (this.useOpenAI && this.openAIClient) {
-        return this.generateOpenAIImageDescription(prompt);
-      } else if (this.geminiClient) {
-        return this.generateGeminiImageDescription(prompt);
-      } else {
-        throw new Error('Nenhum cliente de IA disponível.');
-      }
+      return this.generateOpenAIImageDescription(prompt);
     } catch (error) {
       console.error("Erro ao gerar descrição da imagem:", error);
       return `Ilustração detalhada de ${characterName} em uma aventura no cenário de ${setting} com tema de ${theme}.`;
@@ -372,15 +290,5 @@ export class StoryBot {
     });
 
     return response.choices[0].message.content || 'Descrição de ilustração não gerada.';
-  }
-
-  private async generateGeminiImageDescription(prompt: string): Promise<string> {
-    if (!this.geminiClient) throw new Error('Gemini client not initialized');
-    
-    const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    
-    return response.text();
   }
 }

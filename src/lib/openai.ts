@@ -1,21 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { toast } from 'sonner';
 import OpenAI from 'openai';
-
-// Get API key from localStorage or environment variables
-const getGeminiApiKey = () => {
-  const key = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
-  return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
-};
+import { toast } from 'sonner';
 
 // Get OpenAI API key from localStorage
 const getOpenAIApiKey = () => {
   const key = localStorage.getItem('openai_api_key') || '';
   return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
 };
-
-// Initialize Gemini API client with API key
-export const geminiAI = new GoogleGenerativeAI(getGeminiApiKey() || 'invalid-key-placeholder');
 
 // Initialize OpenAI with a new API key
 export const initializeOpenAI = (apiKey: string) => {
@@ -59,29 +49,6 @@ export const getOpenAIClient = () => {
     });
   } catch (error) {
     console.error('Erro ao criar cliente OpenAI:', error);
-    return null;
-  }
-};
-
-// Function to reinitialize Gemini with a new API key
-export const reinitializeGeminiAI = (apiKey: string) => {
-  if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
-    console.error('Tentativa de inicializar Gemini com chave inválida:', apiKey);
-    return null;
-  }
-  
-  try {
-    console.log(`Inicializando API Gemini com chave: ${apiKey.substring(0, 5)}...`);
-    const trimmedKey = apiKey.trim();
-    localStorage.setItem('gemini_api_key', trimmedKey);
-    
-    // Clear any previous API issues
-    localStorage.removeItem("storybot_api_issue");
-    
-    const newClient = new GoogleGenerativeAI(trimmedKey);
-    return newClient;
-  } catch (error) {
-    console.error('Erro ao reinicializar Gemini:', error);
     return null;
   }
 };
@@ -190,118 +157,33 @@ export const openai = {
         
         const attemptRequest = async (): Promise<any> => {
           try {
-            // Get current API key
-            const currentApiKey = getGeminiApiKey();
-            if (!currentApiKey) {
-              throw new Error('Chave da API Gemini não configurada');
+            const client = getOpenAIClient();
+            if (!client) {
+              throw new Error('Cliente OpenAI não inicializado');
             }
             
-            // Create a new instance with the current key
-            const currentGeminiAI = new GoogleGenerativeAI(currentApiKey);
-            
-            // Map OpenAI messages format to Gemini format
-            const geminiMessages = messages.map((msg: any) => ({
-              role: msg.role === 'assistant' ? 'model' : msg.role,
-              parts: [{ text: msg.content }]
-            }));
-
-            // Always use gemini-1.5-pro model
-            const geminiModel = currentGeminiAI.getGenerativeModel({ 
-              model: "gemini-1.5-pro",
-              generationConfig: {
-                temperature: temperature || 0.7,
-                maxOutputTokens: max_tokens || 1000,
-              }
+            const response = await client.chat.completions.create({
+              model: model || "gpt-4o",
+              messages: messages,
+              temperature: temperature || 0.7,
+              max_tokens: max_tokens || 1000,
             });
-
-            try {
-              // Set a timeout to prevent hanging requests
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-              // Create chat session - not all Gemini models support chat
-              const chat = geminiModel.startChat({
-                history: geminiMessages.slice(0, -1) // Exclude the last message
-              });
-
-              // Generate response
-              const lastMessage = geminiMessages[geminiMessages.length - 1];
-              const result = await chat.sendMessage(lastMessage.parts[0].text, {
-                signal: controller.signal
-              });
-              
-              clearTimeout(timeoutId);
-              
-              const responseText = result.response.text();
-
-              // Clear any previous API issues
-              localStorage.removeItem("storybot_api_issue");
-
-              // Format response to match OpenAI structure
-              return {
-                choices: [
-                  {
-                    message: {
-                      content: responseText
-                    }
-                  }
-                ]
-              };
-            } catch (error: any) {
-              // If chat fails, try with direct generation
-              console.warn("Chat failed, trying direct content generation:", error);
-              
-              if (error.name === 'AbortError') {
-                throw new Error('Tempo limite excedido ao gerar resposta');
-              }
-              
-              // Check for quota errors
-              if (error.message && error.message.includes("quota") && error.message.includes("429")) {
-                console.error("Quota exceeded error detected:", error);
-                throw new Error('Limite de quota do Gemini excedido. Por favor, tente novamente mais tarde.');
-              }
-              
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-              
-              const lastMessage = geminiMessages[geminiMessages.length - 1];
-              const result = await geminiModel.generateContent(
-                lastMessage.parts[0].text,
-                { signal: controller.signal }
-              );
-              
-              clearTimeout(timeoutId);
-              
-              const responseText = result.response.text();
-              
-              // Clear any previous API issues
-              localStorage.removeItem("storybot_api_issue");
-              
-              return {
-                choices: [
-                  {
-                    message: {
-                      content: responseText
-                    }
-                  }
-                ]
-              };
-            }
+            
+            // Clear any previous API issues
+            localStorage.removeItem("storybot_api_issue");
+            
+            return response;
           } catch (error: any) {
-            console.error("Error using Gemini API (attempt " + (retryCount + 1) + "):", error);
+            console.error("Error using OpenAI API (attempt " + (retryCount + 1) + "):", error);
             
             // Check specifically for quota errors
-            if (error.message && (
-                error.message.includes("quota") || 
-                error.message.includes("429") || 
-                error.message.includes("rate limit")
-              )) {
-              console.error("Quota exceeded or rate limit error detected. Adding delay before retry.");
+            if (error.status === 429) {
+              console.error("Quota exceeded error detected:", error);
               localStorage.setItem("storybot_api_issue", "true");
               
               retryCount++;
               if (retryCount <= maxRetries) {
-                console.log(`Retrying Gemini API request with backoff (attempt ${retryCount} of ${maxRetries})...`);
+                console.log(`Retrying OpenAI API request with backoff (attempt ${retryCount} of ${maxRetries})...`);
                 
                 // Wait with exponential backoff before retrying
                 await new Promise(resolve => setTimeout(resolve, backoffDelay));
@@ -309,16 +191,11 @@ export const openai = {
                 
                 return attemptRequest();
               }
-            } else if (error.message && error.message.includes("Tempo limite excedido")) {
-              // Just retry timeout errors without counting towards retry limit
-              console.log(`Retrying after timeout error...`);
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              return attemptRequest();
             } else {
               // For other errors, increment retry count
               retryCount++;
               if (retryCount <= maxRetries) {
-                console.log(`Retrying Gemini API request (attempt ${retryCount} of ${maxRetries})...`);
+                console.log(`Retrying OpenAI API request (attempt ${retryCount} of ${maxRetries})...`);
                 
                 // Wait a short time before retrying
                 await new Promise(resolve => setTimeout(resolve, 1500));
@@ -329,16 +206,6 @@ export const openai = {
             // Dispatch an event to inform components about API issues
             window.dispatchEvent(new CustomEvent('storybot_api_issue'));
             localStorage.setItem("storybot_api_issue", "true");
-            
-            // If we've exhausted retries, we can try a local fallback generator
-            if (error.message && (
-                error.message.includes("quota") || 
-                error.message.includes("429") || 
-                error.message.includes("rate limit")
-              )) {
-              // Return a special error that indicates quota issues
-              throw new Error('QUOTA_EXCEEDED: ' + error.message);
-            }
             
             throw error;
           }
