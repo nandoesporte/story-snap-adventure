@@ -63,24 +63,23 @@ BEGIN
 END $$;
 
 -- Add policy to allow public read access to storage
+DO $$
 BEGIN
   INSERT INTO storage.policies (name, bucket_id, definition)
-  VALUES ('Allow public read access', 'story_narrations', '{"name":"Allow public read access","id":"story_narrations/public_read","definition":{"statements":[{"effect":"allow","principal":"anon","action":"select","resource":"objects"}]}}')
-  ON CONFLICT (name, bucket_id) 
-  DO NOTHING;
+  VALUES ('Allow public read access', 'story_narrations', '{"name":"Allow public read access","id":"story_narrations/public_read","definition":{"statements":[{"effect":"allow","principal":"anon","action":"select","resource":"objects"}]}}');
 EXCEPTION
   WHEN others THEN
     -- Policy likely already exists or can't be created this way
-END;
+    NULL;
+END $$;
 
 -- Add policy to allow authenticated users to upload files
+DO $$
 BEGIN
   INSERT INTO storage.policies (name, bucket_id, definition)
-  VALUES ('Allow authenticated uploads', 'story_narrations', '{"name":"Allow authenticated uploads","id":"story_narrations/authenticated_uploads","definition":{"statements":[{"effect":"allow","principal":"authenticated","action":["insert","update"],"resource":"objects"}]}}')
-  ON CONFLICT (name, bucket_id) 
-  DO NOTHING;
+  VALUES ('Allow authenticated uploads', 'story_narrations', '{"name":"Allow authenticated uploads","id":"story_narrations/authenticated_uploads","definition":{"statements":[{"effect":"allow","principal":"authenticated","action":["insert","update"],"resource":"objects"}]}}');
 EXCEPTION
   WHEN others THEN
     -- Policy likely already exists or can't be created this way
-END;
-
+    NULL;
+END $$;
