@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -57,7 +58,8 @@ export const useStoryGeneration = () => {
     readingLevel: string = "intermediate",
     language: string = "portuguese",
     childImageBase64: string | null = null,
-    style: string = "papercraft"
+    style: string = "papercraft",
+    voiceType: 'male' | 'female' = 'female'
   ) => {
     try {
       setIsGenerating(true);
@@ -119,7 +121,8 @@ export const useStoryGeneration = () => {
         readingLevel,
         language,
         hasChildImage: !!childImageBase64,
-        style: "papercraft"
+        style: "papercraft",
+        voiceType
       });
       
       const generateWithPersistence = async () => {
@@ -263,19 +266,17 @@ export const useStoryGeneration = () => {
         }
         
         if (storyResult && storyResult.pages) {
-          const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
-          if (!elevenlabsApiKey) {
-            console.warn("ElevenLabs API key not configured, skipping narration generation");
-            toast.warning("Chave da API ElevenLabs não configurada. As narrações não serão geradas.");
+          // Verificar se temos a chave da API Google TTS
+          const googleTtsApiKey = localStorage.getItem('google_tts_api_key');
+          if (!googleTtsApiKey) {
+            console.warn("Google TTS API key not configured, skipping narration generation");
+            toast.warning("Chave da API Google Text-to-Speech não configurada. As narrações não serão geradas.");
           } else {
             setGeneratingNarration(true);
             setCurrentStage("Gerando narrações para as páginas...");
             toast.info("Iniciando geração de narrações para as páginas...");
             
-            const voiceId = language && language.toLowerCase() === 'english' ? 
-                VOICE_IDS.male : 
-                VOICE_IDS.female;
-            
+            // Determinar o tipo de voz baseado na seleção do usuário
             const maxNarrationAttempts = 2;
             let narrationFailures = 0;
             
@@ -284,7 +285,7 @@ export const useStoryGeneration = () => {
                 setCurrentNarrationIndex(i + 1);
                 setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
                 
-                console.log(`Gerando narração para página ${i+1} de ${storyResult.pages.length}`);
+                console.log(`Gerando narração para página ${i+1} de ${storyResult.pages.length} com voz ${voiceType}`);
                 
                 let narrationSuccess = false;
                 let attempts = 0;
@@ -294,10 +295,11 @@ export const useStoryGeneration = () => {
                     attempts++;
                     console.log(`Tentativa ${attempts} de gerar narração para página ${i+1}`);
                     
-                    await generateAudio(voiceId, {
+                    await generateAudio(voiceType, {
                       storyId: storyResult.id,
                       text: storyResult.pages[i].text,
-                      pageIndex: i
+                      pageIndex: i,
+                      voiceType: voiceType
                     });
                     
                     narrationSuccess = true;
@@ -333,7 +335,7 @@ export const useStoryGeneration = () => {
             
             if (narrationFailures > 0) {
               if (narrationFailures === storyResult.pages.length) {
-                toast.error(`Não foi possível gerar nenhuma narração. Verifique sua chave da API ElevenLabs.`);
+                toast.error(`Não foi possível gerar nenhuma narração. Verifique sua chave da API Google TTS.`);
               } else {
                 toast.warning(`${narrationFailures} narrações não puderam ser geradas. As demais estão disponíveis.`);
               }

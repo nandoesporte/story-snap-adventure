@@ -8,6 +8,7 @@ import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
+import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -169,6 +170,7 @@ const Admin = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <GeminiApiKeyManager />
+            <GoogleTTSApiKeyManager />
           </div>
         </TabsContent>
         

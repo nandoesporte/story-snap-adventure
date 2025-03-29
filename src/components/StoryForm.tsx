@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Award, BookOpen, Globe } from "lucide-react";
+import { Award, BookOpen, Globe, Speaker } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ export interface StoryFormData {
   readingLevel: ReadingLevel;
   language: StoryLanguage;
   moral: StoryMoral;
+  voiceType: 'male' | 'female';
 }
 
 interface StoryFormProps {
@@ -46,6 +47,7 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
   const [readingLevel, setReadingLevel] = useState<ReadingLevel>("intermediate");
   const [language, setLanguage] = useState<StoryLanguage>("portuguese");
   const [moral, setMoral] = useState<StoryMoral>("friendship");
+  const [voiceType, setVoiceType] = useState<'male' | 'female'>('female');
   
   // Initialize form with initial data if provided
   useEffect(() => {
@@ -60,6 +62,7 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
       setReadingLevel(initialData.readingLevel || "intermediate");
       setLanguage(initialData.language || "portuguese");
       setMoral(initialData.moral || "friendship");
+      setVoiceType(initialData.voiceType || "female");
     }
   }, [initialData]);
   
@@ -109,7 +112,8 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
       characterName,
       readingLevel,
       language,
-      moral
+      moral,
+      voiceType
     });
   };
   
@@ -327,6 +331,22 @@ const StoryForm = ({ onSubmit, initialData }: StoryFormProps) => {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <Label htmlFor="voiceType" className="flex items-center gap-1.5 mb-1">
+            <Speaker className="h-3.5 w-3.5 text-violet-600" />
+            Voz da Narração
+          </Label>
+          <Select value={voiceType} onValueChange={(value) => setVoiceType(value as 'male' | 'female')}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Selecione o tipo de voz" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="female">Feminina</SelectItem>
+              <SelectItem value="male">Masculina</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       

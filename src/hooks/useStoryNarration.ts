@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ interface GenerateAudioParams {
   storyId: string;
   text: string;
   pageIndex: number;
+  voiceType?: 'male' | 'female';
 }
 
 export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarrationProps) => {
@@ -22,9 +24,26 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
   
+  // Configuração de vozes do Google TTS
   const VOICE_IDS = {
-    female: "EXAVITQu4vr4xnSDxMaL", // Sarah
-    male: "TX3LPaxmHKxFdv7VOQHJ"    // Liam
+    female: "pt-BR-Standard-A", // Voz feminina padrão em português
+    male: "pt-BR-Standard-B"    // Voz masculina padrão em português
+  };
+
+  // Vozes disponíveis para diferentes idiomas
+  const AVAILABLE_VOICES = {
+    portuguese: {
+      female: ["pt-BR-Standard-A", "pt-BR-Wavenet-A"],
+      male: ["pt-BR-Standard-B", "pt-BR-Wavenet-B"]
+    },
+    english: {
+      female: ["en-US-Standard-C", "en-US-Wavenet-C"],
+      male: ["en-US-Standard-B", "en-US-Wavenet-B"]
+    },
+    spanish: {
+      female: ["es-ES-Standard-A", "es-ES-Wavenet-A"],
+      male: ["es-ES-Standard-B", "es-ES-Wavenet-B"]
+    }
   };
 
   useEffect(() => {
@@ -88,11 +107,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     return localStorage.getItem(key);
   };
 
-  const generateAudio = async (voiceId: string, params?: GenerateAudioParams) => {
+  const generateAudio = async (voiceType: 'male' | 'female' = 'female', params?: GenerateAudioParams) => {
     // Use provided params or fall back to the hook's props
     const textToUse = params?.text || text;
     const storyIdToUse = params?.storyId || storyId;
     const pageIndexToUse = params?.pageIndex !== undefined ? params.pageIndex : pageIndex;
+    const voiceTypeToUse = params?.voiceType || voiceType;
     
     if (!textToUse || isGenerating || !storyIdToUse) {
       console.warn("Missing required data for audio generation:", {
@@ -103,11 +123,11 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       return;
     }
     
-    // Get the API key from localStorage
-    const apiKey = localStorage.getItem('elevenlabs_api_key');
+    // Get the API key from localStorage or from admin settings
+    const apiKey = localStorage.getItem('google_tts_api_key');
     if (!apiKey) {
-      console.error('ElevenLabs API key not configured');
-      throw new Error('Chave da API ElevenLabs não configurada');
+      console.error('Google Text-to-Speech API key not configured');
+      throw new Error('Chave da API Google Text-to-Speech não configurada');
     }
 
     setIsGenerating(true);
@@ -119,7 +139,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
 
     try {
       // Log the generation attempt for debugging
-      console.log(`Generating audio for story ${storyIdToUse}, page ${pageIndexToUse}`);
+      console.log(`Generating audio for story ${storyIdToUse}, page ${pageIndexToUse} with voice type: ${voiceTypeToUse}`);
       
       // Generate a unique storage key for this audio
       const localStorageKey = `audio_${storyIdToUse}_page_${pageIndexToUse}`;
@@ -136,32 +156,38 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         return cachedAudio;
       }
 
-      console.log(`Generating audio for page ${pageIndexToUse} with ElevenLabs API`);
-      const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
+      console.log(`Generating audio for page ${pageIndexToUse} with Google TTS API`);
+
+      // Selecione a voz com base no idioma (default para português)
+      const voiceLanguage = "portuguese"; // Isso poderia ser determinado dinamicamente baseado no conteúdo ou parâmetros
+      const voiceId = VOICE_IDS[voiceTypeToUse];
+
+      // Preparar a requisição para a API Google Text-to-Speech
+      const requestBody = {
+        input: { text: textToUse },
+        voice: { 
+          languageCode: voiceId.substring(0, 5), // Extrair código de idioma (pt-BR, en-US, etc)
+          name: voiceId
+        },
+        audioConfig: { audioEncoding: "MP3" }
+      };
+
+      // Fazer requisição para a API Google TTS
+      const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          text: textToUse,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
-            style: 0.7,
-            use_speaker_boost: true
-          }
-        }),
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Erro na resposta da API ElevenLabs:', errorData);
+        console.error('Erro na resposta da API Google TTS:', errorData);
         
         // Add more specific error messages based on status codes
-        if (response.status === 401) {
-          throw new Error('API key inválida ou expirada');
+        if (response.status === 403) {
+          throw new Error('API key inválida ou sem permissões');
         } else if (response.status === 429) {
           throw new Error('Limite de requisições excedido');
         } else {
@@ -169,7 +195,25 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         }
       }
 
-      const audioBlob = await response.blob();
+      // Processar resposta da API (vem como base64)
+      const responseData = await response.json();
+      const audioContent = responseData.audioContent; // Base64 encoded audio
+
+      // Converter base64 para blob
+      const byteCharacters = atob(audioContent);
+      const byteArrays = [];
+
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+
+      const audioBlob = new Blob(byteArrays, { type: 'audio/mp3' });
       console.log(`Received audio blob for page ${pageIndexToUse}, size: ${audioBlob.size} bytes`);
       
       if (audioBlob.size < 100) {
@@ -274,7 +318,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Try again with exponential backoff
-        return generateAudio(voiceId, params);
+        return generateAudio(voiceType, params);
       }
       
       throw error;
@@ -283,9 +327,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     }
   };
 
-  const playAudio = async (voiceId: string) => {
+  const playAudio = async (voiceType: 'male' | 'female' = 'female') => {
     if (!audioUrl && !isGenerating && text) {
-      await generateAudio(voiceId);
+      await generateAudio(voiceType);
       return;
     }
 
@@ -325,6 +369,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     isPlaying,
     playAudio,
     generateAudio,
-    VOICE_IDS
+    VOICE_IDS,
+    AVAILABLE_VOICES
   };
 };
