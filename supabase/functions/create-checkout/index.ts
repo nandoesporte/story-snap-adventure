@@ -29,11 +29,13 @@ serve(async (req) => {
   }
 
   // Create a Supabase client with the auth header
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") || "",
-    Deno.env.get("SUPABASE_ANON_KEY") || "",
-    { global: { headers: { Authorization: authHeader } } }
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  
+  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false }
+  });
 
   // Get the user from the auth header
   const {

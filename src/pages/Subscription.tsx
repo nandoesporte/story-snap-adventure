@@ -1,22 +1,37 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { SubscriptionPlanSelector } from '@/components/SubscriptionPlanSelector';
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Subscription = () => {
   const { user, loading } = useAuth();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Clear error when component unmounts or user changes
+  React.useEffect(() => {
+    setErrorMessage(null);
+  }, [user]);
   
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
         <p>Carregando...</p>
       </div>
     );
   }
+  
+  const handleError = (error: string) => {
+    setErrorMessage(error);
+    toast.error(error);
+  };
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -35,7 +50,14 @@ const Subscription = () => {
             </div>
           </div>
         )}
-        <SubscriptionPlanSelector />
+        
+        {errorMessage && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
+        
+        <SubscriptionPlanSelector onError={handleError} />
       </main>
       <Footer />
     </div>

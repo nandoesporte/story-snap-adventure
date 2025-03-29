@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import { CheckCircle, Circle, CreditCard, Shield, LogIn } from 'lucide-react';
+import { CheckCircle, Circle, CreditCard, Shield, LogIn, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -35,14 +35,18 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-export const SubscriptionPlanSelector = () => {
+interface SubscriptionPlanSelectorProps {
+  onError?: (error: string) => void;
+}
+
+export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorProps) => {
   const { user } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   
   // Get subscription plans
-  const { data: plans, isLoading: loadingPlans } = useQuery({
+  const { data: plans, isLoading: loadingPlans, error: plansError } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: getSubscriptionPlans,
   });
@@ -56,6 +60,12 @@ export const SubscriptionPlanSelector = () => {
     },
     enabled: !!user,
   });
+  
+  React.useEffect(() => {
+    if (plansError && onError) {
+      onError("Erro ao carregar planos de assinatura. Por favor, tente novamente mais tarde.");
+    }
+  }, [plansError, onError]);
   
   // Format currency
   const formatCurrency = (amount: number, currency: string = 'BRL') => {
@@ -96,7 +106,9 @@ export const SubscriptionPlanSelector = () => {
       window.location.href = checkoutUrl;
     } catch (error) {
       console.error('Error creating checkout:', error);
-      toast.error('Erro ao processar checkout');
+      const errorMessage = "Erro ao processar checkout. Verifique se as configurações do Stripe foram feitas corretamente.";
+      toast.error(errorMessage);
+      if (onError) onError(errorMessage);
     } finally {
       setIsCheckoutLoading(false);
     }
@@ -113,7 +125,9 @@ export const SubscriptionPlanSelector = () => {
       toast.success('Assinatura cancelada com sucesso');
     } catch (error) {
       console.error('Error canceling subscription:', error);
-      toast.error('Erro ao cancelar assinatura');
+      const errorMessage = "Erro ao cancelar assinatura";
+      toast.error(errorMessage);
+      if (onError) onError(errorMessage);
     } finally {
       setIsCanceling(false);
     }
@@ -122,7 +136,22 @@ export const SubscriptionPlanSelector = () => {
   if (loadingPlans) {
     return (
       <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
         <p>Carregando planos...</p>
+      </div>
+    );
+  }
+  
+  if (plansError) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500 mb-4">Não foi possível carregar os planos de assinatura</p>
+        <Button 
+          onClick={() => window.location.reload()}
+          variant="outline"
+        >
+          Tentar novamente
+        </Button>
       </div>
     );
   }
@@ -269,8 +298,17 @@ export const SubscriptionPlanSelector = () => {
             disabled={isCheckoutLoading}
             className="px-8"
           >
-            <CreditCard className="mr-2 h-4 w-4" />
-            {isCheckoutLoading ? 'Processando...' : 'Continuar para pagamento'}
+            {isCheckoutLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              <>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Continuar para pagamento
+              </>
+            )}
           </Button>
         </div>
       )}

@@ -806,6 +806,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      exec_sql: {
+        Args: {
+          sql_query: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
