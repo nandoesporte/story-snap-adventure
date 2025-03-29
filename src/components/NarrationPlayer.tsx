@@ -114,6 +114,11 @@ export const NarrationPlayer = ({
         
         // Show a more detailed error in the UI
         setError("API não ativada");
+      } else if (errorMessage.includes("bucket") || errorMessage.includes("storage")) {
+        toast.error("Erro de armazenamento: Os arquivos de áudio serão salvos apenas localmente.");
+        
+        // Show a more detailed error in the UI
+        setError("Problemas com armazenamento");
       } else {
         toast.error(`Erro de reprodução: ${errorMessage}`);
       }

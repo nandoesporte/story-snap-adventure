@@ -108,6 +108,47 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     return localStorage.getItem(key);
   };
 
+  // Helper function to ensure the story_narrations bucket exists
+  const ensureStorageBucketExists = async () => {
+    try {
+      // Check if bucket exists first
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === 'story_narrations');
+      
+      if (!bucketExists) {
+        console.log("Creating 'story_narrations' bucket...");
+        const { data, error: createError } = await supabase.storage.createBucket('story_narrations', {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+        });
+        
+        if (createError) {
+          console.error("Error creating bucket:", createError);
+          return false;
+        }
+        
+        // Set public access policy for the new bucket
+        try {
+          const { error: policyError } = await supabase.storage.from('story_narrations').getPublicUrl('test');
+          if (policyError) {
+            console.warn("Could not verify public URL policy:", policyError);
+          }
+        } catch (e) {
+          console.warn("Error testing public URL policy:", e);
+        }
+        
+        console.log("Bucket 'story_narrations' created successfully");
+      } else {
+        console.log("Bucket 'story_narrations' already exists");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error ensuring bucket exists:", error);
+      return false;
+    }
+  };
+
   const generateAudio = async (voiceType: 'male' | 'female' = 'female', params?: GenerateAudioParams) => {
     // Use provided params or fall back to the hook's props
     const textToUse = params?.text || text;
@@ -238,6 +279,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       // Try to save to Supabase (but don't block on this)
       try {
         console.log("Attempting to save audio to Supabase storage");
+        
+        // First ensure the bucket exists
+        const bucketReady = await ensureStorageBucketExists();
+        if (!bucketReady) {
+          console.warn("Could not ensure bucket exists, using local audio only");
+          throw new Error("Could not create or verify storage bucket");
+        }
         
         // Create a better unique filename with timestamp
         const fileName = `${storyIdToUse}_page_${pageIndexToUse}_${Date.now()}.mp3`;
