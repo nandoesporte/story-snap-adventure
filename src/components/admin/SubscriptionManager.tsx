@@ -153,14 +153,18 @@ export const SubscriptionManager = () => {
     queryFn: getSubscriptionPlans,
   });
   
-  // Get Stripe products
+  // Get Stripe products - Fixed to use proper error handling with onSettled
   const { data: stripeProducts, isLoading: loadingStripeProducts, refetch: refetchStripeProducts } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: getStripeProducts,
-    onError: () => {
-      setIsStripeConnected(false);
-    },
-    retry: false
+    retry: false,
+    meta: {
+      onSettled: (data, error) => {
+        if (error) {
+          setIsStripeConnected(false);
+        }
+      }
+    }
   });
   
   // Set isStripeConnected when stripeProducts are successfully loaded
