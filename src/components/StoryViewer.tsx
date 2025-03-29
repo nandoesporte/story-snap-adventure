@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -788,3 +789,146 @@ const StoryViewer: React.FC = () => {
             <div className="flex gap-2">
               <Button 
                 variant="ghost"
+                className="text-white hover:text-white hover:bg-white/20"
+                onClick={handleZoomIn}
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="ghost"
+                className="text-white hover:text-white hover:bg-white/20"
+                onClick={handleZoomOut}
+              >
+                <ZoomOut className="h-5 w-5" />
+              </Button>
+            </div>
+            <Button 
+              variant="ghost"
+              className="text-white hover:text-white hover:bg-white/20"
+              onClick={() => setShowImageViewer(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <div className="overflow-auto h-[80vh] flex items-center justify-center">
+            <img 
+              src={currentImageUrl}
+              alt="Imagem ampliada"
+              className="transition-transform"
+              style={{ transform: `scale(${imageZoom})` }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <div 
+        ref={storyContainerRef}
+        className="w-full max-w-7xl bg-white rounded-lg shadow-xl overflow-hidden flex flex-col"
+      >
+        <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-2 md:p-4 flex justify-between items-center">
+          <div className="flex gap-2">
+            <Button variant="ghost" className="text-white" size="sm" onClick={handleGoHome}>
+              <Home className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Início</span>
+            </Button>
+            <Button variant="ghost" className="text-white" size="sm" onClick={handleCreateNew}>
+              <BookText className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Nova História</span>
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="ghost" className="text-white" size="sm" onClick={handleShareStory}>
+              <Share className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Compartilhar</span>
+            </Button>
+            <Button variant="ghost" className="text-white" size="sm" onClick={handleDownloadPDF} disabled={isDownloading}>
+              <Download className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Download PDF</span>
+            </Button>
+            <Button variant="ghost" className="text-white" size="sm" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              <span className="hidden md:inline">{isFullscreen ? 'Minimizar' : 'Tela Cheia'}</span>
+            </Button>
+          </div>
+        </div>
+        
+        <div className="flex-1 relative overflow-hidden">
+          <div ref={bookRef} className="w-full h-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentPage}
+                initial={{ 
+                  opacity: 0,
+                  x: flipDirection === "right" ? 50 : -50 
+                }}
+                animate={{ 
+                  opacity: 1,
+                  x: 0 
+                }}
+                exit={{ 
+                  opacity: 0,
+                  x: flipDirection === "right" ? -50 : 50 
+                }}
+                transition={{ 
+                  type: "tween",
+                  duration: 0.3
+                }}
+                className="w-full h-full"
+              >
+                {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          
+          <Button
+            className="absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
+            variant="outline"
+            size="icon"
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0 || isFlipping}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            className="absolute right-2 md:right-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
+            variant="outline"
+            size="icon"
+            onClick={handleNextPage}
+            disabled={!storyData || currentPage >= totalPages - 1 || isFlipping}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="bg-white p-2 md:p-4 border-t border-gray-100 flex justify-between items-center">
+          <span className="text-sm text-gray-500">
+            Página {currentPage + 1} de {totalPages}
+          </span>
+          
+          <div className="flex gap-2 items-center">
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }).map((_, index) => (
+                <button
+                  key={index}
+                  className={`w-2 h-2 rounded-full ${
+                    currentPage === index ? "bg-violet-600" : "bg-gray-300"
+                  }`}
+                  onClick={() => {
+                    setFlipDirection(index > currentPage ? "right" : "left");
+                    setCurrentPage(index);
+                  }}
+                  aria-label={`Ir para página ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StoryViewer;
