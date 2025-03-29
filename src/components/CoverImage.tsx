@@ -26,6 +26,12 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   // Use processed URL or fallback if there was an error
   const displayUrl = hasError || imgError ? fallbackImage : processedUrl;
   
+  // Reset the error and loaded state when the image URL changes
+  useEffect(() => {
+    setImgError(false);
+    setLoaded(false);
+  }, [imageUrl]);
+  
   // Pre-load the image to verify if it's valid
   useEffect(() => {
     if (displayUrl) {

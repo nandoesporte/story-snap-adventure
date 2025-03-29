@@ -32,18 +32,6 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           console.log("Using cached image URL:", cachedUrl);
           setProcessedUrl(cachedUrl);
           setIsLoading(false);
-          
-          // Verify if cached URL is still valid
-          setTimeout(() => {
-            const img = new Image();
-            img.onload = () => console.log("Cached image loaded successfully");
-            img.onerror = () => {
-              console.warn("Cached image failed to load, clearing cache");
-              localStorage.removeItem(cachedUrlKey);
-            };
-            img.src = cachedUrl;
-          }, 1000);
-          
           return;
         }
         
