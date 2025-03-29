@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import './App.css'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from './components/ui/toaster'
 // Import removed, as it's already being used in main.tsx
@@ -26,25 +26,22 @@ const queryClient = new QueryClient()
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* AuthProvider removed here since it's already in main.tsx */}
-      <Router>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Auth type="login" />} />
-          <Route path="/register" element={<Auth type="register" />} />
-          <Route path="/create-story" element={<CreateStory />} />
-          <Route path="/storybot" element={<StoryBot />} />
-          <Route path="/my-stories" element={<MyStories />} />
-          <Route path="/story-creator" element={<StoryCreator />} />
-          <Route path="/story-creator/:id" element={<StoryCreator />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/admin/*" element={<Admin />} />
-          <Route path="/characters" element={<Characters />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
-      </Router>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Auth type="login" />} />
+        <Route path="/register" element={<Auth type="register" />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/storybot" element={<StoryBot />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/story-creator/:id" element={<StoryCreator />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/*" element={<Admin />} />
+        <Route path="/characters" element={<Characters />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
     </QueryClientProvider>
   )
 }
