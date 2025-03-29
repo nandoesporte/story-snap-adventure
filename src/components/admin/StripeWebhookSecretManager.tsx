@@ -12,7 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Eye, EyeOff, Save, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Save, Check, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const StripeWebhookSecretManager = () => {
   const [webhookSecret, setWebhookSecret] = useState('');
@@ -20,11 +21,13 @@ const StripeWebhookSecretManager = () => {
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     const initializeSystem = async () => {
       setInitializing(true);
+      setError(null);
       try {
         console.log("Initializing system configurations...");
         
@@ -33,6 +36,7 @@ const StripeWebhookSecretManager = () => {
         
         if (initError) {
           console.error('Error initializing system configurations:', initError);
+          setError(`Erro ao inicializar configurações: ${initError.message}`);
           toast({
             title: 'Erro',
             description: 'Não foi possível inicializar as configurações do sistema',
@@ -43,6 +47,18 @@ const StripeWebhookSecretManager = () => {
         
         console.log("System configurations initialized:", initData);
         
+        if (!initData?.success) {
+          const errorMsg = initData?.message || 'Resposta inválida do servidor';
+          console.error('Error in initialization response:', errorMsg);
+          setError(`Erro na resposta do servidor: ${errorMsg}`);
+          toast({
+            title: 'Erro',
+            description: 'Inicialização do sistema retornou um erro',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
         // Then get the webhook secret
         const { data, error } = await supabase
           .from('system_configurations')
@@ -52,6 +68,7 @@ const StripeWebhookSecretManager = () => {
 
         if (error && error.code !== 'PGRST116') {
           console.error('Error fetching Stripe webhook secret:', error);
+          setError(`Erro ao buscar segredo do webhook: ${error.message || error.code}`);
           toast({
             title: 'Erro',
             description: 'Não foi possível carregar o segredo do webhook do Stripe',
@@ -67,10 +84,12 @@ const StripeWebhookSecretManager = () => {
           console.log("No webhook secret found");
         }
       } catch (error) {
+        const errorMsg = error.message || 'Erro desconhecido';
         console.error('Error in initialization process:', error);
+        setError(`Erro no processo de inicialização: ${errorMsg}`);
         toast({
           title: 'Erro',
-          description: 'Falha ao carregar o segredo do webhook do Stripe',
+          description: `Falha ao carregar o segredo do webhook do Stripe: ${errorMsg}`,
           variant: 'destructive',
         });
       } finally {
@@ -92,8 +111,18 @@ const StripeWebhookSecretManager = () => {
     }
     
     setLoading(true);
+    setError(null);
     try {
       console.log("Attempting to save webhook secret...");
+      
+      // First verify if the system_configurations table exists
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('create-system-configurations');
+      
+      if (verifyError || !verifyData?.success) {
+        const errorMsg = verifyError?.message || verifyData?.message || 'Erro desconhecido';
+        console.error("Error verifying table:", errorMsg);
+        throw new Error(`Não foi possível verificar a tabela: ${errorMsg}`);
+      }
       
       // Check if key already exists
       const { data, error: fetchError } = await supabase
@@ -104,7 +133,31 @@ const StripeWebhookSecretManager = () => {
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         console.error("Error checking if key exists:", fetchError);
-        throw fetchError;
+        throw new Error(`Erro ao verificar se a chave existe: ${fetchError.message}`);
+      }
+
+      // Log user role to check permissions
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("Error getting user data:", userError);
+      } else {
+        console.log("Current user:", userData?.user?.id);
+        
+        // Check if user is admin
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('is_admin')
+          .eq('id', userData?.user?.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error checking user profile:", profileError);
+        } else {
+          console.log("User is admin:", profileData?.is_admin);
+          if (!profileData?.is_admin) {
+            throw new Error("Você não tem permissões de administrador para salvar esta configuração");
+          }
+        }
       }
 
       let saveError;
@@ -117,6 +170,12 @@ const StripeWebhookSecretManager = () => {
           .update({ value: webhookSecret.trim() })
           .eq('key', 'stripe_webhook_secret');
         saveError = error;
+        
+        if (error) {
+          console.error("Update error details:", error);
+        } else {
+          console.log("Update completed without error");
+        }
       } else {
         // Insert new key
         console.log("Inserting new webhook secret...");
@@ -124,14 +183,37 @@ const StripeWebhookSecretManager = () => {
           .from('system_configurations')
           .insert({ key: 'stripe_webhook_secret', value: webhookSecret.trim() });
         saveError = error;
+        
+        if (error) {
+          console.error("Insert error details:", error);
+        } else {
+          console.log("Insert completed without error");
+        }
       }
 
       if (saveError) {
         console.error("Error saving webhook secret:", saveError);
-        throw saveError;
+        throw new Error(`Erro ao salvar segredo do webhook: ${saveError.message || saveError.code}`);
       }
 
-      console.log("Webhook secret saved successfully");
+      // Verify the save was successful
+      const { data: verifyInsertData, error: verifyInsertError } = await supabase
+        .from('system_configurations')
+        .select('value')
+        .eq('key', 'stripe_webhook_secret')
+        .single();
+        
+      if (verifyInsertError) {
+        console.error("Error verifying save:", verifyInsertError);
+        throw new Error(`Erro ao verificar se o segredo foi salvo: ${verifyInsertError.message}`);
+      }
+      
+      if (verifyInsertData.value !== webhookSecret.trim()) {
+        console.error("Saved value doesn't match:", { saved: verifyInsertData.value, expected: webhookSecret.trim() });
+        throw new Error("O valor salvo não corresponde ao valor esperado");
+      }
+
+      console.log("Webhook secret saved and verified successfully");
       toast({
         title: 'Sucesso',
         description: 'Segredo do webhook do Stripe salvo com sucesso',
@@ -140,10 +222,12 @@ const StripeWebhookSecretManager = () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
+      const errorMsg = error.message || 'Erro desconhecido';
       console.error('Error saving Stripe webhook secret:', error);
+      setError(errorMsg);
       toast({
         title: 'Erro',
-        description: 'Falha ao salvar o segredo do webhook do Stripe. Verifique se você tem permissões de administrador.',
+        description: `Falha ao salvar o segredo do webhook do Stripe: ${errorMsg}`,
         variant: 'destructive',
       });
     } finally {
@@ -172,6 +256,13 @@ const StripeWebhookSecretManager = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <label htmlFor="webhook-secret" className="text-sm font-medium">
                 Segredo do Webhook do Stripe (STRIPE_WEBHOOK_SECRET)

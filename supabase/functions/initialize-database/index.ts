@@ -6,7 +6,19 @@ interface RequestBody {
   script: string;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders,
+    });
+  }
+  
   try {
     // Create a Supabase client with the Auth context of the logged in user
     const supabaseClient = createClient(
@@ -21,31 +33,34 @@ serve(async (req) => {
 
     if (!script) {
       return new Response(
-        JSON.stringify({ error: 'Script is required' }),
-        { headers: { 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ error: 'Script is required', success: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
+    console.log("Executing SQL script with admin privileges");
+    
     // Execute the SQL script as the service role (superuser)
-    const { data, error } = await supabaseClient.rpc('exec', { sql: script })
+    // Note: Using exec_sql function instead of exec which was previously used
+    const { data, error } = await supabaseClient.rpc('exec_sql', { sql_query: script })
 
     if (error) {
       console.error('Error executing SQL script:', error)
       return new Response(
-        JSON.stringify({ error: error.message }),
-        { headers: { 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: error.message, success: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
     return new Response(
       JSON.stringify({ success: true, data }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     console.error('Unexpected error:', err)
     return new Response(
-      JSON.stringify({ error: 'Unexpected error occurred' }),
-      { headers: { 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ error: 'Unexpected error occurred', details: err.message, success: false }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })
