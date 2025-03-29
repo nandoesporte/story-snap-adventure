@@ -77,8 +77,11 @@ export const AdminLink = () => {
     return null;
   }
 
+  // Definir para qual aba do admin redirecionar, se estiver no modo de teste
+  const adminPath = location.pathname === '/story-creator' ? '/admin?tab=test' : '/admin';
+
   return (
-    <Link to="/admin">
+    <Link to={adminPath}>
       <Button 
         variant={isOnAdminPage ? "default" : "outline"} 
         size="sm" 
