@@ -77,8 +77,6 @@ const StoryViewer: React.FC = () => {
   
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   
-  // Create a single instance of the narration hook with memoized parameters
-  // This ensures we don't conditionally render hooks
   const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
   const currentPageText = storyData && currentPage > 0 && storyData.pages[currentPageIndex] 
     ? storyData.pages[currentPageIndex].text 
@@ -111,7 +109,6 @@ const StoryViewer: React.FC = () => {
         if (id && id !== ":id") {
           console.log("Carregando história do banco com ID:", id);
           
-          // Validar e corrigir as URLs de imagem
           import('../lib/imageHelper').then(({ validateAndFixStoryImages }) => {
             validateAndFixStoryImages(id);
           });
@@ -151,7 +148,6 @@ const StoryViewer: React.FC = () => {
                 ? data.pages.map((page: any) => {
                     console.log("Page image URL:", page.image_url);
                     
-                    // Armazenar URLs no cache local para persistência
                     if (page.image_url) {
                       import('../lib/imageHelper').then(({ storeImageInCache }) => {
                         storeImageInCache(page.image_url);
@@ -167,7 +163,6 @@ const StoryViewer: React.FC = () => {
                 : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
             };
             
-            // Cache da imagem de capa também
             if (coverImage) {
               import('../lib/imageHelper').then(({ storeImageInCache }) => {
                 storeImageInCache(coverImage);
@@ -266,14 +261,11 @@ const StoryViewer: React.FC = () => {
     console.log("Failed to load image URL:", url);
     setFailedImages(prev => ({...prev, [url]: true}));
     
-    // Tentar buscar do cache local
     import('../lib/imageHelper').then(({ getImageFromCache }) => {
       const cachedUrl = getImageFromCache(url);
       if (cachedUrl) {
         console.log("Recovered image from cache:", url);
-        // Atualizar a URL corrompida para a versão em cache
         if (storyData) {
-          // Atualizar capa se necessário
           if (storyData.coverImageUrl === url || storyData.cover_image_url === url) {
             setStoryData({
               ...storyData,
@@ -282,7 +274,6 @@ const StoryViewer: React.FC = () => {
             });
           }
           
-          // Atualizar páginas se necessário
           const updatedPages = storyData.pages.map(page => {
             if (page.imageUrl === url || page.image_url === url) {
               return {
@@ -313,7 +304,6 @@ const StoryViewer: React.FC = () => {
       return getFallbackImage(theme);
     }
     
-    // Verificar se está no cache local
     const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
     const cachedUrl = localStorage.getItem(cachedUrlKey);
     if (cachedUrl) {
@@ -332,7 +322,6 @@ const StoryViewer: React.FC = () => {
           .from(bucketName)
           .getPublicUrl(fileName);
         
-        // Armazenar a URL corrigida no cache
         localStorage.setItem(cachedUrlKey, data.publicUrl);
         
         console.log("Reformatted storage URL:", data.publicUrl);
@@ -344,7 +333,6 @@ const StoryViewer: React.FC = () => {
     
     if (url.startsWith("/") && !url.startsWith("//")) {
       const fullUrl = `${window.location.origin}${url}`;
-      // Armazenar no cache
       localStorage.setItem(cachedUrlKey, fullUrl);
       return fullUrl;
     }
@@ -354,7 +342,6 @@ const StoryViewer: React.FC = () => {
     }
     
     if (url.startsWith("http") || url.startsWith("data:")) {
-      // Armazenar no cache se for URL completa
       if (url.startsWith("http")) {
         localStorage.setItem(cachedUrlKey, url);
       }
@@ -364,7 +351,6 @@ const StoryViewer: React.FC = () => {
     const baseUrl = window.location.origin;
     const fullUrl = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     
-    // Armazenar no cache
     localStorage.setItem(cachedUrlKey, fullUrl);
     
     return fullUrl;
@@ -660,11 +646,8 @@ const StoryViewer: React.FC = () => {
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
-    // Use the narration hook instance that was created at the component level
-    // instead of creating a new one here
     const { isGenerating, isPlaying, playAudio, VOICE_IDS } = narration;
     
-    // Helper function to ensure correct voiceType
     const getVoiceType = (type: string | undefined): 'male' | 'female' => {
       return type === 'male' ? 'male' : 'female';
     };
@@ -812,4 +795,172 @@ const StoryViewer: React.FC = () => {
                   variant="secondary"
                   onClick={toggleTextVisibility}
                 >
-                  <EyeOff className="
+                  <EyeOff className="w-4 h-4" />
+                  Ocultar texto
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative w-full h-full bg-gray-50 flex flex-col">
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      ) : (
+        <div ref={storyContainerRef} className="flex-1 flex flex-col h-full">
+          <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleGoHome} 
+                className="text-gray-600"
+              >
+                <Home className="w-4 h-4" />
+                <span className="ml-1 hidden md:inline">Início</span>
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleCreateNew} 
+                className="text-gray-600"
+              >
+                <BookText className="w-4 h-4" />
+                <span className="ml-1 hidden md:inline">Nova História</span>
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {!isMobile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleFullscreen}
+                  className="text-gray-600"
+                >
+                  {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  <span className="ml-1 hidden md:inline">
+                    {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+                  </span>
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShareStory}
+                className="text-gray-600"
+              >
+                <Share className="w-4 h-4" />
+                <span className="ml-1 hidden md:inline">Compartilhar</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+                className="text-gray-600"
+              >
+                <Download className="w-4 h-4" />
+                <span className="ml-1 hidden md:inline">
+                  {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
+                </span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex-1 relative">
+            <div
+              ref={bookRef}
+              className={`w-full h-full transition-all duration-300 ${
+                isFlipping ? `animate-page-flip-${flipDirection}` : ""
+              }`}
+            >
+              {currentPage === 0 && renderCoverPage()}
+              {currentPage > 0 && renderStoryPage(currentPage - 1)}
+            </div>
+          </div>
+
+          <div className="bg-white border-t border-gray-200 p-3 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 0}
+              className="text-gray-600"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span className="ml-1 hidden md:inline">Anterior</span>
+            </Button>
+            
+            <div className="text-sm font-medium text-gray-500">
+              {currentPage > 0
+                ? `Página ${currentPage} de ${totalPages - 1}`
+                : "Capa"}
+            </div>
+            
+            <Button
+              variant="ghost"
+              onClick={handleNextPage}
+              disabled={currentPage >= totalPages - 1}
+              className="text-gray-600"
+            >
+              <span className="mr-1 hidden md:inline">Próxima</span>
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showImageViewer && (
+        <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
+          <DialogContent className="sm:max-w-4xl bg-black/95 border-none" hideCloseButton>
+            <div className="relative w-full h-[80vh] flex items-center justify-center">
+              <div className="absolute top-2 right-2 flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleZoomOut}
+                  className="text-white"
+                >
+                  <ZoomOut />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleZoomIn}
+                  className="text-white"
+                >
+                  <ZoomIn />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowImageViewer(false)}
+                  className="text-white"
+                >
+                  <X />
+                </Button>
+              </div>
+              <img 
+                src={currentImageUrl} 
+                alt="Visualização de imagem"
+                className="max-w-full max-h-full object-contain transition-all duration-300"
+                style={{ transform: `scale(${imageZoom})` }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+};
+
+export default StoryViewer;
