@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserRound, LogOut, Settings, BookOpen, Shield } from 'lucide-react';
+import { UserRound, LogOut, BookOpen, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
 
@@ -81,20 +81,10 @@ const UserProfile = () => {
           </Link>
         </DropdownMenuItem>
         
-        {/* Settings link - only for admin users */}
-        {isAdmin && (
-          <DropdownMenuItem asChild>
-            <Link to="/settings" className="flex items-center cursor-pointer">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Configurações</span>
-            </Link>
-          </DropdownMenuItem>
-        )}
-        
         {/* Admin link for admin users */}
         {!loading && isAdmin && (
           <DropdownMenuItem asChild>
-            <Link to="/admin" className="flex items-center cursor-pointer text-violet-600 font-medium">
+            <Link to="/admin?tab=apis" className="flex items-center cursor-pointer text-violet-600 font-medium">
               <Shield className="mr-2 h-4 w-4" />
               <span>Painel Admin</span>
             </Link>

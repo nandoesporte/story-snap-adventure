@@ -13,7 +13,6 @@ import NotFound from './pages/NotFound';
 import StoryBot from './pages/StoryBot';
 import Characters from './pages/Characters';
 import Admin from './pages/Admin';
-import Settings from './pages/Settings';
 import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -61,8 +60,8 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    // Redirect non-admin users if they try to access the settings page directly
-    if (!loading && user && !isAdmin && location.pathname === '/settings') {
+    // Redirect non-admin users if they try to access the admin page directly
+    if (!loading && user && !isAdmin && location.pathname === '/admin') {
       navigate('/');
     } else if (!loading && !user && 
               location.pathname !== '/auth' && 
@@ -83,7 +82,6 @@ function AppContent() {
         <Route path="/my-stories" element={<MyStories />} />
         <Route path="/view-story/:id" element={<StoryViewer />} />
         <Route path="/view-story" element={<StoryViewer />} />
-        <Route path="/settings" element={<Settings />} />
         <Route path="/storybot" element={<StoryBot />} />
         <Route path="/characters" element={<Characters />} />
         <Route path="/admin" element={<Admin />} />

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -44,7 +43,7 @@ const Navbar = () => {
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Personagens', path: '/characters' },
-    { name: 'Configurações', path: '/settings', adminOnly: true },
+    { name: 'Admin', path: '/admin', adminOnly: true },
   ];
 
   // Filter nav items based on admin status

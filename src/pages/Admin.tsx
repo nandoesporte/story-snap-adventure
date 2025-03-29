@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +9,7 @@ import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
+import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -23,7 +25,7 @@ const Admin = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test'].includes(tabParam)) {
+    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -122,13 +124,14 @@ const Admin = () => {
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
       <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-8 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="characters">Personagens</TabsTrigger>
           <TabsTrigger value="themes">Temas</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="config">Configurações</TabsTrigger>
+          <TabsTrigger value="apis">APIs</TabsTrigger>
           <TabsTrigger value="test">Modo Teste</TabsTrigger>
         </TabsList>
         
@@ -163,6 +166,14 @@ const Admin = () => {
           <div className="grid grid-cols-1 gap-6">
             <GoogleTTSApiKeyManager />
           </div>
+        </TabsContent>
+        
+        <TabsContent value="apis" className="space-y-4">
+          <h2 className="text-2xl font-bold">Configuração de APIs</h2>
+          <p className="text-muted-foreground mb-4">
+            Configure as APIs para geração de histórias e imagens.
+          </p>
+          <LeonardoWebhookConfig />
         </TabsContent>
         
         <TabsContent value="test" className="space-y-4">
