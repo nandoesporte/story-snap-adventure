@@ -822,33 +822,41 @@ const StoryViewer: React.FC = () => {
               {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
             </div>
             
-            <div className={`absolute ${isMobile ? 'bottom-16' : 'bottom-6'} left-0 right-0 flex justify-center z-10 pointer-events-none`}>
-              <div className="flex items-center gap-4 bg-white/80 backdrop-blur-sm rounded-full p-2 shadow-md pointer-events-auto">
+            <div className="absolute inset-y-0 left-2 flex items-center z-10">
+              {currentPage > 0 && !isFlipping && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   onClick={handlePreviousPage}
-                  disabled={currentPage === 0 || isFlipping}
-                  className="hover:bg-gray-100"
+                  className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
-                {!isFullscreen && (
-                  <span className="text-sm text-gray-800">
-                    {currentPage} / {totalPages - 1}
-                  </span>
-                )}
+              )}
+            </div>
+            
+            <div className="absolute inset-y-0 right-2 flex items-center z-10">
+              {storyData && currentPage < totalPages - 1 && !isFlipping && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   onClick={handleNextPage}
-                  disabled={currentPage === totalPages - 1 || isFlipping}
-                  className="hover:bg-gray-100"
+                  className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>
-              </div>
+              )}
             </div>
+            
+            {!isFullscreen && (
+              <div className={`absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none`}>
+                <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
+                  <span className="text-xs text-gray-800">
+                    {currentPage} / {totalPages - 1}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
