@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -59,6 +60,9 @@ import { AdminLink } from '@/components/AdminLink';
 import { NarrationPlayer } from '@/components/NarrationPlayer';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+
+// Define the missing StoryStyle type
+type StoryStyle = 'papercraft' | 'watercolor' | 'comic' | 'sketch' | 'pixel' | 'realistic' | 'cartoon' | '3d';
 
 interface Story {
   id: string;
