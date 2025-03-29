@@ -10,9 +10,13 @@ export type ToastProps = {
 };
 
 export function toast(props: ToastProps) {
-  const { variant = 'default', ...rest } = props;
+  const { variant = 'default', title, description, ...rest } = props;
   
-  return sonnerToast(rest);
+  // Properly pass title and description as separate arguments to sonnerToast
+  return sonnerToast(title as string, {
+    description,
+    ...rest
+  });
 }
 
 // Create a fake toasts array for compatibility with shadcn toaster
