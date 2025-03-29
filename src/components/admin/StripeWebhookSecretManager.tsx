@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
@@ -16,14 +17,16 @@ export const StripeWebhookSecretManager = () => {
     const checkExistingSecret = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await execSql('exec_sql', { sql: `SELECT * FROM system_configurations WHERE key = 'stripe_webhook_secret'` });
+        const { data, error } = await supabase.rpc('exec_sql', { 
+          sql_query: `SELECT * FROM system_configurations WHERE key = 'stripe_webhook_secret'` 
+        });
         
         if (error) {
           console.error("Error checking Stripe webhook secret:", error);
           toast.error("Erro ao verificar segredo do webhook do Stripe");
           setHasExistingSecret(false);
         } else {
-          setHasExistingSecret(!!data);
+          setHasExistingSecret(!!data && Array.isArray(data) && data.length > 0);
         }
       } catch (error) {
         console.error("Error checking Stripe webhook secret:", error);
@@ -46,11 +49,10 @@ export const StripeWebhookSecretManager = () => {
     
     try {
       const { error } = await supabase
-        .from('settings')
+        .from('system_configurations')
         .upsert({
           key: 'stripe_webhook_secret',
-          value: secret,
-          description: 'Stripe Webhook Secret for verifying webhook signatures'
+          value: secret
         }, {
           onConflict: 'key'
         });
@@ -76,7 +78,7 @@ export const StripeWebhookSecretManager = () => {
     
     try {
       const { error } = await supabase
-        .from('settings')
+        .from('system_configurations')
         .delete()
         .eq('key', 'stripe_webhook_secret');
       

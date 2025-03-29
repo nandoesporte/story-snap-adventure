@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -17,14 +18,14 @@ export function StripeApiKeyManager() {
     const checkApiKey = async () => {
       setIsChecking(true);
       try {
-        const { data, error } = await supabase.rpc('exec_sql', { sql: `SELECT * FROM system_configurations WHERE key = 'stripe_api_key'` });
+        const { data, error } = await supabase.rpc('exec_sql', { sql_query: `SELECT * FROM system_configurations WHERE key = 'stripe_api_key'` });
 
         if (error) {
           throw error;
         }
 
-        if (data && data.length > 0) {
-          setApiKey(data[0].value || "");
+        if (data && Array.isArray(data) && data.length > 0) {
+          setApiKey(data[0]?.value || "");
         }
       } catch (error: any) {
         console.error("Error checking API key:", error);
@@ -40,9 +41,14 @@ export function StripeApiKeyManager() {
   const updateApiKey = async () => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.rpc('update_or_insert_setting', {
-        key_name: 'stripe_api_key',
-        key_value: apiKey,
+      // Use exec_sql RPC function instead since update_or_insert_setting doesn't exist
+      const { error } = await supabase.rpc('exec_sql', { 
+        sql_query: `
+          INSERT INTO system_configurations (key, value)
+          VALUES ('stripe_api_key', '${apiKey}')
+          ON CONFLICT (key) 
+          DO UPDATE SET value = '${apiKey}', updated_at = NOW()
+        `
       });
 
       if (error) {
