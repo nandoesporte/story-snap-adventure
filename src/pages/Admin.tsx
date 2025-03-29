@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
@@ -7,7 +6,6 @@ import { UserManager } from "@/components/admin/UserManager";
 import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
-import GeminiApiKeyManager from "@/components/admin/GeminiApiKeyManager";
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -22,7 +20,6 @@ const Admin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Parse query parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
@@ -31,7 +28,6 @@ const Admin = () => {
     }
   }, [location]);
   
-  // Check if user is admin
   useEffect(() => {
     const checkAdminStatus = async () => {
       setLoading(true);
@@ -46,7 +42,6 @@ const Admin = () => {
       try {
         console.log("Admin check for user:", user.email);
         
-        // First check: If it's the target admin email (hardcoded check for reliability)
         if (user.email === 'nandoesporte1@gmail.com') {
           console.log("Admin access granted: Direct email match for", user.email);
           localStorage.setItem('user_role', 'admin');
@@ -55,9 +50,7 @@ const Admin = () => {
           return;
         }
         
-        // Second check: Check database
         try {
-          // Initialize the database structure if needed
           await supabase.rpc('create_user_profiles_if_not_exists');
           
           const { data, error } = await supabase
@@ -92,7 +85,6 @@ const Admin = () => {
     checkAdminStatus();
   }, [user]);
 
-  // Redirect non-admin users
   useEffect(() => {
     if (!loading) {
       if (user === null) {
@@ -168,8 +160,7 @@ const Admin = () => {
         <TabsContent value="config" className="space-y-6">
           <h2 className="text-2xl font-bold">Configurações</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <GeminiApiKeyManager />
+          <div className="grid grid-cols-1 gap-6">
             <GoogleTTSApiKeyManager />
           </div>
         </TabsContent>

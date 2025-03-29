@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
-import { reinitializeGeminiAI } from '@/lib/openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { initializeOpenAI } from '@/lib/openai';
 import { toast } from 'sonner';
 
 export type StoryTheme = 'adventure' | 'fantasy' | 'space' | 'ocean' | 'dinosaurs';
@@ -221,34 +220,27 @@ export class BookGenerationService {
   }
   
   static getGeminiApiKey(): string {
-    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
+    return '';
   }
 
   static setGeminiApiKey(apiKey: string): boolean {
-    try {
-      if (!apiKey || apiKey.trim() === '') {
-        console.error('Tentativa de salvar chave vazia');
-        return false;
-      }
-      
-      localStorage.setItem('gemini_api_key', apiKey);
-      const newClient = reinitializeGeminiAI(apiKey);
-      return newClient !== null;
-    } catch (error) {
-      console.error('Erro ao definir chave da API Gemini:', error);
-      return false;
-    }
+    console.warn('Gemini API is no longer supported, using OpenAI instead');
+    return false;
   }
 
   static isGeminiApiKeyValid(): boolean {
-    const apiKey = this.getGeminiApiKey();
-    return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'undefined' && apiKey !== 'null' && apiKey.startsWith('AIza'));
+    return false;
+  }
+
+  static isOpenAIConfigured(): boolean {
+    const apiKey = localStorage.getItem('openai_api_key');
+    return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'undefined' && apiKey !== 'null');
   }
 
   static async generateStory(storyParams: Story, progressCallback?: (message: string, progress: number) => void): Promise<CompleteStory> {
-    if (!this.isGeminiApiKeyValid()) {
+    if (!this.isOpenAIConfigured()) {
       window.dispatchEvent(new CustomEvent('storybot_api_issue'));
-      throw new Error('API key não encontrada ou inválida. Configure a chave da API Gemini nas configurações.');
+      throw new Error('API key não encontrada ou inválida. Configure a chave da API OpenAI nas configurações.');
     }
     
     try {
@@ -297,57 +289,13 @@ export class BookGenerationService {
       
       progressCallback?.('O StoryBot está escrevendo sua história...', 25);
       
-      const apiKey = this.getGeminiApiKey();
-      if (!apiKey || apiKey.length < 10) {
-        throw new Error('Chave da API Gemini inválida ou muito curta');
+      // Switch to using OpenAI API
+      const openAIKey = localStorage.getItem('openai_api_key') || '';
+      if (!openAIKey || openAIKey.length < 10) {
+        throw new Error('Chave da API OpenAI inválida ou muito curta');
       }
       
-      const gemini = new GoogleGenerativeAI(apiKey);
-      
-      const model = gemini.getGenerativeModel({ 
-        model: 'gemini-1.5-pro',
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.9,
-          topK: 40,
-          maxOutputTokens: 8000,
-        },
-      });
-      
-      let chat;
-      try {
-        chat = model.startChat({
-          history: [
-            {
-              role: 'user',
-              parts: [{ text: systemPrompt }],
-            },
-            {
-              role: 'model',
-              parts: [{ text: 'Entendido! Estou pronto para criar histórias infantis encantadoras e educativas como o StoryBot. Como posso ajudar hoje?' }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.9,
-            topK: 40,
-            maxOutputTokens: 8000,
-          },
-        });
-      } catch (error: any) {
-        console.error("Error initializing Gemini chat:", error);
-        
-        // Check for quota errors
-        if (error.message && (
-            error.message.includes("quota") || 
-            error.message.includes("429") || 
-            error.message.includes("rate limit")
-          )) {
-          throw new Error('QUOTA_EXCEEDED: ' + error.message);
-        }
-        
-        throw new Error('Erro ao inicializar o modelo Gemini. Por favor, verifique sua chave da API.');
-      }
+      const { openai } = await import('@/lib/openai');
       
       progressCallback?.('Criando a narrativa e os personagens...', 40);
       
@@ -358,15 +306,21 @@ export class BookGenerationService {
       let responseText;
       try {
         const result = await Promise.race([
-          chat.sendMessage(fullPrompt, {
-            signal: this.abortController?.signal,
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: fullPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 4000
           }),
           timeoutPromise
         ]) as any;
         
-        responseText = result.response.text();
+        responseText = result.choices[0].message.content;
       } catch (error: any) {
-        console.error("Error getting response from Gemini:", error);
+        console.error("Error getting response from OpenAI:", error);
         
         if (error.name === 'AbortError' || error.message?.includes('cancelada')) {
           throw new Error('A geração foi cancelada.');
@@ -379,7 +333,7 @@ export class BookGenerationService {
           )) {
           throw new Error('QUOTA_EXCEEDED: ' + error.message);
         } else {
-          throw new Error(`Erro ao gerar história com Gemini: ${error.message || 'Erro desconhecido'}`);
+          throw new Error(`Erro ao gerar história com OpenAI: ${error.message || 'Erro desconhecido'}`);
         }
       }
       
