@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 
 // Define types for subscription plan and user subscription
@@ -32,6 +31,7 @@ export async function checkUserSubscription(userId: string): Promise<UserSubscri
       .from('user_subscriptions')
       .select(`
         id,
+        user_id,
         status,
         current_period_start,
         current_period_end,
@@ -63,7 +63,7 @@ export async function checkUserSubscription(userId: string): Promise<UserSubscri
         return null;
       }
       
-      return data as UserSubscription;
+      return data as unknown as UserSubscription;
     }
     
     return null;
