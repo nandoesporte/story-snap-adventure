@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { 
   Sparkles, 
   MessageSquare,
-  LogIn
+  LogIn,
+  AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import StoryPromptInput from "@/components/StoryPromptInput";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type CreationStep = "prompt" | "details";
 
@@ -24,6 +26,7 @@ const CreateStory = () => {
   const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
+  const [apiKeyError, setApiKeyError] = useState<boolean>(false);
   
   // Verificar se o formulário já foi enviado anteriormente para evitar renderização duplicada
   useEffect(() => {
@@ -33,8 +36,26 @@ const CreateStory = () => {
       navigate("/story-creator");
     }
   }, [formSubmitted, navigate]);
+
+  // Verificar se a chave da API OpenAI está configurada
+  useEffect(() => {
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiKeyError(true);
+    } else {
+      setApiKeyError(false);
+    }
+  }, []);
   
   const handlePromptSubmit = (prompt: string) => {
+    // Verificar novamente a chave da API antes de prosseguir
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiKeyError(true);
+      toast.error("A chave da API OpenAI não está configurada. Configure-a nas configurações.");
+      return;
+    }
+    
     setStoryPrompt(prompt);
     setStep("details");
     
@@ -95,6 +116,14 @@ const CreateStory = () => {
   };
   
   const handleFormSubmit = (data: StoryFormData) => {
+    // Verificar novamente a chave da API antes de prosseguir
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiKeyError(true);
+      toast.error("A chave da API OpenAI não está configurada. Configure-a nas configurações.");
+      return;
+    }
+    
     // Salvar dados no sessionStorage
     sessionStorage.setItem("create_story_data", JSON.stringify({
       ...data,
@@ -152,9 +181,25 @@ const CreateStory = () => {
     switch (step) {
       case "prompt":
         return (
-          <StoryPromptInput 
-            onSubmit={handlePromptSubmit} 
-          />
+          <>
+            {apiKeyError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertTriangle className="h-5 w-5" />
+                <AlertTitle>Atenção!</AlertTitle>
+                <AlertDescription>
+                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                      Ir para Configurações
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            <StoryPromptInput 
+              onSubmit={handlePromptSubmit} 
+            />
+          </>
         );
         
       case "details":
@@ -167,6 +212,21 @@ const CreateStory = () => {
             <h2 className="text-2xl font-bold mb-6 text-center">
               Personalize a história
             </h2>
+            
+            {apiKeyError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertTriangle className="h-5 w-5" />
+                <AlertTitle>Atenção!</AlertTitle>
+                <AlertDescription>
+                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                      Ir para Configurações
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
             
             {storyPrompt && (
               <div className="mb-6 p-4 bg-violet-50 rounded-lg border border-violet-100">

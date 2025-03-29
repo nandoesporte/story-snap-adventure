@@ -1,7 +1,7 @@
-
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 type Message = {
   role: "user" | "assistant";
@@ -25,21 +25,32 @@ export class StoryBot {
   }
 
   private initializeClients() {
-    const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
-    const openAIApiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY;
+    try {
+      const geminiApiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
+      const openAIApiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY;
 
-    if (geminiApiKey) {
-      this.geminiClient = new GoogleGenerativeAI(geminiApiKey);
-    }
+      if (geminiApiKey && geminiApiKey !== 'undefined' && geminiApiKey !== 'null' && geminiApiKey.trim() !== '') {
+        this.geminiClient = new GoogleGenerativeAI(geminiApiKey);
+        console.log("Gemini client initialized");
+      } else {
+        console.warn("Gemini API key not found or invalid");
+      }
 
-    if (openAIApiKey) {
-      this.openAIClient = new OpenAI({ apiKey: openAIApiKey, dangerouslyAllowBrowser: true });
+      if (openAIApiKey && openAIApiKey !== 'undefined' && openAIApiKey !== 'null' && openAIApiKey.trim() !== '') {
+        this.openAIClient = new OpenAI({ apiKey: openAIApiKey, dangerouslyAllowBrowser: true });
+        console.log("OpenAI client initialized");
+      } else {
+        console.warn("OpenAI API key not found or invalid");
+      }
+    } catch (error) {
+      console.error("Error initializing AI clients:", error);
     }
   }
 
   setUseOpenAI(use: boolean, model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini') {
     this.useOpenAI = use;
     this.openAIModel = model;
+    console.log(`Configurado para usar OpenAI ${model} para geração de histórias`);
   }
 
   async generateStoryBotResponse(messages: Message[], userPrompt: string): Promise<string> {
@@ -49,7 +60,7 @@ export class StoryBot {
       return this.generateGeminiResponse(messages, userPrompt);
     }
 
-    throw new Error('No AI client available');
+    throw new Error('Nenhum cliente de IA disponível. Verifique suas configurações de API.');
   }
 
   private async generateOpenAIResponse(messages: Message[], userPrompt: string): Promise<string> {
@@ -113,6 +124,16 @@ export class StoryBot {
     language: string = "portuguese",
     storyContext: string = ""
   ): Promise<StoryGenerationResult> {
+    if (this.useOpenAI && !this.openAIClient) {
+      throw new Error('A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações.');
+    }
+    
+    if (!this.useOpenAI && !this.geminiClient) {
+      throw new Error('A chave da API Gemini não está configurada ou é inválida. Configure-a nas configurações.');
+    }
+    
+    console.log(`Generating complete story with ${length} pages`);
+    
     const prompt = this.createStoryGenerationPrompt(
       characterName, childAge, theme, setting, moralTheme,
       characterPrompt, length, readingLevel, language, storyContext
@@ -129,9 +150,18 @@ export class StoryBot {
       }
 
       return this.processStoryResponse(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao gerar história:", error);
-      throw new Error('Falha ao gerar história completa');
+      
+      if (error.status === 401 || (error.message && error.message.includes("401"))) {
+        throw new Error('A chave da API está incorreta ou inválida. Por favor, verifique suas configurações.');
+      } else if (error.status === 429 || (error.message && error.message.includes("429"))) {
+        throw new Error('Limite de requisições excedido. Por favor, tente novamente mais tarde.');
+      } else if (error.message && error.message.includes("quota")) {
+        throw new Error('Cota da API excedida. Por favor, verifique seu plano ou tente novamente mais tarde.');
+      }
+      
+      throw new Error('Falha ao gerar história completa: ' + (error.message || 'Erro desconhecido'));
     }
   }
 
@@ -182,45 +212,64 @@ export class StoryBot {
   }
 
   private async generateOpenAIStory(prompt: string): Promise<string> {
-    if (!this.openAIClient) throw new Error('OpenAI client not initialized');
+    if (!this.openAIClient) throw new Error('Cliente OpenAI não inicializado. Verifique suas configurações.');
     
-    const completion = await this.openAIClient.chat.completions.create({
-      model: this.openAIModel,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 2000,
-      temperature: 0.7,
-    });
-    
-    return completion.choices[0].message.content || '';
+    try {
+      const completion = await this.openAIClient.chat.completions.create({
+        model: this.openAIModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2000,
+        temperature: 0.7,
+      });
+      
+      return completion.choices[0].message.content || '';
+    } catch (error: any) {
+      console.error("Erro na requisição OpenAI:", error);
+      
+      if (error.status === 401) {
+        throw new Error('Chave da API OpenAI inválida. Por favor, verifique suas configurações.');
+      } else if (error.status === 429) {
+        throw new Error('Limite de requisições da API OpenAI excedido. Por favor, tente novamente mais tarde.');
+      }
+      
+      throw error;
+    }
   }
 
   private async generateGeminiStory(prompt: string): Promise<string> {
-    if (!this.geminiClient) throw new Error('Gemini client not initialized');
+    if (!this.geminiClient) throw new Error('Cliente Gemini não inicializado. Verifique suas configurações.');
     
-    const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
-    const result = await model.generateContent(prompt);
-    const genResponse = await result.response;
-    
-    return genResponse.text();
+    try {
+      const model = this.geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const result = await model.generateContent(prompt);
+      const genResponse = await result.response;
+      
+      return genResponse.text();
+    } catch (error: any) {
+      console.error("Erro na requisição Gemini:", error);
+      
+      if (error.message && error.message.includes("API key")) {
+        throw new Error('Chave da API Gemini inválida. Por favor, verifique suas configurações.');
+      } else if (error.message && error.message.includes("quota")) {
+        throw new Error('Cota da API Gemini excedida. Por favor, verifique seu plano ou tente novamente mais tarde.');
+      }
+      
+      throw error;
+    }
   }
 
   private processStoryResponse(response: string): StoryGenerationResult {
-    // Extrair o título
     const titleMatch = response.match(/TÍTULO:\s*(.*?)(?:\r?\n|$)/i) || 
                      response.match(/TITULO:\s*(.*?)(?:\r?\n|$)/i);
     const title = titleMatch ? titleMatch[1].trim() : "História Personalizada";
 
-    // Extrair páginas e prompts de ilustração
     const contentPages: string[] = [];
     const imagePrompts: string[] = [];
 
-    // Padrão para capturar páginas numeradas (permite variações na formatação)
     const pageRegex = /PÁGINA\s*(\d+):\s*([\s\S]*?)(?=ILUSTRAÇÃO\s*\d+:|ILUSTRACAO\s*\d+:|PROMPT\s*DA\s*IMAGEM|PROMPT\s*DE\s*IMAGEM|PÁGINA\s*\d+:|PAGINA\s*\d+:|$)/gi;
     
-    // Padrão para capturar prompts de ilustração
     const illustrationRegex = /(?:ILUSTRAÇÃO\s*\d+:|ILUSTRACAO\s*\d+:|PROMPT\s*DA\s*IMAGEM|PROMPT\s*DE\s*IMAGEM):\s*([\s\S]*?)(?=PÁGINA\s*\d+:|PAGINA\s*\d+:|$)/gi;
 
-    // Extrair conteúdo das páginas
     let pageMatch;
     while ((pageMatch = pageRegex.exec(response)) !== null) {
       if (pageMatch[2].trim()) {
@@ -228,7 +277,6 @@ export class StoryBot {
       }
     }
 
-    // Extrair prompts de ilustração
     let illustrationMatch;
     while ((illustrationMatch = illustrationRegex.exec(response)) !== null) {
       if (illustrationMatch[1].trim()) {
@@ -236,14 +284,11 @@ export class StoryBot {
       }
     }
 
-    // Garantir que temos o mesmo número de páginas e prompts
     while (imagePrompts.length < contentPages.length) {
       imagePrompts.push(`Ilustração para a história "${title}"`);
     }
 
-    // Se por algum motivo não conseguimos extrair as páginas, tentar outro método
     if (contentPages.length === 0) {
-      // Separar por linhas em branco e tentar extrair conteúdo
       const paragraphs = response.split('\n\n').filter(para => 
         para.trim().length > 0 && 
         !para.match(/TÍTULO:|TITULO:/i) &&
@@ -251,7 +296,6 @@ export class StoryBot {
       );
       
       if (paragraphs.length > 0) {
-        // Dividir os parágrafos em páginas (aproximadamente 2-3 parágrafos por página)
         for (let i = 0; i < paragraphs.length; i += 2) {
           const pageContent = paragraphs.slice(i, i + 2).join('\n\n');
           contentPages.push(pageContent);

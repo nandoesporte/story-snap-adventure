@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -73,24 +72,25 @@ export const useStoryGeneration = () => {
       setCurrentNarrationIndex(0);
       
       const openAiApiKey = localStorage.getItem('openai_api_key');
-      if (!openAiApiKey) {
+      if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
         toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
         setIsGenerating(false);
-        return null;
+        throw new Error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
       }
       
       try {
+        setCurrentStage("Verificando a chave da API OpenAI...");
         const isValid = await checkOpenAIAvailability();
         if (!isValid) {
           toast.error("A chave da API OpenAI fornecida parece ser inválida. Por favor, verifique suas configurações.");
           setIsGenerating(false);
-          return null;
+          throw new Error("A chave da API OpenAI fornecida parece ser inválida. Por favor, verifique suas configurações.");
         }
       } catch (error) {
         console.error("Erro ao verificar chave da API OpenAI:", error);
         toast.error("Não foi possível validar a chave da API OpenAI. Verifique sua conexão e configurações.");
         setIsGenerating(false);
-        return null;
+        throw new Error("Não foi possível validar a chave da API OpenAI. Verifique sua conexão e configurações.");
       }
       
       setUseOpenAIForStories(true, 'gpt-4o-mini');
@@ -148,13 +148,14 @@ export const useStoryGeneration = () => {
           
           if (errorMessage.includes("API key") || errorMessage.includes("401")) {
             toast.error("Erro na chave da API OpenAI. Por favor, verifique suas configurações.");
+            throw new Error("Erro na chave da API. Verifique suas configurações.");
           } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
             toast.error("Limite de requisições excedido na API OpenAI. Tente novamente mais tarde.");
+            throw new Error("Limite de requisições excedido. Tente novamente mais tarde.");
           } else {
             toast.error("Erro ao gerar a história. Tente novamente.");
+            throw new Error("Falha na geração da história");
           }
-          
-          throw new Error("Falha na geração da história");
         }
         
         if (!result) {
@@ -266,7 +267,6 @@ export const useStoryGeneration = () => {
         }
         
         if (storyResult && storyResult.pages) {
-          // Verificar se temos a chave da API Google TTS
           const googleTtsApiKey = localStorage.getItem('google_tts_api_key');
           if (!googleTtsApiKey) {
             console.warn("Google TTS API key not configured, skipping narration generation");
@@ -276,7 +276,6 @@ export const useStoryGeneration = () => {
             setCurrentStage("Gerando narrações para as páginas...");
             toast.info("Iniciando geração de narrações para as páginas...");
             
-            // Determinar o tipo de voz baseado na seleção do usuário
             const maxNarrationAttempts = 2;
             let narrationFailures = 0;
             
@@ -356,7 +355,8 @@ export const useStoryGeneration = () => {
       return result;
     } catch (error) {
       console.error("Erro ao gerar história completa:", error);
-      toast.error("Ocorreu um erro ao gerar a história. Por favor, tente novamente.");
+      setProgress(0);
+      setCurrentStage("Falha na geração da história");
       throw error;
     } finally {
       setIsGenerating(false);

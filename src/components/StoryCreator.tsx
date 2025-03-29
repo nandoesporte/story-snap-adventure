@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, AlertTriangle, ImageIcon, Volume2, AlertCircle } from "lucide-react";
+import { Sparkles, AlertTriangle, ImageIcon, Volume2, AlertCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryGeneration } from "@/hooks/useStoryGeneration";
 import { StoryStyle } from "@/services/BookGenerationService";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 type CreationStep = "details" | "generating" | "finalizing";
 
@@ -28,6 +30,7 @@ const StoryCreator = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [hasElevenLabsKey, setHasElevenLabsKey] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   
   const { 
     generateCompleteStory,
@@ -79,6 +82,11 @@ const StoryCreator = () => {
       navigate("/create-story");
       toast.error("Dados da história não encontrados. Por favor, comece novamente.");
     }
+
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiError("A chave da API OpenAI não está configurada. Por favor, configure-a nas configurações.");
+    }
   }, [navigate]);
   
   useEffect(() => {
@@ -113,10 +121,10 @@ const StoryCreator = () => {
   }, [formData]);
   
   useEffect(() => {
-    if (dataLoaded && formData && step === "generating") {
+    if (dataLoaded && formData && step === "generating" && !apiError) {
       generateStory(formData);
     }
-  }, [dataLoaded, formData, step]);
+  }, [dataLoaded, formData, step, apiError]);
   
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
@@ -204,9 +212,9 @@ const StoryCreator = () => {
     }
     
     const openAiApiKey = localStorage.getItem('openai_api_key');
-    if (!openAiApiKey) {
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiError("A chave da API OpenAI não está configurada. Configure-a nas configurações.");
       toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
-      navigate("/settings");
       return;
     }
     
@@ -332,10 +340,63 @@ const StoryCreator = () => {
       }, 1000);
     } catch (error: any) {
       console.error("Erro ao gerar história final:", error);
-      toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
-      navigate("/create-story");
+      
+      if (error.message && error.message.includes("API key")) {
+        setApiError("A chave da API está incorreta ou inválida. Configure-a nas configurações.");
+        toast.error("Erro na chave da API. Por favor, verifique suas configurações.");
+      } else if (error.message && (error.message.includes("429") || error.message.includes("quota") || error.message.includes("limite"))) {
+        setApiError("Limite de requisições ou quota excedida. Tente novamente mais tarde.");
+        toast.error("Limite de requisições excedido. Por favor, tente novamente mais tarde.");
+      } else {
+        setApiError("Ocorreu um erro ao gerar a história. Tente novamente.");
+        toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
+      }
     }
   };
+  
+  if (apiError) {
+    return (
+      <div className="container mx-auto max-w-4xl px-4 py-12">
+        <div className="glass rounded-2xl p-8 md:p-12 shadow-xl">
+          <div className="min-h-[300px] flex flex-col items-center justify-center">
+            <div className="mb-8 text-center">
+              <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2">Falha na geração da história</h2>
+              <p className="text-slate-600 max-w-md mx-auto mb-8">{apiError}</p>
+            </div>
+            
+            <Alert variant="destructive" className="mb-6 max-w-md">
+              <AlertCircle className="h-5 w-5" />
+              <AlertTitle>Problema com a API</AlertTitle>
+              <AlertDescription>
+                Para resolver este problema, você precisa configurar corretamente sua chave da API OpenAI nas configurações.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate("/create-story")}
+                className="flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Voltar para criação
+              </Button>
+              
+              <Button 
+                variant="default"
+                onClick={() => navigate("/settings")}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Ir para configurações
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="container mx-auto max-w-4xl px-4 py-12">
