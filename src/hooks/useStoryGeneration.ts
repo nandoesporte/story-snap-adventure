@@ -262,6 +262,7 @@ export const useStoryGeneration = () => {
           setProgress(baseProgress + progressPerImage * (i + 1));
         }
         
+        // Gerar narrações automaticamente após a história ter sido criada
         if (storyResult && storyResult.pages) {
           const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
           if (!elevenlabsApiKey) {
@@ -289,11 +290,13 @@ export const useStoryGeneration = () => {
                 
                 const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
                 setProgress(Math.min(narrationProgress, 99));
+                
+                // Adicionar um pequeno intervalo para não sobrecarregar a API
+                await new Promise(resolve => setTimeout(resolve, 500));
               } catch (error) {
                 console.error(`Error generating narration for page ${i+1}:`, error);
+                // Continuar mesmo se houver erro, para tentar gerar as próximas narrações
               }
-              
-              await new Promise(resolve => setTimeout(resolve, 500));
             }
             
             toast.success("Narrações geradas com sucesso!");
