@@ -5,9 +5,8 @@ import 'react-pdf/dist/Page.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Edit, BookText, ArrowLeft, ArrowRight, Download, HelpCircle, Share2, Loader2, RefreshCw, CheckCircle, XCircle, AlertTriangle, Eye, EyeOff, Play, Pause, Volume2, Volume1, VolumeX, Shield } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -15,15 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Slider } from "@/components/ui/slider"
+} from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,12 +30,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import { MoreVertical } from 'lucide-react';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
-import { Progress } from "@/components/ui/progress"
+import { Progress } from "@/components/ui/progress";
 import { generatePaperCutOut } from '@/lib/utils';
-import { useScreenshot } from 'use-react-screenshot'
+import { useScreenshot } from 'use-react-screenshot';
 import { motion } from 'framer-motion';
 import {
   Sheet,
@@ -45,21 +44,17 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
-import { Switch } from "@/components/ui/switch"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
-import { CalendarIcon } from "@radix-ui/react-icons"
-import { DateRange } from "react-day-picker"
-import { useMediaQuery } from 'usehooks-ts'
-import { StoryFormData } from '@/components/StoryForm';
-import StoryForm from '@/components/StoryForm';
-import { BookGenerationService } from '@/services/BookGenerationService';
-import { StoryStyle } from '@/services/BookGenerationService';
+} from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon } from "@radix-ui/react-icons";
+import { DateRange } from "react-day-picker";
+import { useMediaQuery } from 'usehooks-ts';
 import { AdminLink } from '@/components/AdminLink';
 import { NarrationPlayer } from '@/components/NarrationPlayer';
 
