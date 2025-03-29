@@ -9,6 +9,7 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
   const cachedUrlKey = `image_cache_${url.split('/').pop()}`;
   const cachedUrl = localStorage.getItem(cachedUrlKey);
   if (cachedUrl) {
+    console.log("Using cached image URL:", url);
     return cachedUrl;
   }
   
@@ -44,6 +45,7 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
     if (url.startsWith("http")) {
       localStorage.setItem(cachedUrlKey, url);
     }
+    console.log("Processing image URL:", url);
     return url;
   }
   

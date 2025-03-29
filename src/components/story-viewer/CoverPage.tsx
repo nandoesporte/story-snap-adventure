@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import CoverImage from "../CoverImage";
 import { getImageUrl } from "./helpers";
 
@@ -27,6 +27,12 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   onImageError
 }) => {
   const formattedImageUrl = getImageUrl(coverImageSrc, theme);
+
+  // Log to debug
+  useEffect(() => {
+    console.log("CoverPage rendering with image:", formattedImageUrl);
+    console.log("Mobile mode:", isMobile);
+  }, [formattedImageUrl, isMobile]);
 
   if (isMobile) {
     return (

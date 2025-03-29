@@ -70,6 +70,14 @@ const StoryViewer: React.FC = () => {
     };
   }, []);
   
+  // Set initial page to show cover
+  useEffect(() => {
+    if (storyData && !loading) {
+      console.log("Story data loaded, showing cover page");
+      setCurrentPage(0);
+    }
+  }, [storyData, loading]);
+  
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       if (storyContainerRef.current) {
@@ -181,22 +189,18 @@ const StoryViewer: React.FC = () => {
     setHideText(!hideText);
   };
 
-  // Set initial page to show cover
-  useEffect(() => {
-    if (storyData && !loading) {
-      console.log("Story data loaded, showing cover page");
-      setCurrentPage(0);
-    }
-  }, [storyData, loading]);
-
   return (
-    <div className="relative w-full h-full bg-gray-50 flex flex-col">
+    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />
         </div>
       ) : (
-        <div ref={storyContainerRef} className="flex-1 flex flex-col h-full overflow-hidden">
+        <div 
+          ref={storyContainerRef} 
+          className="flex-1 flex flex-col h-full overflow-hidden"
+          data-testid="story-viewer-container"
+        >
           <ViewerControls
             storyId={id}
             title={storyData?.title || ""}
@@ -217,6 +221,7 @@ const StoryViewer: React.FC = () => {
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
                 isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
               }`}
+              data-testid="story-book-container"
             >
               {storyData && (
                 <>
