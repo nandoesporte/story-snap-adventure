@@ -11,7 +11,7 @@ interface NarrationPlayerProps {
   pageIndex: number;
   pageText: string;
   className?: string;
-  voiceType?: 'male' | 'female'; // Add voiceType prop
+  voiceType?: 'male' | 'female';
 }
 
 export const NarrationPlayer = ({ 
@@ -19,11 +19,12 @@ export const NarrationPlayer = ({
   pageIndex, 
   pageText, 
   className = '',
-  voiceType = 'female' // Default to female voice
+  voiceType = 'female'
 }: NarrationPlayerProps) => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [defaultVoiceType, setDefaultVoiceType] = useState<'male' | 'female'>('female');
   
   const { isPlaying, isGenerating, playAudio } = useStoryNarration({
     storyId,
@@ -32,6 +33,27 @@ export const NarrationPlayer = ({
   });
   
   const { toast } = useToast();
+  
+  // Load default voice type from app configuration
+  useEffect(() => {
+    const loadDefaultVoiceType = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', 'default_tts_voice_type')
+          .single();
+          
+        if (!error && data) {
+          setDefaultVoiceType(data.value as 'male' | 'female');
+        }
+      } catch (error) {
+        console.error("Erro ao carregar configuração de voz padrão:", error);
+      }
+    };
+    
+    loadDefaultVoiceType();
+  }, []);
   
   useEffect(() => {
     const checkExistingAudio = async () => {
@@ -71,7 +93,9 @@ export const NarrationPlayer = ({
   
   const handlePlayPause = async () => {
     try {
-      await playAudio(voiceType);
+      // Use the provided voiceType or fall back to default from database
+      const voiceToUse = voiceType || defaultVoiceType;
+      await playAudio(voiceToUse);
     } catch (e) {
       console.error("Erro ao reproduzir áudio:", e);
       toast({
