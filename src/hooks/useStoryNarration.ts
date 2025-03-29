@@ -84,9 +84,15 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       const reader = new FileReader();
       return new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
-          const base64Audio = reader.result as string;
-          localStorage.setItem(key, base64Audio);
-          resolve(base64Audio);
+          try {
+            const base64Audio = reader.result as string;
+            localStorage.setItem(key, base64Audio);
+            resolve(base64Audio);
+          } catch (storageError) {
+            console.error('Local storage error:', storageError);
+            // Don't reject, just return null
+            resolve(URL.createObjectURL(audioBlob));
+          }
         };
         reader.onerror = reject;
         reader.readAsDataURL(audioBlob);
@@ -98,7 +104,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   };
 
   const getAudioFromLocalStorage = (key: string) => {
-    return localStorage.getItem(key);
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      return null;
+    }
   };
 
   const ensureStorageBucketExists = async () => {
@@ -165,7 +176,14 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       
       const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
       
-      const cachedAudio = getAudioFromLocalStorage(localStorageKey);
+      let cachedAudio;
+      try {
+        cachedAudio = getAudioFromLocalStorage(localStorageKey);
+      } catch (storageError) {
+        console.warn('Error accessing localStorage, ignoring cache:', storageError);
+        cachedAudio = null;
+      }
+      
       if (cachedAudio) {
         console.log(`Using cached audio for page ${pageIndex}`);
         setAudioUrl(cachedAudio);
@@ -273,10 +291,11 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
             throw uploadError;
           }
         } else {
-          const { data: { publicUrl } } = supabase.storage
+          const { data } = supabase.storage
             .from('story_narrations')
             .getPublicUrl(fileName);
           
+          const publicUrl = data.publicUrl;
           console.log(`Successfully uploaded audio to Supabase: ${publicUrl}`);
           
           try {
