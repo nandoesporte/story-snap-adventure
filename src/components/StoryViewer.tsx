@@ -16,6 +16,7 @@ import { useTypingEffect } from "@/hooks/useTypingEffect";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useStoryImages } from "@/hooks/useStoryImages";
 import { useStoryNarration } from '@/hooks/useStoryNarration';
+import { NarrationPlayer } from "./NarrationPlayer";
 
 interface StoryPage {
   text: string;
@@ -646,12 +647,6 @@ const StoryViewer: React.FC = () => {
     const theme = storyData.theme || "";
     const imageUrl = getImageUrl(page.imageUrl || page.image_url, theme);
     
-    const { isGenerating, isPlaying, playAudio, VOICE_IDS } = narration;
-    
-    const getVoiceType = (type: string | undefined): 'male' | 'female' => {
-      return type === 'male' ? 'male' : 'female';
-    };
-    
     return (
       <div className="w-full h-full flex flex-col">
         {isMobile ? (
@@ -682,25 +677,13 @@ const StoryViewer: React.FC = () => {
                   </div>
                   
                   <div className="mt-4 flex justify-center gap-2">
-                    <Button 
-                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => playAudio(getVoiceType('female'))}
-                    >
-                      {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
-                      {isPlaying ? "Parar" : "Voz Feminina"}
-                    </Button>
-                    
-                    <Button 
-                      className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => playAudio(getVoiceType('male'))}
-                    >
-                      {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
-                      {isPlaying ? "Parar" : "Voz Masculina"}
-                    </Button>
+                    <NarrationPlayer
+                      storyId={id || ''}
+                      pageIndex={pageIndex}
+                      pageText={page.text}
+                      voiceType={storyData.voiceType || 'female'}
+                      className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
+                    />
                     
                     {isMobile && (
                       <Button 
@@ -758,27 +741,12 @@ const StoryViewer: React.FC = () => {
                   </ScrollArea>
                   <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
                     <span>Página {pageIndex + 1} de {storyData.pages.length}</span>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={() => playAudio(getVoiceType('female'))}
-                        className="flex items-center gap-1"
-                      >
-                        {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
-                        {isPlaying ? "Parar" : "Voz Feminina"}
-                      </Button>
-                      
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={() => playAudio(getVoiceType('male'))}
-                        className="flex items-center gap-1"
-                      >
-                        {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
-                        {isPlaying ? "Parar" : "Voz Masculina"}
-                      </Button>
-                    </div>
+                    <NarrationPlayer
+                      storyId={id || ''}
+                      pageIndex={pageIndex}
+                      pageText={page.text}
+                      voiceType={storyData.voiceType || 'female'}
+                    />
                     <span>{storyData.childName}</span>
                   </div>
                 </>
@@ -867,124 +835,3 @@ const StoryViewer: React.FC = () => {
                 size="sm"
                 onClick={handleDownloadPDF}
                 disabled={isDownloading}
-                className="text-gray-600"
-              >
-                <Download className="w-4 h-4" />
-                <span className="ml-1 hidden md:inline">
-                  {isDownloading ? "Gerando PDF..." : "Baixar PDF"}
-                </span>
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex-1 relative">
-            <div
-              ref={bookRef}
-              className={`w-full h-full transition-all duration-300 ${
-                isFlipping ? `animate-page-flip-${flipDirection}` : ""
-              }`}
-            >
-              {currentPage === 0 && renderCoverPage()}
-              {currentPage > 0 && renderStoryPage(currentPage - 1)}
-            </div>
-            
-            {isMobile && (
-              <div className="fixed bottom-20 left-0 right-0 flex justify-between px-4 z-50">
-                <Button
-                  variant="storySecondary"
-                  size="sm"
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 0}
-                  className="shadow-lg"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                
-                <Button
-                  variant="storySecondary"
-                  size="sm"
-                  onClick={handleNextPage}
-                  disabled={currentPage >= totalPages - 1}
-                  className="shadow-lg"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border-t border-gray-200 p-3 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={handlePreviousPage}
-              disabled={currentPage === 0}
-              className="text-gray-600"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="ml-1 hidden md:inline">Anterior</span>
-            </Button>
-            
-            <div className="text-sm font-medium text-gray-500">
-              {currentPage > 0
-                ? `Página ${currentPage} de ${totalPages - 1}`
-                : "Capa"}
-            </div>
-            
-            <Button
-              variant="ghost"
-              onClick={handleNextPage}
-              disabled={currentPage >= totalPages - 1}
-              className="text-gray-600"
-            >
-              <span className="mr-1 hidden md:inline">Próxima</span>
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {showImageViewer && (
-        <Dialog open={showImageViewer} onOpenChange={setShowImageViewer}>
-          <DialogContent className="sm:max-w-4xl bg-black/95 border-none">
-            <div className="relative w-full h-[80vh] flex items-center justify-center">
-              <div className="absolute top-2 right-2 flex gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleZoomOut}
-                  className="text-white"
-                >
-                  <ZoomOut />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleZoomIn}
-                  className="text-white"
-                >
-                  <ZoomIn />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowImageViewer(false)}
-                  className="text-white"
-                >
-                  <X />
-                </Button>
-              </div>
-              <img 
-                src={currentImageUrl} 
-                alt="Visualização de imagem"
-                className="max-w-full max-h-full object-contain transition-all duration-300"
-                style={{ transform: `scale(${imageZoom})` }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-  );
-};
-
-export default StoryViewer;

@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
 import { toast } from 'sonner';
@@ -56,11 +55,9 @@ export const NarrationPlayer = ({
           console.log("Narração não encontrada:", fetchError.message);
           setAudioUrl(null);
         } else if (data?.audio_url) {
-          // Verifica se a URL está completa
           if (data.audio_url.startsWith('http')) {
             setAudioUrl(data.audio_url);
           } else {
-            // Tenta construir uma URL completa se necessário
             try {
               const { data: publicUrlData } = supabase
                 .storage
@@ -69,13 +66,11 @@ export const NarrationPlayer = ({
               
               setAudioUrl(publicUrlData.publicUrl);
               
-              // Atualiza o registro com a URL completa para uso futuro
               await supabase
                 .from('story_narrations')
                 .update({ audio_url: publicUrlData.publicUrl })
                 .eq('story_id', storyId)
                 .eq('page_index', pageIndex);
-                
             } catch (e) {
               console.error("Erro ao processar URL de áudio:", e);
               setAudioUrl(data.audio_url);
@@ -93,8 +88,12 @@ export const NarrationPlayer = ({
     checkExistingAudio();
   }, [storyId, pageIndex]);
   
-  const handlePlayPause = async () => {
+  const handlePlayAudio = async () => {
     try {
+      if (isPlaying) {
+        toggleMute();
+        return;
+      }
       await playAudio(voiceType);
     } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);
@@ -111,47 +110,21 @@ export const NarrationPlayer = ({
     }
   };
   
-  const handleToggleMute = () => {
-    toggleMute();
-    setIsMuted(!isMuted);
-  };
-  
   return (
     <div className={`flex items-center ${className}`}>
       <Button
-        onClick={handlePlayPause}
+        onClick={handlePlayAudio}
         disabled={isGenerating || loading || !!error}
-        variant="outline"
+        variant="ghost"
         size="sm"
         className="flex items-center gap-2"
       >
         {isPlaying ? (
-          <>
-            <Pause className="h-4 w-4" />
-            <span>Pausar Narração</span>
-          </>
+          <Pause className="h-4 w-4" />
         ) : (
-          <>
-            <Play className="h-4 w-4" />
-            <span>Ouvir Narração</span>
-          </>
+          <Volume2 className="h-4 w-4" />
         )}
       </Button>
-      
-      {isPlaying && (
-        <Button
-          onClick={handleToggleMute}
-          variant="ghost"
-          size="sm"
-          className="ml-2"
-        >
-          {isMuted ? (
-            <VolumeX className="h-4 w-4" />
-          ) : (
-            <Volume2 className="h-4 w-4" />
-          )}
-        </Button>
-      )}
       
       {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio...</span>}
       {error && <span className="ml-2 text-xs text-red-500">{error}</span>}
