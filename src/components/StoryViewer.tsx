@@ -75,7 +75,6 @@ interface Story {
   metadata: any;
 }
 
-// Helper function to ensure voice type is the correct format
 const ensureValidVoiceType = (voiceType: any): 'male' | 'female' => {
   if (voiceType === 'male' || voiceType === 'female') {
     return voiceType;
@@ -290,4 +289,13 @@ const StoryViewer: React.FC = () => {
   const [isStoryPublicButtonNarrationPlayerVolume1Icon35, setIsStoryPublicButtonNarrationPlayerVolume1Icon35] = useState(<Volume1 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolume2Icon36, setIsStoryPublicButtonNarrationPlayerVolume2Icon36] = useState(<Volume2 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolumeXIcon36, setIsStoryPublicButtonNarrationPlayerVolumeXIcon36] = useState(<VolumeX className="h-4 w-4 mr-2" />);
-  const [isStory
+  const [isStoryPublicButtonNarrationPlayerVolume1Icon36, setIsStoryPublicButtonNarrationPlayerVolume1Icon36] = useState(<Volume1 className="h-4 w-4 mr-2" />);
+
+  return (
+    <div>
+      <p>Story Viewer Component</p>
+    </div>
+  );
+};
+
+export default StoryViewer;
