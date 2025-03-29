@@ -114,7 +114,8 @@ export const useStoryGeneration = () => {
         setting,
         moralTheme,
         characterPrompt: characterPrompt?.substring(0, 50) + "...",
-        length, 
+        length,
+        exactPageCount: getPageCountFromLength(length),
         readingLevel,
         language,
         hasChildImage: !!childImageBase64,
@@ -131,7 +132,7 @@ export const useStoryGeneration = () => {
             setting,
             moralTheme,
             characterPrompt,
-            length,
+            exactPageCount,
             readingLevel,
             language,
             childImageBase64,
@@ -357,6 +358,15 @@ export const useStoryGeneration = () => {
     } finally {
       setIsGenerating(false);
       setGeneratingNarration(false);
+    }
+  };
+  
+  const getPageCountFromLength = (length: string): number => {
+    switch (length) {
+      case "short": return 5;
+      case "medium": return 8;
+      case "long": return 12;
+      default: return 5;
     }
   };
   

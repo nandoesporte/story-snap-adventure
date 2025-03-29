@@ -210,8 +210,8 @@ export class BookGenerationService {
   private getNumPagesFromLength(length?: StoryLength): number {
     switch (length) {
       case 'short': return 5;
-      case 'medium': return 10;
-      case 'long': return 15;
+      case 'medium': return 8;
+      case 'long': return 12;
       default: return 5;
     }
   }
@@ -524,6 +524,10 @@ Personalidade: ${data.personality || 'Não especificada'}`;
     if (reading_level) prompt += `Nível de leitura: ${reading_level}\n`;
     if (num_pages) prompt += `Número de páginas: ${num_pages}\n`;
     
+    if (num_pages) {
+      prompt += `\nIMPORTANTE: A história DEVE ter EXATAMENTE ${num_pages} páginas numeradas, nem mais nem menos.\n`;
+    }
+    
     if (characterDetails) {
       prompt += `\nDetalhes do personagem:\n${characterDetails}\n`;
     }
@@ -719,6 +723,7 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
   static generateFallbackStory(params: Story): CompleteStory {
     console.log("Using fallback story generator with params:", params);
     
+    // Ensure we respect the requested page count
     const numPages = params.num_pages || 5;
     
     const titles = [

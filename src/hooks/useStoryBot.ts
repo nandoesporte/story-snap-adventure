@@ -398,15 +398,21 @@ export const useStoryBot = () => {
     setting: string,
     moralTheme: string = "",
     characterPrompt: string = "",
-    length: string = "medium",
+    pageCount: number | string,
     readingLevel: string = "intermediate",
     language: string = "portuguese",
     childImageBase64: string | null = null,
-    style: string = "cartoon"
-  ) => {
-    toast.info("Iniciando geração da história completa...");
-    
+    style: string = "papercraft"
+  ): Promise<{ title: string; coverImageUrl: string; pages: Array<{ text: string; imageUrl: string }> }> => {
     try {
+      const exactPageCount = typeof pageCount === 'string' 
+        ? parseInt(pageCount, 10) || 5 
+        : pageCount;
+        
+      console.log(`Generating complete story with ${exactPageCount} pages`);
+      
+      toast.info("Iniciando geração da história completa...");
+      
       setIsGenerating(true);
       
       toast.info("Criando a narrativa da história...");
@@ -417,7 +423,7 @@ export const useStoryBot = () => {
         setting,
         moralTheme,
         characterPrompt,
-        length,
+        exactPageCount,
         readingLevel,
         language
       );
@@ -604,8 +610,8 @@ export const useStoryBot = () => {
     return initializeOpenAI(apiKey);
   };
 
-  return { 
-    generateStoryBotResponse, 
+  return {
+    generateStoryBotResponse,
     isGenerating,
     generateImageDescription,
     generateImage,
