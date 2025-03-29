@@ -1,118 +1,240 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Story, Json } from '@/types';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
-interface StoryPageDetails {
+export interface StoryPage {
   text: string;
-  imageUrl: string;
+  imageUrl?: string;
+  image_url?: string;
 }
 
-export const extractPageDetails = (story: Story) => {
-  // Safely extract page details from JSON or array
-  const pages = Array.isArray(story.pages) 
-    ? story.pages 
-    : (story.pages && typeof story.pages === 'object' 
-      ? Object.values(story.pages as Record<string, any>) 
-      : []);
+export interface StoryData {
+  title: string;
+  coverImageUrl?: string;
+  cover_image_url?: string;
+  childName: string;
+  childAge: string;
+  theme: string;
+  setting: string;
+  characterName?: string;
+  pages: StoryPage[];
+  language?: string;
+  style?: string;
+  moral?: string;
+  readingLevel?: string;
+  voiceType?: 'male' | 'female';
+}
 
-  return pages.map(page => ({
-    text: page.text || '',
-    imageUrl: page.image_url || page.imageUrl || ''
-  }));
+const defaultStory: StoryData = {
+  title: "História não encontrada",
+  coverImageUrl: "/placeholder.svg",
+  childName: "",
+  childAge: "",
+  theme: "",
+  setting: "",
+  pages: [
+    {
+      text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
+      imageUrl: "/placeholder.svg"
+    }
+  ],
+  voiceType: 'female'
 };
 
-export const useStoryData = (storyId?: string) => {
-  const [storyData, setStoryData] = useState<Story | null>(null);
-  const [loading, setLoading]= useState(true);
-  const [error, setError] = useState<Error | null>(null);
+export const useStoryData = (id?: string) => {
+  const [storyData, setStoryData] = useState<StoryData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const fetchStoryData = async () => {
+    const loadStory = async () => {
       try {
         setLoading(true);
         
-        // If no storyId is provided, check if story data exists in sessionStorage
-        if (!storyId) {
-          const storedData = sessionStorage.getItem('storyData');
-          if (storedData) {
-            const parsedData = JSON.parse(storedData);
-            setStoryData(parsedData);
-            
-            // Calculate total pages (cover + content pages)
-            const contentPages = Array.isArray(parsedData.pages) ? parsedData.pages.length : 0;
-            setTotalPages(contentPages + 1); // +1 for cover page
-            return;
-          }
-        }
-        
-        // If storyId is provided or no data in sessionStorage, fetch from database
-        if (storyId) {
+        if (id && id !== ":id") {
+          console.log("Carregando história do banco com ID:", id);
+          
+          import('../../lib/imageHelper').then(({ validateAndFixStoryImages }) => {
+            validateAndFixStoryImages(id);
+          });
+          
           const { data, error } = await supabase
-            .from('stories')
-            .select('*')
-            .eq('id', storyId)
+            .from("stories")
+            .select("*")
+            .eq("id", id)
             .single();
             
           if (error) {
-            throw new Error(`Error fetching story: ${error.message}`);
+            console.error("Erro ao carregar história do banco:", error);
+            toast.error("Erro ao carregar história do banco de dados");
+            
+            loadFromSessionStorage();
+            return;
           }
           
           if (data) {
-            // Transform data to match Story interface
-            const transformedData: Story = {
-              ...data,
-              pages: typeof data.pages === 'string' ? JSON.parse(data.pages) : data.pages,
-              voice_type: data.voice_type as 'male' | 'female' || 'female',
-              // Add compatibility fields
-              childName: data.character_name,
-              coverImageUrl: data.cover_image_url,
-              voiceType: data.voice_type as 'male' | 'female' || 'female'
+            console.log("Dados da história carregados:", data);
+            
+            const coverImage = data.cover_image_url || 
+                              (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+                              "/placeholder.svg";
+                              
+            console.log("Selected cover image:", coverImage);
+            
+            const formattedStory: StoryData = {
+              title: data.title || "História sem título",
+              coverImageUrl: coverImage,
+              cover_image_url: coverImage,
+              childName: data.character_name || "Leitor",
+              childAge: data.character_age || "",
+              theme: data.theme || "",
+              setting: data.setting || "",
+              style: data.style || "",
+              voiceType: data.voice_type || 'female',
+              pages: Array.isArray(data.pages) 
+                ? data.pages.map((page: any) => {
+                    console.log("Page image URL:", page.image_url);
+                    
+                    if (page.image_url) {
+                      import('../../lib/imageHelper').then(({ storeImageInCache }) => {
+                        storeImageInCache(page.image_url);
+                      });
+                    }
+                    
+                    return {
+                      text: page.text || "",
+                      imageUrl: page.image_url || "/placeholder.svg",
+                      image_url: page.image_url || "/placeholder.svg"
+                    };
+                  })
+                : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
             };
             
-            // Add content field if it doesn't exist
-            if (!transformedData.content && Array.isArray(transformedData.pages)) {
-              transformedData.content = transformedData.pages.map(page => page.text || '');
+            if (coverImage) {
+              import('../../lib/imageHelper').then(({ storeImageInCache }) => {
+                storeImageInCache(coverImage);
+              });
             }
             
-            setStoryData(transformedData);
-            
-            // Calculate total pages
-            let pageCount = 0;
-            if (Array.isArray(transformedData.pages)) {
-              pageCount = transformedData.pages.length;
-            } else if (transformedData.pages && typeof transformedData.pages === 'object') {
-              pageCount = Object.keys(transformedData.pages).length;
-            }
-            
-            setTotalPages(pageCount + 1); // +1 for cover page
+            setStoryData(formattedStory);
+            setTotalPages(formattedStory.pages.length + 1);
+            setLoading(false);
+          } else {
+            loadFromSessionStorage();
           }
+        } else {
+          loadFromSessionStorage();
         }
-      } catch (err) {
-        console.error('Error loading story data:', err);
-        setError(err as Error);
-        toast.error('Failed to load story data');
+      } catch (error) {
+        console.error("Erro ao carregar a história:", error);
+        toast.error("Erro ao carregar a história");
+        setStoryData(defaultStory);
+        setTotalPages(defaultStory.pages.length + 1);
+        setLoading(false);
+      }
+    };
+    
+    const loadFromSessionStorage = () => {
+      try {
+        const savedData = sessionStorage.getItem("storyData");
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          console.log("Dados carregados do sessionStorage:", parsedData);
+          
+          const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
+                           (parsedData.pages && parsedData.pages.length > 0 ? 
+                             (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
+                             "/placeholder.svg");
+          
+          const formattedStory: StoryData = {
+            title: parsedData.title || "História sem título",
+            coverImageUrl: coverImage,
+            cover_image_url: coverImage,
+            childName: parsedData.childName || parsedData.character_name || "Leitor",
+            childAge: parsedData.childAge || parsedData.character_age || "",
+            theme: parsedData.theme || "",
+            setting: parsedData.setting || "",
+            style: parsedData.style || "",
+            voiceType: parsedData.voiceType || 'female',
+            pages: Array.isArray(parsedData.pages) 
+              ? parsedData.pages.map((page: any) => ({
+                  text: page.text || "",
+                  imageUrl: page.imageUrl || page.image_url || "/placeholder.svg",
+                  image_url: page.imageUrl || page.image_url || "/placeholder.svg"
+                }))
+              : [{ text: "Não há conteúdo disponível.", imageUrl: "/placeholder.svg" }]
+          };
+          
+          setStoryData(formattedStory);
+          setTotalPages(formattedStory.pages.length + 1);
+        } else {
+          console.error("Nenhum dado de história encontrado no sessionStorage");
+          setStoryData(defaultStory);
+          setTotalPages(defaultStory.pages.length + 1);
+        }
+      } catch (storageError) {
+        console.error("Erro ao carregar dados do sessionStorage:", storageError);
+        setStoryData(defaultStory);
+        setTotalPages(defaultStory.pages.length + 1);
       } finally {
         setLoading(false);
       }
     };
     
-    fetchStoryData();
-  }, [storyId]);
-  
-  const handleImageError = (imageSrc: string) => {
-    console.warn(`Failed to load image: ${imageSrc}`);
-    // You can implement fallback logic here if needed
-    return true;
+    loadStory();
+  }, [id]);
+
+  const handleImageError = (url: string) => {
+    console.log("Failed to load image URL:", url);
+    setFailedImages(prev => ({...prev, [url]: true}));
+    
+    import('../../lib/imageHelper').then(({ getImageFromCache }) => {
+      const cachedUrl = getImageFromCache(url);
+      if (cachedUrl) {
+        console.log("Recovered image from cache:", url);
+        if (storyData) {
+          if (storyData.coverImageUrl === url || storyData.cover_image_url === url) {
+            setStoryData({
+              ...storyData,
+              coverImageUrl: cachedUrl,
+              cover_image_url: cachedUrl
+            });
+          }
+          
+          const updatedPages = storyData.pages.map(page => {
+            if (page.imageUrl === url || page.image_url === url) {
+              return {
+                ...page,
+                imageUrl: cachedUrl,
+                image_url: cachedUrl
+              };
+            }
+            return page;
+          });
+          
+          setStoryData({
+            ...storyData,
+            pages: updatedPages
+          });
+        }
+      } else if (Object.keys(failedImages).length < 2) {
+        toast.error("Algumas imagens não puderam ser carregadas. Exibindo imagens alternativas.", {
+          id: "image-load-error",
+          duration: 3000
+        });
+      }
+    });
   };
-  
+
   return {
     storyData,
+    setStoryData,
     loading,
-    error,
     totalPages,
-    handleImageError
+    failedImages,
+    handleImageError,
+    defaultStory
   };
 };

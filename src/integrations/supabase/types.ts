@@ -269,7 +269,6 @@ export type Database = {
           title: string
           updated_at: string | null
           user_id: string | null
-          voice_type: string | null
         }
         Insert: {
           character_age?: string | null
@@ -286,7 +285,6 @@ export type Database = {
           title: string
           updated_at?: string | null
           user_id?: string | null
-          voice_type?: string | null
         }
         Update: {
           character_age?: string | null
@@ -303,7 +301,6 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string | null
-          voice_type?: string | null
         }
         Relationships: []
       }
@@ -358,13 +355,6 @@ export type Database = {
             foreignKeyName: "story_likes_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "featured_stories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "story_likes_story_id_fkey"
-            columns: ["story_id"]
-            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
@@ -403,13 +393,6 @@ export type Database = {
             foreignKeyName: "story_narrations_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "featured_stories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "story_narrations_story_id_fkey"
-            columns: ["story_id"]
-            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
@@ -439,38 +422,10 @@ export type Database = {
             foreignKeyName: "story_views_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
-            referencedRelation: "featured_stories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "story_views_story_id_fkey"
-            columns: ["story_id"]
-            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
         ]
-      }
-      storybot_prompts: {
-        Row: {
-          created_at: string | null
-          id: string
-          prompt: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          prompt: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          prompt?: string
-          updated_at?: string | null
-        }
-        Relationships: []
       }
       subscription_history: {
         Row: {
@@ -782,26 +737,7 @@ export type Database = {
       }
     }
     Views: {
-      featured_stories: {
-        Row: {
-          character_age: string | null
-          character_name: string | null
-          character_prompt: string | null
-          cover_image_url: string | null
-          created_at: string | null
-          id: string | null
-          is_public: boolean | null
-          pages: Json | null
-          setting: string | null
-          style: string | null
-          theme: string | null
-          title: string | null
-          updated_at: string | null
-          user_id: string | null
-          voice_type: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       add_user_credits: {
@@ -816,13 +752,6 @@ export type Database = {
         Args: {
           p_table_name: string
           p_column_name: string
-        }
-        Returns: boolean
-      }
-      check_table_exists: {
-        Args: {
-          p_table_name: string
-          p_schema_name?: string
         }
         Returns: boolean
       }
@@ -874,12 +803,6 @@ export type Database = {
       exec: {
         Args: {
           sql: string
-        }
-        Returns: undefined
-      }
-      exec_sql: {
-        Args: {
-          sql_query: string
         }
         Returns: undefined
       }

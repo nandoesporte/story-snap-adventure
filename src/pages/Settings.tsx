@@ -1,216 +1,234 @@
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import { Save, RefreshCw, Check, Wand2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { BookGenerationService } from '@/services/BookGenerationService';
+import { useAuth } from '@/context/AuthContext';
+import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
+import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
 
-const SettingsPage: React.FC = () => {
+const Settings = () => {
   const { user } = useAuth();
-  const [openaiApiKey, setOpenaiApiKey] = useState<string>("");
-  const [googleTtsApiKey, setGoogleTtsApiKey] = useState<string>("");
-  const [elevenlabsApiKey, setElevenlabsApiKey] = useState<string>("");
-  const [leonardoApiKey, setLeonardoApiKey] = useState<string>("");
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [leonardoApiKey, setLeonardoApiKey] = useState('');
+  const [imagePromptTemplate, setImagePromptTemplate] = useState('');
+  const [preferredModel, setPreferredModel] = useState('openai');
+  const [openaiModelType, setOpenaiModelType] = useState('gpt-4o-mini');
+  const [useOpenAI, setUseOpenAI] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
 
   useEffect(() => {
-    // Load keys from localStorage
-    const loadKeys = () => {
-      const openai = localStorage.getItem("openai_api_key") || "";
-      const google = localStorage.getItem("google_tts_api_key") || "";
-      const eleven = localStorage.getItem("elevenlabs_api_key") || "";
-      const leonardo = localStorage.getItem("leonardo_api_key") || "";
-      
-      setOpenaiApiKey(openai);
-      setGoogleTtsApiKey(google);
-      setElevenlabsApiKey(eleven);
-      setLeonardoApiKey(leonardo);
-    };
+    // Load saved settings
+    const savedOpenAIKey = localStorage.getItem('openai_api_key') || '';
+    const savedLeonardoKey = localStorage.getItem('leonardo_api_key') || '';
+    const savedImagePromptTemplate = localStorage.getItem('image_prompt_template') || '';
+    const savedPreferredModel = localStorage.getItem('preferred_ai_model') || 'openai';
+    const savedOpenAIModel = localStorage.getItem('openai_model_type') || 'gpt-4o-mini';
     
-    loadKeys();
+    setOpenaiApiKey(savedOpenAIKey);
+    setLeonardoApiKey(savedLeonardoKey);
+    setImagePromptTemplate(savedImagePromptTemplate);
+    setPreferredModel(savedPreferredModel);
+    setOpenaiModelType(savedOpenAIModel);
+    setUseOpenAI(true);
   }, []);
 
-  const saveApiKeys = () => {
+  const handleSaveSettings = async () => {
     setIsSaving(true);
-    
     try {
-      localStorage.setItem("openai_api_key", openaiApiKey);
-      localStorage.setItem("google_tts_api_key", googleTtsApiKey);
-      localStorage.setItem("elevenlabs_api_key", elevenlabsApiKey);
-      localStorage.setItem("leonardo_api_key", leonardoApiKey);
+      // Save OpenAI API key
+      if (openaiApiKey) {
+        localStorage.setItem('openai_api_key', openaiApiKey);
+      }
       
-      toast.success("Chaves de API salvas com sucesso!");
+      // Save Leonardo API key
+      if (leonardoApiKey) {
+        localStorage.setItem('leonardo_api_key', leonardoApiKey);
+      }
+      
+      // Save image prompt template
+      if (imagePromptTemplate) {
+        localStorage.setItem('image_prompt_template', imagePromptTemplate);
+      }
+      
+      // Save AI model preferences
+      localStorage.setItem('preferred_ai_model', preferredModel);
+      localStorage.setItem('openai_model_type', openaiModelType);
+      localStorage.setItem('use_openai', 'true');
+      
+      toast.success('Configurações salvas com sucesso');
     } catch (error) {
-      console.error("Erro ao salvar chaves de API:", error);
-      toast.error("Erro ao salvar chaves de API. Verifique o console para mais detalhes.");
+      console.error('Erro ao salvar configurações:', error);
+      toast.error('Erro ao salvar configurações');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const testApiConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const { initializeOpenAI } = await import('@/lib/openai');
+      const client = initializeOpenAI(openaiApiKey);
+      
+      if (!client) {
+        toast.error('Falha ao conectar com OpenAI');
+        setTestingConnection(false);
+        return;
+      }
+      
+      toast.success('Conexão com OpenAI estabelecida com sucesso');
+    } catch (error) {
+      console.error('Erro ao testar conexão:', error);
+      toast.error('Erro ao testar conexão com a API');
+    } finally {
+      setTestingConnection(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold">Configurações</h1>
-        
-        <Tabs defaultValue="api-keys" className="mt-6">
-          <TabsList>
-            <TabsTrigger value="api-keys">Chaves de API</TabsTrigger>
-            <TabsTrigger value="account">Conta</TabsTrigger>
-            <TabsTrigger value="preferences">Preferências</TabsTrigger>
-          </TabsList>
+      <motion.div
+        className="flex-grow py-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-violet-800 mb-8">Configurações</h1>
           
-          <TabsContent value="api-keys" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Chaves de API</CardTitle>
-                <CardDescription>
-                  Configure suas chaves de API para utilizar serviços externos de geração de conteúdo.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* OpenAI API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="openai-api-key">OpenAI API Key</Label>
-                  <Input
-                    id="openai-api-key"
-                    type="password"
-                    value={openaiApiKey}
-                    onChange={(e) => setOpenaiApiKey(e.target.value)}
-                    placeholder="sk-..."
-                  />
-                  <p className="text-xs text-gray-500">
-                    Necessária para geração de textos e imagens. Obtenha em{" "}
-                    <a 
-                      href="https://platform.openai.com/api-keys" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      platform.openai.com
-                    </a>
-                  </p>
-                </div>
-                
-                {/* Google TTS API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="google-tts-api-key">Google Text-to-Speech API Key</Label>
-                  <Input
-                    id="google-tts-api-key"
-                    type="password"
-                    value={googleTtsApiKey}
-                    onChange={(e) => setGoogleTtsApiKey(e.target.value)}
-                    placeholder="AIza..."
-                  />
-                  <p className="text-xs text-gray-500">
-                    Necessária para narração de histórias. Obtenha no{" "}
-                    <a 
-                      href="https://console.cloud.google.com/apis/credentials" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      Google Cloud Console
-                    </a>
-                  </p>
-                </div>
-                
-                {/* ElevenLabs API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="elevenlabs-api-key">ElevenLabs API Key</Label>
-                  <Input
-                    id="elevenlabs-api-key"
-                    type="password"
-                    value={elevenlabsApiKey}
-                    onChange={(e) => setElevenlabsApiKey(e.target.value)}
-                    placeholder="11..."
-                  />
-                  <p className="text-xs text-gray-500">
-                    Para narração de histórias de alta qualidade. Obtenha em{" "}
-                    <a 
-                      href="https://elevenlabs.io/speech-synthesis" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      elevenlabs.io
-                    </a>
-                  </p>
-                </div>
-                
-                {/* Leonardo API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="leonardo-api-key">Leonardo.AI API Key</Label>
-                  <Input
-                    id="leonardo-api-key"
-                    type="password"
-                    value={leonardoApiKey}
-                    onChange={(e) => setLeonardoApiKey(e.target.value)}
-                    placeholder="..."
-                  />
-                  <p className="text-xs text-gray-500">
-                    Para geração de imagens. Obtenha em{" "}
-                    <a 
-                      href="https://leonardo.ai" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      leonardo.ai
-                    </a>
-                  </p>
-                </div>
-                
-                <Button 
-                  onClick={saveApiKeys} 
-                  disabled={isSaving}
-                >
-                  {isSaving ? "Salvando..." : "Salvar Chaves API"}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="account" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Detalhes da Conta</CardTitle>
-                <CardDescription>
-                  Gerencie as informações da sua conta.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p>Usuário atual: {user?.email || "Não logado"}</p>
-                <p className="mt-4 text-gray-500">Mais configurações de conta serão implementadas em breve.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="preferences" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Preferências</CardTitle>
-                <CardDescription>
-                  Personalize sua experiência.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500">Preferências serão implementadas em breve.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+          <Tabs defaultValue="ai-models" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="ai-models">Modelos de IA</TabsTrigger>
+              <TabsTrigger value="image-generation">Geração de Imagens</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="ai-models">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuração de Modelos de IA</CardTitle>
+                  <CardDescription>
+                    Configure as chaves de API e preferências para geração de histórias
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-key">Chave da API OpenAI</Label>
+                    <Input
+                      id="openai-key"
+                      type="password"
+                      placeholder="sk-..."
+                      value={openaiApiKey}
+                      onChange={(e) => setOpenaiApiKey(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Obtenha sua chave em <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">platform.openai.com/api-keys</a>
+                    </p>
+                    
+                    <div className="space-y-2 pt-2">
+                      <Label>Modelo OpenAI</Label>
+                      <RadioGroup value={openaiModelType} onValueChange={setOpenaiModelType}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="gpt-4o-mini" id="gpt-4o-mini" />
+                          <Label htmlFor="gpt-4o-mini" className="cursor-pointer">
+                            GPT-4o Mini (mais rápido, mais barato)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="gpt-4o" id="gpt-4o" />
+                          <Label htmlFor="gpt-4o" className="cursor-pointer">
+                            GPT-4o (mais poderoso)
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    variant="outline" 
+                    onClick={testApiConnection}
+                    disabled={testingConnection}
+                  >
+                    {testingConnection ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 h-4 w-4" />
+                    )}
+                    Testar Conexão
+                  </Button>
+                  <Button 
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Salvar Configurações
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="image-generation">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuração de Geração de Imagens</CardTitle>
+                  <CardDescription>
+                    Configure a API Leonardo.ai para geração de ilustrações
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="leonardo-api-key">Chave da API Leonardo.AI</Label>
+                    <Input
+                      id="leonardo-api-key"
+                      type="password"
+                      placeholder="..."
+                      value={leonardoApiKey}
+                      onChange={(e) => setLeonardoApiKey(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Obtenha sua chave em <a href="https://leonardo.ai/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">leonardo.ai/settings/api-keys</a>
+                    </p>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Salvar Configurações
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </motion.div>
       <Footer />
     </div>
   );
 };
 
-export default SettingsPage;
+export default Settings;

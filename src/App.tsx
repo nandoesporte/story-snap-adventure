@@ -1,92 +1,94 @@
 
 import React, { useState, useEffect } from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import Dashboard from './pages/Dashboard';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import Profile from './pages/Profile';
 import CreateStory from './pages/CreateStory';
-import StoryCreatorPage from './pages/StoryCreator';
-import StoryViewer from './components/story-viewer/StoryViewer';
+import StoryCreator from './components/StoryCreator';
 import MyStories from './pages/MyStories';
-import Settings from './pages/Settings';
-import Pricing from './pages/Pricing';
+import StoryViewer from './components/StoryViewer';
+import NotFound from './pages/NotFound';
+import StoryBot from './pages/StoryBot';
+import Library from './pages/Library';
 import Admin from './pages/Admin';
-import EditStory from './pages/EditStory';
-import CharacterPage from './pages/CharacterPage';
-import ThemePage from './pages/ThemePage';
-import NotFoundPage from './pages/NotFoundPage';
-import { Toaster } from "sonner";
 import Subscription from './pages/Subscription';
+import { initializeDatabaseStructure } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-function App() {
-  const { user } = useAuth();
+// Create a stable QueryClient instance outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
+// Use this component in main.tsx
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+};
+
+// The actual app content, now wrapped by QueryClientProvider in the App component
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Important: Only use hooks inside this component body, not in conditionals or loops
   useEffect(() => {
-    // Simulate initialization process
-    setTimeout(() => {
-      setIsInitialized(true);
-    }, 500);
+    const initialize = async () => {
+      try {
+        await initializeDatabaseStructure();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Erro ao inicializar a estrutura do banco de dados:", error);
+      }
+    };
+
+    initialize();
   }, []);
 
+  useEffect(() => {
+    if (!authLoading && !user && 
+        location.pathname !== '/' && 
+        location.pathname !== '/auth' && 
+        location.pathname !== '/library' &&
+        !location.pathname.startsWith('/view-story')) {
+      // Allow index page, viewing stories and library without login
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate, location]);
+
   return (
-    <>
-      <Toaster richColors position="bottom-center" />
+    <div className="App">
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
-        <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignupPage />} />
-        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/view-story/:id" element={<StoryViewer />} />
+        <Route path="/view-story" element={<StoryViewer />} />
+        <Route path="/storybot" element={<StoryBot />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/subscription" element={<Subscription />} />
-        <Route path="/characters" element={<CharacterPage />} />
-        <Route path="/themes" element={<ThemePage />} />
-        
-        {/* Protected routes */}
-        <Route
-          path="/dashboard"
-          element={user ? <Dashboard /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/create-story"
-          element={user ? <CreateStory /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/story-creator"
-          element={user ? <StoryCreatorPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/my-stories"
-          element={user ? <MyStories /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/settings"
-          element={user ? <Settings /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/admin"
-          element={user ? <Admin /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/edit-story/:id"
-          element={user ? <EditStory /> : <Navigate to="/login" />}
-        />
-        
-        {/* Fix the StoryViewer routes - they don't need the story prop anymore as they use param id */}
-        <Route 
-          path="/stories/:id" 
-          element={<StoryViewer />} 
-        />
-        <Route 
-          path="/view-story" 
-          element={<StoryViewer />} 
-        />
-        
-        {/* Not Found Route */}
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+      <Toaster />
+    </div>
   );
 }
 

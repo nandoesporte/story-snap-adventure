@@ -7,7 +7,9 @@ import {
   Download, 
   Home, 
   BookText, 
-  Share
+  Share, 
+  Maximize, 
+  Minimize
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,10 +20,12 @@ interface ViewerControlsProps {
   currentPage: number;
   totalPages: number;
   isDownloading: boolean;
+  isFullscreen: boolean;
   isMobile: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onDownloadPDF: () => void;
+  onToggleFullscreen: () => void;
 }
 
 export const ViewerControls: React.FC<ViewerControlsProps> = ({
@@ -30,10 +34,12 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   currentPage,
   totalPages,
   isDownloading,
+  isFullscreen,
   isMobile,
   onPrevious,
   onNext,
   onDownloadPDF,
+  onToggleFullscreen
 }) => {
   const navigate = useNavigate();
   
@@ -104,6 +110,20 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
         </div>
         
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleFullscreen}
+              className="text-gray-600"
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              <span className="ml-1 hidden md:inline">
+                {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+              </span>
+            </Button>
+          )}
+          
           <Button
             variant="ghost"
             size="sm"
@@ -155,13 +175,15 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
         )}
       </div>
       
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
-        <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
-          <span className="text-xs text-gray-800">
-            {currentPage} / {totalPages - 1}
-          </span>
+      {!isFullscreen && (
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
+          <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
+            <span className="text-xs text-gray-800">
+              {currentPage} / {totalPages - 1}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };

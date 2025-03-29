@@ -1,196 +1,671 @@
+import { createClient, User } from '@supabase/supabase-js';
 
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../integrations/supabase/types';
-import { User, Session } from '@supabase/supabase-js';
+const supabaseUrl = 'https://znumbovtprdnfddwwerf.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpudW1ib3Z0cHJkbmZkZHd3ZXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NDU4OTMsImV4cCI6MjA1ODIyMTg5M30.YiOKTKqRXruZsd3h2NRFCSJ9fWzAnrMFkSynBhdoBGI';
 
-// Import URL and key from environment variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://znumbovtprdnfddwwerf.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpudW1ib3Z0cHJkbmZkZHd3ZXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NDU4OTMsImV4cCI6MjA1ODIyMTg5M30.YiOKTKqRXruZsd3h2NRFCSJ9fWzAnrMFkSynBhdoBGI";
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Create supabase client
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Helper function to get the public URL for storage objects
+export const getStorageUrl = (bucket: string, fileName: string): string => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  return data.publicUrl;
+};
 
-// Export types
+// Initialize necessary database structure
+export const initializeDatabaseStructure = async () => {
+  try {
+    // Create the functions if they don't exist by calling stored procedures
+    console.log("Initializing database structure...");
+    
+    // Try to call existing functions to create tables if they don't exist
+    try {
+      const { error: pageContentsError } = await supabase.rpc('create_page_contents_if_not_exists');
+      if (pageContentsError) {
+        console.warn("Error creating page_contents table:", pageContentsError);
+      }
+    } catch (err) {
+      console.warn("create_page_contents_if_not_exists function may not exist yet:", err);
+    }
+    
+    try {
+      const { error: userProfilesError } = await supabase.rpc('create_user_profiles_if_not_exists');
+      if (userProfilesError) {
+        console.warn("Error creating user_profiles table:", userProfilesError);
+      }
+    } catch (err) {
+      console.warn("create_user_profiles_if_not_exists function may not exist yet:", err);
+    }
+    
+    // Fallback: Try to ensure tables exist by querying them
+    console.log("Checking if tables already exist...");
+    
+    // Check if page_contents table exists
+    const { error: pageContentsCheckError } = await supabase
+      .from('page_contents')
+      .select('count(*)', { count: 'exact', head: true });
+      
+    if (pageContentsCheckError && pageContentsCheckError.code === '42P01') {
+      console.log("Page contents table doesn't exist. Please create it in the Supabase dashboard.");
+      // We can't create tables directly from client-side code
+      // User needs to run SQL in the Supabase dashboard
+    }
+    
+    // Check if user_profiles table exists
+    const { error: userProfilesCheckError } = await supabase
+      .from('user_profiles')
+      .select('count(*)', { count: 'exact', head: true });
+      
+    if (userProfilesCheckError && userProfilesCheckError.code === '42P01') {
+      console.log("User profiles table doesn't exist. Please create it in the Supabase dashboard.");
+      // We can't create tables directly from client-side code
+      // User needs to run SQL in the Supabase dashboard
+    }
+    
+    // Add is_public column to stories table
+    const addIsPublicToStories = `
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = 'stories' AND column_name = 'is_public'
+        ) THEN
+          ALTER TABLE public.stories ADD COLUMN is_public BOOLEAN DEFAULT false;
+        END IF;
+      END
+      $$;
+    `;
+    
+    // Execute this query after creating the stories table
+    try {
+      await supabase.rpc('exec', { sql: addIsPublicToStories });
+      console.log("✓ Added is_public column to stories table");
+    } catch (error) {
+      console.error("× Error adding is_public column to stories table:", error);
+    }
+    
+    // Try to seed initial data if page_contents table exists
+    if (!pageContentsCheckError) {
+      // Check if table is empty
+      const { count, error: countError } = await supabase
+        .from('page_contents')
+        .select('*', { count: 'exact', head: true });
+        
+      if (!countError && count === 0) {
+        console.log("Page contents table is empty, seeding initial data...");
+        
+        // Insert some initial data
+        const initialData = getInitialPageContents();
+        
+        for (const item of initialData) {
+          const { error: insertError } = await supabase
+            .from('page_contents')
+            .insert(item);
+            
+          if (insertError) {
+            console.error("Error inserting initial data:", insertError);
+          }
+        }
+      }
+      
+      // Update the hero image regardless
+      await updateHeroImage();
+    }
+    
+    console.log("Database structure initialization completed");
+  } catch (err) {
+    console.error("Error initializing database structure:", err);
+  }
+};
+
+// Get initial page contents data
+const getInitialPageContents = () => {
+  return [
+    {
+      page: 'index',
+      section: 'hero',
+      key: 'title',
+      content: 'Histórias infantis personalizadas em minutos',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'hero',
+      key: 'subtitle',
+      content: 'Crie histórias mágicas com os personagens e cenários que seu filho adora',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'title',
+      content: 'Como funciona',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'subtitle',
+      content: 'Crie histórias únicas em apenas 3 passos simples',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature1_title',
+      content: 'Personalize sua história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature1_description',
+      content: 'Escolha o nome da criança, idade, cenário e tema da história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature2_title',
+      content: 'Nossa IA cria a história',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature2_description',
+      content: 'Nosso sistema gera textos e ilustrações personalizadas',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature3_title',
+      content: 'Leia e compartilhe',
+      content_type: 'text'
+    },
+    {
+      page: 'index',
+      section: 'features',
+      key: 'feature3_description',
+      content: 'Leia online, baixe em PDF ou compartilhe com a família',
+      content_type: 'text'
+    }
+  ];
+};
+
+// Update the hero image in the database
+const updateHeroImage = async () => {
+  try {
+    // Check if the hero image entry exists
+    const { data, error } = await supabase
+      .from('page_contents')
+      .select('*')
+      .eq('page', 'index')
+      .eq('section', 'hero')
+      .eq('key', 'image_url')
+      .single();
+    
+    const imageUrl = '/lovable-uploads/242b14ba-c728-4dda-b139-e19d1b85e084.png';
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Record doesn't exist, insert it
+        const { error: insertError } = await supabase
+          .from('page_contents')
+          .insert({
+            page: 'index',
+            section: 'hero',
+            key: 'image_url',
+            content: imageUrl,
+            content_type: 'image'
+          });
+          
+        if (insertError) {
+          console.error("Error inserting hero image:", insertError);
+        } else {
+          console.log("Hero image inserted successfully");
+        }
+      } else {
+        console.error("Error checking hero image:", error);
+      }
+    } else {
+      // Record exists, update it
+      const { error: updateError } = await supabase
+        .from('page_contents')
+        .update({ content: imageUrl })
+        .eq('page', 'index')
+        .eq('section', 'hero')
+        .eq('key', 'image_url');
+        
+      if (updateError) {
+        console.error("Error updating hero image:", updateError);
+      } else {
+        console.log("Hero image updated successfully");
+      }
+    }
+  } catch (err) {
+    console.error("Error updating hero image:", err);
+  }
+};
+
+// User types
 export type UserSession = {
   user: User | null;
-  session: Session | null;
+  session: any | null;
 };
 
-// Export useful functions
-export const signUp = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-  return { data, error };
-};
-
-export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  return { data, error };
-};
-
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-};
-
+// Helper functions for authentication
 export const getUser = async (): Promise<UserSession> => {
   try {
-    // First, get the current session
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
     
-    if (sessionError) {
-      console.error("Error fetching session:", sessionError);
+    if (error) {
+      console.error('Error fetching user session:', error.message);
       return { user: null, session: null };
     }
     
-    if (!sessionData.session) {
-      return { user: null, session: null };
-    }
-    
-    // If we have a session, get the user
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    // Get the user data separately
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError) {
-      console.error("Error fetching user:", userError);
-      return { user: null, session: sessionData.session };
+      console.error('Error fetching user data:', userError.message);
+      return { user: null, session: null };
     }
     
-    return {
-      user: userData.user,
-      session: sessionData.session
-    };
-  } catch (error) {
-    console.error("Unexpected error in getUser:", error);
+    return { user, session: data.session };
+  } catch (err) {
+    console.error('Unexpected error in getUser:', err);
     return { user: null, session: null };
   }
 };
 
-export const getCurrentUser = async () => {
-  const { data, error } = await supabase.auth.getUser();
-  return { user: data?.user, error };
+export const signInWithEmail = async (email: string, password: string) => {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  if (error) throw error;
+  return data;
 };
 
-export const getSession = async () => {
-  const { data, error } = await supabase.auth.getSession();
-  return { session: data?.session, error };
+export const signUpWithEmail = async (email: string, password: string) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+  
+  if (error) throw error;
+  return data;
 };
 
-// Initialize database structure for admin users
-export const initializeDatabaseStructure = async () => {
+export const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+};
+
+// Helper for stories database operations
+export type Story = {
+  id?: string;
+  user_id?: string;
+  title: string;
+  cover_image_url: string;
+  character_name: string;
+  character_age: string;
+  theme: string;
+  setting: string;
+  style: string;
+  character_prompt?: string;
+  pages: StoryPage[];
+  created_at?: string;
+};
+
+export type StoryPage = {
+  text: string;
+  image_url: string;
+};
+
+export const saveStory = async (story: Story) => {
   try {
-    const { checkTableExists } = await import('./dbHelpers');
-    const tableExists = await checkTableExists('system_configurations');
-    
-    if (!tableExists) {
-      // Call edge function to initialize database structure
-      const { data, error } = await supabase.functions.invoke('initialize-database', {});
+    const userSession = await getUser();
+    if (!userSession.user) {
+      throw new Error('Usuário não autenticado');
+    }
+
+    // Convert base64 images to shorter references for database storage if needed
+    const processedPages = await Promise.all(story.pages.map(async (page, index) => {
+      let imageUrl = page.image_url;
       
-      if (error) {
-        console.error("Error initializing database structure:", error);
-        return { success: false, error };
+      // Check if it's a large base64 string and needs to be stored separately
+      if (page.image_url && page.image_url.startsWith('data:image') && page.image_url.length > 1000) {
+        try {
+          // Extract base64 data
+          const base64Data = page.image_url.split(',')[1];
+          
+          // Generate a unique filename
+          const fileName = `${userSession.user.id}_${Date.now()}_page_${index}.png`;
+          
+          // Upload to Supabase storage
+          const { data: storageData, error: storageError } = await supabase
+            .storage
+            .from('story_images')
+            .upload(fileName, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              upsert: true
+            });
+            
+          if (storageError) {
+            console.error('Error uploading image to storage:', storageError);
+            // Keep the original image URL if upload fails
+          } else {
+            // Get public URL with the correct format
+            const { data: publicUrlData } = supabase
+              .storage
+              .from('story_images')
+              .getPublicUrl(fileName);
+              
+            imageUrl = publicUrlData.publicUrl;
+            console.log(`Uploaded image for page ${index} to storage:`, imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('Error processing image for upload:', uploadError);
+          // Keep the original image URL if processing fails
+        }
       }
       
-      return { success: true, data };
+      return {
+        text: page.text,
+        image_url: imageUrl
+      };
+    }));
+    
+    // Process cover image if it's a base64 string
+    let coverImageUrl = story.cover_image_url;
+    if (story.cover_image_url && story.cover_image_url.startsWith('data:image') && story.cover_image_url.length > 1000) {
+      try {
+        // Extract base64 data
+        const base64Data = story.cover_image_url.split(',')[1];
+        
+        // Generate a unique filename
+        const fileName = `${userSession.user.id}_${Date.now()}_cover.png`;
+        
+        // Upload to Supabase storage
+        const { data: storageData, error: storageError } = await supabase
+          .storage
+          .from('story_images')
+          .upload(fileName, Buffer.from(base64Data, 'base64'), {
+            contentType: 'image/png',
+            upsert: true
+          });
+          
+        if (storageError) {
+          console.error('Error uploading cover image to storage:', storageError);
+          // Keep the original image URL if upload fails
+        } else {
+          // Get public URL with the correct format
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('story_images')
+            .getPublicUrl(fileName);
+            
+          coverImageUrl = publicUrlData.publicUrl;
+          console.log('Uploaded cover image to storage:', coverImageUrl);
+        }
+      } catch (uploadError) {
+        console.error('Error processing cover image for upload:', uploadError);
+        // Keep the original image URL if processing fails
+      }
+    }
+
+    // Create the story entry with processed images and include character_prompt
+    const storyData = {
+      user_id: userSession.user.id,
+      title: story.title,
+      cover_image_url: coverImageUrl,
+      character_name: story.character_name,
+      character_age: story.character_age,
+      theme: story.theme,
+      setting: story.setting,
+      style: story.style,
+      character_prompt: story.character_prompt || '',
+      pages: processedPages,
+    };
+    
+    const { data, error } = await supabase
+      .from('stories')
+      .insert([storyData])
+      .select();
+    
+    if (error) {
+      console.error('Error saving story:', error);
+      throw error;
     }
     
-    return { success: true, message: "Database structure already initialized" };
-  } catch (error) {
-    console.error("Unexpected error in initializeDatabaseStructure:", error);
-    return { success: false, error };
+    console.log('Story saved successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in saveStory:', err);
+    throw err;
   }
 };
 
-// Helper functions for stories
-export const getUserStories = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  
-  return { stories: data, error };
+export const getUserStories = async () => {
+  try {
+    const userSession = await getUser();
+    if (!userSession.user) {
+      console.warn('No authenticated user found when fetching stories');
+      return [];
+    }
+    
+    console.log('Fetching stories for user:', userSession.user.id);
+    
+    // Update query to include pages data for cover image fallback
+    const { data, error } = await supabase
+      .from('stories')
+      .select('id, title, cover_image_url, character_name, character_age, theme, setting, style, created_at, pages')
+      .eq('user_id', userSession.user.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching user stories:', error);
+      throw error;
+    }
+    
+    // Ensure image URLs use the correct storage URL format
+    if (data) {
+      data.forEach(story => {
+        // Fix cover image URL if needed
+        if (story.cover_image_url && story.cover_image_url.includes('supabase') && 
+            story.cover_image_url.includes('storage') && !story.cover_image_url.includes('object')) {
+          try {
+            const urlObj = new URL(story.cover_image_url);
+            const pathParts = urlObj.pathname.split('/');
+            const bucketName = pathParts[pathParts.length - 2]; 
+            const fileName = pathParts[pathParts.length - 1];
+            
+            // Use getPublicUrl instead of direct storageUrl access
+            const { data: publicUrlData } = supabase
+              .storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
+              
+            story.cover_image_url = publicUrlData.publicUrl;
+          } catch (e) {
+            console.error('Error formatting cover image URL:', e);
+          }
+        }
+        
+        // Fix page image URLs if needed
+        if (story.pages && Array.isArray(story.pages)) {
+          story.pages.forEach(page => {
+            if (page.image_url && page.image_url.includes('supabase') && 
+                page.image_url.includes('storage') && !page.image_url.includes('object')) {
+              try {
+                const urlObj = new URL(page.image_url);
+                const pathParts = urlObj.pathname.split('/');
+                const bucketName = pathParts[pathParts.length - 2];
+                const fileName = pathParts[pathParts.length - 1];
+                
+                // Use getPublicUrl instead of direct storageUrl access
+                const { data: publicUrlData } = supabase
+                  .storage
+                  .from(bucketName)
+                  .getPublicUrl(fileName);
+                  
+                page.image_url = publicUrlData.publicUrl;
+              } catch (e) {
+                console.error('Error formatting page image URL:', e);
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    console.log('Stories fetched successfully, count:', data?.length);
+    return data || [];
+  } catch (err) {
+    console.error('Unexpected error in getUserStories:', err);
+    throw err;
+  }
 };
 
-export const deleteStory = async (storyId: string) => {
-  const { error } = await supabase
-    .from('stories')
-    .delete()
-    .eq('id', storyId);
-  
-  return { error };
-};
-
-// Database Story type (matches DB schema)
-export type DBStory = {
-  id: string;
-  title: string;
-  pages: any; // JSON field
-  character_name: string;
-  character_age?: string;
-  setting?: string;
-  theme?: string;
-  style?: string;
-  cover_image_url?: string;
-  is_public: boolean;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  voice_type?: string;
-  character_prompt?: string;
-};
-
-// Application Story type (for using in the application)
-export type Story = {
-  id: string;
-  title: string;
-  content: string[]; // Parsed from pages
-  character_name: string;
-  character_age?: string;
-  setting?: string;
-  theme?: string;
-  style?: string;
-  cover_image_url?: string;
-  is_public: boolean;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  voice_type?: string;
-};
-
-// Converter function to transform DB story to application Story
-export const convertDBStoryToAppStory = (dbStory: DBStory): Story => {
-  // Extract text content from pages JSON
-  const content: string[] = [];
-  
-  if (Array.isArray(dbStory.pages)) {
-    dbStory.pages.forEach((page: any) => {
-      if (page && typeof page === 'object' && 'text' in page) {
-        content.push(page.text);
+export const getStoryById = async (id: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching story by ID:', error);
+      throw error;
+    }
+    
+    // Ensure image URLs use the correct storage URL format
+    if (data) {
+      // Fix cover image URL if needed
+      if (data.cover_image_url && data.cover_image_url.includes('supabase') && 
+          data.cover_image_url.includes('storage') && !data.cover_image_url.includes('object')) {
+        try {
+          const urlObj = new URL(data.cover_image_url);
+          const pathParts = urlObj.pathname.split('/');
+          const bucketName = pathParts[pathParts.length - 2];
+          const fileName = pathParts[pathParts.length - 1];
+          
+          // Use getPublicUrl instead of direct storageUrl access
+          const { data: publicUrlData } = supabase
+            .storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+            
+          data.cover_image_url = publicUrlData.publicUrl;
+        } catch (e) {
+          console.error('Error formatting cover image URL:', e);
+        }
       }
-    });
+      
+      // Fix page image URLs if needed
+      if (data.pages && Array.isArray(data.pages)) {
+        data.pages.forEach(page => {
+          if (page.image_url && page.image_url.includes('supabase') && 
+              page.image_url.includes('storage') && !page.image_url.includes('object')) {
+            try {
+              const urlObj = new URL(page.image_url);
+              const pathParts = urlObj.pathname.split('/');
+              const bucketName = pathParts[pathParts.length - 2];
+              const fileName = pathParts[pathParts.length - 1];
+              
+              // Use getPublicUrl instead of direct storageUrl access
+              const { data: publicUrlData } = supabase
+                .storage
+                .from(bucketName)
+                .getPublicUrl(fileName);
+                
+              page.image_url = publicUrlData.publicUrl;
+            } catch (e) {
+              console.error('Error formatting page image URL:', e);
+            }
+          }
+        });
+      }
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in getStoryById:', err);
+    throw err;
   }
-  
-  return {
-    id: dbStory.id,
-    title: dbStory.title,
-    content,
-    character_name: dbStory.character_name,
-    character_age: dbStory.character_age,
-    setting: dbStory.setting,
-    theme: dbStory.theme,
-    style: dbStory.style,
-    cover_image_url: dbStory.cover_image_url,
-    is_public: dbStory.is_public,
-    user_id: dbStory.user_id,
-    created_at: dbStory.created_at,
-    updated_at: dbStory.updated_at,
-    voice_type: dbStory.voice_type
-  };
 };
 
-export default supabase;
+export const deleteStory = async (id: string) => {
+  try {
+    const { error } = await supabase
+      .from('stories')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting story:', error);
+      throw error;
+    }
+  } catch (err) {
+    console.error('Unexpected error in deleteStory:', err);
+    throw err;
+  }
+};
+
+// Admin functions
+export const updateStory = async (id: string, updates: Partial<Story>) => {
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('Error updating story:', error);
+      throw error;
+    }
+    
+    return data[0];
+  } catch (err) {
+    console.error('Unexpected error in updateStory:', err);
+    throw err;
+  }
+};
+
+export const getAllStories = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching all stories:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Unexpected error in getAllStories:', err);
+    throw err;
+  }
+};
+
+// Reference to the SQL setup file
+// The SQL setup is now in src/lib/supabase-setup.sql
+export const getSupabaseSetupSQL = () => {
+  try {
+    return import.meta.glob('./update_page_contents.sql', { as: 'raw', eager: true })['./update_page_contents.sql'];
+  } catch (e) {
+    console.error("Error loading SQL file:", e);
+    return "";
+  }
+};
+
+// Initialize the database structure when the module is imported
+initializeDatabaseStructure().catch(console.error);

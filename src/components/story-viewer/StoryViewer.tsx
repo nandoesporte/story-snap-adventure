@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import LoadingSpinner from "../LoadingSpinner";
 import { getImageUrl } from "./helpers";
-import { useStoryData } from "./useStoryData"; // Import is now fixed
+import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
@@ -28,6 +28,7 @@ const StoryViewer: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState<"left" | "right">("right");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
@@ -59,10 +60,45 @@ const StoryViewer: React.FC = () => {
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
   
   useEffect(() => {
-    // Set rendered state after component mounts
-    setIsRendered(true);
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
   }, []);
   
+  // Set initial page to show cover and mark as rendered
+  useEffect(() => {
+    if (storyData && !loading) {
+      console.log("Story data loaded, showing cover page");
+      setCurrentPage(0);
+      
+      // Mark as rendered to ensure visibility
+      setTimeout(() => {
+        setIsRendered(true);
+        console.log("Story viewer marked as rendered");
+      }, 100);
+    }
+  }, [storyData, loading]);
+  
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (storyContainerRef.current) {
+        storyContainerRef.current.requestFullscreen().catch(err => {
+          toast.error(`Erro ao entrar em tela cheia: ${err.message}`);
+        });
+      }
+    } else {
+      document.exitFullscreen().catch(err => {
+        toast.error(`Erro ao sair da tela cheia: ${err.message}`);
+      });
+    }
+  };
+
   const handlePreviousPage = () => {
     if (currentPage > 0) {
       setFlipDirection("left");
@@ -178,10 +214,12 @@ const StoryViewer: React.FC = () => {
             currentPage={currentPage}
             totalPages={totalPages}
             isDownloading={isDownloading}
+            isFullscreen={isFullscreen}
             isMobile={isMobile}
             onPrevious={handlePreviousPage}
             onNext={handleNextPage}
             onDownloadPDF={handleDownloadPDF}
+            onToggleFullscreen={toggleFullscreen}
           />
           
           <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
@@ -199,7 +237,7 @@ const StoryViewer: React.FC = () => {
                     <CoverPage
                       title={storyData.title}
                       coverImageSrc={coverImageSrc}
-                      childName={storyData.childName || storyData.character_name}
+                      childName={storyData.childName}
                       theme={storyData.theme}
                       setting={storyData.setting}
                       style={storyData.style}
@@ -218,12 +256,12 @@ const StoryViewer: React.FC = () => {
                       )}
                       pageIndex={currentPage - 1}
                       pageCount={storyData.pages.length}
-                      childName={storyData.childName || storyData.character_name}
+                      childName={storyData.childName}
                       typedText={typedText}
-                      isFullscreen={false}
+                      isFullscreen={isFullscreen}
                       isMobile={isMobile}
                       hideText={hideText}
-                      voiceType={storyData.voiceType || storyData.voice_type || 'female'}
+                      voiceType={storyData.voiceType || 'female'}
                       onImageClick={handleImageClick}
                       onImageError={() => handleImageError(
                         storyData.pages[currentPage - 1]?.imageUrl || 

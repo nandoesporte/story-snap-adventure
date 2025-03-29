@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,13 +10,15 @@ import { useAdminCheck } from '@/hooks/useAdminCheck';
 export const AdminLink = () => {
   const { user } = useAuth();
   const location = useLocation();
-  const { isAdmin, isLoading } = useAdminCheck();
+  const { isAdmin, loading } = useAdminCheck();
   const isOnAdminPage = location.pathname.startsWith('/admin');
   
-  if (!user || isLoading || !isAdmin) {
+  // Don't show the admin link if not logged in, loading, or definitely not an admin
+  if (!user || loading || !isAdmin) {
     return null;
   }
 
+  // Definir para qual aba do admin redirecionar, se estiver no modo de teste
   const adminPath = location.pathname === '/story-creator' ? '/admin?tab=test' : '/admin';
 
   return (

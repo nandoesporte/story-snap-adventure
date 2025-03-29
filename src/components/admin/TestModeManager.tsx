@@ -1,15 +1,17 @@
-import React from 'react';
-import { useState } from "react";
+
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BookGenerationService } from "@/services/BookGenerationService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-export const TestModeManager = () => {
+const TestModeManager = () => {
   const [childName, setChildName] = useState("Ana");
   const [childAge, setChildAge] = useState("7");
   const [theme, setTheme] = useState("adventure");
@@ -140,3 +142,5 @@ export const TestModeManager = () => {
     </Card>
   );
 };
+
+export default TestModeManager;
