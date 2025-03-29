@@ -87,6 +87,7 @@ function AppContent() {
         <Route path="/subscription" element={<Subscription />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      {/* Only use Sonner Toaster */}
       <Toaster />
     </div>
   );

@@ -13,7 +13,7 @@ export function toast(props: ToastProps) {
   const { variant = 'default', title, description, ...rest } = props;
   
   // Properly pass title and description as separate arguments to sonnerToast
-  return sonnerToast(title as string, {
+  return sonnerToast(title || '', {
     description,
     ...rest
   });
