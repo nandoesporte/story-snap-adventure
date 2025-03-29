@@ -1,59 +1,95 @@
-import './App.css';
-import { Main } from './components/main'
-import { Header } from './components/header'
-import { AuthButtonServer } from './components/auth-button-server'
-import { Providers } from './components/providers'
-import { ThemeProvider } from './components/theme-provider'
-import { Toaster } from "@/components/ui/toaster"
 
-import { useEffect } from 'react';
-import { setupDatabase, initializeDatabase } from './lib/setupDatabase';
-import { useToast } from './components/ui/use-toast';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import Profile from './pages/Profile';
+import CreateStory from './pages/CreateStory';
+import StoryCreator from './components/StoryCreator';
+import MyStories from './pages/MyStories';
+import StoryViewer from './components/StoryViewer';
+import NotFound from './pages/NotFound';
+import StoryBot from './pages/StoryBot';
+import Library from './pages/Library';
+import Admin from './pages/Admin';
+import Subscription from './pages/Subscription';
+import { initializeDatabaseStructure } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-function App() {
-  const { toast } = useToast();
-  
+// Create a stable QueryClient instance outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
+// Use this component in main.tsx
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+};
+
+// The actual app content, now wrapped by QueryClientProvider in the App component
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Important: Only use hooks inside this component body, not in conditionals or loops
   useEffect(() => {
-    const runDatabaseSetup = async () => {
+    const initialize = async () => {
       try {
-        const initialized = await initializeDatabase();
-        if (initialized) {
-          await setupDatabase();
-        } else {
-          toast({
-            title: "Aviso",
-            description: "A configuração automática do banco de dados falhou. Algumas funcionalidades podem não estar disponíveis.",
-            variant: "destructive",
-          });
-        }
-      } catch (err) {
-        console.error('Database setup error:', err);
+        await initializeDatabaseStructure();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Erro ao inicializar a estrutura do banco de dados:", error);
       }
     };
-    
-    // Run database setup when the app initializes
-    runDatabaseSetup();
-  }, [toast]);
-  
+
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !user && 
+        location.pathname !== '/' && 
+        location.pathname !== '/auth' && 
+        location.pathname !== '/library' &&
+        !location.pathname.startsWith('/view-story')) {
+      // Allow index page, viewing stories and library without login
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate, location]);
+
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <Providers>
-        <header className="h-16 flex justify-between items-center p-4 border-b">
-          <Header />
-          <AuthButtonServer />
-        </header>
-        <main className="p-4">
-          <Main />
-        </main>
-        <Toaster />
-      </Providers>
-    </ThemeProvider>
-  )
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/create-story" element={<CreateStory />} />
+        <Route path="/story-creator" element={<StoryCreator />} />
+        <Route path="/my-stories" element={<MyStories />} />
+        <Route path="/view-story/:id" element={<StoryViewer />} />
+        <Route path="/view-story" element={<StoryViewer />} />
+        <Route path="/storybot" element={<StoryBot />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/subscription" element={<Subscription />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </div>
+  );
 }
 
 export default App;
