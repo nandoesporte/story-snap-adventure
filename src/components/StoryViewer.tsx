@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Edit, BookText, ArrowLeft, ArrowRight, Download, HelpCircle, Share2, Loader2, RefreshCw, CheckCircle, XCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Edit, BookText, ArrowLeft, ArrowRight, Download, HelpCircle, Share2, Loader2, RefreshCw, CheckCircle, XCircle, AlertTriangle, Eye, EyeOff, Play, Pause, Volume2, Volume1, VolumeX, Shield } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
@@ -74,6 +74,14 @@ interface Story {
   created_at: string;
   metadata: any;
 }
+
+// Helper function to ensure voice type is the correct format
+const ensureValidVoiceType = (voiceType: any): 'male' | 'female' => {
+  if (voiceType === 'male' || voiceType === 'female') {
+    return voiceType;
+  }
+  return 'female'; // Default to female if invalid
+};
 
 const StoryViewer: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -282,6 +290,4 @@ const StoryViewer: React.FC = () => {
   const [isStoryPublicButtonNarrationPlayerVolume1Icon35, setIsStoryPublicButtonNarrationPlayerVolume1Icon35] = useState(<Volume1 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolume2Icon35, setIsStoryPublicButtonNarrationPlayerVolume2Icon35] = useState(<Volume2 className="h-4 w-4 mr-2" />);
   const [isStoryPublicButtonNarrationPlayerVolumeXIcon36, setIsStoryPublicButtonNarrationPlayerVolumeXIcon36] = useState(<VolumeX className="h-4 w-4 mr-2" />);
-  const [isStoryPublicButtonNarrationPlayerVolume1Icon36, setIsStoryPublicButtonNarrationPlayerVolume1Icon36] = useState(<Volume1 className="h-4 w-4 mr-2" />);
-  const [isStoryPublicButtonNarrationPlayerVolume2Icon36, setIsStoryPublicButtonNarrationPlayerVolume2Icon36] = useState(<Volume2 className="h-4 w-4 mr-2" />);
-  const
+  const [isStoryPublicButtonNar
