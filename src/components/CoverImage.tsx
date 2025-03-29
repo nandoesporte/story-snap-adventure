@@ -55,6 +55,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
 
   const handleLoad = () => {
     setLoaded(true);
+    console.log("Image loaded successfully:", displayUrl);
   };
 
   return (
