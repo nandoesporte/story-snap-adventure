@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { SubscriptionPlanSelector } from '@/components/SubscriptionPlanSelector';
@@ -8,14 +8,15 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const Subscription = () => {
   const { user, loading } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Clear error when component unmounts or user changes
-  React.useEffect(() => {
+  useEffect(() => {
     setErrorMessage(null);
   }, [user]);
   
@@ -53,6 +54,8 @@ const Subscription = () => {
         
         {errorMessage && (
           <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}

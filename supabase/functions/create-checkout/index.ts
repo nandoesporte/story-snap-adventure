@@ -28,32 +28,38 @@ serve(async (req) => {
     );
   }
 
-  // Create a Supabase client with the auth header
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  
-  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false }
-  });
-
-  // Get the user from the auth header
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseClient.auth.getUser();
-
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "Error fetching user" }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-
   try {
+    // Create a Supabase client with the auth header
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    
+    // Fix: Use the correct signature for createClient
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { 
+        headers: { Authorization: authHeader } 
+      },
+      auth: { 
+        persistSession: false
+      }
+    });
+
+    // Get the user from the auth header
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      console.error("Error fetching user:", userError);
+      return new Response(
+        JSON.stringify({ error: "Error fetching user" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Get Stripe API key from database
     const { data: configData, error: configError } = await supabaseClient
       .from("system_configurations")
@@ -62,6 +68,7 @@ serve(async (req) => {
       .single();
       
     if (configError || !configData?.value) {
+      console.error("Error fetching Stripe API key:", configError);
       return new Response(
         JSON.stringify({ error: "Stripe API key not configured" }),
         {
@@ -71,6 +78,7 @@ serve(async (req) => {
       );
     }
     
+    // Initialize Stripe with the API key from configurations
     const stripeSecretKey = configData.value;
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
@@ -96,6 +104,7 @@ serve(async (req) => {
       .single();
 
     if (planError || !plan) {
+      console.error("Error fetching plan:", planError);
       return new Response(
         JSON.stringify({ error: "Plan not found" }),
         {
@@ -106,6 +115,7 @@ serve(async (req) => {
     }
 
     if (!plan.stripe_price_id) {
+      console.error("Plan has no Stripe price ID:", plan);
       return new Response(
         JSON.stringify({ error: "Plan does not have a Stripe price ID" }),
         {
@@ -116,23 +126,6 @@ serve(async (req) => {
     }
 
     // Check if user already has a Stripe customer ID
-    const { data: userProfile, error: profileError } = await supabaseClient
-      .from("user_profiles")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError && profileError.code !== "PGRST116") {
-      return new Response(
-        JSON.stringify({ error: "Error fetching user profile" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Look for existing customer
     let customerId;
     const { data: subscription, error: subError } = await supabaseClient
       .from("user_subscriptions")
@@ -173,6 +166,13 @@ serve(async (req) => {
     const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
     const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
 
+    console.log("Creating checkout session for:", {
+      customerId,
+      priceId: plan.stripe_price_id,
+      userId: user.id,
+      planId
+    });
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -190,6 +190,8 @@ serve(async (req) => {
         planId: planId,
       },
     });
+
+    console.log("Checkout session created:", session.id);
 
     return new Response(
       JSON.stringify({ url: session.url }),
