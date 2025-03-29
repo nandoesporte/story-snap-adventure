@@ -3,9 +3,8 @@ import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { useStoryImages } from '@/hooks/useStoryImages';
 
 interface NarrationPlayerProps {
   storyId: string;
@@ -33,8 +32,6 @@ export const NarrationPlayer = ({
     pageIndex,
     voiceType
   });
-  
-  const { toast } = useToast();
   
   useEffect(() => {
     const checkExistingAudio = async () => {
