@@ -102,23 +102,11 @@ export const NarrationPlayer = ({
       const errorMessage = e.message || "Não foi possível reproduzir a narração";
       
       if (errorMessage.includes("API key") || errorMessage.includes("401")) {
-        toast({
-          title: "Erro de API",
-          description: "Chave de API inválida. Verifique suas configurações.",
-          variant: "destructive"
-        });
+        toast.error("Erro de API: Chave de API inválida. Verifique suas configurações.");
       } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
-        toast({
-          title: "Limite de API excedido",
-          description: "O limite de requisições foi atingido. Tente mais tarde.",
-          variant: "destructive"
-        });
+        toast.error("Limite de API excedido: O limite de requisições foi atingido. Tente mais tarde.");
       } else {
-        toast({
-          title: "Erro de reprodução",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        toast.error(`Erro de reprodução: ${errorMessage}`);
       }
     }
   };
