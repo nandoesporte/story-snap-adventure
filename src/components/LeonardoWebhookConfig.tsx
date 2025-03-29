@@ -218,7 +218,11 @@ const LeonardoWebhookConfig = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={useGPT4 ? "success" : "outline"} className={useGPT4 ? "" : "text-gray-500"}>
+              {/* Changed "success" to "secondary" and applied custom styles */}
+              <Badge 
+                variant={useGPT4 ? "secondary" : "outline"} 
+                className={useGPT4 ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200" : "text-gray-500"}
+              >
                 {useGPT4 ? "Ativado" : "Desativado"}
               </Badge>
               <Switch
@@ -325,7 +329,11 @@ const LeonardoWebhookConfig = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={useLeonardo ? "success" : "outline"} className={useLeonardo ? "" : "text-gray-500"}>
+              {/* Changed "success" to "secondary" and applied custom styles */}
+              <Badge 
+                variant={useLeonardo ? "secondary" : "outline"} 
+                className={useLeonardo ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200" : "text-gray-500"}
+              >
                 {useLeonardo ? "Ativado" : "Desativado"}
               </Badge>
               <Switch
