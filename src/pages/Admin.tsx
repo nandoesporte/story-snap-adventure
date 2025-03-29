@@ -4,12 +4,12 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { ThemeManager } from "@/components/admin/ThemeManager";
-import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
-import { CharacterManager } from "@/components/admin/CharacterManager";
-import { UserManager } from "@/components/admin/UserManager";
+import ThemeManager from "@/components/admin/ThemeManager";
+import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
+import CharacterManager from "@/components/admin/CharacterManager";
+import UserManager from "@/components/admin/UserManager";
 import StoryManager from "@/components/admin/StoryManager";
-import { TestModeManager } from "@/components/admin/TestModeManager";
+import TestModeManager from "@/components/admin/TestModeManager";
 import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { Loader2 } from "lucide-react";
 
