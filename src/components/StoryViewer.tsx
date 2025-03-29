@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,9 +14,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useStoryImages } from "@/hooks/useStoryImages";
 import { useStoryNarration } from '@/hooks/useStoryNarration';
 import { NarrationPlayer } from "./NarrationPlayer";
+import CoverImage from "./CoverImage";
 
 interface StoryPage {
   text: string;
@@ -103,9 +102,7 @@ const StoryViewer: React.FC = () => {
     isMobile ? 400 : undefined
   );
   
-  // Get cover image URL
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
-  const { processedUrl: coverImageUrl, hasError: coverImageError } = useStoryImages(coverImageSrc, "story_images");
   
   useEffect(() => {
     const loadStory = async () => {
@@ -136,7 +133,6 @@ const StoryViewer: React.FC = () => {
           if (data) {
             console.log("Dados da história carregados:", data);
             
-            // Determine cover image - either specified or use first page
             const coverImage = data.cover_image_url || 
                               (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
                               "/placeholder.svg";
@@ -203,7 +199,6 @@ const StoryViewer: React.FC = () => {
           const parsedData = JSON.parse(savedData);
           console.log("Dados carregados do sessionStorage:", parsedData);
           
-          // Determine cover image - either specified or use first page
           const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
                            (parsedData.pages && parsedData.pages.length > 0 ? 
                              (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
@@ -535,24 +530,19 @@ const StoryViewer: React.FC = () => {
     if (!storyData) return null;
     
     const theme = storyData.theme || "";
-    const coverImageSrc = storyData.coverImageUrl || storyData.cover_image_url || "";
-    const { processedUrl: coverImage } = useStoryImages(coverImageSrc, "story_images");
-    
-    // Fallback to themed image if no cover image available
-    const displayImage = coverImage !== "/placeholder.svg" 
-      ? coverImage 
-      : getFallbackImage(theme);
+    const fallbackImage = getFallbackImage(theme);
     
     if (isMobile) {
       return (
         <div className="w-full h-full flex flex-col">
           <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
             <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
-              <img 
-                src={displayImage} 
+              <CoverImage 
+                imageUrl={coverImageSrc}
+                fallbackImage={fallbackImage}
                 alt={storyData.title}
                 className="w-full h-full object-cover transition-all duration-300"
-                onClick={() => handleImageClick(displayImage)}
+                onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
@@ -586,11 +576,12 @@ const StoryViewer: React.FC = () => {
       <div className="w-full h-full flex flex-col">
         <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
           <div className="flex-1 p-4 flex items-center justify-center">
-            <img 
-              src={displayImage} 
+            <CoverImage 
+              imageUrl={coverImageSrc}
+              fallbackImage={fallbackImage}
               alt={storyData.title}
               className="max-w-full max-h-[70vh] object-contain rounded-xl transition-all duration-300 shadow-md"
-              onClick={() => handleImageClick(displayImage)}
+              onClick={() => handleImageClick(coverImageSrc)}
               onError={() => handleImageError(coverImageSrc)}
             />
           </div>
