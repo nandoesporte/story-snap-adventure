@@ -814,7 +814,7 @@ const StoryViewer: React.FC = () => {
               {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
             </div>
             
-            <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
+            <div className={`absolute ${isMobile ? 'bottom-16' : 'bottom-6'} left-0 right-0 flex justify-center z-10 pointer-events-none`}>
               <div className="flex items-center gap-4 bg-white/80 backdrop-blur-sm rounded-full p-2 shadow-md pointer-events-auto">
                 <Button
                   variant="ghost"

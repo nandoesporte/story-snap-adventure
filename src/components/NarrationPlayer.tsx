@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -124,7 +123,6 @@ export const NarrationPlayer = ({
         return;
       }
       
-      // If we already have an audio URL, use it directly
       if (audioUrl) {
         playAudio(selectedVoice, audioUrl);
         return;
@@ -139,19 +137,16 @@ export const NarrationPlayer = ({
       if (errorMessage.includes("API key") || errorMessage.includes("401") || errorMessage.includes("inválida") || errorMessage.includes("permissões")) {
         toast.error("Erro de API: Verifique as configurações da API Text-to-Speech nas Configurações");
         
-        // Show a more detailed error in the UI
         setError("Erro de API Text-to-Speech");
       } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
         toast.error("Limite de API excedido: O limite de requisições foi atingido. Tente mais tarde.");
       } else if (errorMessage.includes("SERVICE_DISABLED") || errorMessage.includes("not been used")) {
         toast.error("API Text-to-Speech não está ativada no projeto Google Cloud");
         
-        // Show a more detailed error in the UI
         setError("API não ativada");
       } else if (errorMessage.includes("bucket") || errorMessage.includes("storage")) {
         toast.error("Erro de armazenamento: Os arquivos de áudio serão salvos apenas localmente.");
         
-        // Show a more detailed error in the UI
         setError("Problemas com armazenamento");
       } else {
         toast.error(`Erro de reprodução: ${errorMessage}`);
@@ -160,7 +155,7 @@ export const NarrationPlayer = ({
   };
   
   return (
-    <div className={`flex items-center ${className}`}>
+    <div className={`flex items-center z-20 ${className}`}>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
