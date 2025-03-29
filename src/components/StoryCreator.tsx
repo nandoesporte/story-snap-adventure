@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, AlertTriangle, ImageIcon, Volume2 } from "lucide-react";
+import { Sparkles, AlertTriangle, ImageIcon, Volume2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import StoryForm, { StoryFormData } from "./StoryForm";
@@ -27,6 +27,7 @@ const StoryCreator = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [hasElevenLabsKey, setHasElevenLabsKey] = useState(false);
   
   const { 
     generateCompleteStory,
@@ -40,6 +41,10 @@ const StoryCreator = () => {
   } = useStoryGeneration();
   
   useEffect(() => {
+    // Check if ElevenLabs API key is configured
+    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
+    setHasElevenLabsKey(!!elevenlabsApiKey);
+    
     const savedData = sessionStorage.getItem("create_story_data");
     if (savedData) {
       try {
@@ -190,9 +195,14 @@ const StoryCreator = () => {
     }
     
     // Verificar se a chave da API ElevenLabs está configurada
-    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
-    if (!elevenlabsApiKey) {
-      toast.warning("A chave da API ElevenLabs não está configurada. As narrações não serão geradas automaticamente.");
+    if (!hasElevenLabsKey) {
+      toast.warning("A chave da API ElevenLabs não está configurada. As narrações não serão geradas automaticamente.", {
+        duration: 6000,
+        action: {
+          label: "Configurar",
+          onClick: () => navigate("/settings")
+        }
+      });
     }
     
     setStep("generating");
@@ -319,6 +329,19 @@ const StoryCreator = () => {
             <h2 className="text-2xl font-bold mb-6 text-center">
               Personalize sua história
             </h2>
+            
+            {!hasElevenLabsKey && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-amber-800 font-medium">Chave API ElevenLabs não configurada</p>
+                  <p className="text-amber-700 text-sm">
+                    Para ter narrações automáticas em suas histórias, configure a chave da API ElevenLabs nas configurações.
+                  </p>
+                </div>
+              </div>
+            )}
+            
             <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
           </motion.div>
         )}
@@ -349,7 +372,7 @@ const StoryCreator = () => {
               </div>
             )}
             
-            {/* Add narration progress indicator */}
+            {/* Improved narration progress indicator */}
             {generatingNarration && (
               <div className="mb-4 w-full max-w-md">
                 <div className="flex justify-between text-sm text-slate-600 mb-1">
@@ -358,7 +381,10 @@ const StoryCreator = () => {
                 </div>
                 <div className="flex items-center gap-2 bg-violet-50 px-4 py-2 rounded-md">
                   <Volume2 className="h-4 w-4 text-violet-500" />
-                  <span className="text-sm text-violet-700">Gerando narração para página {currentNarrationIndex}...</span>
+                  <span className="text-sm text-violet-700">
+                    Gerando narração para página {currentNarrationIndex}...
+                    {!hasElevenLabsKey && " (Atenção: API Key não configurada)"}
+                  </span>
                 </div>
               </div>
             )}
@@ -375,6 +401,16 @@ const StoryCreator = () => {
                 <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700">
                   Verificando qualidade das ilustrações. Isso pode levar alguns momentos adicionais para garantir que todas as imagens sejam geradas corretamente.
+                </p>
+              </div>
+            )}
+            
+            {/* Improved information for narration generation */}
+            {generatingNarration && (
+              <div className="w-full max-w-md mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
+                <Volume2 className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-700">
+                  A geração de narrações pode levar algum tempo. Estamos processando cada página para criar narrações de alta qualidade. Por favor, aguarde.
                 </p>
               </div>
             )}

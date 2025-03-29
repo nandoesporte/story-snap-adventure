@@ -84,13 +84,20 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
     const storyIdToUse = params?.storyId || storyId;
     const pageIndexToUse = params?.pageIndex !== undefined ? params.pageIndex : pageIndex;
     
-    if (!textToUse || isGenerating || !storyIdToUse) return;
+    if (!textToUse || isGenerating || !storyIdToUse) {
+      console.warn("Missing required data for audio generation:", {
+        hasText: !!textToUse,
+        isGenerating,
+        hasStoryId: !!storyIdToUse
+      });
+      return;
+    }
     
     // Get the API key from localStorage
     const apiKey = localStorage.getItem('elevenlabs_api_key');
     if (!apiKey) {
-      toast.error('Chave da API ElevenLabs não configurada. Configure em Configurações.');
-      return;
+      console.error('ElevenLabs API key not configured');
+      throw new Error('Chave da API ElevenLabs não configurada');
     }
 
     setIsGenerating(true);
@@ -107,6 +114,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       // Try to get cached audio first
       const cachedAudio = getAudioFromLocalStorage(localStorageKey);
       if (cachedAudio) {
+        console.log(`Using cached audio for page ${pageIndexToUse}`);
         setAudioUrl(cachedAudio);
         if (!params) { // Only show toast if not batch processing
           toast.success('Narração carregada do cache!');
@@ -115,6 +123,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
         return;
       }
 
+      console.log(`Generating audio for page ${pageIndexToUse} with ElevenLabs API`);
       const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
         method: 'POST',
         headers: {
@@ -140,101 +149,93 @@ export const useStoryNarration = ({ storyId, text, pageIndex }: UseStoryNarratio
       }
 
       const audioBlob = await response.blob();
+      console.log(`Received audio blob for page ${pageIndexToUse}, size: ${audioBlob.size} bytes`);
       
-      // First try to save to Supabase
+      // First try to save to localStorage as fallback
+      let audioUrlValue = null;
+      
       try {
-        const bucketName = 'story_narrations';
-        let bucketExists = false;
-        
-        // Check if bucket exists
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-        
-        if (bucketsError) {
-          console.error('Erro ao listar buckets:', bucketsError);
-          // Continue with local storage fallback
-        } else {
-          bucketExists = buckets?.some(bucket => bucket.name === bucketName) || false;
+        const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
+        audioUrlValue = base64Audio;
+        console.log(`Successfully saved audio to localStorage for page ${pageIndexToUse}`);
+      } catch (storageError) {
+        console.error('Erro ao salvar no localStorage:', storageError);
+        // Continue with URL.createObjectURL as final fallback
+        audioUrlValue = URL.createObjectURL(audioBlob);
+      }
+      
+      // Try to save to Supabase (but don't block on this)
+      try {
+        console.log("Attempting to save audio to Supabase storage");
+        // First check if user has RLS permissions by testing a simple query
+        const { data: testData, error: testError } = await supabase
+          .from('stories')
+          .select('id')
+          .limit(1);
           
-          if (!bucketExists) {
-            // Try to create bucket
-            const { error: createError } = await supabase.storage.createBucket(bucketName, {
-              public: true,
-              fileSizeLimit: 50000000, // 50MB limit
+        if (testError) {
+          console.warn("User may not have proper database permissions:", testError);
+          // Don't try to save to storage if we can't access the database
+          throw new Error("Database access error");
+        }
+        
+        // Direct upload to storage without bucket creation
+        const fileName = `${storyIdToUse}_page_${pageIndexToUse}_${Date.now()}.mp3`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('story_narrations')
+          .upload(fileName, audioBlob, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        if (uploadError) {
+          console.error('Erro ao fazer upload do arquivo:', uploadError);
+          throw uploadError;
+        }
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('story_narrations')
+          .getPublicUrl(fileName);
+        
+        console.log(`Successfully uploaded audio to Supabase: ${publicUrl}`);
+        
+        // Try to save to the database too
+        try {
+          await supabase
+            .from('story_narrations')
+            .upsert({
+              story_id: storyIdToUse,
+              page_index: pageIndexToUse,
+              audio_url: publicUrl,
+              voice_id: voiceId
             });
             
-            if (!createError) {
-              bucketExists = true;
-            } else {
-              console.error('Erro ao criar bucket:', createError);
-            }
-          }
+          console.log(`Successfully saved audio metadata to database for page ${pageIndexToUse}`);
+          audioUrlValue = publicUrl;
+        } catch (dbError) {
+          console.error('Erro ao salvar no banco de dados:', dbError);
+          // We already have a fallback in audioUrlValue
         }
-        
-        // If bucket exists or was created successfully, try to upload
-        if (bucketExists) {
-          const fileName = `${storyIdToUse}_page_${pageIndexToUse}_${Date.now()}.mp3`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(fileName, audioBlob);
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from(bucketName)
-              .getPublicUrl(fileName);
-            
-            // Try to save to the database too
-            try {
-              await supabase
-                .from('story_narrations')
-                .upsert({
-                  story_id: storyIdToUse,
-                  page_index: pageIndexToUse,
-                  audio_url: publicUrl,
-                  voice_id: voiceId
-                });
-                
-              setAudioUrl(publicUrl);
-              
-              // Still save to localStorage as backup
-              await saveAudioToLocalStorage(audioBlob, localStorageKey);
-              
-              if (!params) { // Only show toast if not batch processing
-                toast.success('Narração gerada com sucesso!');
-              }
-              return;
-            } catch (dbError) {
-              console.error('Erro ao salvar no banco de dados:', dbError);
-              // Continue with local storage only approach
-            }
-          } else {
-            console.error('Erro ao fazer upload do arquivo:', uploadError);
-            // Fall back to local storage only
-          }
-        }
-        
-        // If we get here, we couldn't save to Supabase, so use localStorage only
-        const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
-        setAudioUrl(base64Audio);
-        if (!params) { // Only show toast if not batch processing
-          toast.success('Narração gerada e salva localmente!');
-        }
-        
       } catch (storageError) {
         console.error('Erro ao salvar no storage:', storageError);
-        
-        // Last resort: just use the blob directly
-        const audioUrl = URL.createObjectURL(audioBlob);
-        setAudioUrl(audioUrl);
-        if (!params) { // Only show toast if not batch processing
-          toast.success('Narração gerada com sucesso!');
-        }
+        // We already have a fallback in audioUrlValue
       }
+      
+      setAudioUrl(audioUrlValue);
+      
+      if (!params) { // Only show toast if not batch processing
+        toast.success('Narração gerada com sucesso!');
+      }
+      
+      return audioUrlValue;
+      
     } catch (error) {
       console.error('Erro ao gerar narração:', error);
       if (!params) { // Only show toast if not batch processing
         toast.error('Erro ao gerar narração. Tente novamente.');
       }
+      throw error;
     } finally {
       setIsGenerating(false);
     }

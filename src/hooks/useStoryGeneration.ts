@@ -277,29 +277,59 @@ export const useStoryGeneration = () => {
                 VOICE_IDS.male : 
                 VOICE_IDS.female;
             
+            // Melhoria: Limitar o número de tentativas por página
+            const maxNarrationAttempts = 2;
+            let narrationFailures = 0;
+            
             for (let i = 0; i < storyResult.pages.length; i++) {
               setCurrentNarrationIndex(i + 1);
               setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
               
-              try {
-                await generateAudio(voiceId, {
-                  storyId: storyResult.id,
-                  text: storyResult.pages[i].text,
-                  pageIndex: i
-                });
-                
-                const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
-                setProgress(Math.min(narrationProgress, 99));
-                
-                // Adicionar um pequeno intervalo para não sobrecarregar a API
-                await new Promise(resolve => setTimeout(resolve, 500));
-              } catch (error) {
-                console.error(`Error generating narration for page ${i+1}:`, error);
-                // Continuar mesmo se houver erro, para tentar gerar as próximas narrações
+              let narrationSuccess = false;
+              let attempts = 0;
+              
+              while (!narrationSuccess && attempts < maxNarrationAttempts) {
+                try {
+                  attempts++;
+                  console.log(`Tentativa ${attempts} de gerar narração para página ${i+1}`);
+                  
+                  await generateAudio(voiceId, {
+                    storyId: storyResult.id,
+                    text: storyResult.pages[i].text,
+                    pageIndex: i
+                  });
+                  
+                  narrationSuccess = true;
+                  
+                  const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
+                  setProgress(Math.min(narrationProgress, 99));
+                  
+                  // Adicionar um pequeno intervalo para não sobrecarregar a API
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                  console.error(`Erro na tentativa ${attempts} de gerar narração para página ${i+1}:`, error);
+                  
+                  if (attempts >= maxNarrationAttempts) {
+                    narrationFailures++;
+                    console.warn(`Falha após ${maxNarrationAttempts} tentativas para página ${i+1}`);
+                    // Continuar para a próxima página após esgotar as tentativas
+                  } else {
+                    // Esperar um pouco antes de tentar novamente
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                  }
+                }
               }
             }
             
-            toast.success("Narrações geradas com sucesso!");
+            if (narrationFailures > 0) {
+              if (narrationFailures === storyResult.pages.length) {
+                toast.error(`Não foi possível gerar nenhuma narração. Verifique sua chave da API ElevenLabs.`);
+              } else {
+                toast.warning(`${narrationFailures} narrações não puderam ser geradas. As demais estão disponíveis.`);
+              }
+            } else {
+              toast.success("Todas as narrações foram geradas com sucesso!");
+            }
           }
         }
         
