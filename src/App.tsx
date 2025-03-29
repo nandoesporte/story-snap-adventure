@@ -1,14 +1,15 @@
+
 import './App.css';
-import { Main } from './components/main'
-import { Header } from './components/header'
-import { AuthButtonServer } from './components/auth-button-server'
-import { Providers } from './components/providers'
-import { ThemeProvider } from './components/theme-provider'
-import { Toaster } from "@/components/ui/toaster"
+import { Main } from './components/main';
+import { Header } from './components/header';
+import { AuthButtonServer } from './components/auth-button-server';
+import { Providers } from './components/providers';
+import { ThemeProvider } from './components/theme-provider';
+import { Toaster } from "@/components/ui/toaster";
 
 import { useEffect } from 'react';
 import { setupDatabase, initializeDatabase } from './lib/setupDatabase';
-import { useToast } from './components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 function App() {
   const { toast } = useToast();
