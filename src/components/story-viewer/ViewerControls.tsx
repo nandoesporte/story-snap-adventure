@@ -18,12 +18,10 @@ interface ViewerControlsProps {
   currentPage: number;
   totalPages: number;
   isDownloading: boolean;
-  // Remove isFullscreen: boolean;
   isMobile: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onDownloadPDF: () => void;
-  // Remove onToggleFullscreen: () => void;
 }
 
 export const ViewerControls: React.FC<ViewerControlsProps> = ({
@@ -32,12 +30,10 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   currentPage,
   totalPages,
   isDownloading,
-  // Remove isFullscreen,
   isMobile,
   onPrevious,
   onNext,
   onDownloadPDF,
-  // Remove onToggleFullscreen
 }) => {
   const navigate = useNavigate();
   

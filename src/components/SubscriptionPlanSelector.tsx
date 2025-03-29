@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import { CheckCircle, Circle, CreditCard, Shield } from 'lucide-react';
+import { CheckCircle, Circle, CreditCard, Shield, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +22,7 @@ import {
   UserSubscription
 } from '@/lib/stripe';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,7 +119,7 @@ export const SubscriptionPlanSelector = () => {
     }
   };
   
-  if (loadingPlans || loadingSubscription) {
+  if (loadingPlans) {
     return (
       <div className="flex justify-center items-center p-8">
         <p>Carregando planos...</p>
@@ -134,7 +135,7 @@ export const SubscriptionPlanSelector = () => {
           Escolha o melhor plano para você e crie histórias incríveis para as crianças
         </p>
         
-        {userSubscription && (
+        {user && userSubscription && (
           <div className="mt-4 p-4 bg-muted rounded-lg">
             <p className="font-medium">
               Você já possui o plano <span className="font-bold">{userSubscription.subscription_plans.name}</span>
@@ -160,7 +161,7 @@ export const SubscriptionPlanSelector = () => {
               selectedPlanId === plan.id 
                 ? 'border-primary shadow-lg ring-2 ring-primary' 
                 : 'hover:border-primary/50'
-            } ${isCurrentPlan(plan.id) ? 'bg-primary/5' : ''}`}
+            } ${user && isCurrentPlan(plan.id) ? 'bg-primary/5' : ''}`}
           >
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -168,7 +169,7 @@ export const SubscriptionPlanSelector = () => {
                   <CardTitle>{plan.name}</CardTitle>
                   <CardDescription className="mt-1">{plan.description}</CardDescription>
                 </div>
-                {isCurrentPlan(plan.id) && (
+                {user && isCurrentPlan(plan.id) && (
                   <Badge variant="outline" className="bg-primary/10 text-primary">
                     Plano Atual
                   </Badge>
@@ -198,60 +199,69 @@ export const SubscriptionPlanSelector = () => {
               </div>
             </CardContent>
             <CardFooter>
-              {isCurrentPlan(plan.id) ? (
-                userSubscription?.cancel_at_period_end ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    Cancelamento agendado
-                  </Button>
+              {user ? (
+                isCurrentPlan(plan.id) ? (
+                  userSubscription?.cancel_at_period_end ? (
+                    <Button className="w-full" variant="outline" disabled>
+                      Cancelamento agendado
+                    </Button>
+                  ) : (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button className="w-full" variant="outline">
+                          Cancelar assinatura
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancelar sua assinatura?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Você continuará tendo acesso ao plano até o final do período atual, em {new Date(userSubscription.current_period_end).toLocaleDateString('pt-BR')}.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleCancelSubscription}
+                            disabled={isCanceling}
+                          >
+                            {isCanceling ? 'Processando...' : 'Confirmar cancelamento'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )
                 ) : (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button className="w-full" variant="outline">
-                        Cancelar assinatura
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Cancelar sua assinatura?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Você continuará tendo acesso ao plano até o final do período atual, em {new Date(userSubscription.current_period_end).toLocaleDateString('pt-BR')}.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={handleCancelSubscription}
-                          disabled={isCanceling}
-                        >
-                          {isCanceling ? 'Processando...' : 'Confirmar cancelamento'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    className="w-full" 
+                    variant={selectedPlanId === plan.id ? "default" : "outline"}
+                    onClick={() => handleSelectPlan(plan.id)}
+                  >
+                    {selectedPlanId === plan.id ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Selecionado
+                      </>
+                    ) : (
+                      'Selecionar'
+                    )}
+                  </Button>
                 )
               ) : (
-                <Button
-                  className="w-full" 
-                  variant={selectedPlanId === plan.id ? "default" : "outline"}
-                  onClick={() => handleSelectPlan(plan.id)}
-                >
-                  {selectedPlanId === plan.id ? (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Selecionado
-                    </>
-                  ) : (
-                    'Selecionar'
-                  )}
-                </Button>
+                <Link to="/auth" className="w-full">
+                  <Button className="w-full" variant="outline">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Entrar para assinar
+                  </Button>
+                </Link>
               )}
             </CardFooter>
           </Card>
         ))}
       </div>
       
-      {selectedPlanId && !isCurrentPlan(selectedPlanId) && (
+      {user && selectedPlanId && !isCurrentPlan(selectedPlanId) && (
         <div className="mt-8 flex justify-center">
           <Button
             size="lg"
@@ -262,6 +272,20 @@ export const SubscriptionPlanSelector = () => {
             <CreditCard className="mr-2 h-4 w-4" />
             {isCheckoutLoading ? 'Processando...' : 'Continuar para pagamento'}
           </Button>
+        </div>
+      )}
+      
+      {!user && selectedPlanId && (
+        <div className="mt-8 flex justify-center">
+          <Link to="/auth">
+            <Button
+              size="lg"
+              className="px-8"
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Entrar para continuar
+            </Button>
+          </Link>
         </div>
       )}
       
