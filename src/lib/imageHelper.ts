@@ -1,5 +1,5 @@
-
 import { supabase } from "./supabase";
+import { Json } from '@/types';
 
 const IMAGE_CACHE_KEY = 'story_image_cache';
 
@@ -110,9 +110,89 @@ export const validateAndFixStoryImages = async (storyId: string) => {
   }
 };
 
+/**
+ * Function to get a placeholder image URL based on theme
+ */
+export const getPlaceholderImageUrl = (theme?: string): string => {
+  if (!theme) return '/images/placeholders/adventure.jpg';
+  
+  const themeLower = theme.toLowerCase();
+  
+  switch (themeLower) {
+    case 'adventure':
+      return '/images/placeholders/adventure.jpg';
+    case 'fantasy':
+      return '/images/placeholders/fantasy.jpg';
+    case 'space':
+    case 'sci-fi':
+    case 'ficção científica':
+      return '/images/placeholders/space.jpg';
+    case 'ocean':
+    case 'sea':
+    case 'water':
+    case 'mar':
+    case 'oceano':
+      return '/images/placeholders/ocean.jpg';
+    case 'dinosaurs':
+    case 'dino':
+    case 'dinossauros':
+      return '/images/placeholders/dinosaurs.jpg';
+    default:
+      return '/images/placeholders/adventure.jpg';
+  }
+};
+
+/**
+ * Function to process page images, ensuring proper formatting
+ */
+export const processPageImages = (pages: any): any[] => {
+  if (!pages) return [];
+  
+  // Handle if pages is a string (JSON)
+  if (typeof pages === 'string') {
+    try {
+      pages = JSON.parse(pages);
+    } catch (error) {
+      console.error('Error parsing pages JSON:', error);
+      return [];
+    }
+  }
+  
+  // Handle different data structures
+  if (Array.isArray(pages)) {
+    return pages.map(page => {
+      if (!page) return { text: '', imageUrl: '' };
+      
+      // Make sure we have consistent image URL property
+      const imageUrl = page.imageUrl || page.image_url || '';
+      
+      return {
+        ...page,
+        imageUrl
+      };
+    });
+  } else if (typeof pages === 'object') {
+    // Convert object to array
+    return Object.values(pages).map((page: any) => {
+      if (!page) return { text: '', imageUrl: '' };
+      
+      const imageUrl = page.imageUrl || page.image_url || '';
+      
+      return {
+        ...page,
+        imageUrl
+      };
+    });
+  }
+  
+  return [];
+};
+
 export default {
   storeImageInCache,
   getImageFromCache,
   getImageCache,
-  validateAndFixStoryImages
+  validateAndFixStoryImages,
+  getPlaceholderImageUrl,
+  processPageImages
 };

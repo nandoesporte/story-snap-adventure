@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import LoadingSpinner from "../LoadingSpinner";
 import { getImageUrl } from "./helpers";
-import { useStoryData } from "./useStoryData";
+import { useStoryData } from "./useStoryData"; // Fixed import
 import { ViewerControls } from "./ViewerControls";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";

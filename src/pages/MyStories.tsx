@@ -1,316 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getUserStories, deleteStory, Story } from '@/lib/supabase';
+import { BookOpen, Plus, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { StoryListItem } from '@/types';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { Trash, Plus, BookOpen, AlertTriangle, RefreshCw, Image } from 'lucide-react';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
-import CoverImage from '@/components/CoverImage';
-
-type StoryListItem = Omit<Story, 'pages'> & {
-  pages?: Story['pages'];
-};
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const MyStories = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const {
-    data: stories,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['userStories'],
-    queryFn: async () => {
-      try {
-        console.log("Fetching user stories...");
-        const result = await getUserStories();
-        console.log("Stories fetched successfully:", result);
-        return result as StoryListItem[];
-      } catch (err: any) {
-        console.error("Error fetching stories:", err);
-        throw err;
-      }
-    },
-    retry: 1,
-    meta: {
-      onError: (error: Error) => {
-        console.error("Query error in useQuery:", error);
-        toast.error(`Erro ao carregar histórias: ${error.message}`);
-      },
-    },
-  });
+  const [stories, setStories] = useState<StoryListItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isError && error instanceof Error) {
-      console.error("Error in stories query:", error);
-      toast.error(`Erro ao carregar histórias: ${error.message}`);
+    if (!user) {
+      navigate('/login');
+      toast.info('Please log in to view your stories.');
+      return;
     }
-  }, [isError, error]);
+    
+    fetchMyStories();
+  }, [user]);
 
-  const handleDeleteStory = async () => {
-    if (!storyToDelete) return;
-
-    setIsDeleting(true);
+  const fetchMyStories = async () => {
+    if (!user) return;
+    
     try {
-      await deleteStory(storyToDelete);
-      toast.success('História excluída com sucesso');
-      refetch();
-    } catch (error: any) {
-      console.error("Error deleting story:", error);
-      toast.error(`Erro ao excluir história: ${error.message}`);
-    } finally {
-      setIsDeleting(false);
-      setStoryToDelete(null);
-    }
-  };
-
-  const getCoverImageUrl = (story: StoryListItem): string => {
-    if (story.cover_image_url && typeof story.cover_image_url === 'string') {
-      return story.cover_image_url;
-    }
-    
-    if (story.pages && story.pages.length > 0 && story.pages[0].image_url) {
-      return story.pages[0].image_url;
-    }
-    
-    if (story.theme) {
-      const theme = story.theme.toLowerCase();
-      const themeMap: Record<string, string> = {
-        aventura: '/images/covers/adventure.jpg',
-        aventuras: '/images/covers/adventure.jpg',
-        adventure: '/images/covers/adventure.jpg',
-        fantasia: '/images/covers/fantasy.jpg',
-        fantasy: '/images/covers/fantasy.jpg',
-        espaço: '/images/covers/space.jpg',
-        space: '/images/covers/space.jpg',
-        oceano: '/images/covers/ocean.jpg',
-        ocean: '/images/covers/ocean.jpg',
-        mar: '/images/covers/ocean.jpg',
-        dinossauros: '/images/covers/dinosaurs.jpg',
-        dinosaurs: '/images/covers/dinosaurs.jpg'
-      };
+      setLoading(true);
       
-      if (Object.keys(themeMap).some(key => theme.includes(key))) {
-        for (const [key, url] of Object.entries(themeMap)) {
-          if (theme.includes(key)) {
-            return url;
-          }
-        }
+      const { data: storiesData, error: storiesError } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (storiesError) {
+        throw new Error(storiesError.message);
       }
+      
+      if (storiesData) {
+        // Transform to match our StoryListItem interface
+        const formattedStories = storiesData.map(story => ({
+          ...story,
+          // Add content field derived from pages
+          content: Array.isArray(story.pages) 
+            ? story.pages.map((page: any) => page.text || '') 
+            : [],
+          // Ensure voice_type is properly typed
+          voice_type: (story.voice_type === 'male' || story.voice_type === 'female') 
+            ? story.voice_type 
+            : 'female'
+        }));
+        
+        setStories(formattedStories);
+      }
+    } catch (err) {
+      console.error('Error fetching stories:', err);
+      toast.error("Couldn't load your stories");
+    } finally {
+      setLoading(false);
     }
-    
-    return '/placeholder.svg';
   };
 
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
+  const handleCreateNewStory = () => {
+    navigate('/create-story');
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
       <Navbar />
-      <motion.div
-        className="flex-grow pt-24 pb-10 px-4 bg-gradient-to-b from-violet-50 to-indigo-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-violet-800">Minhas Histórias</h1>
-            <Link to="/create-story">
-              <Button variant="storyPrimary">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova História
-              </Button>
-            </Link>
+
+      <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+        <div className="container max-w-4xl px-4">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
+              My Stories
+            </h1>
+            <Button onClick={handleCreateNewStory} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create New Story
+            </Button>
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <LoadingSpinner size="lg" />
+          {loading ? (
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Loading your stories...</span>
             </div>
-          ) : isError ? (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <AlertTriangle className="h-12 w-12 text-red-500" />
-                  <div>
-                    <p className="text-lg font-medium text-red-800">Erro ao carregar histórias</p>
-                    <p className="text-red-600">
-                      {error instanceof Error ? error.message : "Ocorreu um erro ao tentar carregar suas histórias. Tente novamente mais tarde."}
-                    </p>
-                  </div>
-                  <Button onClick={() => refetch()} variant="outline" className="mt-2">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Tentar novamente
-                  </Button>
-                </div>
+          ) : stories.length === 0 ? (
+            <Card className="border-2 border-dashed border-violet-300">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  No Stories Yet
+                </CardTitle>
+                <CardDescription>
+                  Start creating your magical stories now!
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                Click the "Create New Story" button to begin your storytelling adventure.
               </CardContent>
             </Card>
-          ) : stories && stories.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stories.map((story: StoryListItem) => (
-                <Card key={story.id} className="overflow-hidden border border-violet-100 transition-all hover:shadow-md hover:scale-[1.02] hover:border-violet-300">
-                  <div className="aspect-[4/5] relative overflow-hidden bg-violet-100">
-                    <AspectRatio ratio={4/5} className="h-full">
-                      <CoverImage
-                        imageUrl={getCoverImageUrl(story)}
-                        fallbackImage="/placeholder.svg"
-                        alt={story.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </AspectRatio>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                      <Link to={`/view-story/${story.id}`} className="w-full">
-                        <Button variant="secondary" className="w-full mb-2 bg-white/90 hover:bg-white">
-                          <BookOpen className="mr-2 h-4 w-4" />
-                          Ler História
-                        </Button>
-                      </Link>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full text-red-500 border-red-200 bg-white/90 hover:bg-red-50 hover:text-red-600"
-                            onClick={() => setStoryToDelete(story.id)}
-                          >
-                            <Trash className="mr-2 h-4 w-4" />
-                            Excluir
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Excluir História</DialogTitle>
-                            <DialogDescription>
-                              Tem certeza que deseja excluir a história "{story.title}"? Esta ação não pode ser desfeita.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <DialogFooter className="flex space-x-2 justify-end">
-                            <DialogClose asChild>
-                              <Button variant="outline">Cancelar</Button>
-                            </DialogClose>
-                            <Button
-                              variant="destructive"
-                              onClick={handleDeleteStory}
-                              disabled={isDeleting}
-                            >
-                              {isDeleting ? 'Excluindo...' : 'Excluir'}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-lg truncate">{story.title}</CardTitle>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stories.map((story) => (
+                <Card key={story.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold truncate">{story.title}</CardTitle>
                     <CardDescription>
-                      Personagem: {story.character_name}, {story.character_age}
+                      Character: {story.character_name}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0 text-sm">
-                    <p className="text-gray-600">
-                      <span className="font-medium">Tema:</span> {story.theme}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium">Cenário:</span> {story.setting}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium">Estilo:</span> {story.style}
-                    </p>
+                  <CardContent>
+                    Created: {new Date(story.created_at).toLocaleDateString()}
                   </CardContent>
-                  <CardFooter className="p-4 pt-0 flex justify-between gap-2">
-                    <Link to={`/view-story/${story.id}`} className="flex-1">
-                      <Button variant="story" className="w-full">
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        Ler
-                      </Button>
-                    </Link>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-                          onClick={() => setStoryToDelete(story.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Excluir História</DialogTitle>
-                          <DialogDescription>
-                            Tem certeza que deseja excluir a história "{story.title}"? Esta ação não pode ser desfeita.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="flex space-x-2 justify-end">
-                          <DialogClose asChild>
-                            <Button variant="outline">Cancelar</Button>
-                          </DialogClose>
-                          <Button
-                            variant="destructive"
-                            onClick={handleDeleteStory}
-                            disabled={isDeleting}
-                          >
-                            {isDeleting ? 'Excluindo...' : 'Excluir'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </CardFooter>
+                  {/* Add actions here, like view, edit, delete */}
                 </Card>
               ))}
             </div>
-          ) : (
-            <Card className="border-dashed border-2 border-violet-200 bg-white/50">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center space-y-4 py-8">
-                  <BookOpen className="h-12 w-12 text-violet-400" />
-                  <div>
-                    <p className="text-lg font-medium text-violet-800">Você ainda não tem histórias</p>
-                    <p className="text-gray-600">Crie sua primeira história personalizada agora!</p>
-                  </div>
-                  <Link to="/create-story">
-                    <Button variant="storyPrimary" className="mt-2">
-                      Criar Nova História
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
           )}
         </div>
-      </motion.div>
+      </main>
+
       <Footer />
     </div>
   );

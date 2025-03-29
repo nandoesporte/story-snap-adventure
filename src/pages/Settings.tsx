@@ -1,150 +1,178 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { SubscriptionPlanSelector } from '@/components/SubscriptionPlanSelector';
-import { useAuth } from '@/context/AuthContext';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, CircleCheck, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import supabase from '@/lib/supabase';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+// Rename imported Settings to SettingsComponent to avoid name conflict
+import { Settings as SettingsIcon, UserCog, Bell, Shield, LogOut } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
-const Settings = () => {
-  const { user, loading } = useAuth();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingConfig, setCheckingConfig] = useState(true);
-  
-  // Clear error when component unmounts or user changes
+const Settings: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
+  const [isPrivacyModeEnabled, setIsPrivacyModeEnabled] = useState(false);
+
   useEffect(() => {
-    setErrorMessage(null);
-  }, [user]);
-  
-  // Check if user is admin and if Stripe is configured
-  useEffect(() => {
-    const checkAdminAndStripeConfig = async () => {
-      if (!user) {
-        setCheckingConfig(false);
-        return;
-      }
-      
-      try {
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-          
-        setIsAdmin(profile?.is_admin || false);
-        
-        // Check if Stripe API key is configured
-        const { data: stripeConfig, error: stripeConfigError } = await supabase
-          .from('system_configurations')
-          .select('value')
-          .eq('key', 'stripe_api_key')
-          .single();
-          
-        setStripeConfigured(!!stripeConfig?.value);
-      } catch (error) {
-        console.error('Error checking configurations:', error);
-      } finally {
-        setCheckingConfig(false);
-      }
-    };
-    
-    checkAdminAndStripeConfig();
-  }, [user]);
-  
-  if (loading || checkingConfig) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin mr-2" />
-        <p>Carregando...</p>
-      </div>
-    );
-  }
-  
-  const handleError = (error: string) => {
-    setErrorMessage(error);
-    toast.error(error);
+    if (!user) {
+      navigate('/login');
+      toast.error('Please log in to view settings.');
+    }
+  }, [navigate, user]);
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Logged out successfully.');
+      navigate('/login');
+    }
   };
-  
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-grow container mx-auto px-4 py-12">
-        {!user && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <h3 className="font-medium text-amber-800">Você não está logado</h3>
-                <p className="text-amber-700">Faça login ou crie uma conta para assinar um plano.</p>
-              </div>
-              <Link to="/auth">
-                <Button>Entrar / Criar conta</Button>
-              </Link>
-            </div>
-          </div>
-        )}
-        
-        {errorMessage && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        )}
 
-        {user && !stripeConfigured && isAdmin && (
-          <Alert variant="warning" className="mb-6 bg-amber-50 border-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Configuração do Stripe Necessária</AlertTitle>
-            <AlertDescription className="text-amber-700">
-              <p className="mb-2">A chave API do Stripe não foi configurada. Como administrador, você precisa:</p>
-              <ol className="list-decimal ml-5 mb-3 space-y-1">
-                <li>Adicionar a chave secreta do Stripe nas configurações do sistema</li>
-                <li>Criar produtos e preços no dashboard do Stripe</li>
-                <li>Sincronizar os planos de assinatura com os produtos do Stripe</li>
-              </ol>
-              <div className="mt-3">
-                <Link to="/settings">
-                  <Button variant="secondary" size="sm" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Ir para Configurações
-                  </Button>
-                </Link>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {user && !stripeConfigured && !isAdmin && (
-          <Alert variant="warning" className="mb-6 bg-amber-50 border-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Sistema de Pagamentos Indisponível</AlertTitle>
-            <AlertDescription className="text-amber-700">
-              O sistema de pagamentos ainda não foi configurado. Por favor, tente novamente mais tarde ou entre em contato com o administrador.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {user && stripeConfigured && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <CircleCheck className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Sistema de Pagamentos Configurado</AlertTitle>
-            <AlertDescription className="text-green-700">
-              O sistema de pagamentos está configurado e pronto para uso. Escolha um plano abaixo para assinar.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <SubscriptionPlanSelector onError={handleError} />
-      </main>
-      <Footer />
+  const handleDeleteAccount = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action is irreversible.')) {
+      try {
+        if (!user) {
+          toast.error('No user session found.');
+          return;
+        }
+
+        const { error } = await supabase.auth.admin.deleteUser(user.id);
+
+        if (error) {
+          toast.error(`Error deleting account: ${error.message}`);
+        } else {
+          toast.success('Account deleted successfully.');
+          navigate('/register');
+        }
+      } catch (err) {
+        console.error('Error deleting account:', err);
+        toast.error('Failed to delete account.');
+      }
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4 max-w-4xl">
+      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <SettingsIcon className="h-6 w-6" />
+        Settings
+      </h1>
+
+      {/* Account Settings Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserCog className="h-5 w-5" />
+            Account Settings
+          </CardTitle>
+          <CardDescription>
+            Manage your account preferences
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Profile settings would go here */}
+        </CardContent>
+      </Card>
+
+      {/* Notification Settings Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notification Settings
+          </CardTitle>
+          <CardDescription>
+            Control your notification preferences
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-medium">Enable notifications</h3>
+              <p className="text-sm text-gray-500">Receive updates and important alerts</p>
+            </div>
+            <Switch checked={isNotificationsEnabled} onCheckedChange={setIsNotificationsEnabled} />
+          </div>
+          <Separator />
+          {/* More notification settings would go here */}
+        </CardContent>
+      </Card>
+
+      {/* Privacy Settings Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Privacy Settings
+          </CardTitle>
+          <CardDescription>
+            Manage your privacy settings
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-medium">Enable privacy mode</h3>
+              <p className="text-sm text-gray-500">Hide your profile from public view</p>
+            </div>
+            <Switch checked={isPrivacyModeEnabled} onCheckedChange={setIsPrivacyModeEnabled} />
+          </div>
+          <Separator />
+          {/* More privacy settings would go here */}
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone Card */}
+      <Card className="border-red-200 mb-6">
+        <CardHeader className="text-red-700">
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Danger Zone
+          </CardTitle>
+          <CardDescription className="text-red-600/90">
+            These actions are irreversible
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-medium text-red-700">Log out from all devices</h3>
+              <p className="text-sm text-gray-500">This will sign you out from all browsers and devices</p>
+            </div>
+            <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+              Log Out Everywhere
+            </Button>
+          </div>
+          <Separator />
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-medium text-red-700">Delete account</h3>
+              <p className="text-sm text-gray-500">Permanently delete your account and all your data</p>
+            </div>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+            >
+              Delete Account
+            </Button>
+          </div>
+        </CardContent>
+        <CardFooter className="bg-red-50/50 text-sm text-red-600 rounded-b-lg">
+          Note: Deleting your account will remove all your stories and associated data.
+        </CardFooter>
+      </Card>
+
+      <div className="flex justify-end mt-6">
+        <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2">
+          <LogOut className="h-4 w-4" />
+          Log Out
+        </Button>
+      </div>
     </div>
   );
 };

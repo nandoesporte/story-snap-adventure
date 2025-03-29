@@ -1,57 +1,54 @@
+import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/types';
 
-import { supabase } from "./supabase";
+/**
+ * Helper function to safely execute RPC functions
+ */
+export async function callRpcFunction(functionName: string, params?: Record<string, any>) {
+  try {
+    const { data, error } = await supabase.rpc(functionName, params || {});
+    
+    if (error) {
+      console.error(`Error calling RPC function ${functionName}:`, error);
+      throw error;
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error(`Exception in RPC function ${functionName}:`, error);
+    return { data: null, error };
+  }
+}
 
-export const checkTableExists = async (tableName: string, schemaName: string = 'public'): Promise<boolean> => {
+/**
+ * Helper function to check if a table exists in the database
+ */
+export async function checkTableExists(tableName: string, schema = 'public') {
   try {
     const { data, error } = await supabase.rpc('check_table_exists', {
       p_table_name: tableName,
-      p_schema_name: schemaName
+      p_schema_name: schema
     });
     
     if (error) {
-      console.error("Error checking if table exists:", error);
+      console.error(`Error checking if table ${tableName} exists:`, error);
       return false;
     }
     
-    return !!data;
+    return data === true;
   } catch (error) {
-    console.error("Unexpected error in checkTableExists:", error);
+    console.error(`Exception checking if table ${tableName} exists:`, error);
     return false;
   }
-};
+}
 
-export const checkColumnExists = async (tableName: string, columnName: string): Promise<boolean> => {
-  try {
-    const { data, error } = await supabase.rpc('check_column_exists', { 
-      p_table_name: tableName, 
-      p_column_name: columnName 
-    });
-    
-    if (error) {
-      console.error("Error checking if column exists:", error);
-      return false;
-    }
-    
-    return !!data;
-  } catch (error) {
-    console.error("Unexpected error in checkColumnExists:", error);
-    return false;
-  }
-};
-
-export const executeRawQuery = async (query: string, params?: any[]): Promise<any> => {
-  try {
-    // Note: This is for admin use only and should be properly secured
-    const { data, error } = await supabase.rpc('exec_sql', { sql_query: query });
-    
-    if (error) {
-      console.error("Error executing raw SQL:", error);
-      return null;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error("Unexpected error in executeRawQuery:", error);
-    return null;
-  }
-};
+/**
+ * Helper to get data from information_schema
+ * This is used as a workaround for direct information_schema access
+ */
+export async function queryInformationSchema(tableName: string, schemaName = 'public') {
+  return await callRpcFunction('check_table_exists', {
+    p_table_name: tableName,
+    p_schema_name: schemaName
+  });
+}

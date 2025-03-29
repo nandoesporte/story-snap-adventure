@@ -1,21 +1,19 @@
-
-import React, { useState, useEffect } from "react";
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/context/AuthContext";
-import { StoryManager } from "@/components/admin/StoryManager";
-import { UserManager } from "@/components/admin/UserManager";
-import { CharacterManager } from "@/components/admin/CharacterManager";
-import { ThemeManager } from "@/components/admin/ThemeManager";
-import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
-import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import StoryManager from "@/components/admin/StoryManager";
+import ThemeManager from "@/components/admin/ThemeManager";
+import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
+import CharacterManager from "@/components/admin/CharacterManager";
+import UserManager from "@/components/admin/UserManager";
+import SubscriptionManager from "@/components/admin/SubscriptionManager";
+import StorageConfigAlert from "@/components/StorageConfigAlert";
 import StripeApiKeyManager from "@/components/admin/StripeApiKeyManager";
 import StripeWebhookSecretManager from "@/components/admin/StripeWebhookSecretManager";
+import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import TestModeManager from "@/components/admin/TestModeManager";
-import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
-import SubscriptionManager from "@/components/admin/SubscriptionManager";
-import { useNavigate, useLocation } from "react-router-dom";
-import { toast } from "sonner";
-import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 
 const Admin = () => {
   const { user } = useAuth();
