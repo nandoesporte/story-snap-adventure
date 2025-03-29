@@ -40,7 +40,7 @@ export const useStoryGeneration = () => {
     generateImageWithOpenAI
   } = useStoryBot();
   
-  const { generateAudio, VOICE_IDS } = useStoryNarration({
+  const { generateAudio, VOICE_IDS, VOICE_PRESETS } = useStoryNarration({
     storyId: '',
     text: '',
     pageIndex: 0
@@ -273,8 +273,8 @@ export const useStoryGeneration = () => {
             toast.warning("Chave da API Google Text-to-Speech não configurada. As narrações não serão geradas.");
           } else {
             setGeneratingNarration(true);
-            setCurrentStage("Gerando narrações para as páginas...");
-            toast.info("Iniciando geração de narrações para as páginas...");
+            setCurrentStage("Gerando narrações humanizadas para as páginas...");
+            toast.info("Iniciando geração de narrações humanizadas para as páginas...");
             
             const maxNarrationAttempts = 2;
             let narrationFailures = 0;
@@ -282,9 +282,9 @@ export const useStoryGeneration = () => {
             for (let i = 0; i < storyResult.pages.length; i++) {
               try {
                 setCurrentNarrationIndex(i + 1);
-                setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
+                setCurrentStage(`Gerando narração humanizada ${i + 1} de ${storyResult.pages.length}...`);
                 
-                console.log(`Gerando narração para página ${i+1} de ${storyResult.pages.length} com voz ${voiceType}`);
+                console.log(`Gerando narração humanizada para página ${i+1} de ${storyResult.pages.length} com voz ${voiceType}`);
                 
                 let narrationSuccess = false;
                 let attempts = 0;
@@ -292,7 +292,7 @@ export const useStoryGeneration = () => {
                 while (!narrationSuccess && attempts < maxNarrationAttempts) {
                   try {
                     attempts++;
-                    console.log(`Tentativa ${attempts} de gerar narração para página ${i+1}`);
+                    console.log(`Tentativa ${attempts} de gerar narração humanizada para página ${i+1}`);
                     
                     await generateAudio(voiceType, {
                       storyId: storyResult.id,
@@ -302,7 +302,7 @@ export const useStoryGeneration = () => {
                     });
                     
                     narrationSuccess = true;
-                    console.log(`Narração gerada com sucesso para página ${i+1}`);
+                    console.log(`Narração humanizada gerada com sucesso para página ${i+1}`);
                     
                     const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
                     setProgress(Math.min(narrationProgress, 99));
@@ -339,7 +339,7 @@ export const useStoryGeneration = () => {
                 toast.warning(`${narrationFailures} narrações não puderam ser geradas. As demais estão disponíveis.`);
               }
             } else {
-              toast.success("Todas as narrações foram geradas com sucesso!");
+              toast.success("Todas as narrações humanizadas foram geradas com sucesso!");
             }
           }
         }

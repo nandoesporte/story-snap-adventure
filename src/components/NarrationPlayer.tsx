@@ -1,11 +1,30 @@
 
 import { useState, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, ExternalLink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface NarrationPlayerProps {
   storyId: string;
@@ -26,12 +45,20 @@ export const NarrationPlayer = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<'male' | 'female'>(voiceType);
+  const [voicePreset, setVoicePreset] = useState('childFriendly');
   
-  const { isPlaying, isGenerating, playAudio, toggleMute } = useStoryNarration({
+  const { 
+    isPlaying, 
+    isGenerating, 
+    playAudio, 
+    toggleMute,
+    VOICE_PRESETS 
+  } = useStoryNarration({
     storyId,
     text: pageText,
     pageIndex,
-    voiceType
+    voiceType: selectedVoice
   });
   
   useEffect(() => {
@@ -96,7 +123,7 @@ export const NarrationPlayer = ({
         toggleMute();
         return;
       }
-      await playAudio(voiceType);
+      await playAudio(selectedVoice);
     } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);
       
@@ -145,12 +172,43 @@ export const NarrationPlayer = ({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isPlaying ? "Silenciar narração" : "Ouvir narração"}
+            {isPlaying ? "Silenciar narração" : "Ouvir narração infantil"}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
       
-      {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio...</span>}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3" side="bottom">
+          <div className="grid gap-2">
+            <h4 className="text-sm font-semibold">Opções de narração</h4>
+            <div className="grid gap-1.5">
+              <label className="text-xs">Tipo de voz</label>
+              <Select 
+                value={selectedVoice} 
+                onValueChange={(value) => setSelectedVoice(value as 'male' | 'female')}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="Selecione o tipo de voz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Vozes</SelectLabel>
+                    <SelectItem value="female">Feminina (Infantil)</SelectItem>
+                    <SelectItem value="male">Masculina (Infantil)</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      
+      {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio humanizado...</span>}
       {error && (
         <div className="flex items-center">
           <span className="ml-2 text-xs text-red-500">{error}</span>

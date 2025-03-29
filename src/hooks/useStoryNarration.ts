@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -26,8 +25,8 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   const maxRetries = 3;
   
   const VOICE_IDS = {
-    female: "pt-BR-Standard-A",
-    male: "pt-BR-Standard-B"
+    female: "pt-BR-Wavenet-A",
+    male: "pt-BR-Wavenet-B"
   };
 
   const AVAILABLE_VOICES = {
@@ -36,12 +35,30 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       male: ["pt-BR-Standard-B", "pt-BR-Wavenet-B"]
     },
     english: {
-      female: ["en-US-Standard-C", "en-US-Wavenet-C"],
-      male: ["en-US-Standard-B", "en-US-Wavenet-B"]
+      female: ["en-US-Standard-C", "en-US-Wavenet-C", "en-US-Neural2-F"],
+      male: ["en-US-Standard-B", "en-US-Wavenet-B", "en-US-Neural2-D"]
     },
     spanish: {
-      female: ["es-ES-Standard-A", "es-ES-Wavenet-A"],
-      male: ["es-ES-Standard-B", "es-ES-Wavenet-B"]
+      female: ["es-ES-Standard-A", "es-ES-Wavenet-A", "es-ES-Neural2-A"],
+      male: ["es-ES-Standard-B", "es-ES-Wavenet-B", "es-ES-Neural2-B"]
+    }
+  };
+
+  const VOICE_PRESETS = {
+    childFriendly: {
+      pitch: 0.5,
+      speakingRate: 0.85,
+      volumeGainDb: 2.0
+    },
+    storytelling: {
+      pitch: 0.2,
+      speakingRate: 0.9,
+      volumeGainDb: 1.0
+    },
+    animated: {
+      pitch: 0.8,
+      speakingRate: 1.0,
+      volumeGainDb: 3.0
     }
   };
 
@@ -90,7 +107,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
             resolve(base64Audio);
           } catch (storageError) {
             console.error('Local storage error:', storageError);
-            // Don't reject, just return null
             resolve(URL.createObjectURL(audioBlob));
           }
         };
@@ -130,7 +146,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         }
         
         try {
-          // Fix: The getPublicUrl method doesn't return an error property
           const { data } = supabase.storage.from('story_narrations').getPublicUrl('test');
           console.log("Successfully tested public URL policy:", data.publicUrl);
         } catch (e) {
@@ -168,11 +183,11 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     setIsGenerating(true);
     
     if (!params) {
-      toast.info('Gerando narração...');
+      toast.info('Gerando narração humanizada para crianças...');
     }
 
     try {
-      console.log(`Generating audio for story ${storyId}, page ${pageIndex} with voice type: ${voiceType}`);
+      console.log(`Generating child-friendly audio for story ${storyId}, page ${pageIndex} with voice type: ${voiceType}`);
       
       const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
       
@@ -194,18 +209,30 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         return cachedAudio;
       }
 
-      console.log(`Generating audio for page ${pageIndex} with Google TTS API`);
+      console.log(`Generating audio for page ${pageIndex} with Google TTS API using enhanced child-friendly settings`);
 
       const voiceLanguage = "portuguese";
       const voiceId = VOICE_IDS[voiceType];
+      
+      const voicePreset = VOICE_PRESETS.childFriendly;
+      
+      const ssmlText = formatTextWithSSML(text);
 
       const requestBody = {
-        input: { text: text },
+        input: { 
+          ssml: ssmlText
+        },
         voice: { 
           languageCode: voiceId.substring(0, 5),
           name: voiceId
         },
-        audioConfig: { audioEncoding: "MP3" }
+        audioConfig: { 
+          audioEncoding: "MP3",
+          pitch: voicePreset.pitch,
+          speakingRate: voicePreset.speakingRate,
+          volumeGainDb: voicePreset.volumeGainDb,
+          effectsProfileId: ["small-bluetooth-speaker-class-device"]
+        }
       };
 
       const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
@@ -325,7 +352,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       setAudioUrl(audioUrlValue);
       
       if (!params) {
-        toast.success('Narração gerada com sucesso!');
+        toast.success('Narração humanizada gerada com sucesso!');
       }
       
       return audioUrlValue;
@@ -397,6 +424,17 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     };
   }, []);
 
+  const formatTextWithSSML = (text: string): string => {
+    let ssml = text.replace(/\./g, '.<break time="500ms"/>');
+    
+    ssml = ssml.replace(/([^.!?]*\?)/g, '<emphasis level="moderate">$1</emphasis>');
+    ssml = ssml.replace(/([^.!?]*!)/g, '<emphasis level="strong">$1</emphasis>');
+    
+    ssml = `<speak>${ssml}</speak>`;
+    
+    return ssml;
+  };
+
   return {
     isGenerating,
     isPlaying,
@@ -404,6 +442,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     generateAudio,
     toggleMute,
     VOICE_IDS,
-    AVAILABLE_VOICES
+    AVAILABLE_VOICES,
+    VOICE_PRESETS
   };
 };
