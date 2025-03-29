@@ -33,14 +33,18 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     
-    // Fix: Use the correct signature for createClient
+    // Create client with correct configuration format
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { 
-        headers: { Authorization: authHeader } 
-      },
       auth: { 
-        persistSession: false
-      }
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
     });
 
     // Get the user from the auth header

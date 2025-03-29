@@ -6,7 +6,7 @@ import { SubscriptionPlanSelector } from '@/components/SubscriptionPlanSelector'
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -57,6 +57,16 @@ const Subscription = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Erro</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        {user && (
+          <Alert variant="warning" className="mb-6 bg-amber-50 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800">Configuração do Stripe</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Certifique-se de que a chave API do Stripe foi configurada nas configurações do sistema e que os planos de assinatura possuem IDs de preço do Stripe válidos.
+            </AlertDescription>
           </Alert>
         )}
         

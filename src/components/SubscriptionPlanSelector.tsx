@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import { CheckCircle, Circle, CreditCard, Shield, LogIn, Loader2 } from 'lucide-react';
+import { CheckCircle, Circle, CreditCard, Shield, LogIn, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface SubscriptionPlanSelectorProps {
   onError?: (error: string) => void;
@@ -44,6 +45,7 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   
   // Get subscription plans
   const { data: plans, isLoading: loadingPlans, error: plansError } = useQuery({
@@ -83,6 +85,7 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
   // Handle plan selection
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
+    setCheckoutError(null);
   };
   
   // Check if plan is the user's current plan
@@ -99,6 +102,7 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
     
     try {
       setIsCheckoutLoading(true);
+      setCheckoutError(null);
       const returnUrl = window.location.origin + '/my-stories';
       const checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
       
@@ -107,6 +111,7 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
     } catch (error) {
       console.error('Error creating checkout:', error);
       const errorMessage = "Erro ao processar checkout. Verifique se as configurações do Stripe foram feitas corretamente.";
+      setCheckoutError(errorMessage);
       toast.error(errorMessage);
       if (onError) onError(errorMessage);
     } finally {
@@ -181,6 +186,13 @@ export const SubscriptionPlanSelector = ({ onError }: SubscriptionPlanSelectorPr
           </div>
         )}
       </div>
+      
+      {checkoutError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{checkoutError}</AlertDescription>
+        </Alert>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans?.map((plan: SubscriptionPlan) => (
