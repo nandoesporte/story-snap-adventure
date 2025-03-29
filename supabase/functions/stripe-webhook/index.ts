@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 import Stripe from "https://esm.sh/stripe@11.18.0";
@@ -5,7 +6,14 @@ import Stripe from "https://esm.sh/stripe@11.18.0";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Create Supabase client with correct configuration format
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+  }
+});
 
 serve(async (req) => {
   if (req.method === "POST") {

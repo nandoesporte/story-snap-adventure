@@ -17,6 +17,8 @@ import { BookGenerationService } from '@/services/BookGenerationService';
 import { useAuth } from '@/context/AuthContext';
 import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
 import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
+import StripeApiKeyManager from '@/components/admin/StripeApiKeyManager';
+import { syncPlansWithStripe } from '@/lib/stripe';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -28,6 +30,7 @@ const Settings = () => {
   const [useOpenAI, setUseOpenAI] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [syncingPlans, setSyncingPlans] = useState(false);
 
   useEffect(() => {
     // Load saved settings
@@ -97,6 +100,42 @@ const Settings = () => {
       setTestingConnection(false);
     }
   };
+  
+  const handleSyncPlans = async () => {
+    setSyncingPlans(true);
+    try {
+      await syncPlansWithStripe();
+      toast.success('Planos sincronizados com o Stripe com sucesso');
+    } catch (error) {
+      console.error('Erro ao sincronizar planos:', error);
+      toast.error('Erro ao sincronizar planos: ' + error.message);
+    } finally {
+      setSyncingPlans(false);
+    }
+  };
+
+  // Check if user is admin
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+          
+        setIsAdmin(profile?.is_admin || false);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -111,9 +150,10 @@ const Settings = () => {
           <h1 className="text-3xl font-bold text-violet-800 mb-8">Configurações</h1>
           
           <Tabs defaultValue="ai-models" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="ai-models">Modelos de IA</TabsTrigger>
               <TabsTrigger value="image-generation">Geração de Imagens</TabsTrigger>
+              {isAdmin && <TabsTrigger value="payment">Pagamentos</TabsTrigger>}
             </TabsList>
             
             <TabsContent value="ai-models">
@@ -223,6 +263,41 @@ const Settings = () => {
                 </CardFooter>
               </Card>
             </TabsContent>
+            
+            {isAdmin && (
+              <TabsContent value="payment">
+                <div className="space-y-6">
+                  <StripeApiKeyManager />
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Sincronização de Planos com Stripe</CardTitle>
+                      <CardDescription>
+                        Sincronize os planos de assinatura do sistema com o Stripe
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Este processo irá verificar todos os planos de assinatura cadastrados no sistema e tentar encontrar produtos e preços correspondentes no Stripe. Quando encontrar uma correspondência, atualizará os planos com os IDs do Stripe.
+                      </p>
+                    </CardContent>
+                    <CardFooter>
+                      <Button 
+                        onClick={handleSyncPlans}
+                        disabled={syncingPlans}
+                      >
+                        {syncingPlans ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
+                        Sincronizar Planos
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </motion.div>

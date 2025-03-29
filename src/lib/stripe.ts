@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+
+import supabase from './supabase';
 
 // Define types for subscription plan and user subscription
 export interface SubscriptionPlan {
