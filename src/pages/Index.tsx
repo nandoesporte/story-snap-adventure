@@ -9,6 +9,7 @@ import Testimonials from "../components/home/Testimonials";
 import CallToAction from "../components/home/CallToAction";
 import { useIndexPageContent } from "../components/home/ContentLoader";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import FeaturedStoryCarousel from "@/components/home/FeaturedStoryCarousel";
 
 const Index = () => {
   const { getContent, isLoading } = useIndexPageContent();
@@ -27,6 +28,10 @@ const Index = () => {
         ) : (
           <Hero customImageUrl={heroImageUrl} />
         )}
+        
+        {/* Featured Story Carousel */}
+        <FeaturedStoryCarousel />
+        
         <Features />
         <HowItWorks />
         <Testimonials />
