@@ -26,8 +26,10 @@ const StripeApiKeyManager = () => {
     const initializeSystem = async () => {
       setInitializing(true);
       try {
+        console.log("Initializing system configurations...");
+        
         // First ensure the system_configurations table exists
-        const { error: initError } = await supabase.functions.invoke('create-system-configurations');
+        const { data: initData, error: initError } = await supabase.functions.invoke('create-system-configurations');
         
         if (initError) {
           console.error('Error initializing system configurations:', initError);
@@ -38,6 +40,8 @@ const StripeApiKeyManager = () => {
           });
           return;
         }
+        
+        console.log("System configurations initialized:", initData);
         
         // Then get the Stripe API key
         const { data, error } = await supabase
@@ -58,9 +62,12 @@ const StripeApiKeyManager = () => {
 
         if (data && data.value) {
           setStripeApiKey(data.value);
+          console.log("API key loaded successfully");
+        } else {
+          console.log("No API key found");
         }
       } catch (error) {
-        console.error('Error fetching Stripe API Key:', error);
+        console.error('Error in initialization process:', error);
         toast({
           title: 'Erro',
           description: 'Falha ao carregar a chave da API do Stripe',
@@ -75,8 +82,19 @@ const StripeApiKeyManager = () => {
   }, [toast]);
 
   const handleSaveApiKey = async () => {
+    if (!stripeApiKey.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'A chave de API não pode estar vazia',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
+      console.log("Attempting to save API key...");
+      
       // Check if key already exists
       const { data, error: fetchError } = await supabase
         .from('system_configurations')
@@ -85,6 +103,7 @@ const StripeApiKeyManager = () => {
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error("Error checking if key exists:", fetchError);
         throw fetchError;
       }
 
@@ -92,23 +111,27 @@ const StripeApiKeyManager = () => {
       
       if (data) {
         // Update existing key
+        console.log("Updating existing API key...");
         const { error } = await supabase
           .from('system_configurations')
-          .update({ value: stripeApiKey })
+          .update({ value: stripeApiKey.trim() })
           .eq('key', 'stripe_api_key');
         saveError = error;
       } else {
         // Insert new key
+        console.log("Inserting new API key...");
         const { error } = await supabase
           .from('system_configurations')
-          .insert({ key: 'stripe_api_key', value: stripeApiKey });
+          .insert({ key: 'stripe_api_key', value: stripeApiKey.trim() });
         saveError = error;
       }
 
       if (saveError) {
+        console.error("Error saving API key:", saveError);
         throw saveError;
       }
 
+      console.log("API key saved successfully");
       toast({
         title: 'Sucesso',
         description: 'Chave de API do Stripe salva com sucesso',
@@ -120,7 +143,7 @@ const StripeApiKeyManager = () => {
       console.error('Error saving Stripe API Key:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao salvar a chave de API do Stripe',
+        description: 'Falha ao salvar a chave de API do Stripe. Verifique se você tem permissões de administrador.',
         variant: 'destructive',
       });
     } finally {

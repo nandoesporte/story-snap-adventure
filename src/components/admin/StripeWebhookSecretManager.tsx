@@ -26,8 +26,10 @@ const StripeWebhookSecretManager = () => {
     const initializeSystem = async () => {
       setInitializing(true);
       try {
+        console.log("Initializing system configurations...");
+        
         // First ensure the system_configurations table exists
-        const { error: initError } = await supabase.functions.invoke('create-system-configurations');
+        const { data: initData, error: initError } = await supabase.functions.invoke('create-system-configurations');
         
         if (initError) {
           console.error('Error initializing system configurations:', initError);
@@ -38,6 +40,8 @@ const StripeWebhookSecretManager = () => {
           });
           return;
         }
+        
+        console.log("System configurations initialized:", initData);
         
         // Then get the webhook secret
         const { data, error } = await supabase
@@ -58,9 +62,12 @@ const StripeWebhookSecretManager = () => {
 
         if (data && data.value) {
           setWebhookSecret(data.value);
+          console.log("Webhook secret loaded successfully");
+        } else {
+          console.log("No webhook secret found");
         }
       } catch (error) {
-        console.error('Error fetching Stripe webhook secret:', error);
+        console.error('Error in initialization process:', error);
         toast({
           title: 'Erro',
           description: 'Falha ao carregar o segredo do webhook do Stripe',
@@ -75,8 +82,19 @@ const StripeWebhookSecretManager = () => {
   }, [toast]);
 
   const handleSaveWebhookSecret = async () => {
+    if (!webhookSecret.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'O segredo do webhook não pode estar vazio',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
+      console.log("Attempting to save webhook secret...");
+      
       // Check if key already exists
       const { data, error: fetchError } = await supabase
         .from('system_configurations')
@@ -85,6 +103,7 @@ const StripeWebhookSecretManager = () => {
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error("Error checking if key exists:", fetchError);
         throw fetchError;
       }
 
@@ -92,23 +111,27 @@ const StripeWebhookSecretManager = () => {
       
       if (data) {
         // Update existing key
+        console.log("Updating existing webhook secret...");
         const { error } = await supabase
           .from('system_configurations')
-          .update({ value: webhookSecret })
+          .update({ value: webhookSecret.trim() })
           .eq('key', 'stripe_webhook_secret');
         saveError = error;
       } else {
         // Insert new key
+        console.log("Inserting new webhook secret...");
         const { error } = await supabase
           .from('system_configurations')
-          .insert({ key: 'stripe_webhook_secret', value: webhookSecret });
+          .insert({ key: 'stripe_webhook_secret', value: webhookSecret.trim() });
         saveError = error;
       }
 
       if (saveError) {
+        console.error("Error saving webhook secret:", saveError);
         throw saveError;
       }
 
+      console.log("Webhook secret saved successfully");
       toast({
         title: 'Sucesso',
         description: 'Segredo do webhook do Stripe salvo com sucesso',
@@ -120,7 +143,7 @@ const StripeWebhookSecretManager = () => {
       console.error('Error saving Stripe webhook secret:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao salvar o segredo do webhook do Stripe',
+        description: 'Falha ao salvar o segredo do webhook do Stripe. Verifique se você tem permissões de administrador.',
         variant: 'destructive',
       });
     } finally {
