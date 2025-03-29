@@ -26,6 +26,31 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
+        // Se é uma URL temporária de DALL-E/OpenAI
+        if (imageUrl.includes('oaidalleapiprodscus.blob.core.windows.net')) {
+          // Verificar se expirou tentando fazer um fetch
+          try {
+            const response = await fetch(imageUrl, { method: 'HEAD' });
+            if (response.ok) {
+              setProcessedUrl(imageUrl);
+              // Armazenar no cache local
+              const fileName = `dalle_img_${Date.now()}`;
+              localStorage.setItem(`image_cache_${fileName}`, imageUrl);
+              return;
+            } else {
+              console.warn('OpenAI image URL expired:', imageUrl);
+              setHasError(true);
+              setProcessedUrl('/placeholder.svg');
+              return;
+            }
+          } catch (fetchError) {
+            console.error('Failed to fetch OpenAI image:', fetchError);
+            setHasError(true);
+            setProcessedUrl('/placeholder.svg');
+            return;
+          }
+        }
+        
         // Se é uma URL de armazenamento do Supabase, mas com formato antigo
         if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
           try {
@@ -76,6 +101,8 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           // Caso seja uma imagem base64, vamos armazená-la no cache local
           const hash = await hashString(imageUrl.substring(0, 100)); // Usamos apenas o início para economizar espaço
           localStorage.setItem(`image_cache_${hash}`, imageUrl);
+          setProcessedUrl(imageUrl);
+          return;
         }
         
         // Para URLs relativas, adicione o origin
@@ -85,6 +112,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
+        // Para qualquer outro tipo de URL externa
         setProcessedUrl(imageUrl);
       } catch (error) {
         console.error('Error processing image URL:', error);
