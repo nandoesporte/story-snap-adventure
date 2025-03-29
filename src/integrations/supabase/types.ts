@@ -269,6 +269,7 @@ export type Database = {
           title: string
           updated_at: string | null
           user_id: string | null
+          voice_type: string | null
         }
         Insert: {
           character_age?: string | null
@@ -285,6 +286,7 @@ export type Database = {
           title: string
           updated_at?: string | null
           user_id?: string | null
+          voice_type?: string | null
         }
         Update: {
           character_age?: string | null
@@ -301,6 +303,7 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string | null
+          voice_type?: string | null
         }
         Relationships: []
       }
@@ -355,6 +358,13 @@ export type Database = {
             foreignKeyName: "story_likes_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
+            referencedRelation: "featured_stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_likes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
@@ -393,6 +403,13 @@ export type Database = {
             foreignKeyName: "story_narrations_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
+            referencedRelation: "featured_stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_narrations_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
@@ -422,10 +439,38 @@ export type Database = {
             foreignKeyName: "story_views_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
+            referencedRelation: "featured_stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
         ]
+      }
+      storybot_prompts: {
+        Row: {
+          created_at: string | null
+          id: string
+          prompt: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          prompt: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          prompt?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       subscription_history: {
         Row: {
@@ -737,7 +782,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      featured_stories: {
+        Row: {
+          character_age: string | null
+          character_name: string | null
+          character_prompt: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          id: string | null
+          is_public: boolean | null
+          pages: Json | null
+          setting: string | null
+          style: string | null
+          theme: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          voice_type: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_user_credits: {

@@ -1,5 +1,6 @@
 
 import { supabase } from "./supabase";
+import { executeRawQuery } from "./dbHelpers";
 
 export interface StoryBotPrompt {
   id: string;
@@ -11,7 +12,7 @@ export interface StoryBotPrompt {
 export const getStoryBotPrompt = async (): Promise<StoryBotPrompt | null> => {
   try {
     // First ensure the table exists
-    await supabase.rpc('create_storybot_prompt_if_not_exists');
+    await ensureStoryBotPromptTableExists();
     
     // Get the latest prompt
     const { data, error } = await supabase
@@ -19,14 +20,14 @@ export const getStoryBotPrompt = async (): Promise<StoryBotPrompt | null> => {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .single();
       
     if (error) {
       console.error("Error fetching StoryBot prompt:", error);
       return null;
     }
     
-    return data as StoryBotPrompt;
+    return data as unknown as StoryBotPrompt;
   } catch (error) {
     console.error("Unexpected error in getStoryBotPrompt:", error);
     return null;
@@ -36,7 +37,7 @@ export const getStoryBotPrompt = async (): Promise<StoryBotPrompt | null> => {
 export const saveStoryBotPrompt = async (prompt: string): Promise<StoryBotPrompt | null> => {
   try {
     // First ensure the table exists
-    await supabase.rpc('create_storybot_prompt_if_not_exists');
+    await ensureStoryBotPromptTableExists();
     
     // Check if there's an existing prompt
     const { data: existingPrompt, error: fetchError } = await supabase
@@ -50,33 +51,69 @@ export const saveStoryBotPrompt = async (prompt: string): Promise<StoryBotPrompt
     
     if (!existingPrompt) {
       // Insert new prompt
-      result = await supabase
-        .from('storybot_prompts')
-        .insert({ prompt })
-        .select()
-        .single();
+      const insertQuery = `INSERT INTO storybot_prompts (prompt) VALUES ('${prompt.replace(/'/g, "''")}') RETURNING *`;
+      const insertData = await executeRawQuery(insertQuery);
+      
+      if (!insertData || !Array.isArray(insertData) || !insertData.length) {
+        console.error("Error saving StoryBot prompt: No data returned from insert");
+        return null;
+      }
+      
+      return insertData[0] as StoryBotPrompt;
     } else {
       // Update existing prompt
-      result = await supabase
-        .from('storybot_prompts')
-        .update({ 
-          prompt,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", existingPrompt.id)
-        .select()
-        .single();
+      const updateQuery = `
+        UPDATE storybot_prompts 
+        SET prompt = '${prompt.replace(/'/g, "''")}', 
+        updated_at = NOW() 
+        WHERE id = '${existingPrompt.id}' 
+        RETURNING *
+      `;
+      
+      const updateData = await executeRawQuery(updateQuery);
+      
+      if (!updateData || !Array.isArray(updateData) || !updateData.length) {
+        console.error("Error saving StoryBot prompt: No data returned from update");
+        return null;
+      }
+      
+      return updateData[0] as StoryBotPrompt;
     }
-    
-    if (result.error) {
-      console.error("Error saving StoryBot prompt:", result.error);
-      return null;
-    }
-    
-    return result.data as StoryBotPrompt;
   } catch (error) {
     console.error("Unexpected error in saveStoryBotPrompt:", error);
     return null;
+  }
+};
+
+// Helper function to ensure the storybot_prompts table exists
+const ensureStoryBotPromptTableExists = async (): Promise<void> => {
+  try {
+    const query = `
+      CREATE TABLE IF NOT EXISTS public.storybot_prompts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        prompt TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Add trigger for updated_at
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'update_storybot_prompts_updated_at'
+        ) THEN
+          CREATE TRIGGER update_storybot_prompts_updated_at
+          BEFORE UPDATE ON public.storybot_prompts
+          FOR EACH ROW
+          EXECUTE FUNCTION update_timestamp();
+        END IF;
+      END $$;
+    `;
+    
+    await executeRawQuery(query);
+  } catch (error) {
+    console.error("Error ensuring storybot_prompts table exists:", error);
   }
 };
 
