@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -287,7 +288,10 @@ export const StoryManager = () => {
               {stories.map((story) => (
                 <TableRow key={story.id}>
                   <TableCell className="font-medium">{story.title}</TableCell>
-                  <TableCell>{story.content.substring(0, 50)}...</TableCell>
+                  <TableCell>
+                    {/* Add check for content existence before using substring */}
+                    {story.content ? story.content.substring(0, 50) + '...' : 'Sem conteúdo'}
+                  </TableCell>
                   <TableCell>{user?.email}</TableCell>
                   <TableCell>
                     <Switch
