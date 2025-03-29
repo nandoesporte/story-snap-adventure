@@ -23,6 +23,16 @@ const CreateStory = () => {
   const [step, setStep] = useState<CreationStep>("prompt");
   const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
+  const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
+  
+  // Verificar se o formulário já foi enviado anteriormente para evitar renderização duplicada
+  useEffect(() => {
+    const storedData = sessionStorage.getItem("create_story_data");
+    // Se temos dados armazenados e o formulário já foi enviado, redirecionar diretamente
+    if (storedData && formSubmitted) {
+      navigate("/story-creator");
+    }
+  }, [formSubmitted, navigate]);
   
   const handlePromptSubmit = (prompt: string) => {
     setStoryPrompt(prompt);
@@ -90,6 +100,9 @@ const CreateStory = () => {
       ...data,
       storyPrompt
     }));
+    
+    // Marcar que o formulário foi submetido
+    setFormSubmitted(true);
     
     // Redirecionar para o criador de histórias
     navigate("/story-creator");

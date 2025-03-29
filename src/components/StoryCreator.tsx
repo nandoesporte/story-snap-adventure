@@ -22,11 +22,12 @@ interface Character {
 
 const StoryCreator = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<CreationStep>("details");
+  const [step, setStep] = useState<CreationStep>("generating");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [hasElevenLabsKey, setHasElevenLabsKey] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   const { 
     generateCompleteStory,
@@ -67,11 +68,18 @@ const StoryCreator = () => {
         if (parsedData.imagePreview) {
           setImagePreview(parsedData.imagePreview);
         }
+        
+        setDataLoaded(true);
       } catch (error) {
         console.error("Erro ao carregar dados salvos:", error);
+        navigate("/create-story");
+        toast.error("Dados da história inválidos. Por favor, comece novamente.");
       }
+    } else {
+      navigate("/create-story");
+      toast.error("Dados da história não encontrados. Por favor, comece novamente.");
     }
-  }, []);
+  }, [navigate]);
   
   useEffect(() => {
     const fetchCharacter = async () => {
@@ -99,8 +107,16 @@ const StoryCreator = () => {
       }
     };
     
-    fetchCharacter();
-  }, [formData?.characterId]);
+    if (formData) {
+      fetchCharacter();
+    }
+  }, [formData]);
+  
+  useEffect(() => {
+    if (dataLoaded && formData && step === "generating") {
+      generateStory(formData);
+    }
+  }, [dataLoaded, formData, step]);
   
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
@@ -190,6 +206,7 @@ const StoryCreator = () => {
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey) {
       toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
+      navigate("/settings");
       return;
     }
     
@@ -304,6 +321,8 @@ const StoryCreator = () => {
         console.warn("Erro ao salvar no sessionStorage (possível excesso de cota):", storageError);
       }
       
+      sessionStorage.removeItem("create_story_data");
+      
       setTimeout(() => {
         if (storyId) {
           navigate(`/view-story/${storyId}`);
@@ -314,7 +333,7 @@ const StoryCreator = () => {
     } catch (error: any) {
       console.error("Erro ao gerar história final:", error);
       toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
-      setStep("details");
+      navigate("/create-story");
     }
   };
   

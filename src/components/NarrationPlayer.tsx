@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,11 +25,11 @@ export const NarrationPlayer = ({
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   
-  // We need to pass only the properties that the hook expects
-  const { isPlaying, isGenerating, playAudio } = useStoryNarration({
+  const { isPlaying, isGenerating, playAudio, toggleMute } = useStoryNarration({
     storyId,
     text: pageText,
-    pageIndex
+    pageIndex,
+    voiceType
   });
   
   const { toast } = useToast();
@@ -79,7 +78,6 @@ export const NarrationPlayer = ({
       
       const errorMessage = e.message || "Não foi possível reproduzir a narração";
       
-      // Handle specific API errors
       if (errorMessage.includes("API key") || errorMessage.includes("401")) {
         toast({
           title: "Erro de API",
@@ -102,13 +100,8 @@ export const NarrationPlayer = ({
     }
   };
   
-  // Since toggleMute doesn't exist in the hook, we'll implement a simpler mute logic
   const handleToggleMute = () => {
-    // Find the audio element and mute/unmute it directly
-    const audioElements = document.querySelectorAll('audio');
-    audioElements.forEach(audio => {
-      audio.muted = !isMuted;
-    });
+    toggleMute();
     setIsMuted(!isMuted);
   };
   
