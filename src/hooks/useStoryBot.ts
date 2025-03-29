@@ -25,6 +25,7 @@ export const useStoryBot = () => {
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState(true);
   const [useOpenAIForStories, setUseOpenAIForStoriesState] = useState<boolean>(false);
   const [openAIModel, setOpenAIModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini');
+  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(true);
   
   const storyBot = new StoryBot();
   const leonardoAgent = new LeonardoAIAgent();
@@ -41,6 +42,9 @@ export const useStoryBot = () => {
     setOpenAIModel(savedOpenAIModel);
     
     storyBot.setUseOpenAI(useOpenAI, savedOpenAIModel);
+    
+    const useLeonardo = localStorage.getItem('use_leonardo_ai');
+    setUseLeonardoAI(useLeonardo !== 'false');
     
     const leonardoApiKey = localStorage.getItem('leonardo_api_key');
     setLeonardoApiAvailable(!!leonardoApiKey && leonardoApiKey.length > 10);
@@ -164,6 +168,13 @@ export const useStoryBot = () => {
         }
       }
       
+      const isLeonardoEnabled = localStorage.getItem('use_leonardo_ai') !== 'false';
+      if (!isLeonardoEnabled) {
+        console.log("Leonardo.AI is disabled, using placeholder image");
+        toast.warning("Leonardo.AI está desativado. Usando imagem de placeholder.");
+        return getFallbackImage(theme);
+      }
+      
       const leonardoApiKey = localStorage.getItem('leonardo_api_key');
       if (!leonardoApiKey || leonardoApiKey.length < 10) {
         console.warn("No valid Leonardo API key found, using placeholder image");
@@ -217,6 +228,18 @@ export const useStoryBot = () => {
     return themeImages[theme as keyof typeof themeImages] || "https://images.unsplash.com/photo-1472396961693-142e6e269027";
   };
 
+  const getFallbackCoverImage = (theme: string): string => {
+    const themeCovers: {[key: string]: string} = {
+      adventure: "/images/covers/adventure.jpg",
+      fantasy: "/images/covers/fantasy.jpg",
+      space: "/images/covers/space.jpg",
+      ocean: "/images/covers/ocean.jpg",
+      dinosaurs: "/images/covers/dinosaurs.jpg"
+    };
+    
+    return themeCovers[theme as keyof typeof themeCovers] || "/images/covers/adventure.jpg";
+  };
+
   const generateCoverImage = async (
     title: string,
     characterName: string,
@@ -249,6 +272,13 @@ export const useStoryBot = () => {
         }
       }
       
+      const isLeonardoEnabled = localStorage.getItem('use_leonardo_ai') !== 'false';
+      if (!isLeonardoEnabled) {
+        console.log("Leonardo.AI is disabled for cover generation, using placeholder");
+        toast.warning("Leonardo.AI está desativado. Usando capa de placeholder.");
+        return getFallbackCoverImage(theme);
+      }
+      
       console.log("Using LeonardoAIAgent for cover image generation");
       
       const imageUrl = await leonardoAgent.generateCoverImage(
@@ -269,15 +299,7 @@ export const useStoryBot = () => {
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       localStorage.setItem("leonardo_api_issue", "true");
       
-      const themeCovers: {[key: string]: string} = {
-        adventure: "/images/covers/adventure.jpg",
-        fantasy: "/images/covers/fantasy.jpg",
-        space: "/images/covers/space.jpg",
-        ocean: "/images/covers/ocean.jpg",
-        dinosaurs: "/images/covers/dinosaurs.jpg"
-      };
-      
-      return themeCovers[theme as keyof typeof themeCovers] || `/placeholder.svg`;
+      return getFallbackCoverImage(theme);
     }
   };
 
@@ -308,13 +330,6 @@ export const useStoryBot = () => {
         useOpenAIForStories
       });
       
-      const leonardoApiKey = localStorage.getItem('leonardo_api_key');
-      if (!leonardoApiKey || leonardoApiKey.length < 10) {
-        console.warn("No valid Leonardo API key found, using placeholder images");
-        toast.warning("Chave da API Leonardo não configurada. Usando imagens de placeholder.");
-        return storyPages.map(() => getFallbackImage(theme));
-      }
-      
       if (useOpenAIForStories && isOpenAIApiKeyValid()) {
         console.log("Using OpenAI for consistent story images");
         
@@ -343,6 +358,20 @@ export const useStoryBot = () => {
           console.error("OpenAI image generation failed, falling back to Leonardo:", error);
           toast.error("Erro na geração de imagens com OpenAI. Tentando com Leonardo.ai...");
         }
+      }
+      
+      const isLeonardoEnabled = localStorage.getItem('use_leonardo_ai') !== 'false';
+      if (!isLeonardoEnabled) {
+        console.log("Leonardo.AI is disabled, using placeholder images");
+        toast.warning("Leonardo.AI está desativado. Usando imagens de placeholder.");
+        return storyPages.map(() => getFallbackImage(theme));
+      }
+      
+      const leonardoApiKey = localStorage.getItem('leonardo_api_key');
+      if (!leonardoApiKey || leonardoApiKey.length < 10) {
+        console.warn("No valid Leonardo API key found, using placeholder images");
+        toast.warning("Chave da API Leonardo não configurada. Usando imagens de placeholder.");
+        return storyPages.map(() => getFallbackImage(theme));
       }
       
       leonardoAgent.setApiKey(leonardoApiKey);
@@ -602,6 +631,20 @@ export const useStoryBot = () => {
     }
   };
 
+  const setLeonardoEnabled = (enabled: boolean): boolean => {
+    try {
+      localStorage.setItem('use_leonardo_ai', enabled.toString());
+      setUseLeonardoAI(enabled);
+      
+      console.log(`Leonardo.AI ${enabled ? 'ativado' : 'desativado'} para geração de imagens`);
+      
+      return true;
+    } catch (error) {
+      console.error("Error setting Leonardo usage preference:", error);
+      return false;
+    }
+  };
+
   const checkOpenAIAvailability = (): boolean => {
     return isOpenAIApiKeyValid();
   };
@@ -629,6 +672,8 @@ export const useStoryBot = () => {
     checkOpenAIAvailability,
     initializeOpenAIClient,
     generateCompleteStory,
-    generateImageWithOpenAI
+    generateImageWithOpenAI,
+    useLeonardoAI,
+    setLeonardoEnabled
   };
 };

@@ -27,6 +27,7 @@ export class LeonardoAIAgent {
   private characterModels: Map<string, string> = new Map();
   private characterFirstImageUrl: Map<string, string> = new Map();
   private isAvailable: boolean = true;
+  private isEnabled: boolean = true;
   private apiKey: string | null = null;
 
   constructor() {
@@ -34,10 +35,14 @@ export class LeonardoAIAgent {
     this.apiKey = localStorage.getItem('leonardo_api_key');
     this.isAvailable = !!this.apiKey && this.apiKey.length > 10;
     
+    // Verificar se o serviço está habilitado
+    const isEnabled = localStorage.getItem('use_leonardo_ai');
+    this.isEnabled = isEnabled !== 'false'; // padrão é true se não estiver definido
+    
     // Carregar prompts de personagens salvos
     this.loadSavedCharacterPrompts();
     
-    console.log(`LeonardoAIAgent initialized, API available: ${this.isAvailable}`);
+    console.log(`LeonardoAIAgent initialized, API available: ${this.isAvailable}, enabled: ${this.isEnabled}`);
   }
 
   /**
@@ -172,7 +177,11 @@ export class LeonardoAIAgent {
     const storedKey = localStorage.getItem('leonardo_api_key');
     this.isAvailable = !!storedKey && storedKey.length > 10;
     
-    return this.isAvailable;
+    // Verificar se o serviço está habilitado
+    const isEnabled = localStorage.getItem('use_leonardo_ai');
+    this.isEnabled = isEnabled !== 'false';
+    
+    return this.isAvailable && this.isEnabled;
   }
 
   /**
@@ -196,10 +205,25 @@ export class LeonardoAIAgent {
   }
 
   /**
+   * Define se o agente está habilitado ou não
+   */
+  public setEnabled(enabled: boolean): void {
+    this.isEnabled = enabled;
+    localStorage.setItem('use_leonardo_ai', enabled.toString());
+    console.log(`Leonardo.AI ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
    * Gera uma imagem usando a API do Leonardo.ai com base em um prompt e mantendo
    * consistência com as características do personagem
    */
   public async generateImage(params: ImageGenerationParams): Promise<string> {
+    // Verificar se o serviço está habilitado
+    if (!this.isEnabled) {
+      console.warn("Leonardo.AI is disabled");
+      return this.getFallbackImage(params.theme);
+    }
+    
     const { 
       prompt, 
       characterName, 
@@ -497,6 +521,12 @@ export class LeonardoAIAgent {
     childImage: string | null = null,
     storyTitle: string | null = null
   ): Promise<string[]> {
+    // Verificar se o serviço está habilitado
+    if (!this.isEnabled) {
+      console.warn("Leonardo.AI is disabled for story images");
+      return storyPages.map(() => this.getFallbackImage(theme));
+    }
+    
     if (!storyPages.length) {
       return [];
     }
@@ -598,6 +628,20 @@ export class LeonardoAIAgent {
     characterPrompt: string | null = null,
     childImage: string | null = null
   ): Promise<string> {
+    // Verificar se o serviço está habilitado
+    if (!this.isEnabled) {
+      console.warn("Leonardo.AI is disabled for cover image");
+      const themeCovers: Record<string, string> = {
+        adventure: "/images/covers/adventure.jpg",
+        fantasy: "/images/covers/fantasy.jpg",
+        space: "/images/covers/space.jpg",
+        ocean: "/images/covers/ocean.jpg",
+        dinosaurs: "/images/covers/dinosaurs.jpg"
+      };
+      
+      return themeCovers[theme] || "/images/covers/adventure.jpg";
+    }
+    
     const coverPrompt = `Capa de livro infantil em estilo papercraft para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
                         A ilustração deve ser como um livro pop-up com texturas de papel, elementos que parecem recortados e colados em camadas, e o título "${title}" integrado ao design. 
                         O personagem deve estar centralizado na cena, com uma expressão alegre e aventureira.
