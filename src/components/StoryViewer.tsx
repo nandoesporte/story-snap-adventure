@@ -38,7 +38,6 @@ interface StoryData {
   style?: string;
   moral?: string;
   readingLevel?: string;
-  voiceType?: 'male' | 'female';
 }
 
 const defaultStory: StoryData = {
@@ -53,8 +52,7 @@ const defaultStory: StoryData = {
       text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
       imageUrl: "/placeholder.svg"
     }
-  ],
-  voiceType: 'female'
+  ]
 };
 
 const StoryViewer: React.FC = () => {
@@ -588,11 +586,6 @@ const StoryViewer: React.FC = () => {
     // instead of creating a new one here
     const { isGenerating, isPlaying, playAudio, VOICE_IDS } = narration;
     
-    // Helper function to ensure correct voiceType
-    const getVoiceType = (type: string | undefined): 'male' | 'female' => {
-      return type === 'male' ? 'male' : 'female';
-    };
-    
     return (
       <div className="w-full h-full flex flex-col">
         {isMobile ? (
@@ -627,7 +620,7 @@ const StoryViewer: React.FC = () => {
                       className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
                       size="sm"
                       variant="ghost"
-                      onClick={() => playAudio(getVoiceType('female'))}
+                      onClick={() => playAudio(VOICE_IDS.female)}
                     >
                       {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
                       {isPlaying ? "Parar" : "Voz Feminina"}
@@ -637,7 +630,7 @@ const StoryViewer: React.FC = () => {
                       className="bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded-full flex items-center gap-1"
                       size="sm"
                       variant="ghost"
-                      onClick={() => playAudio(getVoiceType('male'))}
+                      onClick={() => playAudio(VOICE_IDS.male)}
                     >
                       {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
                       {isPlaying ? "Parar" : "Voz Masculina"}
@@ -703,7 +696,7 @@ const StoryViewer: React.FC = () => {
                       <Button 
                         size="sm"
                         variant="outline"
-                        onClick={() => playAudio(getVoiceType('female'))}
+                        onClick={() => playAudio(VOICE_IDS.female)}
                         className="flex items-center gap-1"
                       >
                         {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
@@ -713,7 +706,7 @@ const StoryViewer: React.FC = () => {
                       <Button 
                         size="sm"
                         variant="outline"
-                        onClick={() => playAudio(getVoiceType('male'))}
+                        onClick={() => playAudio(VOICE_IDS.male)}
                         className="flex items-center gap-1"
                       >
                         {isPlaying ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
@@ -788,143 +781,152 @@ const StoryViewer: React.FC = () => {
           <div className="p-3 flex justify-between items-center text-white">
             <div className="flex gap-2">
               <Button 
-                variant="ghost"
-                className="text-white hover:text-white hover:bg-white/20"
-                onClick={handleZoomIn}
-              >
-                <ZoomIn className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost"
-                className="text-white hover:text-white hover:bg-white/20"
+                variant="ghost" 
+                size="sm" 
+                className="text-white hover:bg-white/20"
                 onClick={handleZoomOut}
               >
                 <ZoomOut className="h-5 w-5" />
               </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-white hover:bg-white/20"
+                onClick={handleZoomIn}
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
             </div>
             <Button 
-              variant="ghost"
-              className="text-white hover:text-white hover:bg-white/20"
+              variant="ghost" 
+              size="sm"
+              className="text-white hover:bg-white/20"
               onClick={() => setShowImageViewer(false)}
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
           
-          <div className="overflow-auto h-[80vh] flex items-center justify-center">
+          <div className="flex items-center justify-center h-[80vh] p-4">
             <img 
-              src={currentImageUrl}
+              src={currentImageUrl} 
               alt="Imagem ampliada"
-              className="transition-transform"
+              className="max-w-full max-h-full object-contain transition-all duration-300"
               style={{ transform: `scale(${imageZoom})` }}
             />
           </div>
         </DialogContent>
       </Dialog>
       
-      <div 
-        ref={storyContainerRef}
-        className="w-full max-w-7xl bg-white rounded-lg shadow-xl overflow-hidden flex flex-col"
-      >
-        <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-2 md:p-4 flex justify-between items-center">
+      <div className="w-full max-w-6xl bg-white shadow-xl rounded-xl overflow-hidden" ref={storyContainerRef}>
+        <div className="relative flex justify-between items-center p-3 border-b bg-white">
           <div className="flex gap-2">
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleGoHome}>
-              <Home className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Início</span>
+            <Button variant="ghost" size="sm" onClick={handleGoHome}>
+              <Home className="w-4 h-4 mr-1" />
+              Início
             </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleCreateNew}>
-              <BookText className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Nova História</span>
+            <Button variant="ghost" size="sm" onClick={handleCreateNew}>
+              <BookText className="w-4 h-4 mr-1" />
+              Nova História
             </Button>
           </div>
           
+          <div className="text-sm font-medium text-gray-500">
+            {currentPage === 0 ? 'Capa' : `Página ${currentPage} de ${totalPages - 1}`}
+          </div>
+          
           <div className="flex gap-2">
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleShareStory}>
-              <Share className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Compartilhar</span>
+            <Button variant="ghost" size="sm" onClick={handleShareStory}>
+              <Share className="w-4 h-4 mr-1" />
+              Compartilhar
             </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={handleDownloadPDF} disabled={isDownloading}>
-              <Download className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Download PDF</span>
+            <Button variant="ghost" size="sm" onClick={handleDownloadPDF}>
+              <Download className="w-4 h-4 mr-1" />
+              Baixar PDF
             </Button>
-            <Button variant="ghost" className="text-white" size="sm" onClick={toggleFullscreen}>
-              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              <span className="hidden md:inline">{isFullscreen ? 'Minimizar' : 'Tela Cheia'}</span>
+            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             </Button>
           </div>
         </div>
         
-        <div className="flex-1 relative overflow-hidden">
-          <div ref={bookRef} className="w-full h-full">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentPage}
-                initial={{ 
-                  opacity: 0,
-                  x: flipDirection === "right" ? 50 : -50 
-                }}
-                animate={{ 
-                  opacity: 1,
-                  x: 0 
-                }}
-                exit={{ 
-                  opacity: 0,
-                  x: flipDirection === "right" ? -50 : 50 
-                }}
-                transition={{ 
-                  type: "tween",
-                  duration: 0.3
-                }}
-                className="w-full h-full"
-              >
-                {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
-              </motion.div>
-            </AnimatePresence>
+        <div className="relative" ref={bookRef}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPage}
+              initial={{ 
+                opacity: 0,
+                x: flipDirection === "right" ? 100 : -100
+              }}
+              animate={{ 
+                opacity: 1,
+                x: 0 
+              }}
+              exit={{ 
+                opacity: 0,
+                x: flipDirection === "right" ? -100 : 100
+              }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+              style={{ aspectRatio: isMobile ? "9/16" : "16/9" }}
+            >
+              {currentPage === 0 ? renderCoverPage() : renderStoryPage(currentPage - 1)}
+            </motion.div>
+          </AnimatePresence>
+          
+          <div className="absolute inset-y-0 left-0 w-1/6 flex items-center justify-start p-2">
+            <Button
+              variant="ghost"
+              size={isMobile ? "sm" : "icon"}
+              className="rounded-full bg-white/40 hover:bg-white/70 shadow-md"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 0 || isFlipping}
+            >
+              <ChevronLeft className="h-6 w-6" />
+              <span className="sr-only">Página anterior</span>
+            </Button>
           </div>
           
+          <div className="absolute inset-y-0 right-0 w-1/6 flex items-center justify-end p-2">
+            <Button
+              variant="ghost"
+              size={isMobile ? "sm" : "icon"}
+              className="rounded-full bg-white/40 hover:bg-white/70 shadow-md"
+              onClick={handleNextPage}
+              disabled={currentPage >= totalPages - 1 || isFlipping}
+            >
+              <ChevronRight className="h-6 w-6" />
+              <span className="sr-only">Próxima página</span>
+            </Button>
+          </div>
+        </div>
+        
+        <div className="md:hidden flex justify-between items-center p-3 border-t bg-white">
           <Button
-            className="absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
-            variant="outline"
-            size="icon"
+            variant="ghost"
+            size="sm"
             onClick={handlePreviousPage}
             disabled={currentPage === 0 || isFlipping}
+            className="flex-1"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Anterior
           </Button>
+          
+          <div className="text-sm font-medium text-gray-500 px-2">
+            {currentPage + 1} / {totalPages}
+          </div>
           
           <Button
-            className="absolute right-2 md:right-4 top-1/2 transform -translate-y-1/2 rounded-full z-10"
-            variant="outline"
-            size="icon"
+            variant="ghost"
+            size="sm"
             onClick={handleNextPage}
-            disabled={!storyData || currentPage >= totalPages - 1 || isFlipping}
+            disabled={currentPage >= totalPages - 1 || isFlipping}
+            className="flex-1"
           >
-            <ChevronRight className="h-4 w-4" />
+            Próxima
+            <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
-        </div>
-        
-        <div className="bg-white p-2 md:p-4 border-t border-gray-100 flex justify-between items-center">
-          <span className="text-sm text-gray-500">
-            Página {currentPage + 1} de {totalPages}
-          </span>
-          
-          <div className="flex gap-2 items-center">
-            <div className="flex gap-1">
-              {Array.from({ length: totalPages }).map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-2 h-2 rounded-full ${
-                    currentPage === index ? "bg-violet-600" : "bg-gray-300"
-                  }`}
-                  onClick={() => {
-                    setFlipDirection(index > currentPage ? "right" : "left");
-                    setCurrentPage(index);
-                  }}
-                  aria-label={`Ir para página ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

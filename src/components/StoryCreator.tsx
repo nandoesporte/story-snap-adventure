@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +41,7 @@ const StoryCreator = () => {
   } = useStoryGeneration();
   
   useEffect(() => {
+    // Check if ElevenLabs API key is configured
     const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
     setHasElevenLabsKey(!!elevenlabsApiKey);
     
@@ -58,8 +60,7 @@ const StoryCreator = () => {
           length: parsedData.length || "medium",
           readingLevel: parsedData.readingLevel || "intermediate",
           language: parsedData.language || "portuguese",
-          moral: parsedData.moral || "friendship",
-          voiceType: parsedData.voiceType || "female"
+          moral: parsedData.moral || "friendship"
         };
         
         setFormData(formattedData);
@@ -193,6 +194,7 @@ const StoryCreator = () => {
       return;
     }
     
+    // Verificar se a chave da API ElevenLabs está configurada
     if (!hasElevenLabsKey) {
       toast.warning("A chave da API ElevenLabs não está configurada. As narrações não serão geradas automaticamente.", {
         duration: 6000,
@@ -220,8 +222,7 @@ const StoryCreator = () => {
         data.readingLevel,
         data.language,
         imagePreview,
-        "papercraft" as StoryStyle,
-        data.voiceType
+        "papercraft" as StoryStyle
       );
       
       if (!completeBook) {
@@ -251,8 +252,7 @@ const StoryCreator = () => {
         language: data.language,
         style: "papercraft" as StoryStyle,
         moral: data.moral,
-        readingLevel: data.readingLevel,
-        voiceType: data.voiceType
+        readingLevel: data.readingLevel
       });
       
       try {
@@ -277,8 +277,7 @@ const StoryCreator = () => {
           language: data.language,
           style: "papercraft" as StoryStyle,
           moral: data.moral,
-          readingLevel: data.readingLevel,
-          voiceType: data.voiceType
+          readingLevel: data.readingLevel
         };
         
         const maxLength = 5000000;
@@ -373,6 +372,7 @@ const StoryCreator = () => {
               </div>
             )}
             
+            {/* Improved narration progress indicator */}
             {generatingNarration && (
               <div className="mb-4 w-full max-w-md">
                 <div className="flex justify-between text-sm text-slate-600 mb-1">
@@ -405,6 +405,7 @@ const StoryCreator = () => {
               </div>
             )}
             
+            {/* Improved information for narration generation */}
             {generatingNarration && (
               <div className="w-full max-w-md mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
                 <Volume2 className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
