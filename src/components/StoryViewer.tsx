@@ -135,7 +135,7 @@ const StoryViewer: React.FC = () => {
             console.log("Cover image URL:", data.cover_image_url);
             console.log("First page image:", data.pages && data.pages.length > 0 ? data.pages[0].image_url : "N/A");
             
-            const coverImage = data.cover_image_url || (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null);
+            const coverImage = data.cover_image_url || (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null);\
             console.log("Selected cover image:", coverImage);
             
             const formattedStory: StoryData = {
@@ -805,7 +805,7 @@ const StoryViewer: React.FC = () => {
                 </div>
               )}
               
-              {!isMobile && !hideText ? (
+              {!isMobile && !hideText && (
                 <Button 
                   className="absolute bottom-4 right-4 z-10"
                   size="sm"
