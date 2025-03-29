@@ -1,8 +1,12 @@
 
-import { toast as sonnerToast, type Toast } from 'sonner';
+import { toast as sonnerToast } from 'sonner';
 
-export type ToastProps = Toast & {
-  variant?: 'default' | 'destructive' | 'success'
+export type ToastProps = {
+  title?: string;
+  description?: string;
+  variant?: 'default' | 'destructive' | 'success';
+  duration?: number;
+  action?: React.ReactNode;
 };
 
 export function toast(props: ToastProps) {
@@ -11,8 +15,12 @@ export function toast(props: ToastProps) {
   return sonnerToast(rest);
 }
 
+// Create a fake toasts array for compatibility with shadcn toaster
+const toastsState = { toasts: [] };
+
 export function useToast() {
   return {
-    toast
+    toast,
+    toasts: toastsState.toasts
   };
 }
