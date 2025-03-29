@@ -17,7 +17,6 @@ import Subscription from './pages/Subscription';
 import { initializeDatabaseStructure } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useAdminCheck } from '@/hooks/useAdminCheck';
 
 // Create a stable QueryClient instance outside the component
 const queryClient = new QueryClient({
@@ -43,10 +42,10 @@ const App = () => {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading } = useAuth();
-  const { isAdmin } = useAdminCheck();
+  const { user, loading: authLoading } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Important: Only use hooks inside this component body, not in conditionals or loops
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -61,16 +60,13 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    // Redirect non-admin users if they try to access the admin page directly
-    if (!loading && user && !isAdmin && location.pathname === '/admin') {
-      navigate('/');
-    } else if (!loading && !user && 
-              location.pathname !== '/auth' && 
-              !location.pathname.startsWith('/view-story')) {
+    if (!authLoading && !user && 
+        location.pathname !== '/auth' && 
+        !location.pathname.startsWith('/view-story')) {
       // Allow viewing stories without login
       navigate('/auth');
     }
-  }, [user, loading, isAdmin, navigate, location]);
+  }, [user, authLoading, navigate, location]);
 
   return (
     <div className="App">

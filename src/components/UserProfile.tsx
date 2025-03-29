@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -81,7 +80,6 @@ const UserProfile = () => {
           </Link>
         </DropdownMenuItem>
         
-        {/* Admin link for admin users */}
         {!loading && isAdmin && (
           <DropdownMenuItem asChild>
             <Link to="/admin?tab=apis" className="flex items-center cursor-pointer text-violet-600 font-medium">

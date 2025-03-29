@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
@@ -13,15 +12,15 @@ import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 import SubscriptionManager from "@/components/admin/SubscriptionManager";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("stories");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  
+  const { isAdmin, loading } = useAdminCheck();
   
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -30,63 +29,6 @@ const Admin = () => {
       setActiveTab(tabParam);
     }
   }, [location]);
-  
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoading(true);
-      
-      if (!user) {
-        console.log("Admin check: No user logged in");
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        console.log("Admin check for user:", user.email);
-        
-        if (user.email === 'nandoesporte1@gmail.com') {
-          console.log("Admin access granted: Direct email match for", user.email);
-          localStorage.setItem('user_role', 'admin');
-          setIsAdmin(true);
-          setLoading(false);
-          return;
-        }
-        
-        try {
-          await supabase.rpc('create_user_profiles_if_not_exists');
-          
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single();
-          
-          console.log("Admin database check result:", { data, error });
-            
-          if (error) {
-            console.error('Error checking admin status:', error);
-            setIsAdmin(false);
-          } else if (data?.is_admin) {
-            console.log("Admin access granted: Database check");
-            localStorage.setItem('user_role', 'admin');
-            setIsAdmin(true);
-          } else {
-            console.log("Admin access denied: Not an admin in database");
-            localStorage.setItem('user_role', 'user');
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error('Error during admin check:', error);
-          setIsAdmin(false);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
 
   useEffect(() => {
     if (!loading) {
