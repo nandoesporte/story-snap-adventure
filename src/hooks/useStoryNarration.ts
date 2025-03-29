@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -25,13 +24,11 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
   
-  // Configuração de vozes do Google TTS
   const VOICE_IDS = {
-    female: "pt-BR-Standard-A", // Voz feminina padrão em português
-    male: "pt-BR-Standard-B"    // Voz masculina padrão em português
+    female: "pt-BR-Standard-A",
+    male: "pt-BR-Standard-B"
   };
 
-  // Vozes disponíveis para diferentes idiomas
   const AVAILABLE_VOICES = {
     portuguese: {
       female: ["pt-BR-Standard-A", "pt-BR-Wavenet-A"],
@@ -48,7 +45,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   };
 
   useEffect(() => {
-    // Reset state when the page changes
     setIsPlaying(false);
     setAudioUrl(null);
     setRetryCount(0);
@@ -56,7 +52,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   }, [storyId, pageIndex]);
 
   const checkExistingAudio = async () => {
-    // Don't try to check for audio if we don't have a valid storyId
     if (!storyId || storyId === '') return;
     
     try {
@@ -83,10 +78,8 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     }
   };
 
-  // Function to save audio to local storage as fallback
   const saveAudioToLocalStorage = async (audioBlob: Blob, key: string) => {
     try {
-      // Convert blob to base64
       const reader = new FileReader();
       return new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
@@ -103,15 +96,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     }
   };
 
-  // Function to get audio from local storage
   const getAudioFromLocalStorage = (key: string) => {
     return localStorage.getItem(key);
   };
 
-  // Helper function to ensure the story_narrations bucket exists
   const ensureStorageBucketExists = async () => {
     try {
-      // Check if bucket exists first
       const { data: buckets, error } = await supabase.storage.listBuckets();
       const bucketExists = buckets?.some(bucket => bucket.name === 'story_narrations');
       
@@ -119,7 +109,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         console.log("Creating 'story_narrations' bucket...");
         const { data, error: createError } = await supabase.storage.createBucket('story_narrations', {
           public: true,
-          fileSizeLimit: 5242880, // 5MB
+          fileSizeLimit: 5242880,
         });
         
         if (createError) {
@@ -127,12 +117,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
           return false;
         }
         
-        // Set public access policy for the new bucket
         try {
-          const { error: policyError } = await supabase.storage.from('story_narrations').getPublicUrl('test');
-          if (policyError) {
-            console.warn("Could not verify public URL policy:", policyError);
-          }
+          const { data } = supabase.storage.from('story_narrations').getPublicUrl('test');
+          console.log("Successfully tested public URL policy:", data.publicUrl);
         } catch (e) {
           console.warn("Error testing public URL policy:", e);
         }
@@ -150,22 +137,15 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   };
 
   const generateAudio = async (voiceType: 'male' | 'female' = 'female', params?: GenerateAudioParams) => {
-    // Use provided params or fall back to the hook's props
-    const textToUse = params?.text || text;
-    const storyIdToUse = params?.storyId || storyId;
-    const pageIndexToUse = params?.pageIndex !== undefined ? params.pageIndex : pageIndex;
-    const voiceTypeToUse = params?.voiceType || voiceType;
-    
-    if (!textToUse || isGenerating || !storyIdToUse) {
+    if (!text || isGenerating || !storyId) {
       console.warn("Missing required data for audio generation:", {
-        hasText: !!textToUse,
+        hasText: !!text,
         isGenerating,
-        hasStoryId: !!storyIdToUse
+        hasStoryId: !!storyId
       });
       return;
     }
     
-    // Get the API key from localStorage or from admin settings
     const apiKey = localStorage.getItem('google_tts_api_key');
     if (!apiKey) {
       console.error('Google Text-to-Speech API key not configured');
@@ -174,47 +154,40 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
 
     setIsGenerating(true);
     
-    // Only show toast if not batch processing (when called directly, not via story generation)
     if (!params) {
       toast.info('Gerando narração...');
     }
 
     try {
-      // Log the generation attempt for debugging
-      console.log(`Generating audio for story ${storyIdToUse}, page ${pageIndexToUse} with voice type: ${voiceTypeToUse}`);
+      console.log(`Generating audio for story ${storyId}, page ${pageIndex} with voice type: ${voiceType}`);
       
-      // Generate a unique storage key for this audio
-      const localStorageKey = `audio_${storyIdToUse}_page_${pageIndexToUse}`;
+      const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
       
-      // Try to get cached audio first
       const cachedAudio = getAudioFromLocalStorage(localStorageKey);
       if (cachedAudio) {
-        console.log(`Using cached audio for page ${pageIndexToUse}`);
+        console.log(`Using cached audio for page ${pageIndex}`);
         setAudioUrl(cachedAudio);
-        if (!params) { // Only show toast if not batch processing
+        if (!params) {
           toast.success('Narração carregada do cache!');
         }
         setIsGenerating(false);
         return cachedAudio;
       }
 
-      console.log(`Generating audio for page ${pageIndexToUse} with Google TTS API`);
+      console.log(`Generating audio for page ${pageIndex} with Google TTS API`);
 
-      // Selecione a voz com base no idioma (default para português)
-      const voiceLanguage = "portuguese"; // Isso poderia ser determinado dinamicamente baseado no conteúdo ou parâmetros
-      const voiceId = VOICE_IDS[voiceTypeToUse];
+      const voiceLanguage = "portuguese";
+      const voiceId = VOICE_IDS[voiceType];
 
-      // Preparar a requisição para a API Google Text-to-Speech
       const requestBody = {
-        input: { text: textToUse },
+        input: { text: text },
         voice: { 
-          languageCode: voiceId.substring(0, 5), // Extrair código de idioma (pt-BR, en-US, etc)
+          languageCode: voiceId.substring(0, 5),
           name: voiceId
         },
         audioConfig: { audioEncoding: "MP3" }
       };
 
-      // Fazer requisição para a API Google TTS
       const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
         method: 'POST',
         headers: {
@@ -227,7 +200,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         const errorData = await response.json().catch(() => ({}));
         console.error('Erro na resposta da API Google TTS:', errorData);
         
-        // Add more specific error messages based on status codes
         if (response.status === 403) {
           throw new Error('API key inválida ou sem permissões');
         } else if (response.status === 429) {
@@ -237,11 +209,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         }
       }
 
-      // Processar resposta da API (vem como base64)
       const responseData = await response.json();
-      const audioContent = responseData.audioContent; // Base64 encoded audio
+      const audioContent = responseData.audioContent;
 
-      // Converter base64 para blob
       const byteCharacters = atob(audioContent);
       const byteArrays = [];
 
@@ -256,39 +226,34 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       }
 
       const audioBlob = new Blob(byteArrays, { type: 'audio/mp3' });
-      console.log(`Received audio blob for page ${pageIndexToUse}, size: ${audioBlob.size} bytes`);
+      console.log(`Received audio blob for page ${pageIndex}, size: ${audioBlob.size} bytes`);
       
       if (audioBlob.size < 100) {
         console.error(`Audio blob is suspiciously small (${audioBlob.size} bytes), might be corrupt`);
         throw new Error('Áudio gerado parece estar corrompido');
       }
       
-      // First try to save to localStorage as fallback
       let audioUrlValue = null;
       
       try {
         const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
         audioUrlValue = base64Audio;
-        console.log(`Successfully saved audio to localStorage for page ${pageIndexToUse}`);
+        console.log(`Successfully saved audio to localStorage for page ${pageIndex}`);
       } catch (storageError) {
         console.error('Erro ao salvar no localStorage:', storageError);
-        // Continue with URL.createObjectURL as final fallback
         audioUrlValue = URL.createObjectURL(audioBlob);
       }
       
-      // Try to save to Supabase (but don't block on this)
       try {
         console.log("Attempting to save audio to Supabase storage");
         
-        // First ensure the bucket exists
         const bucketReady = await ensureStorageBucketExists();
         if (!bucketReady) {
           console.warn("Could not ensure bucket exists, using local audio only");
           throw new Error("Could not create or verify storage bucket");
         }
         
-        // Create a better unique filename with timestamp
-        const fileName = `${storyIdToUse}_page_${pageIndexToUse}_${Date.now()}.mp3`;
+        const fileName = `${storyId}_page_${pageIndex}_${Date.now()}.mp3`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('story_narrations')
@@ -300,7 +265,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         if (uploadError) {
           console.error('Erro ao fazer upload do arquivo:', uploadError);
           
-          // If it's a permission error, we'll continue with the localStorage version
           if (uploadError.message.includes('permission') || uploadError.message.includes('access denied')) {
             console.log('Permission error when uploading to storage, using localStorage fallback');
           } else {
@@ -313,37 +277,33 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
           
           console.log(`Successfully uploaded audio to Supabase: ${publicUrl}`);
           
-          // Try to save to the database too
           try {
             const { error: dbError } = await supabase
               .from('story_narrations')
               .upsert({
-                story_id: storyIdToUse,
-                page_index: pageIndexToUse,
+                story_id: storyId,
+                page_index: pageIndex,
                 audio_url: publicUrl,
                 voice_id: voiceId
               });
               
             if (dbError) {
               console.error('Erro ao salvar no banco de dados:', dbError);
-              // We already have a fallback in audioUrlValue
             } else {
-              console.log(`Successfully saved audio metadata to database for page ${pageIndexToUse}`);
+              console.log(`Successfully saved audio metadata to database for page ${pageIndex}`);
               audioUrlValue = publicUrl;
             }
           } catch (dbError) {
             console.error('Erro ao salvar no banco de dados:', dbError);
-            // We already have a fallback in audioUrlValue
           }
         }
       } catch (storageError) {
         console.error('Erro ao salvar no storage:', storageError);
-        // We already have a fallback in audioUrlValue
       }
       
       setAudioUrl(audioUrlValue);
       
-      if (!params) { // Only show toast if not batch processing
+      if (!params) {
         toast.success('Narração gerada com sucesso!');
       }
       
@@ -354,19 +314,16 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      if (!params) { // Only show toast if not batch processing
+      if (!params) {
         toast.error(`Erro ao gerar narração: ${errorMessage}`);
       }
       
-      // Add retry logic
       if (retryCount < maxRetries) {
         setRetryCount(prev => prev + 1);
         console.log(`Retrying audio generation, attempt ${retryCount + 1} of ${maxRetries}`);
         
-        // Wait a bit before retrying
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Try again with exponential backoff
         return generateAudio(voiceType, params);
       }
       
@@ -399,7 +356,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     }
   };
 
-  // Add toggleMute function to match the interface expected in NarrationPlayer
   const toggleMute = () => {
     if (audioRef.current) {
       audioRef.current.muted = !audioRef.current.muted;
