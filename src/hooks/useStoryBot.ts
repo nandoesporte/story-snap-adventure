@@ -423,7 +423,7 @@ export const useStoryBot = () => {
         setting,
         moralTheme,
         characterPrompt,
-        exactPageCount,
+        exactPageCount.toString(),
         readingLevel,
         language
       );

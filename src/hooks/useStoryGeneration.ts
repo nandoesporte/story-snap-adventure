@@ -125,6 +125,7 @@ export const useStoryGeneration = () => {
       const generateWithPersistence = async () => {
         let result;
         try {
+          const exactPageCount = getPageCountFromLength(length);
           result = await storyBotGenerateCompleteStory(
             characterName,
             childAge,
