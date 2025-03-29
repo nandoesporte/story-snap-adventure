@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { checkIsAdmin } from '@/lib/dbHelpers';
 
 export const useAdminCheck = () => {
   const { user } = useAuth();
@@ -17,29 +17,8 @@ export const useAdminCheck = () => {
       }
 
       try {
-        // First try to check from user_profiles table
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-
-        if (profileData && !profileError) {
-          setIsAdmin(!!profileData.is_admin);
-          setIsLoading(false);
-          return;
-        }
-
-        // If no user_profiles or error, try to use RPC function
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('is_admin_user', { user_id: user.id });
-
-        if (!rpcError) {
-          setIsAdmin(!!rpcData);
-        } else {
-          console.error("Error checking admin status:", rpcError);
-          setIsAdmin(false);
-        }
+        const isAdminUser = await checkIsAdmin(user.id);
+        setIsAdmin(isAdminUser);
       } catch (error) {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
