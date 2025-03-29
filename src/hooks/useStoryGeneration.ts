@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -78,7 +77,6 @@ export const useStoryGeneration = () => {
         return null;
       }
       
-      // Validar a chave da API OpenAI antes de continuar
       try {
         const isValid = await checkOpenAIAvailability();
         if (!isValid) {
@@ -262,7 +260,6 @@ export const useStoryGeneration = () => {
           setProgress(baseProgress + progressPerImage * (i + 1));
         }
         
-        // Gerar narrações automaticamente após a história ter sido criada
         if (storyResult && storyResult.pages) {
           const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
           if (!elevenlabsApiKey) {
@@ -277,48 +274,59 @@ export const useStoryGeneration = () => {
                 VOICE_IDS.male : 
                 VOICE_IDS.female;
             
-            // Melhoria: Limitar o número de tentativas por página
             const maxNarrationAttempts = 2;
             let narrationFailures = 0;
             
             for (let i = 0; i < storyResult.pages.length; i++) {
-              setCurrentNarrationIndex(i + 1);
-              setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
-              
-              let narrationSuccess = false;
-              let attempts = 0;
-              
-              while (!narrationSuccess && attempts < maxNarrationAttempts) {
-                try {
-                  attempts++;
-                  console.log(`Tentativa ${attempts} de gerar narração para página ${i+1}`);
-                  
-                  await generateAudio(voiceId, {
-                    storyId: storyResult.id,
-                    text: storyResult.pages[i].text,
-                    pageIndex: i
-                  });
-                  
-                  narrationSuccess = true;
-                  
-                  const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
-                  setProgress(Math.min(narrationProgress, 99));
-                  
-                  // Adicionar um pequeno intervalo para não sobrecarregar a API
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                } catch (error) {
-                  console.error(`Erro na tentativa ${attempts} de gerar narração para página ${i+1}:`, error);
-                  
-                  if (attempts >= maxNarrationAttempts) {
-                    narrationFailures++;
-                    console.warn(`Falha após ${maxNarrationAttempts} tentativas para página ${i+1}`);
-                    // Continuar para a próxima página após esgotar as tentativas
-                  } else {
-                    // Esperar um pouco antes de tentar novamente
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+              try {
+                setCurrentNarrationIndex(i + 1);
+                setCurrentStage(`Gerando narração ${i + 1} de ${storyResult.pages.length}...`);
+                
+                console.log(`Gerando narração para página ${i+1} de ${storyResult.pages.length}`);
+                
+                let narrationSuccess = false;
+                let attempts = 0;
+                
+                while (!narrationSuccess && attempts < maxNarrationAttempts) {
+                  try {
+                    attempts++;
+                    console.log(`Tentativa ${attempts} de gerar narração para página ${i+1}`);
+                    
+                    await generateAudio(voiceId, {
+                      storyId: storyResult.id,
+                      text: storyResult.pages[i].text,
+                      pageIndex: i
+                    });
+                    
+                    narrationSuccess = true;
+                    console.log(`Narração gerada com sucesso para página ${i+1}`);
+                    
+                    const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
+                    setProgress(Math.min(narrationProgress, 99));
+                    
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  } catch (error) {
+                    console.error(`Erro na tentativa ${attempts} de gerar narração para página ${i+1}:`, error);
+                    
+                    if (attempts >= maxNarrationAttempts) {
+                      narrationFailures++;
+                      console.warn(`Falha após ${maxNarrationAttempts} tentativas para página ${i+1}`);
+                      toast.error(`Falha ao gerar narração para página ${i+1}. Pulando para a próxima.`);
+                      continue;
+                    } else {
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
                   }
                 }
+              } catch (loopError) {
+                console.error(`Erro no processamento da narração para página ${i+1}:`, loopError);
+                narrationFailures++;
+                toast.error(`Erro no processamento da narração para página ${i+1}.`);
+                continue;
               }
+              
+              const narrationProgress = 80 + (20 * (i + 1) / storyResult.pages.length);
+              setProgress(Math.min(narrationProgress, 99));
             }
             
             if (narrationFailures > 0) {
