@@ -13,7 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { getSubscriptionPlans, createSubscriptionCheckout, checkUserSubscription, cancelSubscription } from '@/lib/stripe';
+import { 
+  getSubscriptionPlans, 
+  createSubscriptionCheckout, 
+  checkUserSubscription, 
+  cancelSubscription,
+  SubscriptionPlan,
+  UserSubscription
+} from '@/lib/stripe';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -26,30 +33,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-
-// Define types for subscription plan and user subscription
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  currency: string;
-  interval: 'month' | 'year';
-  stories_limit: number;
-  is_active: boolean;
-  features: string[];
-  stripe_price_id?: string;
-}
-
-interface UserSubscription {
-  id: string;
-  user_id: string;
-  status: string;
-  current_period_start: string;
-  current_period_end: string;
-  cancel_at_period_end: boolean;
-  subscription_plans: SubscriptionPlan;
-}
 
 export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();

@@ -71,7 +71,7 @@ serve(async (req) => {
     // Get subscription from database
     const { data: subscription, error: subError } = await supabaseClient
       .from("user_subscriptions")
-      .select("id, stripe_subscription_id")
+      .select("id, stripe_subscription_id, user_id")
       .eq("id", subscriptionId)
       .single();
 
@@ -80,6 +80,17 @@ serve(async (req) => {
         JSON.stringify({ error: "Subscription not found" }),
         {
           status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    // Ensure the user is canceling their own subscription
+    if (subscription.user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized to cancel this subscription" }),
+        {
+          status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -96,10 +107,28 @@ serve(async (req) => {
     
     // If there's a Stripe subscription ID, cancel it in Stripe too
     if (subscription.stripe_subscription_id) {
-      // Cancel the subscription at period end in Stripe
-      await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-        cancel_at_period_end: true
-      });
+      try {
+        // Cancel the subscription at period end in Stripe
+        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+          cancel_at_period_end: true
+        });
+        
+        // Log the cancellation in subscription history
+        await supabaseClient
+          .from("subscription_history")
+          .insert({
+            user_id: user.id,
+            plan_id: (await supabaseClient.from("user_subscriptions").select("plan_id").eq("id", subscriptionId).single()).data?.plan_id,
+            action: "canceled",
+            details: {
+              stripe_subscription_id: subscription.stripe_subscription_id,
+              canceled_at: new Date().toISOString()
+            }
+          });
+      } catch (stripeError) {
+        console.error("Error canceling subscription in Stripe:", stripeError);
+        // Continue anyway as we've already updated our database
+      }
     }
 
     return new Response(

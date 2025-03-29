@@ -157,7 +157,7 @@ export const SubscriptionManager = () => {
     },
   });
   
-  // Get user subscriptions - fixed query to properly format the join
+  // Get user subscriptions
   const { data: subscriptions, isLoading: loadingSubscriptions } = useQuery({
     queryKey: ['user-subscriptions'],
     queryFn: async () => {
@@ -388,7 +388,7 @@ export const SubscriptionManager = () => {
                     <TableCell>{formatInterval(plan.interval)}</TableCell>
                     <TableCell>{plan.stories_limit}</TableCell>
                     <TableCell>
-                      <Badge variant={plan.is_active ? "default" : "secondary"}>
+                      <Badge variant={plan.is_active ? "default" : "outline"}>
                         {plan.is_active ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>

@@ -2,7 +2,7 @@
 import { supabase } from './supabase';
 
 // Define types for subscription plan and user subscription
-interface SubscriptionPlan {
+export interface SubscriptionPlan {
   id: string;
   name: string;
   description?: string;
@@ -15,7 +15,7 @@ interface SubscriptionPlan {
   stripe_price_id?: string;
 }
 
-interface UserSubscription {
+export interface UserSubscription {
   id: string;
   user_id: string;
   status: string;
@@ -37,7 +37,7 @@ export async function checkUserSubscription(userId: string): Promise<UserSubscri
         current_period_start,
         current_period_end,
         cancel_at_period_end,
-        subscription_plans(
+        subscription_plans:plan_id(
           id,
           name,
           price,
@@ -122,7 +122,7 @@ export async function checkStoryLimitReached(userId: string) {
 }
 
 // Create a checkout session for a subscription
-export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string) {
+export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
   try {
     // Call the Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('create-checkout', {
@@ -142,7 +142,7 @@ export async function createSubscriptionCheckout(userId: string, planId: string,
 }
 
 // Cancel a subscription
-export async function cancelSubscription(subscriptionId: string) {
+export async function cancelSubscription(subscriptionId: string): Promise<any> {
   try {
     const { data, error } = await supabase.functions.invoke('cancel-subscription', {
       body: { subscriptionId }
@@ -178,5 +178,16 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   } catch (error) {
     console.error('Error in getSubscriptionPlans:', error);
     throw error;
+  }
+}
+
+// Verify a subscription is active (for protected routes)
+export async function verifyActiveSubscription(userId: string): Promise<boolean> {
+  try {
+    const subscription = await checkUserSubscription(userId);
+    return !!subscription && subscription.status === 'active';
+  } catch (error) {
+    console.error('Error verifying subscription:', error);
+    return false;
   }
 }
