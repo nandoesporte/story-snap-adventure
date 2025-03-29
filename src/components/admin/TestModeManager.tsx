@@ -8,7 +8,7 @@ import { BookGenerationService } from "@/services/BookGenerationService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-const TestModeManager = () => {
+export const TestModeManager = () => {
   const [childName, setChildName] = useState("Ana");
   const [childAge, setChildAge] = useState("7");
   const [theme, setTheme] = useState("adventure");
@@ -139,5 +139,3 @@ const TestModeManager = () => {
     </Card>
   );
 };
-
-export default TestModeManager;
