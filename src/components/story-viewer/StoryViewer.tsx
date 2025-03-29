@@ -181,6 +181,14 @@ const StoryViewer: React.FC = () => {
     setHideText(!hideText);
   };
 
+  // Set initial page to show cover
+  useEffect(() => {
+    if (storyData && !loading) {
+      console.log("Story data loaded, showing cover page");
+      setCurrentPage(0);
+    }
+  }, [storyData, loading]);
+
   return (
     <div className="relative w-full h-full bg-gray-50 flex flex-col">
       {loading ? (
@@ -188,7 +196,7 @@ const StoryViewer: React.FC = () => {
           <LoadingSpinner />
         </div>
       ) : (
-        <div ref={storyContainerRef} className="flex-1 flex flex-col h-full">
+        <div ref={storyContainerRef} className="flex-1 flex flex-col h-full overflow-hidden">
           <ViewerControls
             storyId={id}
             title={storyData?.title || ""}

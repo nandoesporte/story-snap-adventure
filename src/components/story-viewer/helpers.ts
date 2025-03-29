@@ -24,10 +24,11 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
         .from(bucketName)
         .getPublicUrl(fileName);
       
-      localStorage.setItem(cachedUrlKey, data.publicUrl);
-      
-      console.log("Reformatted storage URL:", data.publicUrl);
-      return data.publicUrl;
+      if (data && data.publicUrl) {
+        localStorage.setItem(cachedUrlKey, data.publicUrl);
+        console.log("Reformatted storage URL:", data.publicUrl);
+        return data.publicUrl;
+      }
     } catch (error) {
       console.error("Failed to parse storage URL:", error);
     }

@@ -1,6 +1,7 @@
 
 import React from "react";
 import CoverImage from "../CoverImage";
+import { getImageUrl } from "./helpers";
 
 interface CoverPageProps {
   title: string;
@@ -25,27 +26,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   onImageClick,
   onImageError
 }) => {
-  const getFallbackImage = (theme: string = ""): string => {
-    const themeImages: {[key: string]: string} = {
-      adventure: "/images/covers/adventure.jpg",
-      fantasy: "/images/covers/fantasy.jpg",
-      space: "/images/covers/space.jpg",
-      ocean: "/images/covers/ocean.jpg",
-      dinosaurs: "/images/covers/dinosaurs.jpg",
-      forest: "/images/placeholders/adventure.jpg"
-    };
-    
-    const themeLower = theme.toLowerCase();
-    for (const [key, url] of Object.entries(themeImages)) {
-      if (themeLower.includes(key)) {
-        return url;
-      }
-    }
-    
-    return "/placeholder.svg";
-  };
-
-  const fallbackImage = getFallbackImage(theme);
+  const formattedImageUrl = getImageUrl(coverImageSrc, theme);
 
   if (isMobile) {
     return (
@@ -53,11 +34,11 @@ export const CoverPage: React.FC<CoverPageProps> = ({
         <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
           <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
             <CoverImage 
-              imageUrl={coverImageSrc}
-              fallbackImage={fallbackImage}
+              imageUrl={formattedImageUrl}
+              fallbackImage={getImageUrl(undefined, theme)}
               alt={title}
               className="w-full h-full"
-              onClick={() => onImageClick(coverImageSrc)}
+              onClick={() => onImageClick(formattedImageUrl)}
               onError={() => onImageError(coverImageSrc)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
@@ -93,11 +74,11 @@ export const CoverPage: React.FC<CoverPageProps> = ({
         <div className="flex-1 p-4 flex items-center justify-center">
           <div className="w-4/5 h-4/5 max-h-[70vh] relative rounded-xl shadow-md overflow-hidden">
             <CoverImage 
-              imageUrl={coverImageSrc}
-              fallbackImage={fallbackImage}
+              imageUrl={formattedImageUrl}
+              fallbackImage={getImageUrl(undefined, theme)}
               alt={title}
               className="w-full h-full object-cover"
-              onClick={() => onImageClick(coverImageSrc)}
+              onClick={() => onImageClick(formattedImageUrl)}
               onError={() => onImageError(coverImageSrc)}
             />
           </div>
