@@ -35,7 +35,7 @@ interface ContentItem {
   updated_at: string;
 }
 
-const ThemeManager = () => {
+export const ThemeManager = () => {
   const [contents, setContents] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -481,5 +481,3 @@ const ThemeManager = () => {
     </div>
   );
 };
-
-export default ThemeManager;
