@@ -1,11 +1,10 @@
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from './components/ui/toaster'
-// Import removed, as it's already being used in main.tsx
-// import { AuthProvider } from './context/AuthContext'
+import { useAuth } from './context/AuthContext'
 
 // Pages
 import Index from './pages/Index'
@@ -23,6 +22,26 @@ import Characters from './pages/Characters'
 // Initialize the React Query client
 const queryClient = new QueryClient()
 
+// Protected route for admin-only pages
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    // Check admin status from localStorage (set by AdminLink and UserProfile components)
+    const userRole = localStorage.getItem('user_role');
+    setIsAdmin(userRole === 'admin');
+    setLoading(false);
+  }, [user]);
+  
+  if (loading) {
+    return <div>Verificando permissões...</div>;
+  }
+  
+  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
+};
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -36,7 +55,11 @@ function App() {
         <Route path="/story-creator" element={<StoryCreator />} />
         <Route path="/story-creator/:id" element={<StoryCreator />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/settings" element={
+          <AdminRoute>
+            <Settings />
+          </AdminRoute>
+        } />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/characters" element={<Characters />} />
         <Route path="*" element={<NotFound />} />
