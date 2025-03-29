@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -18,6 +18,7 @@ import CharacterPage from './pages/CharacterPage';
 import ThemePage from './pages/ThemePage';
 import NotFoundPage from './pages/NotFoundPage';
 import { Toaster } from "sonner";
+import Subscription from './pages/Subscription';
 
 function App() {
   const { user } = useAuth();
@@ -31,13 +32,14 @@ function App() {
   }, []);
 
   return (
-    <Router>
+    <>
       <Toaster richColors position="bottom-center" />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
         <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignupPage />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/subscription" element={<Subscription />} />
         <Route path="/characters" element={<CharacterPage />} />
         <Route path="/themes" element={<ThemePage />} />
         
@@ -84,7 +86,7 @@ function App() {
         {/* Not Found Route */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </Router>
+    </>
   );
 }
 

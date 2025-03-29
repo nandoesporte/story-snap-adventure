@@ -35,7 +35,7 @@ interface ContentItem {
   updated_at: string;
 }
 
-export const ThemeManager = () => {
+export function ThemeManager() {
   const [contents, setContents] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -480,4 +480,4 @@ export const ThemeManager = () => {
       </Card>
     </div>
   );
-};
+}
