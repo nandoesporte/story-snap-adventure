@@ -26,7 +26,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   // Use processed URL or fallback if there was an error
   const displayUrl = hasError || imgError ? fallbackImage : processedUrl;
   
-  // Pré-carrega a imagem para verificar se ela é válida
+  // Pre-load the image to verify if it's valid
   useEffect(() => {
     if (displayUrl) {
       const img = new Image();
@@ -58,7 +58,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   };
 
   return (
-    <div className={`relative ${className}`} style={{width: '100%', height: '100%'}}>
+    <div className={`relative overflow-hidden ${className}`} style={{width: '100%', height: '100%'}}>
       {(!loaded && !imgError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 animate-pulse">
           <span className="text-gray-400">Carregando imagem...</span>
@@ -71,7 +71,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         onClick={onClick}
         onError={handleError}
         onLoad={handleLoad}
-        loading="eager" // Força o carregamento imediato da imagem
+        loading="eager"
         style={{objectFit: 'cover', width: '100%', height: '100%'}}
       />
     </div>

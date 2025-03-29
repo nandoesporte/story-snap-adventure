@@ -581,6 +581,7 @@ const StoryViewer: React.FC = () => {
                 imageUrl={coverImageSrc}
                 fallbackImage={fallbackImage}
                 alt={storyData.title}
+                className="w-full h-full"
                 onClick={() => handleImageClick(coverImageSrc)}
                 onError={() => handleImageError(coverImageSrc)}
               />
@@ -611,7 +612,7 @@ const StoryViewer: React.FC = () => {
       </div>
     );
   };
-  
+
   const renderStoryPage = (pageIndex: number) => {
     if (!storyData || !storyData.pages[pageIndex]) return null;
     
