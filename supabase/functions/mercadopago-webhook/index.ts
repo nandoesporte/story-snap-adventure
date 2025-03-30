@@ -24,7 +24,8 @@ serve(async (req) => {
     // MercadoPago sends test requests when setting up webhooks
     if (payload.type === "test" || 
         (payload.data && payload.data.id === "123456") || 
-        payload.id === "123456") {
+        payload.id === "123456" ||
+        payload.action === "payment.updated") {
       console.log("Received test webhook from MercadoPago");
       
       return new Response(
