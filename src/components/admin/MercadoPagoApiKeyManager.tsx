@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -242,7 +243,7 @@ const MercadoPagoApiKeyManager = () => {
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mt-4">
                     <p className="text-sm text-yellow-800">
                       <strong>Importante:</strong> Ao configurar seu webhook no Mercado Pago, 
-                      acesse Seu Negócio > Configurações > Webhooks e defina o método HTTP como POST.
+                      acesse Seu Negócio &gt; Configurações &gt; Webhooks e defina o método HTTP como POST.
                       Certifique-se de permitir todos os eventos de pagamento.
                     </p>
                   </div>
@@ -271,7 +272,7 @@ const MercadoPagoApiKeyManager = () => {
                   <li>Nas credenciais de produção, copie o <strong>Access Token</strong> (começa com APP_USR-).</li>
                   <li>Cole o Access Token no campo API Key acima e salve.</li>
                   <li>Gere a URL de webhook automática clicando no botão na aba Webhook.</li>
-                  <li>No painel do Mercado Pago, acesse Seu Negócio > Configurações > Webhooks.</li>
+                  <li>No painel do Mercado Pago, acesse Seu Negócio &gt; Configurações &gt; Webhooks.</li>
                   <li>Adicione a URL de webhook gerada e selecione todos os eventos de pagamento.</li>
                   <li>Defina o método HTTP como POST.</li>
                 </ol>
