@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
 import Auth from './pages/Auth';
-import Account from './pages/Account';
-import Story from './pages/Story';
-import StoryViewer from './pages/StoryViewer';
+import StoryCreator from './pages/StoryCreator';
+import Library from './pages/Library';
+import StoryViewer from './components/StoryViewer';
 import Admin from './pages/Admin';
 import { useAuth } from './context/AuthContext';
 
@@ -18,12 +19,12 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
-      <Route path="/story" element={<Story />} />
+      <Route path="/story/create" element={<StoryCreator />} />
       <Route path="/story/:id" element={<StoryViewer />} />
       <Route path="/admin" element={<Admin />} />
-      <Route
-        path="/account"
-        element={user ? <Account /> : <Navigate to="/login" />}
+      <Route 
+        path="/library" 
+        element={user ? <Library /> : <Navigate to="/login" />} 
       />
       <Route
         path="/login"
