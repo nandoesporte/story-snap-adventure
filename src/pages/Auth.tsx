@@ -51,11 +51,14 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     try {
       if (isRegister) {
         console.log("Registering with:", email);
-        const { error } = await signUp(email, password);
+        const { error, data } = await signUp(email, password);
         
         if (error) {
           throw error;
         }
+
+        // Log the response to understand what's happening
+        console.log("Registration response:", data);
         
         // Show success message after registration
         toast.success("Conta criada com sucesso!");

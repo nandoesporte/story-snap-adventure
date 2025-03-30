@@ -151,15 +151,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Fixed: Return error object directly
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      // Add more detailed logging
+      console.info('AuthContext: Signing up with:', email);
+      
+      // Explicitly pass emailRedirectTo to ensure confirmation emails work properly
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: window.location.origin + '/login',
+        }
+      });
       
       if (error) {
         console.error('Sign up error:', error.message);
         return { error };
       }
       
-      console.info('Sign up successful for:', email);
+      // Log whether confirmation email is required
+      console.info('Sign up successful for:', email, 'Confirmation email required:', data?.user?.identities?.[0]?.identity_data?.email_confirmed_at ? 'No' : 'Yes');
+      
       return { data, error: null };
     } catch (error: any) {
       console.error('Sign up error:', error);
