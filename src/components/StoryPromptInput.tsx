@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { HelpCircle, Sparkles, Send, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { HelpCircle, Sparkles, Send, Wand2, ChevronDown, ChevronUp, Cake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -89,14 +90,75 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
     }
   };
 
-  // Original simple suggestions for quick access
-  const simpleSuggestions = [
-    "Uma aventura espacial com uma criança que descobre um planeta de doces",
-    "Um conto sobre amizade entre uma criança e um dragão tímido",
-    "Uma história sobre coragem onde a criança supera o medo de nadar no oceano",
-    "Uma viagem mágica pela floresta encantada com fadas e duendes",
-    "Uma história de dinossauros onde a criança viaja no tempo",
-  ];
+  // Age-based theme suggestions
+  const ageBasedSuggestions = {
+    "0-2": {
+      title: "0 a 2 anos – Descobrindo o Mundo",
+      description: "Nessa fase, os bebês estão começando a reconhecer emoções, desenvolver vínculos afetivos e explorar o mundo ao seu redor. Os livros devem ter cores vibrantes, texturas e sons, com frases curtas e rimas simples.",
+      suggestions: [
+        "As Primeiras Palavras – Um livro ilustrado para apresentar nomes de objetos e animais",
+        "Cadê? Achou! – Histórias com elementos de esconder e achar para estimular a atenção",
+        "As Cores do Meu Dia – Explorando as cores no cotidiano da criança",
+        "Boas Noites, Estrelinha! – Criando um ritual de sono tranquilo e acolhedor",
+        "O Meu Corpo é Mágico! – Descobrindo as partes do corpo de forma divertida"
+      ]
+    },
+    "3-4": {
+      title: "3 a 4 anos – Explorando Emoções e Socialização",
+      description: "As crianças começam a desenvolver mais independência e interagem com os outros. Os livros devem abordar emoções, convivência e os primeiros conceitos educativos.",
+      suggestions: [
+        "O Ursinho Bravo – Como lidar com a frustração e expressar sentimentos",
+        "Compartilhar é Legal! – Aprendendo a dividir brinquedos e momentos",
+        "Xô, Medo do Escuro! – Lidando com inseguranças de forma lúdica",
+        "Os Amigos da Escola – A importância da amizade e do respeito aos coleguinhas",
+        "O Dia da Bagunça – Ensinando sobre organização e responsabilidade de um jeito divertido"
+      ]
+    },
+    "5-6": {
+      title: "5 a 6 anos – Construindo Valores e Curiosidade",
+      description: "Nessa idade, as crianças ampliam seu vocabulário e começam a entender regras e valores morais. Os livros podem incluir pequenas histórias com enredos mais estruturados.",
+      suggestions: [
+        "A Máquina dos Porquês – Respondendo de forma divertida as perguntas infinitas das crianças",
+        "O Segredo do Tesouro Perdido – Incentivando a curiosidade e o espírito explorador",
+        "Pequenos Gestos, Grandes Amizades – Mostrando como atitudes gentis fazem diferença",
+        "O Planeta Azul Precisa de Ajuda! – Introduzindo conceitos sobre meio ambiente e sustentabilidade",
+        "Super-Heróis do Cotidiano – Mostrando que todos podem ser heróis ajudando os outros"
+      ]
+    },
+    "6-7": {
+      title: "6 a 7 anos – Aprendendo a Ler e Desenvolvendo a Imaginação",
+      description: "Nesta fase, os livros podem conter textos um pouco mais longos, incentivando a leitura independente e a imaginação criativa.",
+      suggestions: [
+        "Era Uma Vez um Pequeno Leitor – Descobrindo o prazer da leitura",
+        "A Grande Aventura dos Números – Introduzindo conceitos matemáticos de forma divertida",
+        "O Mistério da Letra Perdida – Estimulando o aprendizado do alfabeto",
+        "Histórias do Céu e das Estrelas – Explorando a curiosidade sobre o espaço",
+        "As Aventuras do Pequeno Inventor – Incentivando a criatividade e o pensamento lógico"
+      ]
+    },
+    "7-8": {
+      title: "7 a 8 anos – Raciocínio Crítico e Autonomia",
+      description: "As crianças começam a criar suas próprias histórias e a refletir sobre desafios e valores. Os livros podem ter tramas mais envolventes e desafios interativos.",
+      suggestions: [
+        "O Clube dos Pequenos Detetives – Resolvendo mistérios e aprendendo a pensar de forma lógica",
+        "As Viagens de um Pequeno Explorador – Descobrindo diferentes culturas e lugares do mundo",
+        "E Se Eu Fosse um Cientista? – Incentivando o interesse por experimentos e descobertas",
+        "A Loja de Sonhos – Ensinar sobre objetivos e persistência na realização de sonhos",
+        "A Fábrica de Emoções – Compreendendo e expressando sentimentos de maneira saudável"
+      ]
+    },
+    "special": {
+      title: "Temas Especiais para Todas as Idades",
+      description: "Esses temas podem ser abordados de diferentes formas para se adequarem a diversas faixas etárias.",
+      suggestions: [
+        "Eu Sou Único! – Ensinando sobre autoestima e aceitação",
+        "O Grande Livro das Profissões – Mostrando diferentes carreiras e sonhos para o futuro",
+        "Brincando sem Tela – Incentivando atividades fora do digital",
+        "Pequenos Cientistas – Experimentos fáceis para despertar o interesse pela ciência",
+        "O Livro dos Sentimentos – Explorando alegria, medo, tristeza e amor com empatia"
+      ]
+    }
+  };
 
   const applyExamplePrompt = (example: string) => {
     setPrompt(example);
@@ -163,8 +225,9 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
           onChange={(e) => setPrompt(e.target.value)}
         />
         
-        <div>
-          <div className="mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Temas para histórias */}
+          <div>
             <p className="text-sm font-medium mb-2 flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5 text-violet-500" />
               Temas para histórias
@@ -177,6 +240,41 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
                   </AccordionTrigger>
                   <AccordionContent className="pb-2">
                     <div className="flex flex-col gap-2 pt-1 pb-2 px-4">
+                      {category.suggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => applyExamplePrompt(suggestion)}
+                          className="text-xs px-3 py-2 text-left bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg transition-colors"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+          
+          {/* Temas por idade */}
+          <div>
+            <p className="text-sm font-medium mb-2 flex items-center gap-1">
+              <Cake className="h-3.5 w-3.5 text-violet-500" />
+              Temas por idade
+            </p>
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(ageBasedSuggestions).map(([key, category]) => (
+                <AccordionItem key={key} value={key} className="border rounded-lg mb-2 overflow-hidden">
+                  <AccordionTrigger className="px-4 py-3 text-sm font-medium hover:bg-violet-50 hover:no-underline">
+                    👶 {category.title}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <div className="flex flex-col gap-2 pt-1 pb-2 px-4">
+                      {category.description && (
+                        <p className="text-xs text-slate-600 mb-2 italic">
+                          {category.description}
+                        </p>
+                      )}
                       {category.suggestions.map((suggestion, index) => (
                         <button
                           key={index}
