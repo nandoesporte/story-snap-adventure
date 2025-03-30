@@ -23,15 +23,21 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Creating Supabase client...");
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") || "",
       Deno.env.get("SUPABASE_ANON_KEY") || ""
     );
+    console.log("Supabase client created successfully");
 
     // Get request data
-    const { user_id, plan_id, return_url } = await req.json();
+    const requestData = await req.json();
+    console.log("Request data:", requestData);
+    
+    const { user_id, plan_id, return_url } = requestData;
 
     if (!user_id || !plan_id) {
+      console.error("Missing required fields", { user_id, plan_id });
       return new Response(
         JSON.stringify({ error: "Missing required fields: user_id and plan_id" }),
         {
@@ -42,6 +48,7 @@ serve(async (req) => {
     }
 
     // Fetch Asaas API key and environment from system configurations
+    console.log("Fetching Asaas API key...");
     const { data: apiKeyConfig, error: apiKeyError } = await supabaseClient
       .from("system_configurations")
       .select("value")
@@ -49,6 +56,7 @@ serve(async (req) => {
       .single();
 
     if (apiKeyError || !apiKeyConfig?.value) {
+      console.error("API key error:", apiKeyError);
       return new Response(
         JSON.stringify({ error: "Asaas API key not configured" }),
         {
@@ -67,15 +75,22 @@ serve(async (req) => {
     // Default to sandbox if not configured
     const environment = envConfig?.value || "sandbox";
     const apiUrl = getAsaasApiUrl(environment);
+    console.log("Using API URL:", apiUrl);
 
     // Get user data
+    console.log("Fetching user data...");
     const { data: userData, error: userError } = await supabaseClient
-      .from("users")
-      .select("email, full_name, cpf_cnpj, phone")
+      .from("user_profiles")
+      .select("display_name, id")
       .eq("id", user_id)
       .single();
 
-    if (userError) {
+    // Get auth user data
+    const { data: authData, error: authError } = await supabaseClient
+      .auth.admin.getUserById(user_id);
+
+    if (userError || !userData || authError || !authData?.user) {
+      console.error("User data error:", userError || authError);
       return new Response(
         JSON.stringify({ error: "User not found" }),
         {
@@ -85,14 +100,19 @@ serve(async (req) => {
       );
     }
 
+    const userEmail = authData.user.email;
+    const userName = userData.display_name || authData.user.email.split('@')[0];
+
     // Get subscription plan data
+    console.log("Fetching plan data...");
     const { data: planData, error: planError } = await supabaseClient
       .from("subscription_plans")
       .select("*")
       .eq("id", plan_id)
       .single();
 
-    if (planError) {
+    if (planError || !planData) {
+      console.error("Plan error:", planError);
       return new Response(
         JSON.stringify({ error: "Subscription plan not found" }),
         {
@@ -102,11 +122,14 @@ serve(async (req) => {
       );
     }
 
+    console.log("Plan found:", planData.name);
+
     // Step 1: Check if the customer already exists or create a new one
     let customerId = "";
     
     // First, try to find an existing customer with the user's email
-    const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userData.email)}`, {
+    console.log("Checking for existing customer with email:", userEmail);
+    const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`, {
       method: "GET",
       headers: {
         "access_token": apiKeyConfig.value,
@@ -115,12 +138,15 @@ serve(async (req) => {
     });
 
     const findCustomerData = await findCustomerResponse.json();
+    console.log("Find customer response:", findCustomerData);
     
     if (findCustomerData.data && findCustomerData.data.length > 0) {
       // Use existing customer
       customerId = findCustomerData.data[0].id;
+      console.log("Using existing customer ID:", customerId);
     } else {
       // Create a new customer
+      console.log("Creating new customer...");
       const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
         method: "POST",
         headers: {
@@ -128,15 +154,14 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: userData.full_name || `User ${user_id.substring(0, 8)}`,
-          email: userData.email,
-          phone: userData.phone || undefined,
-          cpfCnpj: userData.cpf_cnpj || undefined,
+          name: userName || `User ${user_id.substring(0, 8)}`,
+          email: userEmail,
           notificationDisabled: false,
         }),
       });
 
       const createCustomerData = await createCustomerResponse.json();
+      console.log("Create customer response:", createCustomerData);
       
       if (createCustomerData.errors) {
         return new Response(
@@ -149,6 +174,7 @@ serve(async (req) => {
       }
       
       customerId = createCustomerData.id;
+      console.log("New customer created with ID:", customerId);
     }
 
     // Step 2: Create the payment
@@ -170,6 +196,7 @@ serve(async (req) => {
       postalService: false,
     };
 
+    console.log("Creating payment with data:", paymentData);
     const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
       method: "POST",
       headers: {
@@ -180,6 +207,7 @@ serve(async (req) => {
     });
 
     const paymentResult = await createPaymentResponse.json();
+    console.log("Payment creation response:", paymentResult);
     
     if (paymentResult.errors) {
       return new Response(
@@ -193,53 +221,35 @@ serve(async (req) => {
 
     // Step 3: Get the payment link
     const paymentId = paymentResult.id;
-    const getCheckoutResponse = await fetch(`${apiUrl}/payments/${paymentId}/identificationField`, {
+    console.log("Getting checkout URL for payment ID:", paymentId);
+    const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
       method: "GET",
       headers: {
         "access_token": apiKeyConfig.value,
         "Content-Type": "application/json",
       },
     });
-
-    const checkoutResult = await getCheckoutResponse.json();
     
-    if (!checkoutResult.invoiceUrl) {
-      // If the direct link fails, try to get the regular payment link
-      const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
-        method: "GET",
-        headers: {
-          "access_token": apiKeyConfig.value,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      const paymentDetails = await getPaymentResponse.json();
-      
-      if (!paymentDetails.invoiceUrl) {
-        return new Response(
-          JSON.stringify({ error: "Failed to get payment checkout URL" }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      
+    const paymentDetails = await getPaymentResponse.json();
+    console.log("Payment details:", paymentDetails);
+
+    if (!paymentDetails.invoiceUrl) {
+      console.error("Invoice URL not found in payment details");
       return new Response(
-        JSON.stringify({ url: paymentDetails.invoiceUrl }),
+        JSON.stringify({ error: "Failed to get payment checkout URL" }),
         {
-          status: 200,
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
+    
+    console.log("Returning invoice URL:", paymentDetails.invoiceUrl);
     return new Response(
-      JSON.stringify({ url: checkoutResult.invoiceUrl }),
+      JSON.stringify({ url: paymentDetails.invoiceUrl }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        
       }
     );
   } catch (error) {

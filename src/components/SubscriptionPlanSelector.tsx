@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -54,8 +53,8 @@ const SubscriptionPlanSelector = () => {
               setCurrentSubscription(subscription);
               
               // Set the current plan as selected by default
-              if (subscription.subscription_plan_id) {
-                const currentPlan = plansData.find(p => p.id === subscription.subscription_plan_id);
+              if (subscription.plan_id) {
+                const currentPlan = plansData.find(p => p.id === subscription.plan_id);
                 if (currentPlan) {
                   setSelectedPlan(currentPlan);
                 }
@@ -110,11 +109,19 @@ const SubscriptionPlanSelector = () => {
           returnUrl
         );
       } else if (selectedPaymentMethod === 'asaas') {
+        console.log('Creating Asaas checkout with parameters:', {
+          userId: user.id,
+          planId: selectedPlan.id,
+          returnUrl
+        });
+        
         checkoutUrl = await createAsaasCheckout(
           user.id,
           selectedPlan.id,
           returnUrl
         );
+        
+        console.log('Checkout URL returned:', checkoutUrl);
       }
       
       if (checkoutUrl) {
