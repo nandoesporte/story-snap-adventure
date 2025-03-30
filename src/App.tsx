@@ -25,6 +25,7 @@ function App() {
       <Route path="/" element={<Index />} />
       <Route path="/story/create" element={<StoryCreator />} />
       <Route path="/story/:id" element={<StoryViewer />} />
+      <Route path="/view-story/:id" element={<StoryViewer />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/planos" element={<Planos />} />
       <Route 

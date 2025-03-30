@@ -52,10 +52,12 @@ export const useStoryData = (id?: string) => {
     const loadStory = async () => {
       try {
         setLoading(true);
+        console.log("Tentando carregar história com ID:", id);
         
         if (id && id !== ":id") {
           console.log("Carregando história do banco com ID:", id);
           
+          // Tente validar e corrigir imagens da história para evitar problemas de carregamento
           import('../../lib/imageHelper').then(({ validateAndFixStoryImages }) => {
             validateAndFixStoryImages(id);
           });
@@ -121,10 +123,13 @@ export const useStoryData = (id?: string) => {
             setStoryData(formattedStory);
             setTotalPages(formattedStory.pages.length + 1);
             setLoading(false);
+            console.log("História carregada com sucesso, páginas:", formattedStory.pages.length);
           } else {
+            console.log("Nenhum dado encontrado para a história com ID:", id);
             loadFromSessionStorage();
           }
         } else {
+          console.log("ID inválido ou não fornecido, tentando carregar do sessionStorage");
           loadFromSessionStorage();
         }
       } catch (error) {
@@ -169,6 +174,7 @@ export const useStoryData = (id?: string) => {
           
           setStoryData(formattedStory);
           setTotalPages(formattedStory.pages.length + 1);
+          console.log("História carregada do sessionStorage com", formattedStory.pages.length, "páginas");
         } else {
           console.error("Nenhum dado de história encontrado no sessionStorage");
           setStoryData(defaultStory);
