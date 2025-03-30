@@ -78,7 +78,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   return (
     <div className="w-full h-full flex flex-col" data-testid="cover-page-desktop">
       <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
-        <div className="flex-1 p-4 flex items-center justify-center">
+        <div className="flex-1 p-4 flex items-center justify-center overflow-hidden">
           <div className="w-4/5 h-4/5 max-h-[70vh] relative rounded-xl shadow-md overflow-hidden">
             <CoverImage 
               imageUrl={formattedImageUrl}

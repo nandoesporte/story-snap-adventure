@@ -103,7 +103,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   
   return (
     <div className="w-full h-full flex flex-row">
-      <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6">
+      <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
         <img 
           src={imageUrl} 
           alt={`Ilustração da página ${pageIndex + 1}`}
@@ -113,10 +113,10 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         />
       </div>
       
-      <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between relative">
+      <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col justify-between relative">
         {!hideText ? (
           <>
-            <ScrollArea className="h-full pr-2">
+            <ScrollArea className="h-full pr-2 p-8">
               <div className="mb-6">
                 <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{title}</h2>
                 <div className="prose prose-lg">
@@ -127,7 +127,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 </div>
               </div>
             </ScrollArea>
-            <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
+            <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
               {!isFullscreen && (
                 <>
                   <span>Página {pageIndex + 1} de {pageCount}</span>
