@@ -81,13 +81,10 @@ serve(async (req) => {
     console.log("Fetching user data...");
     const { data: userData, error: userError } = await supabaseClient
       .from("user_profiles")
-      .select("display_name")
+      .select("display_name, email")
       .eq("id", user_id)
       .single();
 
-    // Get email from auth meta data if available
-    const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
-    
     if (userError || !userData) {
       console.error("User data error:", userError);
       return new Response(
@@ -99,8 +96,8 @@ serve(async (req) => {
       );
     }
 
-    // Use the authenticated user's email or a fallback
-    const userEmail = authUser?.email || `user-${user_id.substring(0, 8)}@example.com`;
+    // Use email from user profile or generate a fallback
+    const userEmail = userData.email || `user-${user_id.substring(0, 8)}@example.com`;
     const userName = userData.display_name || userEmail.split('@')[0];
 
     // Get subscription plan data
@@ -130,16 +127,23 @@ serve(async (req) => {
     try {
       // First, try to find an existing customer with the user's email
       console.log("Checking for existing customer with email:", userEmail);
+      
+      const accessToken = apiKeyConfig.value;
+      if (!accessToken) {
+        throw new Error("Invalid API key configuration");
+      }
+      
       const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`, {
         method: "GET",
         headers: {
-          "access_token": apiKeyConfig.value,
+          "access_token": accessToken,
           "Content-Type": "application/json",
         },
       });
       
       if (!findCustomerResponse.ok) {
-        console.error("Error finding customer:", await findCustomerResponse.text());
+        const errorText = await findCustomerResponse.text();
+        console.error("Error finding customer:", errorText);
         throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
       }
 
@@ -156,7 +160,7 @@ serve(async (req) => {
         const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
           method: "POST",
           headers: {
-            "access_token": apiKeyConfig.value,
+            "access_token": accessToken,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -167,7 +171,8 @@ serve(async (req) => {
         });
         
         if (!createCustomerResponse.ok) {
-          console.error("Error creating customer:", await createCustomerResponse.text());
+          const errorText = await createCustomerResponse.text();
+          console.error("Error creating customer:", errorText);
           throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
         }
 
@@ -211,14 +216,15 @@ serve(async (req) => {
       const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
         method: "POST",
         headers: {
-          "access_token": apiKeyConfig.value,
+          "access_token": accessToken,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(paymentData),
       });
       
       if (!createPaymentResponse.ok) {
-        console.error("Error creating payment:", await createPaymentResponse.text());
+        const errorText = await createPaymentResponse.text();
+        console.error("Error creating payment:", errorText);
         throw new Error(`Failed to create payment: ${createPaymentResponse.status}`);
       }
 
@@ -241,13 +247,14 @@ serve(async (req) => {
       const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
         method: "GET",
         headers: {
-          "access_token": apiKeyConfig.value,
+          "access_token": accessToken,
           "Content-Type": "application/json",
         },
       });
       
       if (!getPaymentResponse.ok) {
-        console.error("Error getting payment details:", await getPaymentResponse.text());
+        const errorText = await getPaymentResponse.text();
+        console.error("Error getting payment details:", errorText);
         throw new Error(`Failed to get payment details: ${getPaymentResponse.status}`);
       }
       
