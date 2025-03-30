@@ -121,7 +121,40 @@ export async function checkStoryLimitReached(userId: string) {
   }
 }
 
-// Create a checkout session for a subscription
+// Get available payment methods
+export async function getAvailablePaymentMethods() {
+  try {
+    const { data, error } = await supabase
+      .from('system_configurations')
+      .select('key, value')
+      .in('key', ['stripe_enabled', 'mercadopago_enabled']);
+    
+    if (error) {
+      console.error('Error fetching payment methods:', error);
+      return { stripe: true, mercadopago: false }; // Default to Stripe only if error
+    }
+    
+    const methods = {
+      stripe: true, // Default to true for backward compatibility
+      mercadopago: false
+    };
+    
+    data?.forEach(item => {
+      if (item.key === 'stripe_enabled') {
+        methods.stripe = item.value === 'true';
+      } else if (item.key === 'mercadopago_enabled') {
+        methods.mercadopago = item.value === 'true';
+      }
+    });
+    
+    return methods;
+  } catch (error) {
+    console.error('Error in getAvailablePaymentMethods:', error);
+    return { stripe: true, mercadopago: false }; // Default to Stripe only if error
+  }
+}
+
+// Create a checkout session for a subscription using Stripe
 export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
   try {
     console.log('Creating checkout session with:', { userId, planId, returnUrl });
@@ -154,6 +187,42 @@ export async function createSubscriptionCheckout(userId: string, planId: string,
     throw error instanceof Error 
       ? error 
       : new Error('Falha ao criar sessão de pagamento');
+  }
+}
+
+// Create a checkout session for Mercado Pago
+export async function createMercadoPagoCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
+  try {
+    console.log('Creating Mercado Pago checkout session with:', { userId, planId, returnUrl });
+    
+    // Call the Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
+      body: { planId, returnUrl }
+    });
+    
+    if (error) {
+      console.error('Error from create-mercadopago-checkout function:', error);
+      
+      // Check if it's a connectivity issue
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
+        throw new Error('Falha ao conectar com o servidor do Mercado Pago. Verifique sua conexão ou tente novamente mais tarde.');
+      }
+      
+      throw new Error(`Falha ao criar sessão de pagamento Mercado Pago: ${error.message}`);
+    }
+    
+    if (!data || !data.url) {
+      console.error('Invalid response from create-mercadopago-checkout function:', data);
+      throw new Error('Resposta inválida do servidor do Mercado Pago');
+    }
+    
+    console.log('Mercado Pago checkout session created successfully, URL received');
+    return data.url;
+  } catch (error) {
+    console.error('Error in createMercadoPagoCheckout:', error);
+    throw error instanceof Error 
+      ? error 
+      : new Error('Falha ao criar sessão de pagamento do Mercado Pago');
   }
 }
 

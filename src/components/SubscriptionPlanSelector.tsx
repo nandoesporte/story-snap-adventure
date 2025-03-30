@@ -2,26 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
-import { CheckCircle, Circle, CreditCard, Shield, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { 
-  getSubscriptionPlans, 
-  createSubscriptionCheckout, 
-  checkUserSubscription, 
-  cancelSubscription,
-  SubscriptionPlan,
-  UserSubscription
-} from '@/lib/stripe';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { Check, Loader, CreditCard, Store } from 'lucide-react';
+import { SubscriptionPlan, checkUserSubscription, createSubscriptionCheckout, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,307 +16,267 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/alert-dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
-  const [isCanceling, setIsCanceling] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Get subscription plans
-  const { data: plans, isLoading: loadingPlans, error: plansError } = useQuery({
-    queryKey: ['subscription-plans'],
-    queryFn: getSubscriptionPlans,
-    retry: 1
-  });
-  
-  // Get user's current subscription
-  const { data: userSubscription, isLoading: loadingSubscription, refetch: refetchSubscription, error: subscriptionError } = useQuery({
+  const [activePaymentMethod, setActivePaymentMethod] = useState("stripe");
+
+  // Fetch current subscription
+  const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ['user-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      return checkUserSubscription(user.id);
+      return await checkUserSubscription(user.id);
     },
-    enabled: !!user,
-    retry: 1
+    enabled: !!user
   });
 
-  // Handle errors from queries
-  useEffect(() => {
-    if (plansError) {
-      console.error('Error fetching subscription plans:', plansError);
-      setError(`Erro ao buscar planos: ${plansError instanceof Error ? plansError.message : 'Verifique as configurações da API do Stripe'}`);
-      toast.error("Erro ao carregar planos. Verifique se a API do Stripe está configurada");
+  // Fetch available payment methods
+  const { data: paymentMethods, isLoading: isLoadingPaymentMethods } = useQuery({
+    queryKey: ['payment-methods'],
+    queryFn: async () => {
+      return await getAvailablePaymentMethods();
     }
-  }, [plansError]);
+  });
 
+  // Set default payment method when data loads
   useEffect(() => {
-    if (subscriptionError) {
-      console.error('Error fetching user subscription:', subscriptionError);
+    if (paymentMethods) {
+      if (paymentMethods.stripe) {
+        setActivePaymentMethod("stripe");
+      } else if (paymentMethods.mercadopago) {
+        setActivePaymentMethod("mercadopago");
+      }
     }
-  }, [subscriptionError]);
-  
-  // Format currency
-  const formatCurrency = (amount: number, currency: string = 'BRL') => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency,
-    }).format(amount);
-  };
-  
-  // Format interval
-  const formatInterval = (interval: string) => {
-    return interval === 'month' ? 'mês' : 'ano';
-  };
-  
+  }, [paymentMethods]);
+
+  // Fetch subscription plans
+  const { data: plans, isLoading: isLoadingPlans } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: async () => {
+      return await getSubscriptionPlans();
+    }
+  });
+
   // Handle plan selection
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
+    setIsPaymentDialogOpen(true);
+    setError(null);
   };
-  
-  // Check if plan is the user's current plan
-  const isCurrentPlan = (planId: string) => {
-    return userSubscription?.subscription_plans?.id === planId;
-  };
-  
-  // Handle subscription checkout
+
+  // Handle checkout process
   const handleCheckout = async () => {
-    if (!selectedPlanId || !user) {
-      toast.error('Selecione um plano para continuar');
-      return;
-    }
+    if (!user || !selectedPlanId) return;
+    
+    setIsProcessing(true);
+    setError(null);
     
     try {
-      setIsCheckoutLoading(true);
-      setError(null);
-      const returnUrl = window.location.origin + '/my-stories';
+      const returnUrl = window.location.origin + '/my-stories'; // Redirect to my stories after payment
       
-      console.log('Creating checkout with:', {
-        userId: user.id,
-        planId: selectedPlanId,
-        returnUrl
-      });
+      console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl });
       
-      const checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
+      let checkoutUrl;
       
-      if (!checkoutUrl) {
-        throw new Error('Falha ao criar sessão de checkout');
+      if (activePaymentMethod === "mercadopago") {
+        checkoutUrl = await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
+      } else {
+        // Default to Stripe
+        checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
       }
       
-      console.log('Checkout URL received:', checkoutUrl);
-      
-      // Redirect to Stripe checkout
+      // Redirect to checkout
       window.location.href = checkoutUrl;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating checkout:', error);
-      let errorMessage = 'Falha ao processar checkout';
       
       // Try to get a more specific error message
       if (error.message) {
-        errorMessage = `${error.message}`;
+        setError(`${error.message}`);
         
         // Show a more user-friendly message for common errors
         if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
-          errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API do Stripe está configurada corretamente.';
+          setError('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API do Stripe está configurada corretamente.');
         }
       }
       
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsCheckoutLoading(false);
+      setIsProcessing(false);
     }
   };
-  
-  // Handle subscription cancellation
-  const handleCancelSubscription = async () => {
-    if (!userSubscription) return;
-    
-    try {
-      setIsCanceling(true);
-      await cancelSubscription(userSubscription.id);
-      await refetchSubscription();
-      toast.success('Assinatura cancelada com sucesso');
-    } catch (error: any) {
-      console.error('Error canceling subscription:', error);
-      toast.error(`Erro ao cancelar assinatura: ${error.message}`);
-    } finally {
-      setIsCanceling(false);
-    }
-  };
-  
-  if (loadingPlans || loadingSubscription) {
+
+  const isLoading = isLoadingSubscription || isLoadingPlans;
+
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center p-8">
-        <p>Carregando planos...</p>
+      <div className="flex justify-center items-center p-12">
+        <Loader className="h-8 w-8 animate-spin mr-2" />
+        <p>Carregando planos de assinatura...</p>
       </div>
     );
   }
-  
+
   return (
-    <div className="space-y-6">
-      <div className="text-center max-w-3xl mx-auto mb-12">
-        <h2 className="text-3xl font-bold">Planos de Assinatura</h2>
-        <p className="text-lg text-muted-foreground mt-4">
-          Escolha o melhor plano para você e crie histórias incríveis para as crianças
+    <div className="container mx-auto px-4 py-8">
+      <div className="text-center mb-12">
+        <h1 className="text-3xl font-bold mb-4">Escolha seu plano</h1>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Selecione o plano que melhor atende às suas necessidades e comece a criar histórias incríveis para seus filhos.
         </p>
-        
-        {userSubscription && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <p className="font-medium">
-              Você já possui o plano <span className="font-bold">{userSubscription.subscription_plans.name}</span>
-            </p>
-            {userSubscription.cancel_at_period_end ? (
-              <p className="text-sm text-muted-foreground mt-2">
-                Sua assinatura será cancelada em {new Date(userSubscription.current_period_end).toLocaleDateString('pt-BR')}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-2">
-                Próxima cobrança em {new Date(userSubscription.current_period_end).toLocaleDateString('pt-BR')}
-              </p>
-            )}
-          </div>
-        )}
       </div>
       
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      {plans && plans.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan: SubscriptionPlan) => (
+      {subscription ? (
+        <div className="max-w-md mx-auto bg-muted p-6 rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">Sua assinatura atual</h2>
+          <p className="mb-2">
+            <span className="font-medium">Plano:</span> {subscription.subscription_plans.name}
+          </p>
+          <p className="mb-2">
+            <span className="font-medium">Status:</span> {subscription.status === 'active' ? 'Ativo' : 'Inativo'}
+          </p>
+          <p className="mb-2">
+            <span className="font-medium">Renova em:</span> {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}
+          </p>
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
+              Mudar de plano
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+          {plans?.map((plan) => (
             <Card 
               key={plan.id} 
-              className={`transition-all ${
-                selectedPlanId === plan.id 
-                  ? 'border-primary shadow-lg ring-2 ring-primary' 
-                  : 'hover:border-primary/50'
-              } ${isCurrentPlan(plan.id) ? 'bg-primary/5' : ''}`}
+              className={`flex flex-col hover:shadow-md transition-shadow duration-300 ${selectedPlanId === plan.id ? 'ring-2 ring-primary' : ''}`}
             >
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>{plan.name}</CardTitle>
-                    <CardDescription className="mt-1">{plan.description}</CardDescription>
-                  </div>
-                  {isCurrentPlan(plan.id) && (
-                    <Badge variant="outline" className="bg-primary/10 text-primary">
-                      Plano Atual
-                    </Badge>
-                  )}
-                </div>
+                <CardTitle>{plan.name}</CardTitle>
+                <CardDescription>{plan.description}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
-                  <span className="text-muted-foreground ml-1">/{formatInterval(plan.interval)}</span>
+              <CardContent className="flex-grow">
+                <div className="mb-4">
+                  <span className="text-3xl font-bold">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: plan.currency,
+                    }).format(plan.price)}
+                  </span>
+                  <span className="text-muted-foreground">/{plan.interval === 'month' ? 'mês' : 'ano'}</span>
                 </div>
-                
-                <div className="border-t pt-4">
-                  <h4 className="font-medium text-sm mb-3">Inclui:</h4>
-                  <ul className="space-y-2">
-                    {Array.isArray(plan.features) && plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start text-sm">
-                        <CheckCircle className="h-5 w-5 text-primary shrink-0 mr-2" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                    <li className="flex items-start text-sm font-medium">
-                      <CheckCircle className="h-5 w-5 text-primary shrink-0 mr-2" />
-                      <span>Limite de {plan.stories_limit} histórias por {formatInterval(plan.interval)}</span>
-                    </li>
-                  </ul>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium">Histórias incluídas:</span> {plan.stories_limit} por {plan.interval === 'month' ? 'mês' : 'ano'}
+                  </p>
+                  {plan.features && plan.features.length > 0 && (
+                    <ul className="space-y-1">
+                      {Array.isArray(plan.features) ? plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-start">
+                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{feature}</span>
+                        </li>
+                      )) : null}
+                    </ul>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>
-                {isCurrentPlan(plan.id) ? (
-                  userSubscription?.cancel_at_period_end ? (
-                    <Button className="w-full" variant="outline" disabled>
-                      Cancelamento agendado
-                    </Button>
-                  ) : (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="outline">
-                          Cancelar assinatura
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Cancelar sua assinatura?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Você continuará tendo acesso ao plano até o final do período atual, em {new Date(userSubscription.current_period_end).toLocaleDateString('pt-BR')}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={handleCancelSubscription}
-                            disabled={isCanceling}
-                          >
-                            {isCanceling ? 'Processando...' : 'Confirmar cancelamento'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )
-                ) : (
-                  <Button
-                    className="w-full" 
-                    variant={selectedPlanId === plan.id ? "default" : "outline"}
-                    onClick={() => handleSelectPlan(plan.id)}
-                  >
-                    {selectedPlanId === plan.id ? (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Selecionado
-                      </>
-                    ) : (
-                      'Selecionar'
-                    )}
-                  </Button>
-                )}
+                <Button 
+                  className="w-full" 
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={isProcessing}
+                >
+                  {isProcessing && selectedPlanId === plan.id ? 'Processando...' : 'Assinar agora'}
+                </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
-      ) : !error ? (
-        <div className="text-center p-8 bg-muted rounded-lg">
-          <p>Nenhum plano disponível no momento. Entre em contato com o suporte.</p>
-        </div>
-      ) : null}
-      
-      {selectedPlanId && plans && plans.length > 0 && !isCurrentPlan(selectedPlanId) && (
-        <div className="mt-8 flex justify-center">
-          <Button
-            size="lg"
-            onClick={handleCheckout}
-            disabled={isCheckoutLoading}
-            className="px-8"
-          >
-            <CreditCard className="mr-2 h-4 w-4" />
-            {isCheckoutLoading ? 'Processando...' : 'Continuar para pagamento'}
-          </Button>
-        </div>
       )}
       
-      <div className="mt-8 flex justify-center">
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Shield className="mr-2 h-4 w-4" />
-          Pagamentos processados com segurança pelo Stripe
-        </div>
-      </div>
+      {/* Payment Method Selection Dialog */}
+      <AlertDialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Selecione o método de pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Escolha como você prefere pagar sua assinatura.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="py-4">
+            <Tabs 
+              value={activePaymentMethod} 
+              onValueChange={setActivePaymentMethod}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                {paymentMethods?.stripe && (
+                  <TabsTrigger value="stripe" disabled={isProcessing} className="flex items-center justify-center">
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    <span>Cartão de crédito</span>
+                  </TabsTrigger>
+                )}
+                {paymentMethods?.mercadopago && (
+                  <TabsTrigger value="mercadopago" disabled={isProcessing} className="flex items-center justify-center">
+                    <Store className="h-4 w-4 mr-2" />
+                    <span>Mercado Pago</span>
+                  </TabsTrigger>
+                )}
+              </TabsList>
+              
+              <TabsContent value="stripe" className="mt-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>Checkout seguro via Stripe.</p>
+                  <p>Aceita diversos cartões de crédito internacionais.</p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="mercadopago" className="mt-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>Checkout seguro via Mercado Pago.</p>
+                  <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            {error && (
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+                {error}
+              </div>
+            )}
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCheckout}
+              disabled={isProcessing}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin mr-2" />
+                  Processando...
+                </>
+              ) : (
+                <>Continuar</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
-
-export default SubscriptionPlanSelector;

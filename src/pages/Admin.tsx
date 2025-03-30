@@ -10,6 +10,8 @@ import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager"
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import StripeApiKeyManager from "@/components/admin/StripeApiKeyManager";
 import StripeWebhookSecretManager from "@/components/admin/StripeWebhookSecretManager";
+import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
+import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
 import SubscriptionManager from "@/components/admin/SubscriptionManager";
@@ -28,7 +30,7 @@ const Admin = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis', 'subscriptions'].includes(tabParam)) {
+    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis', 'subscriptions', 'payments'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -78,7 +80,7 @@ const Admin = () => {
       <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
 
       <Tabs defaultValue={activeTab} value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid grid-cols-9 w-full">
+        <TabsList className="grid grid-cols-10 w-full">
           <TabsTrigger value="stories">Histórias</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="characters">Personagens</TabsTrigger>
@@ -86,6 +88,7 @@ const Admin = () => {
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="config">Configurações</TabsTrigger>
           <TabsTrigger value="apis">APIs</TabsTrigger>
+          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
           <TabsTrigger value="test">Modo Teste</TabsTrigger>
           <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
         </TabsList>
@@ -130,10 +133,21 @@ const Admin = () => {
           </p>
           <div className="grid grid-cols-1 gap-6">
             <LeonardoWebhookConfig />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="payments" className="space-y-4">
+          <h2 className="text-2xl font-bold">Configuração de Pagamentos</h2>
+          <p className="text-muted-foreground mb-4">
+            Configure as opções de pagamento disponíveis para seus clientes.
+          </p>
+          <div className="grid grid-cols-1 gap-6">
+            <PaymentMethodsManager />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <StripeApiKeyManager />
-              <StripeWebhookSecretManager />
+              <MercadoPagoApiKeyManager />
             </div>
+            <StripeWebhookSecretManager />
           </div>
         </TabsContent>
         
