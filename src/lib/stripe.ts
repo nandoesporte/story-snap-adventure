@@ -92,6 +92,7 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
       throw new Error('Método de pagamento Mercado Pago não está disponível ou configurado');
     }
     
+    // Call the edge function with error handling
     const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
       body: { userId, planId, returnUrl }
     });
@@ -106,11 +107,13 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
       throw new Error('Não foi recebida resposta do servidor de pagamento');
     }
     
+    if (data.error) {
+      console.error('Error from payment server:', data.error);
+      throw new Error(`Erro no servidor de pagamento: ${data.error}`);
+    }
+    
     if (!data.checkoutUrl) {
       console.error('Invalid response from payment server:', data);
-      if (data.error) {
-        throw new Error(`Erro no servidor de pagamento: ${data.error}`);
-      }
       throw new Error('URL de checkout não retornada pelo servidor de pagamento');
     }
 

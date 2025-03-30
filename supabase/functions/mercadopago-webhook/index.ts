@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
-import { MercadoPagoConfig, Payment } from "https://esm.sh/mercadopago@2.0.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,7 +75,7 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client with service role key
+    // Initialize Supabase client with service role key to bypass RLS
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
@@ -85,6 +84,7 @@ serve(async (req) => {
       throw new Error("Server configuration error: Missing environment variables");
     }
 
+    // Create admin client with service role key - no authentication required
     const supabase = createClient(supabaseUrl, supabaseServiceRole, {
       auth: {
         persistSession: false,

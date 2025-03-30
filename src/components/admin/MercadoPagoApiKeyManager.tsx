@@ -245,7 +245,16 @@ const MercadoPagoApiKeyManager = () => {
                     <p className="text-sm text-yellow-800">
                       <strong>Importante:</strong> Ao configurar seu webhook no Mercado Pago, 
                       acesse Seu Negócio &gt; Configurações &gt; Webhooks e defina o método HTTP como POST.
-                      Certifique-se de permitir todos os eventos de pagamento.
+                      Você <strong>não precisa</strong> enviar tokens de autenticação - a edge function aceita 
+                      chamadas sem autenticação vindas do Mercado Pago.
+                    </p>
+                  </div>
+                  
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md mt-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Testando o webhook:</strong> No painel do Mercado Pago, após configurar o webhook,
+                      clique em "Testar endpoint" para verificar a conexão. O sistema deve retornar "Test webhook received successfully".
+                      Este teste confirma que o webhook está acessível pelo Mercado Pago.
                     </p>
                   </div>
                 </div>
@@ -276,6 +285,7 @@ const MercadoPagoApiKeyManager = () => {
                   <li>No painel do Mercado Pago, acesse Seu Negócio &gt; Configurações &gt; Webhooks.</li>
                   <li>Adicione a URL de webhook gerada e selecione todos os eventos de pagamento.</li>
                   <li>Defina o método HTTP como POST.</li>
+                  <li>Após salvar, clique em "Testar endpoint" para verificar a conexão.</li>
                 </ol>
               </div>
               
@@ -284,9 +294,10 @@ const MercadoPagoApiKeyManager = () => {
                 <ul className="list-disc pl-5 text-sm text-amber-800 space-y-2">
                   <li>Certifique-se de estar usando o <strong>Access Token de produção</strong>, não o token de teste.</li>
                   <li>Verifique se todas as permissões estão habilitadas para sua aplicação no Mercado Pago.</li>
-                  <li>Após configurar o webhook, teste uma compra para verificar se as notificações estão sendo recebidas.</li>
+                  <li>Se receber erros de autenticação ao testar o webhook, não se preocupe com autenticação - nossa implementação não requer tokens de autenticação.</li>
+                  <li>Certifique-se de selecionar o método HTTP como POST, não GET.</li>
+                  <li>Após configurar o webhook, teste usando o botão "Testar endpoint" no painel do Mercado Pago.</li>
                   <li>Se os pagamentos não estão sendo processados, verifique os logs do Supabase Edge Functions.</li>
-                  <li>O Mercado Pago pode ter limites de requisições. Considere implementar retry em casos de falha.</li>
                 </ul>
               </div>
             </div>
