@@ -132,7 +132,12 @@ export const SubscriptionPlanSelector = () => {
       
       // Try to get a more specific error message
       if (error.message) {
-        errorMessage = `Erro ao processar checkout: ${error.message}`;
+        errorMessage = `${error.message}`;
+        
+        // Show a more user-friendly message for common errors
+        if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API do Stripe está configurada corretamente.';
+        }
       }
       
       setError(errorMessage);

@@ -16,42 +16,42 @@ serve(async (req) => {
     });
   }
 
-  // Get the authorization header
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: "Not authenticated" }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  // Create a Supabase client with the auth header
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") || "",
-    Deno.env.get("SUPABASE_ANON_KEY") || "",
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  // Get the user from the auth header
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseClient.auth.getUser();
-
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "Error fetching user" }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-
   try {
+    // Get the authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Not authenticated" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Create a Supabase client with the auth header
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Get the user from the auth header
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Error fetching user" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Get Stripe API key from database
     const { data: configData, error: configError } = await supabaseClient
       .from("system_configurations")
@@ -74,6 +74,7 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
 
+    // Parse request body
     const { planId, returnUrl } = await req.json();
 
     if (!planId) {
@@ -113,24 +114,7 @@ serve(async (req) => {
       );
     }
 
-    // Check if user already has a Stripe customer ID
-    const { data: userProfile, error: profileError } = await supabaseClient
-      .from("user_profiles")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError && profileError.code !== "PGRST116") {
-      return new Response(
-        JSON.stringify({ error: "Error fetching user profile" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Look for existing customer
+    // Check for existing customer or create a new one
     let customerId;
     const { data: subscription, error: subError } = await supabaseClient
       .from("user_subscriptions")
@@ -142,11 +126,8 @@ serve(async (req) => {
 
     if (!subError && subscription?.stripe_customer_id) {
       customerId = subscription.stripe_customer_id;
-    }
-
-    // If no customer ID found, try to find by email or create a new one
-    if (!customerId) {
-      // Try to find customer by email
+    } else {
+      // Try to find customer by email or create a new one
       const customers = await stripe.customers.list({
         email: user.email,
         limit: 1,

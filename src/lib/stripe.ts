@@ -133,6 +133,12 @@ export async function createSubscriptionCheckout(userId: string, planId: string,
     
     if (error) {
       console.error('Error from create-checkout function:', error);
+      
+      // Check if it's a connectivity issue
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
+        throw new Error('Falha ao conectar com o servidor de pagamento. Verifique sua conexão ou tente novamente mais tarde.');
+      }
+      
       throw new Error(`Falha ao criar sessão de pagamento: ${error.message}`);
     }
     
