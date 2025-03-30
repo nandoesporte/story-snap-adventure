@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -41,6 +40,7 @@ const Navbar = () => {
 
   const navItems: NavItem[] = [
     { name: 'Início', path: '/' },
+    { name: 'Planos', path: '/planos' },
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Biblioteca', path: '/library' },
@@ -174,7 +174,7 @@ const Navbar = () => {
                 ))}
                 <li>
                   <Link
-                    to="/auth"
+                    to="/register"
                     className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
                   >
                     Inscreva-se

@@ -39,7 +39,7 @@ const Index = () => {
                     <Button variant="outline">Entrar</Button>
                   </Link>
                   <Link to="/register">
-                    <Button variant="gradient">Inscrever-se</Button>
+                    <Button className="bg-indigo-700 hover:bg-indigo-800">Inscrever-se</Button>
                   </Link>
                 </div>
               )
@@ -61,4 +61,3 @@ const Index = () => {
 };
 
 export default Index;
-

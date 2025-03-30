@@ -7,6 +7,8 @@ import StoryCreator from './pages/StoryCreator';
 import Library from './pages/Library';
 import StoryViewer from './components/StoryViewer';
 import Admin from './pages/Admin';
+import Planos from './pages/Planos';
+import Subscription from './pages/Subscription';
 import { useAuth } from './context/AuthContext';
 
 function App() {
@@ -22,6 +24,11 @@ function App() {
       <Route path="/story/create" element={<StoryCreator />} />
       <Route path="/story/:id" element={<StoryViewer />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/planos" element={<Planos />} />
+      <Route
+        path="/subscription"
+        element={user ? <Subscription /> : <Navigate to="/login" />}
+      />
       <Route 
         path="/library" 
         element={user ? <Library /> : <Navigate to="/login" />} 
