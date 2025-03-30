@@ -212,7 +212,7 @@ async function processAsaasPayment(
     
     // Step 1: Check if the customer already exists or create a new one
     try {
-      // First, let's validate our API key before making any customer-related requests
+      // First, let's validate our API key by checking Asaas API status
       console.log("Validating API key...");
       
       try {
