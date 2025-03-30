@@ -205,12 +205,12 @@ async function processAsaasPayment(
     
     // Step 1: Check if the customer already exists or create a new one
     try {
-      // First, let's validate our API key using a properly documented endpoint
+      // First, let's validate our API key with a simpler approach
       console.log("Validating API key...");
       
       try {
-        // Using a documented API endpoint from Asaas that is guaranteed to exist
-        const validateResponse = await fetch(`${apiUrl}/finance/balance`, {
+        // Just try to get customer information, a simpler operation that should work with minimal permissions
+        const validateResponse = await fetch(`${apiUrl}/customers?limit=1`, {
           method: "GET",
           headers: {
             "access_token": accessToken,
@@ -221,9 +221,24 @@ async function processAsaasPayment(
         if (!validateResponse.ok) {
           const errorText = await validateResponse.text();
           console.error("API key validation failed:", errorText);
+          
+          // Check for specific permission error messages
+          if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || validateResponse.status === 403) {
+            return new Response(
+              JSON.stringify({ 
+                error: "Erro de permissão na API do Asaas", 
+                details: "Verifique se a API Key tem as permissões necessárias na sua conta Asaas."
+              }),
+              {
+                status: 403,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          
           return new Response(
             JSON.stringify({ 
-              error: "Invalid Asaas API key or connection issue", 
+              error: "Chave de API do Asaas inválida ou problema de conexão", 
               details: `Status: ${validateResponse.status}` 
             }),
             {
@@ -237,7 +252,10 @@ async function processAsaasPayment(
       } catch (validationError) {
         console.error("API validation error:", validationError);
         return new Response(
-          JSON.stringify({ error: "Failed to validate Asaas API connection" }),
+          JSON.stringify({ 
+            error: "Falha ao validar conexão com API do Asaas",
+            details: "Verifique sua conexão de internet e tente novamente."
+          }),
           {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -261,6 +279,21 @@ async function processAsaasPayment(
         if (!findCustomerResponse.ok) {
           const errorText = await findCustomerResponse.text();
           console.error("Error finding customer:", errorText);
+          
+          // Check for specific permission errors
+          if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || findCustomerResponse.status === 403) {
+            return new Response(
+              JSON.stringify({ 
+                error: "Erro de permissão na API do Asaas", 
+                details: "Sua chave de API não tem permissão para consultar clientes."
+              }),
+              {
+                status: 403,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          
           throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
         }
 
@@ -290,6 +323,21 @@ async function processAsaasPayment(
           if (!createCustomerResponse.ok) {
             const errorText = await createCustomerResponse.text();
             console.error("Error creating customer:", errorText);
+            
+            // Check for permission errors
+            if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || createCustomerResponse.status === 403) {
+              return new Response(
+                JSON.stringify({ 
+                  error: "Erro de permissão na API do Asaas", 
+                  details: "Sua chave de API não tem permissão para criar clientes."
+                }),
+                {
+                  status: 403,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                }
+              );
+            }
+            
             throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
           }
 
@@ -358,6 +406,21 @@ async function processAsaasPayment(
         if (!createPaymentResponse.ok) {
           const errorText = await createPaymentResponse.text();
           console.error("Error creating payment:", errorText);
+          
+          // Check for permission errors
+          if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || createPaymentResponse.status === 403) {
+            return new Response(
+              JSON.stringify({ 
+                error: "Erro de permissão na API do Asaas", 
+                details: "Sua chave de API não tem permissão para criar pagamentos."
+              }),
+              {
+                status: 403,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          
           throw new Error(`Failed to create payment: ${createPaymentResponse.status}`);
         }
 
@@ -390,6 +453,21 @@ async function processAsaasPayment(
           if (!getPaymentResponse.ok) {
             const errorText = await getPaymentResponse.text();
             console.error("Error getting payment details:", errorText);
+            
+            // Check for permission errors
+            if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || getPaymentResponse.status === 403) {
+              return new Response(
+                JSON.stringify({ 
+                  error: "Erro de permissão na API do Asaas", 
+                  details: "Sua chave de API não tem permissão para acessar detalhes de pagamento."
+                }),
+                {
+                  status: 403,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                }
+              );
+            }
+            
             throw new Error(`Failed to get payment details: ${getPaymentResponse.status}`);
           }
           
