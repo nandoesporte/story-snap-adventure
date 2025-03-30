@@ -86,7 +86,7 @@ serve(async (req) => {
       console.log("Fetching user profile data...");
       const { data: profileData, error: profileError } = await supabaseClient
         .from("user_profiles")
-        .select("display_name, email")
+        .select("display_name")
         .eq("id", user_id)
         .maybeSingle();
         
@@ -95,49 +95,42 @@ serve(async (req) => {
         // We'll fallback to default values later
       } else if (profileData) {
         userName = profileData.display_name || `User ${user_id.substring(0, 8)}`;
-        // If there's an email field in user_profiles we can use it
-        if (profileData.email) {
-          userEmail = profileData.email;
-        }
       }
     } catch (profileError) {
       console.error("Unexpected error fetching user profile:", profileError);
     }
     
-    // If we still don't have user info, try to get it from auth.users
-    // But we'll use the public API instead of admin API
-    if (!userEmail) {
-      console.log("Fetching user email from session data...");
-      try {
-        // Get the authorization header from the request
-        const authHeader = req.headers.get('authorization');
-        if (authHeader) {
-          const token = authHeader.split(' ')[1];
-          if (token) {
-            // Set the auth token to get the user's session
-            supabaseClient.auth.setSession({
-              access_token: token,
-              refresh_token: '',
-            });
+    // Try to get user email from auth.users using the session
+    console.log("Fetching user email from session data...");
+    try {
+      // Get the authorization header from the request
+      const authHeader = req.headers.get('authorization');
+      if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        if (token) {
+          // Set the auth token to get the user's session
+          supabaseClient.auth.setSession({
+            access_token: token,
+            refresh_token: '',
+          });
+          
+          // Get the user session
+          const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+          if (sessionError) {
+            console.error("Error getting session:", sessionError);
+          } else if (sessionData?.session?.user?.email) {
+            userEmail = sessionData.session.user.email;
+            console.log("Found email from session:", userEmail);
             
-            // Get the user session
-            const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-            if (sessionError) {
-              console.error("Error getting session:", sessionError);
-            } else if (sessionData?.session?.user?.email) {
-              userEmail = sessionData.session.user.email;
-              console.log("Found email from session:", userEmail);
-              
-              // If we don't have a name yet, try to get it from metadata
-              if (!userName && sessionData.session.user.user_metadata?.name) {
-                userName = sessionData.session.user.user_metadata.name;
-              }
+            // If we don't have a name yet, try to get it from metadata
+            if (!userName && sessionData.session.user.user_metadata?.name) {
+              userName = sessionData.session.user.user_metadata.name;
             }
           }
         }
-      } catch (authError) {
-        console.error("Failed to fetch user email from session:", authError);
       }
+    } catch (authError) {
+      console.error("Failed to fetch user email from session:", authError);
     }
     
     // If we still don't have a valid email, generate a fallback
