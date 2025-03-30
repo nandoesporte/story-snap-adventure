@@ -12,6 +12,7 @@ import Subscription from './pages/Subscription';
 import CreateStory from './pages/CreateStory';
 import MyStories from './pages/MyStories';
 import { useAuth } from './context/AuthContext';
+import NotFound from './pages/NotFound';
 
 function App() {
   const { user, loading } = useAuth();
@@ -23,9 +24,10 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
-      <Route path="/story/create" element={<StoryCreator />} />
+      <Route path="/story-creator" element={<StoryCreator />} />
       <Route path="/story/:id" element={<StoryViewer />} />
       <Route path="/view-story/:id" element={<StoryViewer />} />
+      <Route path="/view-story" element={<StoryViewer />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/planos" element={<Planos />} />
       <Route 
@@ -56,6 +58,7 @@ function App() {
         path="/auth"
         element={user ? <Navigate to="/" /> : <Auth />}
       />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
