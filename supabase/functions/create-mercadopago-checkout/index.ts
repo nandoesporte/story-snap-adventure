@@ -69,6 +69,13 @@ serve(async (req) => {
       );
     }
     
+    // Get webhook URL if configured
+    const { data: webhookData } = await supabaseClient
+      .from("system_configurations")
+      .select("value")
+      .eq("key", "mercadopago_webhook_url")
+      .single();
+    
     const mercadoPagoAccessToken = configData.value;
     const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
     const preference = new Preference(client);
@@ -107,29 +114,37 @@ serve(async (req) => {
     const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
     const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
 
+    // Create preference object
+    const preferenceData = {
+      items: [
+        {
+          id: plan.id,
+          title: `${plan.name} - ${plan.interval === 'month' ? 'Mensal' : 'Anual'}`,
+          quantity: 1,
+          unit_price: Number(plan.price),
+          currency_id: plan.currency || "BRL"
+        }
+      ],
+      back_urls: {
+        success: successUrl,
+        failure: cancelUrl,
+        pending: successUrl
+      },
+      auto_return: "approved",
+      metadata: {
+        userId: user.id,
+        planId: planId
+      }
+    };
+
+    // Add notification URL if configured
+    if (webhookData?.value) {
+      preferenceData.notification_url = webhookData.value;
+    }
+
     // Create a preference
     const result = await preference.create({
-      body: {
-        items: [
-          {
-            id: plan.id,
-            title: `${plan.name} - ${plan.interval === 'month' ? 'Mensal' : 'Anual'}`,
-            quantity: 1,
-            unit_price: Number(plan.price),
-            currency_id: plan.currency || "BRL"
-          }
-        ],
-        back_urls: {
-          success: successUrl,
-          failure: cancelUrl,
-          pending: successUrl
-        },
-        auto_return: "approved",
-        metadata: {
-          userId: user.id,
-          planId: planId
-        }
-      }
+      body: preferenceData
     });
 
     return new Response(

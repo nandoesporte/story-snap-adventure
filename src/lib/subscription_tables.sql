@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   cancel_at_period_end BOOLEAN DEFAULT false,
   stripe_subscription_id TEXT,
   stripe_customer_id TEXT,
+  mercadopago_payment_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS subscription_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   plan_id UUID NOT NULL REFERENCES subscription_plans(id),
-  action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'canceled', 'renewed')),
+  action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'canceled', 'renewed', 'failed')),
   details JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -191,38 +191,33 @@ export async function createSubscriptionCheckout(userId: string, planId: string,
 }
 
 // Create a checkout session for Mercado Pago
-export async function createMercadoPagoCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
+export const createMercadoPagoCheckout = async (userId: string, planId: string, returnUrl?: string) => {
+  if (!userId || !planId) {
+    throw new Error('Missing required parameters');
+  }
+
   try {
-    console.log('Creating Mercado Pago checkout session with:', { userId, planId, returnUrl });
-    
-    // Call the Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
-      body: { planId, returnUrl }
-    });
-    
-    if (error) {
-      console.error('Error from create-mercadopago-checkout function:', error);
-      
-      // Check if it's a connectivity issue
-      if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
-        throw new Error('Falha ao conectar com o servidor do Mercado Pago. Verifique sua conexão ou tente novamente mais tarde.');
+    const { data, error } = await supabase.functions.invoke("create-mercadopago-checkout", {
+      body: {
+        planId: planId,
+        returnUrl: returnUrl
       }
-      
-      throw new Error(`Falha ao criar sessão de pagamento Mercado Pago: ${error.message}`);
+    });
+
+    if (error) {
+      console.error('Error creating Mercado Pago checkout:', error);
+      throw new Error(`Failed to create checkout: ${error.message}`);
     }
-    
-    if (!data || !data.url) {
-      console.error('Invalid response from create-mercadopago-checkout function:', data);
-      throw new Error('Resposta inválida do servidor do Mercado Pago');
+
+    if (!data?.url) {
+      throw new Error('No checkout URL returned from Mercado Pago');
     }
-    
-    console.log('Mercado Pago checkout session created successfully, URL received');
+
+    console.log('Mercado Pago checkout created:', data);
     return data.url;
-  } catch (error) {
-    console.error('Error in createMercadoPagoCheckout:', error);
-    throw error instanceof Error 
-      ? error 
-      : new Error('Falha ao criar sessão de pagamento do Mercado Pago');
+  } catch (err) {
+    console.error('Error in createMercadoPagoCheckout:', err);
+    throw err;
   }
 }
 

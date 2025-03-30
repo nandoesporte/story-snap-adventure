@@ -5,90 +5,95 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Check, Copy, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { AlertCircle, Check, Copy, EyeIcon, EyeOffIcon, Link } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const MercadoPagoApiKeyManager = () => {
   const [apiKey, setApiKey] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [isRevealed, setIsRevealed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch current API key
+  // Fetch current API key and webhook URL
   const { data, isLoading, error } = useQuery({
-    queryKey: ['mercadopago-api-key'],
+    queryKey: ['mercadopago-config'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: apiKeyData, error: apiKeyError } = await supabase
         .from('system_configurations')
         .select('value')
         .eq('key', 'mercadopago_access_token')
         .single();
         
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No record found, which is fine for a new setup
-          return { value: '' };
-        }
-        throw error;
+      const { data: webhookData, error: webhookError } = await supabase
+        .from('system_configurations')
+        .select('value')
+        .eq('key', 'mercadopago_webhook_url')
+        .single();
+        
+      if (apiKeyError && apiKeyError.code !== 'PGRST116') {
+        throw apiKeyError;
       }
       
-      return data;
+      return { 
+        apiKey: apiKeyData?.value || '',
+        webhookUrl: webhookData?.value || ''
+      };
     }
   });
 
   useEffect(() => {
-    if (data && data.value) {
-      setApiKey(data.value);
+    if (data) {
+      setApiKey(data.apiKey);
+      setWebhookUrl(data.webhookUrl);
     }
   }, [data]);
 
-  // Save API key
-  const saveApiKey = useMutation({
-    mutationFn: async () => {
-      setIsSaving(true);
+  // Save configuration
+  const saveConfig = useMutation({
+    mutationFn: async ({ key, value }: { key: string, value: string }) => {
+      const { data: existingRecord, error: checkError } = await supabase
+        .from('system_configurations')
+        .select('id')
+        .eq('key', key)
+        .single();
+        
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
       
-      try {
-        const { data: existingRecord, error: checkError } = await supabase
+      if (existingRecord) {
+        // Update existing record
+        const { error: updateError } = await supabase
           .from('system_configurations')
-          .select('id')
-          .eq('key', 'mercadopago_access_token')
-          .single();
+          .update({ value })
+          .eq('key', key);
           
-        if (checkError && checkError.code !== 'PGRST116') {
-          throw checkError;
-        }
-        
-        if (existingRecord) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('system_configurations')
-            .update({ value: apiKey })
-            .eq('key', 'mercadopago_access_token');
-            
-          if (updateError) throw updateError;
-        } else {
-          // Insert new record
-          const { error: insertError } = await supabase
-            .from('system_configurations')
-            .insert({ key: 'mercadopago_access_token', value: apiKey });
-            
-          if (insertError) throw insertError;
-        }
-        
-        return { success: true };
-      } finally {
-        setIsSaving(false);
+        if (updateError) throw updateError;
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('system_configurations')
+          .insert({ key, value });
+          
+        if (insertError) throw insertError;
+      }
+      
+      return { key, value };
+    },
+    onSuccess: (data) => {
+      const configName = data.key === 'mercadopago_access_token' ? 'API key' : 'Webhook URL';
+      toast.success(`Mercado Pago ${configName} saved successfully`);
+      queryClient.invalidateQueries({ queryKey: ['mercadopago-config'] });
+      if (data.key === 'mercadopago_access_token') {
+        setIsRevealed(false);
       }
     },
-    onSuccess: () => {
-      toast.success('Chave de API do Mercado Pago salva com sucesso');
-      queryClient.invalidateQueries({ queryKey: ['mercadopago-api-key'] });
-      setIsRevealed(false);
-    },
-    onError: (error) => {
-      console.error('Error saving Mercado Pago API key:', error);
-      toast.error('Erro ao salvar chave de API do Mercado Pago');
+    onError: (error, variables) => {
+      console.error(`Error saving Mercado Pago ${variables.key}:`, error);
+      toast.error(`Error saving Mercado Pago configuration`);
     }
   });
 
@@ -96,14 +101,34 @@ const MercadoPagoApiKeyManager = () => {
     setIsRevealed(!isRevealed);
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(apiKey);
-    toast.success('Chave de API copiada para a área de transferência');
+  const handleCopy = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${type} copied to clipboard`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
-    saveApiKey.mutate();
+    saveConfig.mutate({ key: 'mercadopago_access_token', value: apiKey });
+  };
+
+  const handleSaveWebhookUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveConfig.mutate({ key: 'mercadopago_webhook_url', value: webhookUrl });
+  };
+
+  // Generate the Supabase Edge Function URL for the webhook
+  const generateWebhookUrl = () => {
+    // Extract project reference from Supabase URL
+    const projectRef = supabase.supabaseUrl.match(/https:\/\/([^.]+)/)?.[1];
+    
+    if (!projectRef) {
+      toast.error("Could not determine Supabase project reference");
+      return;
+    }
+    
+    const webhookUrl = `https://${projectRef}.supabase.co/functions/v1/mercadopago-webhook`;
+    setWebhookUrl(webhookUrl);
+    toast.success("Webhook URL generated");
   };
 
   return (
@@ -111,7 +136,7 @@ const MercadoPagoApiKeyManager = () => {
       <CardHeader>
         <CardTitle className="text-xl">Configuração do Mercado Pago</CardTitle>
         <CardDescription>
-          Configure sua chave de acesso para integração com o Mercado Pago.
+          Configure sua integração com o Mercado Pago.
           <a 
             href="https://www.mercadopago.com.br/developers/pt/docs/checkout-api/landing" 
             target="_blank" 
@@ -122,64 +147,128 @@ const MercadoPagoApiKeyManager = () => {
           </a>
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="mercadopago-api-key">Access Token do Mercado Pago</Label>
-              <div className="flex">
-                <Input
-                  id="mercadopago-api-key"
-                  type={isRevealed ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="APP_USR-0000000000000000-000000-00000000000000000000000000000000-000000000"
-                  className="flex-grow"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleReveal}
-                  className="ml-2"
-                >
-                  {isRevealed ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-                </Button>
-                {apiKey && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopy}
-                    className="ml-2"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              {isLoading && <p className="text-sm text-muted-foreground">Carregando configuração...</p>}
-              {error && (
-                <div className="flex items-center text-destructive text-sm mt-2">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  Erro ao carregar configuração
+      <CardContent>
+        <Tabs defaultValue="api-key">
+          <TabsList className="mb-4">
+            <TabsTrigger value="api-key">API Key</TabsTrigger>
+            <TabsTrigger value="webhook">Webhook</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="api-key">
+            <form onSubmit={handleSaveApiKey}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="mercadopago-api-key">Access Token do Mercado Pago</Label>
+                  <div className="flex">
+                    <Input
+                      id="mercadopago-api-key"
+                      type={isRevealed ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="APP_USR-0000000000000000-000000-00000000000000000000000000000000-000000000"
+                      className="flex-grow"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleReveal}
+                      className="ml-2"
+                    >
+                      {isRevealed ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                    </Button>
+                    {apiKey && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleCopy(apiKey, "API Key")}
+                        className="ml-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {isLoading && <p className="text-sm text-muted-foreground">Carregando configuração...</p>}
+                  {error && (
+                    <div className="flex items-center text-destructive text-sm mt-2">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      Erro ao carregar configuração
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? (
-              <>Salvando</>
-            ) : (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Salvar Configuração
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </form>
+                <Button type="submit" disabled={saveConfig.isPending}>
+                  {saveConfig.isPending && saveConfig.variables?.key === 'mercadopago_access_token' ? (
+                    <>Salvando</>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Salvar API Key
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="webhook">
+            <form onSubmit={handleSaveWebhookUrl}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="mercadopago-webhook-url">URL de Webhook</Label>
+                  <div className="flex">
+                    <Input
+                      id="mercadopago-webhook-url"
+                      type="text"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      placeholder="https://seu-projeto.supabase.co/functions/v1/mercadopago-webhook"
+                      className="flex-grow"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleCopy(webhookUrl, "Webhook URL")}
+                      className="ml-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={generateWebhookUrl}
+                    className="mt-2"
+                  >
+                    <Link className="mr-2 h-4 w-4" />
+                    Gerar URL automática
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Use esta URL para configurar webhooks no painel do Mercado Pago. Isto permitirá processamento automático de pagamentos.
+                  </p>
+                </div>
+                <Button type="submit" disabled={saveConfig.isPending}>
+                  {saveConfig.isPending && saveConfig.variables?.key === 'mercadopago_webhook_url' ? (
+                    <>Salvando</>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Salvar URL de Webhook
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+      <CardFooter>
+        <p className="text-sm text-muted-foreground">
+          Configure estas opções para permitir pagamentos via Mercado Pago. 
+          Os usuários poderão realizar pagamentos via cartão de crédito, boleto ou Pix.
+        </p>
+      </CardFooter>
     </Card>
   );
 };
