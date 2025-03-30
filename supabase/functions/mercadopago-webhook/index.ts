@@ -20,6 +20,22 @@ serve(async (req) => {
     const payload = await req.json();
     console.log("Received Mercado Pago webhook:", JSON.stringify(payload));
 
+    // Handle test requests from MercadoPago
+    // MercadoPago sends test requests when setting up webhooks
+    if (payload.type === "test" || 
+        (payload.data && payload.data.id === "123456") || 
+        payload.id === "123456") {
+      console.log("Received test webhook from MercadoPago");
+      
+      return new Response(
+        JSON.stringify({ success: true, message: "Test webhook received successfully" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
