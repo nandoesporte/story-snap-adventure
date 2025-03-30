@@ -1,20 +1,9 @@
 
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import CreateStory from "./CreateStory";
 
 const CreateStoryPage = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Redirecionar para a nova página de criação de histórias
-    navigate("/create-story");
-  }, [navigate]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p>Redirecionando...</p>
-    </div>
-  );
+  return <CreateStory />;
 };
 
 export default CreateStoryPage;
