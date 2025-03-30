@@ -25,6 +25,6 @@ export const createAsaasCheckout = async (userId: string, planId: string, return
     return data.url;
   } catch (error) {
     console.error('Error creating Asaas checkout:', error);
-    throw new Error('Não foi possível criar a sessão de pagamento');
+    throw new Error('Não foi possível criar a sessão de pagamento. Verifique os logs');
   }
 };
