@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -83,20 +84,38 @@ export const checkUserSubscription = async (userId: string) => {
 // Create a MercadoPago checkout session
 export const createMercadoPagoCheckout = async (userId: string, planId: string, returnUrl: string) => {
   try {
+    console.log(`Creating MercadoPago checkout for user: ${userId}, plan: ${planId}`);
+    
+    // First verify the payment method is available
+    const paymentMethods = await getAvailablePaymentMethods();
+    if (!paymentMethods.mercadopago) {
+      throw new Error('Método de pagamento Mercado Pago não está disponível ou configurado');
+    }
+    
     const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
       body: { userId, planId, returnUrl }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw new Error(`Erro na função de checkout: ${error.message}`);
+    }
     
-    if (!data || !data.checkoutUrl) {
-      throw new Error('Resposta inválida do servidor de pagamento');
+    if (!data) {
+      console.error('No data received from function');
+      throw new Error('Não foi recebida resposta do servidor de pagamento');
+    }
+    
+    if (!data.checkoutUrl) {
+      console.error('Invalid response from payment server:', data);
+      throw new Error('URL de checkout não retornada pelo servidor de pagamento');
     }
 
+    console.log('MercadoPago checkout URL generated:', data.checkoutUrl);
     return data.checkoutUrl;
   } catch (error) {
     console.error('Error creating MercadoPago checkout:', error);
-    throw new Error('Não foi possível criar a sessão de pagamento');
+    throw new Error(`Não foi possível criar a sessão de pagamento: ${error.message}`);
   }
 };
 

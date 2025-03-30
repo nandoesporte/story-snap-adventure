@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -27,15 +28,18 @@ const SubscriptionPlanSelector = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mercadopago');
   const [intervalFilter, setIntervalFilter] = useState('month');
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isPaymentMethodLoading, setIsPaymentMethodLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
+        setIsPaymentMethodLoading(true);
         
         const methods = await getAvailablePaymentMethods();
         console.log('Payment methods loaded:', methods);
         setPaymentMethods(methods);
+        setIsPaymentMethodLoading(false);
         
         // Set Mercado Pago as default payment method if available
         if (methods.mercadopago) {
@@ -84,6 +88,11 @@ const SubscriptionPlanSelector = () => {
     console.log('Payment methods when selecting plan:', paymentMethods);
     
     // Check if Mercado Pago is available
+    if (isPaymentMethodLoading) {
+      toast.warning('Verificando disponibilidade do método de pagamento...');
+      return;
+    }
+    
     if (!paymentMethods.mercadopago) {
       toast.error('O método de pagamento Mercado Pago não está disponível. Por favor, contate o administrador.');
       return;
@@ -195,7 +204,21 @@ const SubscriptionPlanSelector = () => {
         </Card>
       )}
       
-      {noPaymentMethodsConfigured && (
+      {isPaymentMethodLoading ? (
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div>
+                <h2 className="text-lg font-medium">Verificando métodos de pagamento...</h2>
+                <p className="text-muted-foreground mt-1">
+                  Aguarde enquanto verificamos os métodos de pagamento disponíveis.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : noPaymentMethodsConfigured && (
         <Card className="mb-8 border-destructive">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -203,7 +226,7 @@ const SubscriptionPlanSelector = () => {
               <div>
                 <h2 className="text-lg font-medium text-destructive">Configuração de pagamento necessária</h2>
                 <p className="text-muted-foreground mt-1">
-                  O método de pagamento Mercado Pago não está configurado. Entre em contato com o administrador do sistema.
+                  O método de pagamento Mercado Pago não está configurado ou está desativado. Entre em contato com o administrador do sistema.
                 </p>
               </div>
             </div>
@@ -283,6 +306,7 @@ const SubscriptionPlanSelector = () => {
                 <Button 
                   className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
                   onClick={() => handleSelectPlan(plan)}
+                  disabled={isPaymentMethodLoading}
                 >
                   {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
                 </Button>
@@ -318,6 +342,7 @@ const SubscriptionPlanSelector = () => {
                         <Button 
                           className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
                           onClick={() => handleSelectPlan(plan)}
+                          disabled={isPaymentMethodLoading}
                         >
                           {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
                         </Button>
@@ -392,7 +417,14 @@ const SubscriptionPlanSelector = () => {
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground">Forma de pagamento</h3>
               
-              {paymentMethods.mercadopago ? (
+              {isPaymentMethodLoading ? (
+                <div className="flex items-center justify-center p-4 bg-muted rounded-md">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                  <p className="text-muted-foreground">
+                    Verificando métodos de pagamento...
+                  </p>
+                </div>
+              ) : paymentMethods.mercadopago ? (
                 <div 
                   className="border rounded-lg p-4 cursor-pointer transition-all bg-[#8B5CF6]/5 border-[#8B5CF6]"
                 >
@@ -436,7 +468,7 @@ const SubscriptionPlanSelector = () => {
               <Button 
                 className="w-full bg-[#8B5CF6] hover:bg-[#7A4CE0]"
                 onClick={handleProceedToPayment}
-                disabled={isProcessing || !paymentMethods.mercadopago}
+                disabled={isProcessing || isPaymentMethodLoading || !paymentMethods.mercadopago}
               >
                 {isProcessing ? (
                   <>

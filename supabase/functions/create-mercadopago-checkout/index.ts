@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { MercadoPagoConfig, Preference } from "https://esm.sh/mercadopago@2.0.5";
 
 const corsHeaders = {
@@ -54,9 +54,25 @@ serve(async (req) => {
     }
 
     // Create a Supabase client with the auth header
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase URL or Anon Key in environment variables");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    console.log("Creating Supabase client with URL:", supabaseUrl);
+    
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || "",
+      supabaseUrl,
+      supabaseAnonKey,
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -67,6 +83,7 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
+      console.error("Error fetching user:", userError);
       return new Response(
         JSON.stringify({ error: "Error fetching user" }),
         {
@@ -75,6 +92,8 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log("User authenticated:", user.id);
 
     // Get Mercado Pago API key from database
     const { data: configData, error: configError } = await supabaseClient
@@ -198,7 +217,21 @@ serve(async (req) => {
       const preference = new Preference(client);
 
       // Parse request body
-      const { planId, returnUrl } = await req.json();
+      let requestData;
+      try {
+        requestData = await req.json();
+      } catch (jsonError) {
+        console.error("Failed to parse request body:", jsonError);
+        return new Response(
+          JSON.stringify({ error: "Falha ao processar dados da requisição" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const { planId, returnUrl } = requestData;
 
       if (!planId) {
         return new Response(
@@ -210,6 +243,7 @@ serve(async (req) => {
         );
       }
 
+      console.log("Fetching plan details for planId:", planId);
       // Get plan details from database
       const { data: plan, error: planError } = await supabaseClient
         .from("subscription_plans")
@@ -218,6 +252,7 @@ serve(async (req) => {
         .single();
 
       if (planError || !plan) {
+        console.error("Plan not found:", planError);
         return new Response(
           JSON.stringify({ error: "Plan not found" }),
           {
@@ -227,9 +262,12 @@ serve(async (req) => {
         );
       }
 
+      console.log("Plan details retrieved:", plan);
+
       // Set return URL and webhook URL
-      const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
-      const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
+      const origin = req.headers.get("origin") || "https://znumbovtprdnfddwwerf.supabase.co";
+      const successUrl = returnUrl || `${origin}/my-account`;
+      const cancelUrl = returnUrl || `${origin}/subscription`;
       const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
 
       // Create preference object
@@ -265,9 +303,14 @@ serve(async (req) => {
 
       console.log("MercadoPago preference created successfully:", result.id);
       
+      const checkoutUrl = result.init_point;
+      if (!checkoutUrl) {
+        throw new Error("MercadoPago returned an invalid checkout URL");
+      }
+      
       return new Response(
         JSON.stringify({ 
-          url: result.init_point,
+          checkoutUrl: checkoutUrl,
           preferenceId: result.id
         }),
         {
