@@ -1,16 +1,14 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getSubscriptionPlans, checkUserSubscription, createMercadoPagoCheckout } from '@/lib/stripe';
-import { createAsaasCheckout } from '@/lib/asaas';
 import { getAvailablePaymentMethods } from '@/lib/stripe';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Check, CreditCard, Loader2, Store, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Store, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -23,10 +21,10 @@ const SubscriptionPlanSelector = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [paymentMethods, setPaymentMethods] = useState({ mercadopago: false, asaas: false });
+  const [paymentMethods, setPaymentMethods] = useState({ mercadopago: false });
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mercadopago');
   const [intervalFilter, setIntervalFilter] = useState('month');
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
@@ -38,11 +36,9 @@ const SubscriptionPlanSelector = () => {
         const methods = await getAvailablePaymentMethods();
         setPaymentMethods(methods);
         
-        // Set first available payment method as default
+        // Set Mercado Pago as default payment method
         if (methods.mercadopago) {
           setSelectedPaymentMethod('mercadopago');
-        } else if (methods.asaas) {
-          setSelectedPaymentMethod('asaas');
         }
         
         const plansData = await getSubscriptionPlans();
@@ -82,18 +78,10 @@ const SubscriptionPlanSelector = () => {
     setSelectedPlan(plan);
     setPaymentError('');
     
-    // Get available payment methods count
-    const availableMethodsCount = Object.values(paymentMethods).filter(Boolean).length;
-    
-    if (availableMethodsCount === 0) {
-      toast.error('Não há métodos de pagamento disponíveis');
+    // Check if Mercado Pago is available
+    if (!paymentMethods.mercadopago) {
+      toast.error('O método de pagamento Mercado Pago não está disponível');
       return;
-    }
-    
-    // If there's only one payment method, select it automatically
-    if (availableMethodsCount === 1) {
-      if (paymentMethods.mercadopago) setSelectedPaymentMethod('mercadopago');
-      if (paymentMethods.asaas) setSelectedPaymentMethod('asaas');
     }
     
     // Open the payment dialog immediately
@@ -106,40 +94,17 @@ const SubscriptionPlanSelector = () => {
       return;
     }
     
-    if (!selectedPaymentMethod) {
-      toast.error('Selecione um método de pagamento antes de continuar');
-      return;
-    }
-    
     try {
       setIsProcessing(true);
       setPaymentError('');
       
       const returnUrl = `${window.location.origin}/my-account`;
       
-      let checkoutUrl;
-      
-      if (selectedPaymentMethod === 'mercadopago') {
-        checkoutUrl = await createMercadoPagoCheckout(
-          user.id,
-          selectedPlan.id,
-          returnUrl
-        );
-      } else if (selectedPaymentMethod === 'asaas') {
-        console.log('Creating Asaas checkout with parameters:', {
-          userId: user.id,
-          planId: selectedPlan.id,
-          returnUrl
-        });
-        
-        checkoutUrl = await createAsaasCheckout(
-          user.id,
-          selectedPlan.id,
-          returnUrl
-        );
-        
-        console.log('Checkout URL returned:', checkoutUrl);
-      }
+      const checkoutUrl = await createMercadoPagoCheckout(
+        user.id,
+        selectedPlan.id,
+        returnUrl
+      );
       
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
@@ -194,7 +159,7 @@ const SubscriptionPlanSelector = () => {
   }
 
   const filteredPlans = plans.filter(plan => plan.interval === intervalFilter);
-  const noPaymentMethodsConfigured = !paymentMethods.mercadopago && !paymentMethods.asaas;
+  const noPaymentMethodsConfigured = !paymentMethods.mercadopago;
   
   // Count available payment methods
   const availablePaymentMethods = Object.keys(paymentMethods).filter(key => paymentMethods[key]);
@@ -232,7 +197,7 @@ const SubscriptionPlanSelector = () => {
               <div>
                 <h2 className="text-lg font-medium text-destructive">Configuração de pagamento necessária</h2>
                 <p className="text-muted-foreground mt-1">
-                  Os métodos de pagamento não estão configurados. Entre em contato com o administrador do sistema.
+                  O método de pagamento Mercado Pago não está configurado. Entre em contato com o administrador do sistema.
                 </p>
               </div>
             </div>
@@ -398,7 +363,7 @@ const SubscriptionPlanSelector = () => {
               </Button>
             </DialogTitle>
             <DialogDescription className="text-white/80">
-              Escolha como deseja pagar sua assinatura
+              Continue para pagar sua assinatura
             </DialogDescription>
           </div>
           
@@ -421,71 +386,24 @@ const SubscriptionPlanSelector = () => {
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground">Forma de pagamento</h3>
               
-              {availablePaymentMethods.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3">
-                  {paymentMethods.mercadopago && (
-                    <div 
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        selectedPaymentMethod === 'mercadopago' 
-                          ? 'bg-[#8B5CF6]/5 border-[#8B5CF6]' 
-                          : 'hover:bg-muted/60'
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('mercadopago')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-full w-5 h-5 flex items-center justify-center border ${
-                          selectedPaymentMethod === 'mercadopago' 
-                            ? 'border-[#8B5CF6] bg-[#8B5CF6]' 
-                            : 'border-gray-300'
-                        }`}>
-                          {selectedPaymentMethod === 'mercadopago' && (
-                            <Check className="h-3 w-3 text-white" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium flex items-center">
-                            <Store className="h-4 w-4 mr-2 text-[#8B5CF6]" />
-                            Mercado Pago
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Cartão, Boleto e Pix
-                          </p>
-                        </div>
-                      </div>
+              {paymentMethods.mercadopago ? (
+                <div 
+                  className="border rounded-lg p-4 cursor-pointer transition-all bg-[#8B5CF6]/5 border-[#8B5CF6]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full w-5 h-5 flex items-center justify-center border border-[#8B5CF6] bg-[#8B5CF6]">
+                      <Check className="h-3 w-3 text-white" />
                     </div>
-                  )}
-                  
-                  {paymentMethods.asaas && (
-                    <div 
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        selectedPaymentMethod === 'asaas' 
-                          ? 'bg-[#8B5CF6]/5 border-[#8B5CF6]' 
-                          : 'hover:bg-muted/60'
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('asaas')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-full w-5 h-5 flex items-center justify-center border ${
-                          selectedPaymentMethod === 'asaas' 
-                            ? 'border-[#8B5CF6] bg-[#8B5CF6]' 
-                            : 'border-gray-300'
-                        }`}>
-                          {selectedPaymentMethod === 'asaas' && (
-                            <Check className="h-3 w-3 text-white" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium flex items-center">
-                            <CreditCard className="h-4 w-4 mr-2 text-[#8B5CF6]" />
-                            Asaas
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Cartão de crédito, Boleto e Pix
-                          </p>
-                        </div>
+                    <div className="flex-1">
+                      <div className="font-medium flex items-center">
+                        <Store className="h-4 w-4 mr-2 text-[#8B5CF6]" />
+                        Mercado Pago
                       </div>
+                      <p className="text-sm text-muted-foreground">
+                        Cartão, Boleto e Pix
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center p-4 bg-muted rounded-md">
@@ -512,7 +430,7 @@ const SubscriptionPlanSelector = () => {
               <Button 
                 className="w-full bg-[#8B5CF6] hover:bg-[#7A4CE0]"
                 onClick={handleProceedToPayment}
-                disabled={isProcessing || !selectedPaymentMethod}
+                disabled={isProcessing || !paymentMethods.mercadopago}
               >
                 {isProcessing ? (
                   <>
@@ -524,8 +442,7 @@ const SubscriptionPlanSelector = () => {
                 )}
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-3">
-                Ao clicar em continuar, você será redirecionado para o site do 
-                {selectedPaymentMethod === 'mercadopago' ? ' Mercado Pago' : ' Asaas'} 
+                Ao clicar em continuar, você será redirecionado para o site do Mercado Pago
                 para completar o pagamento de forma segura.
               </p>
             </div>
