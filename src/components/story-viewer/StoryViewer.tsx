@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,15 +13,20 @@ import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { ImageViewer } from "./ImageViewer";
 
-const StoryViewer: React.FC = () => {
-  const { id } = useParams<{ id?: string }>();
-  const navigate = useNavigate();
+interface StoryViewerProps {
+  storyId?: string;
+}
+
+const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const { 
     storyData, 
     loading, 
     totalPages, 
     handleImageError 
-  } = useStoryData(id);
+  } = useStoryData(storyId);
+  
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   
   const [currentPage, setCurrentPage] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -71,13 +75,11 @@ const StoryViewer: React.FC = () => {
     };
   }, []);
   
-  // Set initial page to show cover and mark as rendered
   useEffect(() => {
     if (storyData && !loading) {
       console.log("Story data loaded, showing cover page");
       setCurrentPage(0);
       
-      // Mark as rendered to ensure visibility
       setTimeout(() => {
         setIsRendered(true);
         console.log("Story viewer marked as rendered");
@@ -209,7 +211,7 @@ const StoryViewer: React.FC = () => {
           data-testid="story-viewer-container"
         >
           <ViewerControls
-            storyId={id}
+            storyId={storyId}
             title={storyData?.title || ""}
             currentPage={currentPage}
             totalPages={totalPages}
@@ -247,7 +249,7 @@ const StoryViewer: React.FC = () => {
                     />
                   ) : (
                     <StoryPage
-                      storyId={id}
+                      storyId={storyId}
                       title={storyData.title}
                       imageUrl={getImageUrl(
                         storyData.pages[currentPage - 1]?.imageUrl || 
