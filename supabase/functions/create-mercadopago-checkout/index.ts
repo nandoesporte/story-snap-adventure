@@ -8,6 +8,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Retry helper function with exponential backoff
+async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 300) {
+  let retries = 0;
+  
+  while (true) {
+    try {
+      return await fn();
+    } catch (error) {
+      retries++;
+      
+      // If we've reached max retries or it's not a temporary error, rethrow
+      if (retries >= maxRetries || 
+         !(error.status === 429 || error.status === 500 || error.status === 503)) {
+        throw error;
+      }
+      
+      // Calculate delay with exponential backoff
+      const delay = initialDelay * Math.pow(2, retries - 1);
+      console.log(`Retry ${retries}/${maxRetries} after ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -91,12 +115,12 @@ serve(async (req) => {
     
     try {
       // Teste a validade do token fazendo uma chamada simples à API do MercadoPago
-      const testResponse = await fetch("https://api.mercadopago.com/v1/payment_methods", {
+      const testResponse = await retryWithBackoff(() => fetch("https://api.mercadopago.com/v1/payment_methods", {
         headers: {
           "Authorization": `Bearer ${mercadoPagoAccessToken}`,
           "Content-Type": "application/json"
         }
-      });
+      }));
       
       if (!testResponse.ok) {
         console.error("Invalid MercadoPago token:", await testResponse.text());
@@ -156,8 +180,8 @@ serve(async (req) => {
     const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
     const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
     
-    // Use the webhook URL from configuration or default to the Stripe webhook URL
-    const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
+    // Use the webhook URL from configuration or default to the Mercado Pago webhook URL
+    const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
 
     // Create preference object
     const preferenceData = {
@@ -185,11 +209,11 @@ serve(async (req) => {
 
     console.log("Creating MercadoPago preference:", JSON.stringify(preferenceData));
 
-    // Create a preference
+    // Create a preference with retry logic for API rate limits
     try {
-      const result = await preference.create({
+      const result = await retryWithBackoff(() => preference.create({
         body: preferenceData
-      });
+      }));
 
       console.log("MercadoPago preference created successfully:", result.id);
       

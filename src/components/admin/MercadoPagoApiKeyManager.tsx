@@ -286,6 +286,7 @@ const MercadoPagoApiKeyManager = () => {
                   <li>Verifique se todas as permissões estão habilitadas para sua aplicação no Mercado Pago.</li>
                   <li>Após configurar o webhook, teste uma compra para verificar se as notificações estão sendo recebidas.</li>
                   <li>Se os pagamentos não estão sendo processados, verifique os logs do Supabase Edge Functions.</li>
+                  <li>O Mercado Pago pode ter limites de requisições. Considere implementar retry em casos de falha.</li>
                 </ul>
               </div>
             </div>

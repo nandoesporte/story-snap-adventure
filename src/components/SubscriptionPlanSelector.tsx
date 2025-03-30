@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -24,7 +23,6 @@ export const SubscriptionPlanSelector = () => {
   const [activePaymentMethod, setActivePaymentMethod] = useState("stripe");
   const [retryCount, setRetryCount] = useState(0);
 
-  // Fetch current subscription
   const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ['user-subscription', user?.id],
     queryFn: async () => {
@@ -34,7 +32,6 @@ export const SubscriptionPlanSelector = () => {
     enabled: !!user
   });
 
-  // Fetch available payment methods
   const { data: paymentMethods, isLoading: isLoadingPaymentMethods } = useQuery({
     queryKey: ['payment-methods'],
     queryFn: async () => {
@@ -42,10 +39,8 @@ export const SubscriptionPlanSelector = () => {
     }
   });
 
-  // Set default payment method when data loads
   useEffect(() => {
     if (paymentMethods) {
-      // Find the first enabled payment method to set as default
       if (paymentMethods.stripe) {
         setActivePaymentMethod("stripe");
       } else if (paymentMethods.mercadopago) {
@@ -54,7 +49,6 @@ export const SubscriptionPlanSelector = () => {
     }
   }, [paymentMethods]);
 
-  // Fetch subscription plans
   const { data: plans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
@@ -62,19 +56,16 @@ export const SubscriptionPlanSelector = () => {
     }
   });
 
-  // Handle plan selection
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
     setIsPaymentDialogOpen(true);
     setError(null);
   };
 
-  // Check if any payment methods are available
   const hasEnabledPaymentMethods = paymentMethods && (
     paymentMethods.stripe || paymentMethods.mercadopago
   );
 
-  // Handle checkout process
   const handleCheckout = async () => {
     if (!user || !selectedPlanId || !hasEnabledPaymentMethods) return;
     
@@ -87,61 +78,76 @@ export const SubscriptionPlanSelector = () => {
       console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl });
       
       let checkoutUrl;
+      let retryCount = 0;
+      const maxRetries = 2;
       
-      try {
-        if (activePaymentMethod === "mercadopago") {
-          checkoutUrl = await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
-        } else {
-          // Default to Stripe
-          checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
-        }
-      } catch (requestError: any) {
-        console.error('Failed to connect to payment API:', requestError);
-        
-        // Fornecer uma mensagem específica para MercadoPago
-        if (activePaymentMethod === "mercadopago") {
-          if (requestError.message?.includes('não está configurada') || 
-              requestError.message?.includes('API key')) {
-            throw new Error('O MercadoPago não está configurado corretamente. Entre em contato com o administrador.');
-          } else if (requestError.message?.includes('inválido')) {
-            throw new Error('A chave do MercadoPago é inválida. Entre em contato com o administrador.');
+      const attemptCheckout = async () => {
+        try {
+          if (activePaymentMethod === "mercadopago") {
+            return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
+          } else {
+            // Default to Stripe
+            return await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
           }
+        } catch (requestError) {
+          console.error(`Checkout attempt ${retryCount + 1} failed:`, requestError);
+          
+          if (retryCount >= maxRetries) {
+            throw requestError;
+          }
+          
+          const delay = 300 * Math.pow(2, retryCount);
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          retryCount++;
+          return null;
         }
-        
-        throw new Error('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
+      };
+      
+      while (checkoutUrl === undefined || checkoutUrl === null) {
+        checkoutUrl = await attemptCheckout();
       }
       
-      // Validate checkout URL before redirect
+      if (activePaymentMethod === "mercadopago") {
+        if (!checkoutUrl) {
+          throw new Error("Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente.");
+        }
+      }
+      
       if (!checkoutUrl) {
         throw new Error("Não foi possível obter a URL de checkout.");
       }
       
-      // Validate URL format
-      try {
-        const urlObject = new URL(checkoutUrl);
-        
-        // Add a slight delay to allow state updates to complete
-        setTimeout(() => {
-          // Prevenir redirect em ambientes de teste/desenvolvimento se necessário
-          window.location.href = checkoutUrl;
-        }, 200);
-      } catch (urlError) {
-        console.error('Invalid checkout URL:', urlError);
-        throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
-      }
-    } catch (error: any) {
+      const urlObject = new URL(checkoutUrl);
+      
+      toast.success(`Redirecionando para o ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Stripe"}...`);
+      
+      setTimeout(() => {
+        window.location.href = checkoutUrl;
+      }, 200);
+    } catch (error) {
       console.error('Error creating checkout:', error);
       
-      // Get a user-friendly error message
       let errorMessage = 'Ocorreu um erro desconhecido ao processar o pagamento.';
       
       if (error.message) {
         errorMessage = `${error.message}`;
         
-        // Provide more specific error messages for common issues
         if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch') || 
             error.message.includes('conexão') || error.message.includes('conectar')) {
           errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
+        }
+        
+        if (activePaymentMethod === "mercadopago") {
+          if (error.message.includes('não está configurada') || error.message.includes('API key') || 
+              error.message.includes('token') || error.message.includes('vazio')) {
+            errorMessage = 'O Mercado Pago não está configurado corretamente. Entre em contato com o administrador.';
+          } else if (error.message.includes('inválido')) {
+            errorMessage = 'A chave do Mercado Pago é inválida. Entre em contato com o administrador.';
+          } else if (error.message.includes('quota') || error.message.includes('limite')) {
+            errorMessage = 'Limite de requisições excedido no Mercado Pago. Tente novamente em alguns minutos.';
+          }
         }
       }
       
@@ -151,7 +157,6 @@ export const SubscriptionPlanSelector = () => {
     }
   };
 
-  // Retry payment processing
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
     setError(null);
@@ -169,7 +174,6 @@ export const SubscriptionPlanSelector = () => {
     );
   }
 
-  // Check if there are no enabled payment methods
   if (paymentMethods && !hasEnabledPaymentMethods) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -264,14 +268,11 @@ export const SubscriptionPlanSelector = () => {
         </div>
       )}
       
-      {/* Payment Method Selection Dialog */}
       <Dialog 
         open={isPaymentDialogOpen} 
         onOpenChange={(open) => {
-          // Only allow closing if not processing
           if (!isProcessing || !open) {
             setIsPaymentDialogOpen(open);
-            // Reset error state when reopening
             if (open) setError(null);
           }
         }}
@@ -320,6 +321,9 @@ export const SubscriptionPlanSelector = () => {
                     <div className="text-sm text-muted-foreground">
                       <p>Checkout seguro via Mercado Pago.</p>
                       <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
+                      </p>
                     </div>
                   </TabsContent>
                 )}
