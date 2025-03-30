@@ -34,6 +34,10 @@ function App() {
         path="/register"
         element={user ? <Navigate to="/" /> : <Auth type="register" />}
       />
+      <Route
+        path="/auth"
+        element={user ? <Navigate to="/" /> : <Auth />}
+      />
     </Routes>
   );
 }
