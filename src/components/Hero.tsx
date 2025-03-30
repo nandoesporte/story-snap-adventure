@@ -1,10 +1,11 @@
+
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 
 interface HeroProps {
   customImageUrl?: string;

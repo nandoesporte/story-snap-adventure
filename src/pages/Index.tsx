@@ -10,8 +10,6 @@ import CallToAction from "../components/home/CallToAction";
 import { useIndexPageContent } from "../components/home/ContentLoader";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import FeaturedStoryCarousel from "@/components/home/FeaturedStoryCarousel";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
@@ -32,18 +30,6 @@ const Index = () => {
         ) : (
           <Hero 
             customImageUrl={heroImageUrl} 
-            actionButtons={
-              !user && (
-                <div className="flex gap-4 mt-6">
-                  <Link to="/login">
-                    <Button variant="outline">Entrar</Button>
-                  </Link>
-                  <Link to="/register">
-                    <Button className="bg-indigo-700 hover:bg-indigo-800">Inscrever-se</Button>
-                  </Link>
-                </div>
-              )
-            } 
           />
         )}
         
