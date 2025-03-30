@@ -77,89 +77,59 @@ serve(async (req) => {
     const apiUrl = getAsaasApiUrl(environment);
     console.log("Using API URL:", apiUrl);
 
-    // First try to get the user from auth.users using the admin auth API
-    console.log("Fetching user data...");
-    const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
-
-    if (userError || !userData?.user) {
-      console.error("Error fetching user from auth:", userError);
-      
-      // Fallback to user_profiles table for display_name only, not email
+    // Get user information (name and email)
+    let userEmail = "";
+    let userName = "";
+    
+    // Try to get information from user_profiles table first
+    try {
+      console.log("Fetching user profile data...");
       const { data: profileData, error: profileError } = await supabaseClient
         .from("user_profiles")
         .select("display_name")
         .eq("id", user_id)
         .single();
         
-      if (profileError || !profileData) {
-        console.error("Profile data error:", profileError);
-        return new Response(
-          JSON.stringify({ error: "User not found" }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        // We'll continue and try auth method next
+      } else if (profileData) {
+        userName = profileData.display_name || `User ${user_id.substring(0, 8)}`;
       }
-      
-      // Generate a fallback email since we couldn't get the real one
-      const userEmail = `user-${user_id.substring(0, 8)}@example.com`;
-      const userName = profileData.display_name || userEmail.split('@')[0];
-      
-      return await handlePaymentCreation(
-        apiKeyConfig.value,
-        apiUrl,
-        corsHeaders,
-        userEmail,
-        userName,
-        user_id,
-        plan_id,
-        supabaseClient,
-        return_url
-      );
+    } catch (profileError) {
+      console.error("Unexpected error fetching user profile:", profileError);
     }
     
-    // We successfully got the user data from auth
-    const userEmail = userData.user.email || `user-${user_id.substring(0, 8)}@example.com`;
-    const userName = userData.user.user_metadata?.name || userEmail.split('@')[0];
-    
-    return await handlePaymentCreation(
-      apiKeyConfig.value,
-      apiUrl,
-      corsHeaders,
-      userEmail,
-      userName,
-      user_id,
-      plan_id,
-      supabaseClient,
-      return_url
-    );
-    
-  } catch (error) {
-    console.error("Error creating Asaas checkout:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Try to get email from auth.users using admin API
+    try {
+      console.log("Fetching user from auth API...");
+      const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
+      
+      if (userError) {
+        console.error("Error fetching user from auth admin API:", userError);
+      } else if (userData?.user) {
+        userEmail = userData.user.email || "";
+        // If we didn't get a name from user_profiles, try to get it from auth metadata
+        if (!userName && userData.user.user_metadata?.name) {
+          userName = userData.user.user_metadata.name;
+        }
       }
-    );
-  }
-});
+    } catch (authError) {
+      console.error("Failed to fetch user from auth admin API:", authError);
+    }
+    
+    // If we still don't have a valid email, generate a fallback
+    if (!userEmail) {
+      userEmail = `user-${user_id.substring(0, 8)}@example.com`;
+      console.log("Using fallback email:", userEmail);
+    }
+    
+    // If we still don't have a valid name, generate a fallback from email or user_id
+    if (!userName) {
+      userName = userEmail.split('@')[0] || `User ${user_id.substring(0, 8)}`;
+      console.log("Using fallback username:", userName);
+    }
 
-// Helper function to handle payment creation
-async function handlePaymentCreation(
-  accessToken: string,
-  apiUrl: string,
-  corsHeaders: any,
-  userEmail: string,
-  userName: string,
-  user_id: string,
-  plan_id: string,
-  supabaseClient: any,
-  return_url?: string
-) {
-  try {
     // Get subscription plan data
     console.log("Fetching plan data...");
     const { data: planData, error: planError } = await supabaseClient
@@ -181,9 +151,45 @@ async function handlePaymentCreation(
 
     console.log("Plan found:", planData.name);
 
-    // Step 1: Check if the customer already exists or create a new one
+    // Process payment with Asaas
+    return await processAsaasPayment(
+      apiKeyConfig.value,
+      apiUrl,
+      corsHeaders,
+      userEmail,
+      userName,
+      user_id,
+      plan_id,
+      planData,
+      return_url
+    );
+  } catch (error) {
+    console.error("Error creating Asaas checkout:", error);
+    return new Response(
+      JSON.stringify({ error: error.message || "An unexpected error occurred" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});
+
+async function processAsaasPayment(
+  accessToken: string,
+  apiUrl: string,
+  corsHeaders: any,
+  userEmail: string,
+  userName: string,
+  user_id: string,
+  plan_id: string,
+  planData: any,
+  return_url?: string
+) {
+  try {
     let customerId = "";
     
+    // Step 1: Check if the customer already exists or create a new one
     try {
       // First, try to find an existing customer with the user's email
       console.log("Checking for existing customer with email:", userEmail);
@@ -192,7 +198,46 @@ async function handlePaymentCreation(
         throw new Error("Invalid API key configuration");
       }
       
-      const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`, {
+      // Validate API key before making any requests
+      try {
+        const testResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+          method: "GET",
+          headers: {
+            "access_token": accessToken,
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.error("API key validation failed:", errorText);
+          return new Response(
+            JSON.stringify({ 
+              error: "Invalid Asaas API key or connection issue", 
+              details: `Status: ${testResponse.status}` 
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+      } catch (validationError) {
+        console.error("API validation error:", validationError);
+        return new Response(
+          JSON.stringify({ error: "Failed to validate Asaas API connection" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      // Now search for existing customer
+      const findCustomerUrl = `${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`;
+      console.log("Making request to:", findCustomerUrl);
+      
+      const findCustomerResponse = await fetch(findCustomerUrl, {
         method: "GET",
         headers: {
           "access_token": accessToken,
@@ -223,7 +268,7 @@ async function handlePaymentCreation(
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: userName || `User ${user_id.substring(0, 8)}`,
+            name: userName,
             email: userEmail,
             notificationDisabled: false,
           }),
@@ -261,7 +306,7 @@ async function handlePaymentCreation(
         plan_id,
       });
 
-      const paymentData = {
+      const paymentData: any = {
         customer: customerId,
         billingType: "UNDEFINED", // This creates a payment link with multiple options
         value: planData.price,
@@ -361,7 +406,6 @@ async function handlePaymentCreation(
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        
       }
     );
   }

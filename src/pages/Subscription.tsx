@@ -15,7 +15,7 @@ const Subscription = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-white to-purple-50">
         <Loader2 className="h-12 w-12 text-purple-600 animate-spin mb-4" />
-        <p className="text-purple-800 text-lg">Carregando...</p>
+        <p className="text-purple-800 text-lg">Carregando informações da conta...</p>
       </div>
     );
   }
