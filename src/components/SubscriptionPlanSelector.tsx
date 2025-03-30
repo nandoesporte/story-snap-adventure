@@ -1,381 +1,115 @@
-
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { Check, Loader, Store, RefreshCw, CreditCard } from 'lucide-react';
-import { SubscriptionPlan, checkUserSubscription, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogHeader, DialogFooter } from '@/components/ui/dialog';
-import { createAsaasCheckout } from '@/lib/asaas';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { ArrowLeft } from 'lucide-react';
 
-export const SubscriptionPlanSelector = () => {
+import { UserManager } from '@/components/admin/UserManager';
+import { ThemeManager } from '@/components/admin/ThemeManager';
+import { StoryManager } from '@/components/admin/StoryManager';
+import { CharacterManager } from '@/components/admin/CharacterManager';
+import { TestModeManager } from '@/components/admin/TestModeManager';
+import { SubscriptionManager } from '@/components/admin/SubscriptionManager';
+import { PaymentMethodsManager } from '@/components/admin/PaymentMethodsManager';
+import { StoryBotPromptManager } from '@/components/admin/StoryBotPromptManager';
+import { GoogleTTSApiKeyManager } from '@/components/admin/GoogleTTSApiKeyManager';
+import { MercadoPagoApiKeyManager } from '@/components/admin/MercadoPagoApiKeyManager';
+import { AsaasApiKeyManager } from '@/components/admin/AsaasApiKeyManager';
+import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
+
+const Admin = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activePaymentMethod, setActivePaymentMethod] = useState("mercadopago");
-  const [retryCount, setRetryCount] = useState(0);
+  const { isAdmin, loading } = useAdminCheck();
+  const [activeTab, setActiveTab] = useState('users');
 
-  const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
-    queryKey: ['user-subscription', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      return await checkUserSubscription(user.id);
-    },
-    enabled: !!user
-  });
-
-  const { data: paymentMethods, isLoading: isLoadingPaymentMethods } = useQuery({
-    queryKey: ['payment-methods'],
-    queryFn: async () => {
-      return await getAvailablePaymentMethods();
-    }
-  });
-
-  useEffect(() => {
-    if (paymentMethods) {
-      if (paymentMethods.asaas) {
-        setActivePaymentMethod("asaas");
-      } else if (paymentMethods.mercadopago) {
-        setActivePaymentMethod("mercadopago");
-      }
-    }
-  }, [paymentMethods]);
-
-  const { data: plans, isLoading: isLoadingPlans } = useQuery({
-    queryKey: ['subscription-plans'],
-    queryFn: async () => {
-      return await getSubscriptionPlans();
-    }
-  });
-
-  const handleSelectPlan = (planId: string) => {
-    setSelectedPlanId(planId);
-    setIsPaymentDialogOpen(true);
-    setError(null);
-  };
-
-  const hasEnabledPaymentMethods = paymentMethods && (paymentMethods.mercadopago || paymentMethods.asaas);
-
-  const handleCheckout = async () => {
-    if (!user || !selectedPlanId || !hasEnabledPaymentMethods) return;
-    
-    setIsProcessing(true);
-    setError(null);
-    
-    try {
-      const returnUrl = window.location.origin + '/my-stories'; // Redirect to my stories after payment
-      
-      console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl, paymentMethod: activePaymentMethod });
-      
-      let checkoutUrl;
-      let currentRetryCount = 0;
-      const maxRetries = 2;
-      
-      const attemptCheckout = async () => {
-        try {
-          if (activePaymentMethod === "mercadopago") {
-            return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
-          } else if (activePaymentMethod === "asaas") {
-            return await createAsaasCheckout(user.id, selectedPlanId, returnUrl);
-          }
-          return null;
-        } catch (requestError) {
-          console.error(`Checkout attempt ${currentRetryCount + 1} failed:`, requestError);
-          
-          if (currentRetryCount >= maxRetries) {
-            throw requestError;
-          }
-          
-          const delay = 300 * Math.pow(2, currentRetryCount);
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          
-          currentRetryCount++;
-          return null;
-        }
-      };
-      
-      while (checkoutUrl === undefined || checkoutUrl === null) {
-        if (currentRetryCount > maxRetries) {
-          break;
-        }
-        checkoutUrl = await attemptCheckout();
-      }
-      
-      if (!checkoutUrl) {
-        throw new Error(`Não foi possível obter a URL de checkout do ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}. Verifique se a API está configurada corretamente.`);
-      }
-      
-      // Safety check for URL validity
-      try {
-        new URL(checkoutUrl);
-      } catch (urlError) {
-        throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
-      }
-      
-      toast.success(`Redirecionando para o ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}...`);
-      
-      // Brief timeout to allow the toast to be seen
-      setTimeout(() => {
-        window.location.href = checkoutUrl;
-      }, 500);
-    } catch (error) {
-      console.error('Error creating checkout:', error);
-      
-      let errorMessage = 'Ocorreu um erro ao processar o pagamento.';
-      
-      if (error.message) {
-        errorMessage = `${error.message}`;
-        
-        if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch') || 
-            error.message.includes('conexão') || error.message.includes('conectar')) {
-          errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
-        }
-        
-        if (error.message.includes('não está configurada') || error.message.includes('API key') || 
-            error.message.includes('token') || error.message.includes('vazio')) {
-          errorMessage = `O ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"} não está configurado corretamente. Entre em contato com o administrador.`;
-        } else if (error.message.includes('inválido')) {
-          errorMessage = `A chave do ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"} é inválida. Entre em contato com o administrador.`;
-        } else if (error.message.includes('quota') || error.message.includes('limite')) {
-          errorMessage = `Limite de requisições excedido no ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}. Tente novamente em alguns minutos.`;
-        }
-      }
-      
-      setError(errorMessage);
-      toast.error(errorMessage);
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    setError(null);
-    handleCheckout();
-  };
-
-  const isLoading = isLoadingSubscription || isLoadingPlans;
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center p-12">
-        <Loader className="h-8 w-8 animate-spin mr-2" />
-        <p>Carregando planos de assinatura...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Verificando permissões...</p>
       </div>
     );
   }
 
-  if (paymentMethods && !hasEnabledPaymentMethods) {
+  if (!isAdmin) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto bg-destructive/10 p-6 rounded-lg shadow-sm text-center">
-          <h2 className="text-xl font-semibold mb-4 text-destructive">Sistema de pagamento indisponível</h2>
-          <p className="mb-4">
-            Nosso sistema de pagamento está temporariamente indisponível. Por favor, tente novamente mais tarde.
-          </p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Tentar novamente
-          </Button>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <h1 className="text-2xl font-bold mb-4">Acesso Restrito</h1>
+        <p className="mb-6 text-center">
+          Esta área é restrita a administradores. Você não tem permissão para acessar esta página.
+        </p>
+        <Button onClick={() => navigate('/')}>Voltar para a Página Inicial</Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold mb-4">Escolha seu plano</h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Selecione o plano que melhor atende às suas necessidades e comece a criar histórias incríveis para seus filhos.
-        </p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-2">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Painel de Administração</h1>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Logado como: {user?.email}
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 h-auto gap-2">
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="stories">Histórias</TabsTrigger>
+            <TabsTrigger value="themes">Temas & Personagens</TabsTrigger>
+            <TabsTrigger value="subscription">Assinaturas</TabsTrigger>
+            <TabsTrigger value="payment">Pagamentos</TabsTrigger>
+            <TabsTrigger value="settings">Configurações</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+            <UserManager />
+          </TabsContent>
+
+          <TabsContent value="stories" className="space-y-4">
+            <StoryManager />
+          </TabsContent>
+
+          <TabsContent value="themes" className="space-y-8">
+            <ThemeManager />
+            <Separator />
+            <CharacterManager />
+          </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-4">
+            <SubscriptionManager />
+          </TabsContent>
+
+          <TabsContent value="payment" className="space-y-8">
+            <PaymentMethodsManager />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <MercadoPagoApiKeyManager />
+              <AsaasApiKeyManager />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-8">
+            <GoogleTTSApiKeyManager />
+            <Separator />
+            <StoryBotPromptManager />
+            <Separator />
+            <LeonardoWebhookConfig />
+            <Separator />
+            <TestModeManager />
+          </TabsContent>
+        </Tabs>
       </div>
-      
-      {subscription ? (
-        <div className="max-w-md mx-auto bg-muted p-6 rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Sua assinatura atual</h2>
-          <p className="mb-2">
-            <span className="font-medium">Plano:</span> {subscription.subscription_plans.name}
-          </p>
-          <p className="mb-2">
-            <span className="font-medium">Status:</span> {subscription.status === 'active' ? 'Ativo' : 'Inativo'}
-          </p>
-          <p className="mb-2">
-            <span className="font-medium">Renova em:</span> {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}
-          </p>
-          <div className="mt-4">
-            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
-              Mudar de plano
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-          {plans?.map((plan) => (
-            <Card 
-              key={plan.id} 
-              className={`flex flex-col hover:shadow-md transition-shadow duration-300 ${selectedPlanId === plan.id ? 'ring-2 ring-primary' : ''}`}
-            >
-              <CardHeader>
-                <CardTitle>{plan.name}</CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <div className="mb-4">
-                  <span className="text-3xl font-bold">
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: plan.currency,
-                    }).format(plan.price)}
-                  </span>
-                  <span className="text-muted-foreground">/{plan.interval === 'month' ? 'mês' : 'ano'}</span>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="font-medium">Histórias incluídas:</span> {plan.stories_limit} por {plan.interval === 'month' ? 'mês' : 'ano'}
-                  </p>
-                  {plan.features && plan.features.length > 0 && (
-                    <ul className="space-y-1">
-                      {Array.isArray(plan.features) ? plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-start">
-                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
-                          <span className="text-sm">{feature}</span>
-                        </li>
-                      )) : null}
-                    </ul>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isProcessing || !hasEnabledPaymentMethods}
-                >
-                  {isProcessing && selectedPlanId === plan.id ? 'Processando...' : 'Assinar agora'}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-      
-      <Dialog 
-        open={isPaymentDialogOpen} 
-        onOpenChange={(open) => {
-          if (!isProcessing || !open) {
-            setIsPaymentDialogOpen(open);
-            if (open) setError(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Escolha o método de pagamento</DialogTitle>
-            <DialogDescription>
-              Selecione como você deseja pagar pela sua assinatura.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {hasEnabledPaymentMethods ? (
-              <div className="mt-4 space-y-4">
-                <Tabs value={activePaymentMethod} onValueChange={setActivePaymentMethod}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    {paymentMethods?.mercadopago && (
-                      <TabsTrigger value="mercadopago" className="flex items-center gap-2">
-                        <Store className="h-4 w-4" />
-                        Mercado Pago
-                      </TabsTrigger>
-                    )}
-                    {paymentMethods?.asaas && (
-                      <TabsTrigger value="asaas" className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        Asaas
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
-                  
-                  <TabsContent value="mercadopago" className="mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      <p>Checkout seguro via Mercado Pago.</p>
-                      <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
-                      <p className="mt-2 text-xs text-gray-500">
-                        Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
-                      </p>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="asaas" className="mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      <p>Checkout seguro via Asaas.</p>
-                      <p>Aceita cartões de crédito, boleto bancário e Pix.</p>
-                      <p className="mt-2 text-xs text-gray-500">
-                        Você será redirecionado para o site do Asaas para completar o pagamento de forma segura.
-                      </p>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-                
-                {error && (
-                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive space-y-2">
-                    <p>{error}</p>
-                    <Button 
-                      onClick={handleRetry} 
-                      disabled={isProcessing} 
-                      variant="outline" 
-                      size="sm"
-                      className="mt-2 flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      Tentar novamente
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center p-4 bg-destructive/10 rounded-md">
-                <p className="text-destructive">Nenhum método de pagamento disponível no momento.</p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={() => !isProcessing && setIsPaymentDialogOpen(false)}
-              disabled={isProcessing}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => !isProcessing && handleCheckout()}
-              disabled={isProcessing || !hasEnabledPaymentMethods}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
-              type="button"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader className="h-4 w-4 animate-spin mr-2" />
-                  Processando...
-                </>
-              ) : (
-                <>Continuar</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
+
+export default Admin;

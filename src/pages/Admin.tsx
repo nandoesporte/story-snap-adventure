@@ -8,26 +8,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft } from 'lucide-react';
 
-import UserManager from '@/components/admin/UserManager';
-import ThemeManager from '@/components/admin/ThemeManager';
-import StoryManager from '@/components/admin/StoryManager';
-import CharacterManager from '@/components/admin/CharacterManager';
-import TestModeManager from '@/components/admin/TestModeManager';
-import SubscriptionManager from '@/components/admin/SubscriptionManager';
-import PaymentMethodsManager from '@/components/admin/PaymentMethodsManager';
-import StoryBotPromptManager from '@/components/admin/StoryBotPromptManager';
-import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
-import MercadoPagoApiKeyManager from '@/components/admin/MercadoPagoApiKeyManager';
-import AsaasApiKeyManager from '@/components/admin/AsaasApiKeyManager';
+import { UserManager } from '@/components/admin/UserManager';
+import { ThemeManager } from '@/components/admin/ThemeManager';
+import { StoryManager } from '@/components/admin/StoryManager';
+import { CharacterManager } from '@/components/admin/CharacterManager';
+import { TestModeManager } from '@/components/admin/TestModeManager';
+import { SubscriptionManager } from '@/components/admin/SubscriptionManager';
+import { PaymentMethodsManager } from '@/components/admin/PaymentMethodsManager';
+import { StoryBotPromptManager } from '@/components/admin/StoryBotPromptManager';
+import { GoogleTTSApiKeyManager } from '@/components/admin/GoogleTTSApiKeyManager';
+import { MercadoPagoApiKeyManager } from '@/components/admin/MercadoPagoApiKeyManager';
+import { AsaasApiKeyManager } from '@/components/admin/AsaasApiKeyManager';
 import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
 
 const Admin = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin, isLoading } = useAdminCheck();
+  const { isAdmin, loading } = useAdminCheck();
   const [activeTab, setActiveTab] = useState('users');
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Verificando permissões...</p>
