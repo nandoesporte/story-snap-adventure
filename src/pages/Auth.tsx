@@ -19,6 +19,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,14 +31,22 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       return;
     }
     
+    // Add password confirmation validation for registration
+    if (isRegister && password !== confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
       if (isRegister) {
+        console.log("Registering with:", email, password);
         await signUp(email, password);
         toast.success("Conta criada com sucesso! Você já pode fazer login.");
         navigate("/login");
       } else {
+        console.log("Logging in with:", email);
         await signIn(email, password);
         toast.success("Login realizado com sucesso!");
         navigate("/");
@@ -107,6 +116,26 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                     placeholder="Sua senha"
                   />
                 </div>
+                
+                {isRegister && (
+                  <div>
+                    <label
+                      htmlFor="confirmPassword"
+                      className="block text-slate-700 text-sm font-bold mb-2"
+                    >
+                      Confirmar Senha
+                    </label>
+                    <input
+                      type="password"
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="shadow appearance-none border rounded w-full py-3 px-4 text-slate-700 leading-tight focus:outline-none focus:shadow-outline"
+                      placeholder="Confirme sua senha"
+                    />
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <input
@@ -120,12 +149,14 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                       Lembrar-me
                     </label>
                   </div>
-                  <a
-                    className="inline-block align-baseline font-bold text-sm text-violet-500 hover:text-violet-800"
-                    href="#"
-                  >
-                    Esqueceu a senha?
-                  </a>
+                  {!isRegister && (
+                    <a
+                      className="inline-block align-baseline font-bold text-sm text-violet-500 hover:text-violet-800"
+                      href="#"
+                    >
+                      Esqueceu a senha?
+                    </a>
+                  )}
                 </div>
                 <div>
                   <button
