@@ -19,6 +19,7 @@ import { StoryBotPromptManager } from '@/components/admin/StoryBotPromptManager'
 import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
 import MercadoPagoApiKeyManager from '@/components/admin/MercadoPagoApiKeyManager';
 import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
+import FeaturedStoryManager from '@/components/admin/FeaturedStoryManager';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ const Admin = () => {
           <TabsList className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 h-auto gap-2">
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="stories">Histórias</TabsTrigger>
+            <TabsTrigger value="featured">História do Mês</TabsTrigger>
             <TabsTrigger value="themes">Temas & Personagens</TabsTrigger>
             <TabsTrigger value="subscription">Assinaturas</TabsTrigger>
             <TabsTrigger value="payment">Pagamentos</TabsTrigger>
@@ -77,6 +79,10 @@ const Admin = () => {
 
           <TabsContent value="stories" className="space-y-4">
             <StoryManager />
+          </TabsContent>
+          
+          <TabsContent value="featured" className="space-y-4">
+            <FeaturedStoryManager />
           </TabsContent>
 
           <TabsContent value="themes" className="space-y-8">
