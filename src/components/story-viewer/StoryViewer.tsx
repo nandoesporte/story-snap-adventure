@@ -197,7 +197,7 @@ const StoryViewer: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-100px)] bg-gray-50 flex flex-col overflow-hidden">
+    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />

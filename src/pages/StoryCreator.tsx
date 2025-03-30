@@ -27,11 +27,13 @@ import {
   StoryInputData, 
   GeneratedStory 
 } from "@/services/BookGenerationService";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 
 const MAX_RETRY_ATTEMPTS = 3;
 
 const StoryCreatorPage = () => {
   try {
+    const queryClient = useQueryClient();
     return <StoryCreatorContent />;
   } catch (error) {
     return (

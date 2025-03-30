@@ -172,7 +172,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         isGenerating,
         hasStoryId: !!storyId
       });
-      return null;
+      return;
     }
     
     const apiKey = localStorage.getItem('google_tts_api_key');
@@ -184,7 +184,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     setIsGenerating(true);
     
     if (!params) {
-      console.log("Starting audio generation");
+      toast.info('Gerando narração humanizada para crianças...');
     }
 
     try {
@@ -205,7 +205,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         console.log(`Using existing narration from database for story ${storyId}, page ${pageIndex}`);
         setAudioUrl(existingNarration.audio_url);
         if (!params) {
-          console.log("Found existing narration in database");
+          toast.success('Narração carregada do banco de dados!');
         }
         setIsGenerating(false);
         return existingNarration.audio_url;
@@ -224,7 +224,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         console.log(`Using cached audio for page ${pageIndex}`);
         setAudioUrl(cachedAudio);
         if (!params) {
-          console.log("Found cached audio");
+          toast.success('Narração carregada do cache!');
         }
         setIsGenerating(false);
         return cachedAudio;
@@ -371,7 +371,11 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       }
       
       setAudioUrl(audioUrlValue);
-      setIsGenerating(false);
+      
+      if (!params) {
+        toast.success('Narração humanizada gerada com sucesso!');
+      }
+      
       return audioUrlValue;
       
     } catch (error) {
@@ -380,7 +384,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       const errorMessage = error instanceof Error ? error.message : String(error);
       
       if (!params) {
-        console.error(`Error generating audio: ${errorMessage}`);
+        toast.error(`Erro ao gerar narração: ${errorMessage}`);
       }
       
       if (retryCount < maxRetries) {
@@ -392,7 +396,6 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         return generateAudio(voiceType, params);
       }
       
-      setIsGenerating(false);
       throw error;
     } finally {
       setIsGenerating(false);
@@ -437,17 +440,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     
     // If we need to generate new audio
     if (!audioUrl && !isGenerating && text) {
-      const generatedUrl = await generateAudio(voiceType);
-      if (generatedUrl && audioRef.current) {
-        audioRef.current.src = generatedUrl;
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (error) {
-          console.error('Erro ao reproduzir áudio gerado:', error);
-          toast.error('Erro ao reproduzir narração gerada');
-        }
-      }
+      await generateAudio(voiceType);
     }
   };
 
