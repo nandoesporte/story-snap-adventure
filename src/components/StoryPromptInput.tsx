@@ -1,9 +1,15 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Bot } from 'lucide-react';
+import { Sparkles, Bot, ChevronDown, ChevronRight } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { 
+  Accordion, 
+  AccordionContent, 
+  AccordionItem, 
+  AccordionTrigger 
+} from "@/components/ui/accordion";
 
 interface StoryPromptInputProps {
   onSubmit: (prompt: string) => void;
@@ -31,12 +37,73 @@ const StoryPromptInput: React.FC<StoryPromptInputProps> = ({
     }, 500);
   };
 
-  const suggestions = [
-    "Uma aventura sobre dinossauros para um menino de 6 anos que ama explorar",
-    "Uma história sobre uma astronauta corajosa para uma menina de 8 anos",
-    "Um conto sobre amizade entre um dragão e uma princesa",
-    "Uma história sobre um super-herói com poderes de controlar plantas",
-    "Uma aventura submarina com sereias e criaturas mágicas"
+  const suggestionCategories = [
+    {
+      title: "Desenvolvimento Emocional",
+      icon: "💭",
+      suggestions: [
+        "Lidando com a Frustração – Como ensinar às crianças que nem sempre conseguimos o que queremos e como superar isso.",
+        "A Importância de Pedir Desculpas – Aprendendo sobre arrependimento e empatia.",
+        "O Valor da Paciência – Histórias sobre esperar a sua vez e entender que tudo tem seu tempo.",
+        "Superando o Medo do Escuro – Ajudando as crianças a enfrentarem inseguranças noturnas.",
+        "Aprendendo a Expressar Emoções – Como nomear e lidar com sentimentos como raiva, tristeza e alegria."
+      ]
+    },
+    {
+      title: "Educação Social e Cidadania",
+      icon: "🌍",
+      suggestions: [
+        "A Importância da Honestidade – Mostrando que ser sincero é sempre o melhor caminho.",
+        "O Poder da Gentileza – Pequenos gestos que fazem grande diferença no dia a dia.",
+        "Trabalho em Equipe – Aprendendo a colaborar e respeitar os outros.",
+        "Respeito às Diferenças – Entendendo que todos somos únicos e especiais.",
+        "O Mundo é de Todos: Respeitando o Meio Ambiente – A importância de cuidar da natureza e dos animais."
+      ]
+    },
+    {
+      title: "Educação Financeira e Autonomia",
+      icon: "💡",
+      suggestions: [
+        "O Valor do Dinheiro – Ensinar de forma lúdica a diferença entre necessidade e desejo.",
+        "Pequenos Gestos, Grandes Mudanças – Como pequenas economias fazem diferença no futuro.",
+        "A Importância de Cuidar dos Próprios Pertences – Como a responsabilidade sobre os objetos pode ensinar organização.",
+        "O Trabalho e as Recompensas – Explicando o esforço por trás de conquistas.",
+        "Compartilhar Também é Ganhar – Aprendendo que dividir pode ser algo positivo."
+      ]
+    },
+    {
+      title: "Hábitos Saudáveis e Rotina",
+      icon: "🏡",
+      suggestions: [
+        "A Magia de Comer Frutas e Verduras – Incentivando uma alimentação saudável.",
+        "A Importância de Dormir Bem – Como o sono impacta nosso humor e aprendizado.",
+        "Por que Escovar os Dentes é tão Importante? – Criando hábitos de higiene bucal de forma divertida.",
+        "Brincar ao Ar Livre é Legal! – Estimulando atividades físicas e contato com a natureza.",
+        "Adeus, Fralda! Bem-vindo, Troninho! – Facilitando a transição do desfralde."
+      ]
+    },
+    {
+      title: "Incentivo à Leitura e Criatividade",
+      icon: "📖",
+      suggestions: [
+        "O Livro Mágico – Como a leitura pode nos levar para mundos incríveis.",
+        "Criando Histórias com a Imaginação – Incentivando a criatividade e a escrita.",
+        "O Poder das Palavras – Mostrando como as palavras podem alegrar ou magoar alguém.",
+        "Brincar sem Tela: A Magia da Imaginação – Incentivando brincadeiras fora do mundo digital.",
+        "Música e Ritmo: Descobrindo Sons e Emoções – Como a música pode ajudar na expressão emocional."
+      ]
+    },
+    {
+      title: "Autoestima e Confiança",
+      icon: "🎭",
+      suggestions: [
+        "Eu Sou Especial do Meu Jeito – Ensinando as crianças a valorizarem suas qualidades únicas.",
+        "O Pequeno Grande Corajoso – Como enfrentar desafios e acreditar em si mesmo.",
+        "Errei! E Agora? – A importância de aprender com os erros e seguir em frente.",
+        "Meu Corpo, Minhas Regras – Ensinar sobre consentimento e respeito ao próprio corpo.",
+        "Sonhar Grande e Acreditar em Mim – Mostrando que qualquer sonho pode se tornar realidade com esforço e dedicação."
+      ]
+    }
   ];
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -71,17 +138,55 @@ const StoryPromptInput: React.FC<StoryPromptInputProps> = ({
         
         <div>
           <p className="text-sm text-slate-500 mb-3">Sugestões populares:</p>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full hover:bg-violet-200 transition-colors"
-              >
-                {suggestion.length > 40 ? suggestion.substring(0, 40) + "..." : suggestion}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => handleSuggestionClick("Uma aventura sobre dinossauros para um menino de 6 anos que ama explorar")}
+              className="text-xs px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full hover:bg-violet-200 transition-colors"
+            >
+              Aventura com dinossauros
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSuggestionClick("Uma história sobre uma astronauta corajosa para uma menina de 8 anos")}
+              className="text-xs px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full hover:bg-violet-200 transition-colors"
+            >
+              Astronauta corajosa
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSuggestionClick("Um conto sobre amizade entre um dragão e uma princesa")}
+              className="text-xs px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full hover:bg-violet-200 transition-colors"
+            >
+              Amizade entre dragão e princesa
+            </button>
+          </div>
+          
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-4">
+            <Accordion type="multiple" className="w-full">
+              {suggestionCategories.map((category, index) => (
+                <AccordionItem key={index} value={`category-${index}`} className="border-b last:border-b-0">
+                  <AccordionTrigger className="px-4 py-3 hover:bg-gray-50 text-sm font-medium text-left flex items-center gap-2">
+                    <span className="mr-1">{category.icon}</span> {category.title}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-3 pt-1">
+                    <div className="flex flex-col gap-2">
+                      {category.suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="text-xs text-left px-3 py-2 bg-violet-50 text-violet-700 rounded-md hover:bg-violet-100 transition-colors flex items-start gap-2"
+                        >
+                          <span className="text-violet-500 mt-0.5">•</span>
+                          <span>{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
         </div>
         
