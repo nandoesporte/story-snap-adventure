@@ -129,7 +129,7 @@ const SubscriptionPlanSelector = () => {
     } catch (error) {
       console.error('Payment error:', error);
       setPaymentError(error.message || 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
-      toast.error('Erro ao processar pagamento');
+      toast.error('Erro ao processar pagamento: ' + error.message);
     } finally {
       setIsProcessing(false);
     }

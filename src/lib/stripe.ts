@@ -98,7 +98,7 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
 
     if (error) {
       console.error('Supabase function error:', error);
-      throw new Error(`Erro na função de checkout: ${error.message}`);
+      throw new Error(`Erro na função de checkout: ${error.message || error}`);
     }
     
     if (!data) {
@@ -108,6 +108,9 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
     
     if (!data.checkoutUrl) {
       console.error('Invalid response from payment server:', data);
+      if (data.error) {
+        throw new Error(`Erro no servidor de pagamento: ${data.error}`);
+      }
       throw new Error('URL de checkout não retornada pelo servidor de pagamento');
     }
 
@@ -115,7 +118,7 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
     return data.checkoutUrl;
   } catch (error) {
     console.error('Error creating MercadoPago checkout:', error);
-    throw new Error(`Não foi possível criar a sessão de pagamento: ${error.message}`);
+    throw error;
   }
 };
 

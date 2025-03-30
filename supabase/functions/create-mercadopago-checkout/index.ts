@@ -212,64 +212,65 @@ serve(async (req) => {
     }
     
     // Initialize MercadoPago client
+    const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
+    const preference = new Preference(client);
+
+    // Parse request body
+    let requestData;
     try {
-      const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
-      const preference = new Preference(client);
+      requestData = await req.json();
+    } catch (jsonError) {
+      console.error("Failed to parse request body:", jsonError);
+      return new Response(
+        JSON.stringify({ error: "Falha ao processar dados da requisição" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      // Parse request body
-      let requestData;
-      try {
-        requestData = await req.json();
-      } catch (jsonError) {
-        console.error("Failed to parse request body:", jsonError);
-        return new Response(
-          JSON.stringify({ error: "Falha ao processar dados da requisição" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+    const { planId, returnUrl } = requestData;
 
-      const { planId, returnUrl } = requestData;
+    if (!planId) {
+      return new Response(
+        JSON.stringify({ error: "Missing planId" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      if (!planId) {
-        return new Response(
-          JSON.stringify({ error: "Missing planId" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+    console.log("Fetching plan details for planId:", planId);
+    // Get plan details from database
+    const { data: plan, error: planError } = await supabaseClient
+      .from("subscription_plans")
+      .select("id, name, price, currency, interval")
+      .eq("id", planId)
+      .single();
 
-      console.log("Fetching plan details for planId:", planId);
-      // Get plan details from database
-      const { data: plan, error: planError } = await supabaseClient
-        .from("subscription_plans")
-        .select("id, name, price, currency, interval")
-        .eq("id", planId)
-        .single();
+    if (planError || !plan) {
+      console.error("Plan not found:", planError);
+      return new Response(
+        JSON.stringify({ error: "Plan not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      if (planError || !plan) {
-        console.error("Plan not found:", planError);
-        return new Response(
-          JSON.stringify({ error: "Plan not found" }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+    console.log("Plan details retrieved:", plan);
 
-      console.log("Plan details retrieved:", plan);
+    // Set return URL and webhook URL
+    const origin = req.headers.get("origin") || "https://znumbovtprdnfddwwerf.supabase.co";
+    const successUrl = returnUrl || `${origin}/my-account`;
+    const cancelUrl = returnUrl || `${origin}/subscription`;
+    const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
 
-      // Set return URL and webhook URL
-      const origin = req.headers.get("origin") || "https://znumbovtprdnfddwwerf.supabase.co";
-      const successUrl = returnUrl || `${origin}/my-account`;
-      const cancelUrl = returnUrl || `${origin}/subscription`;
-      const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
-
+    // Create preference object with more robust error handling
+    try {
       // Create preference object
       const preferenceData = {
         items: [
@@ -296,11 +297,24 @@ serve(async (req) => {
 
       console.log("Creating MercadoPago preference:", JSON.stringify(preferenceData));
 
-      // Create preference with retry logic
-      const result = await retryWithBackoff(() => preference.create({
-        body: preferenceData
-      }));
-
+      // Create preference with retry logic but with direct fetch to avoid version incompatibility
+      const mpApiUrl = "https://api.mercadopago.com/checkout/preferences";
+      const response = await fetch(mpApiUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${mercadoPagoAccessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(preferenceData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("MercadoPago API error response:", errorData);
+        throw new Error(`MercadoPago API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
       console.log("MercadoPago preference created successfully:", result.id);
       
       const checkoutUrl = result.init_point;
