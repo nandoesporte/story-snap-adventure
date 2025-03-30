@@ -205,12 +205,12 @@ async function processAsaasPayment(
     
     // Step 1: Check if the customer already exists or create a new one
     try {
-      // First, let's validate our API key by checking a simple API endpoint that's more reliable
+      // First, let's validate our API key using a properly documented endpoint
       console.log("Validating API key...");
       
       try {
-        // Using the customers endpoint instead of status for validation
-        const validateResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+        // Using a documented API endpoint from Asaas that is guaranteed to exist
+        const validateResponse = await fetch(`${apiUrl}/finance/balance`, {
           method: "GET",
           headers: {
             "access_token": accessToken,
