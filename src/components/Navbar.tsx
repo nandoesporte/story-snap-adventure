@@ -5,6 +5,8 @@ import { useIsMobile } from "../hooks/use-mobile";
 import { Sparkles } from "lucide-react";
 import NavbarUser from "./NavbarUser";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 type NavItem = {
   name: string;
@@ -18,6 +20,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const { isAdmin } = useAdminCheck();
+  const { user } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -47,7 +50,6 @@ const Navbar = () => {
     { name: 'Admin', path: '/admin', adminOnly: true },
   ];
 
-  // Filter nav items based on admin status
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
@@ -111,7 +113,18 @@ const Navbar = () => {
             </ul>
           )}
 
-          <NavbarUser />
+          {!user ? (
+            <div className="flex items-center gap-4">
+              <Link to="/login">
+                <Button variant="outline">Entrar</Button>
+              </Link>
+              <Link to="/register">
+                <Button className="bg-indigo-700 hover:bg-indigo-800">Inscrever-se</Button>
+              </Link>
+            </div>
+          ) : (
+            <NavbarUser />
+          )}
 
           {isMobile && (
             <button

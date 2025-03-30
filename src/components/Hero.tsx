@@ -1,22 +1,19 @@
-
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 interface HeroProps {
   customImageUrl?: string;
-  actionButtons?: ReactNode;
 }
 
-const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
+const Hero = ({ customImageUrl }: HeroProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [preloadedImage, setPreloadedImage] = useState<HTMLImageElement | null>(null);
   
-  // Fetch hero content from the database with better error handling
   const { data: heroContents = [] } = useQuery({
     queryKey: ["page-contents", "index", "hero"],
     queryFn: async () => {
@@ -33,10 +30,9 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
       
       return data;
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes to improve performance
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Helper function to get content by key
   const getContent = (key: string, defaultValue: string = "") => {
     const content = heroContents.find(
       (item: any) => item.key === key
@@ -44,11 +40,9 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
     return content ? content.content : defaultValue;
   };
 
-  // Default image if none provided - only set after heroContents is loaded
   const heroImage = customImageUrl || getContent("image_url", "");
   const imageAlt = getContent("image_alt", "Livro mágico com animais da floresta - raposa, guaxinim, coruja e balão de ar quente");
 
-  // Preload the hero image
   useEffect(() => {
     if (heroImage) {
       const img = new Image();
@@ -57,7 +51,6 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
         setImageLoaded(true);
         setPreloadedImage(img);
       };
-      // Set a timeout to show content even if image is slow
       const timeout = setTimeout(() => setImageLoaded(true), 1000);
       
       return () => clearTimeout(timeout);
@@ -66,7 +59,6 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-100 pt-20">
-      {/* Animated stars/sparkles */}
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(25)].map((_, i) => (
           <motion.div
@@ -92,7 +84,6 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
 
       <div className="container mx-auto px-4 lg:px-8 py-8 md:py-12">
         <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 lg:gap-12">
-          {/* Left side - Text content */}
           <div className="w-full md:w-1/2 text-left space-y-6 md:space-y-8 z-10">
             <motion.h1 
               initial={{ opacity: 0, y: 30 }}
@@ -120,29 +111,22 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-wrap items-center gap-4 pt-2"
             >
-              {actionButtons ? (
-                actionButtons
-              ) : (
-                <NavLink to="/create-story">
-                  <Button 
-                    size="lg"
-                    className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-full px-8 py-3 h-auto text-base"
-                  >
-                    <Book className="mr-2 h-5 w-5" />
-                    {getContent("button_text", "CRIAR HISTÓRIA")}
-                  </Button>
-                </NavLink>
-              )}
+              <NavLink to="/create-story">
+                <Button 
+                  size="lg"
+                  className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-full px-8 py-3 h-auto text-base"
+                >
+                  <Book className="mr-2 h-5 w-5" />
+                  {getContent("button_text", "CRIAR HISTÓRIA")}
+                </Button>
+              </NavLink>
               
-              {!actionButtons && (
-                <span className="text-indigo-700 font-medium ml-2">
-                  {getContent("button_subtitle", "Experimente Grátis!")}
-                </span>
-              )}
+              <span className="text-indigo-700 font-medium ml-2">
+                {getContent("button_subtitle", "Experimente Grátis!")}
+              </span>
             </motion.div>
           </div>
           
-          {/* Right side - Fantasy Book Illustration */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -162,7 +146,6 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
                   <div className="w-full aspect-square bg-indigo-100 animate-pulse rounded-lg" />
                 )}
                 
-                {/* Animated elements */}
                 <motion.div
                   className="absolute -top-6 -right-2 w-12 h-12 text-yellow-400"
                   animate={{
@@ -183,7 +166,6 @@ const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
         </div>
       </div>
       
-      {/* Bottom testimonial bar */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
