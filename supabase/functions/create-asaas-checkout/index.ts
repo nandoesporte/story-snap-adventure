@@ -100,22 +100,22 @@ serve(async (req) => {
       console.error("Unexpected error fetching user profile:", profileError);
     }
     
-    // Try to get email from auth.users table directly (without admin privileges)
+    // Try to get email from auth.users using admin API
     try {
-      console.log("Fetching user from auth table...");
-      const { data: authData, error: authError } = await supabaseClient
-        .from("users")
-        .select("email")
-        .eq("id", user_id)
-        .single();
-        
-      if (authError) {
-        console.error("Error fetching user from auth table:", authError);
-      } else if (authData?.email) {
-        userEmail = authData.email;
+      console.log("Fetching user from auth API...");
+      const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
+      
+      if (userError) {
+        console.error("Error fetching user from auth admin API:", userError);
+      } else if (userData?.user) {
+        userEmail = userData.user.email || "";
+        // If we didn't get a name from user_profiles, try to get it from auth metadata
+        if (!userName && userData.user.user_metadata?.name) {
+          userName = userData.user.user_metadata.name;
+        }
       }
     } catch (authError) {
-      console.error("Error fetching from auth table:", authError);
+      console.error("Failed to fetch user from auth admin API:", authError);
     }
     
     // If we still don't have a valid email, generate a fallback
@@ -152,7 +152,7 @@ serve(async (req) => {
     console.log("Plan found:", planData.name);
 
     // Process payment with Asaas
-    const result = await processAsaasPayment(
+    return await processAsaasPayment(
       apiKeyConfig.value,
       apiUrl,
       corsHeaders,
@@ -163,8 +163,6 @@ serve(async (req) => {
       planData,
       return_url
     );
-    
-    return result;
   } catch (error) {
     console.error("Error creating Asaas checkout:", error);
     return new Response(
@@ -191,47 +189,51 @@ async function processAsaasPayment(
   try {
     let customerId = "";
     
-    // Validate API key before making any requests
+    // Step 1: Check if the customer already exists or create a new one
     try {
-      console.log("Validating API key...");
-      const testResponse = await fetch(`${apiUrl}/customers?limit=1`, {
-        method: "GET",
-        headers: {
-          "access_token": accessToken,
-          "Content-Type": "application/json",
-        },
-      });
+      // First, try to find an existing customer with the user's email
+      console.log("Checking for existing customer with email:", userEmail);
       
-      if (!testResponse.ok) {
-        const errorText = await testResponse.text();
-        console.error("API key validation failed:", errorText);
+      if (!accessToken) {
+        throw new Error("Invalid API key configuration");
+      }
+      
+      // Validate API key before making any requests
+      try {
+        const testResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+          method: "GET",
+          headers: {
+            "access_token": accessToken,
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.error("API key validation failed:", errorText);
+          return new Response(
+            JSON.stringify({ 
+              error: "Invalid Asaas API key or connection issue", 
+              details: `Status: ${testResponse.status}` 
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+      } catch (validationError) {
+        console.error("API validation error:", validationError);
         return new Response(
-          JSON.stringify({ 
-            error: "Invalid Asaas API key or connection issue", 
-            details: `Status: ${testResponse.status}` 
-          }),
+          JSON.stringify({ error: "Failed to validate Asaas API connection" }),
           {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
       }
-      console.log("API key validated successfully");
-    } catch (validationError) {
-      console.error("API validation error:", validationError);
-      return new Response(
-        JSON.stringify({ error: "Failed to validate Asaas API connection" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-    
-    // Step 1: Check if the customer already exists or create a new one
-    try {
-      // First, try to find an existing customer with the user's email
-      console.log("Checking for existing customer with email:", userEmail);
+      
+      // Now search for existing customer
       const findCustomerUrl = `${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`;
       console.log("Making request to:", findCustomerUrl);
       
@@ -246,9 +248,19 @@ async function processAsaasPayment(
       if (!findCustomerResponse.ok) {
         const errorText = await findCustomerResponse.text();
         console.error("Error finding customer:", errorText);
-        
-        // Create a new customer immediately if we can't find existing one
-        console.log("Creating new customer due to search error...");
+        throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
+      }
+
+      const findCustomerData = await findCustomerResponse.json();
+      console.log("Find customer response:", findCustomerData);
+      
+      if (findCustomerData.data && findCustomerData.data.length > 0) {
+        // Use existing customer
+        customerId = findCustomerData.data[0].id;
+        console.log("Using existing customer ID:", customerId);
+      } else {
+        // Create a new customer
+        console.log("Creating new customer...");
         const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
           method: "POST",
           headers: {
@@ -283,52 +295,6 @@ async function processAsaasPayment(
         
         customerId = createCustomerData.id;
         console.log("New customer created with ID:", customerId);
-      } else {
-        const findCustomerData = await findCustomerResponse.json();
-        console.log("Find customer response:", findCustomerData);
-        
-        if (findCustomerData.data && findCustomerData.data.length > 0) {
-          // Use existing customer
-          customerId = findCustomerData.data[0].id;
-          console.log("Using existing customer ID:", customerId);
-        } else {
-          // Create a new customer
-          console.log("Creating new customer...");
-          const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
-            method: "POST",
-            headers: {
-              "access_token": accessToken,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: userName,
-              email: userEmail,
-              notificationDisabled: false,
-            }),
-          });
-          
-          if (!createCustomerResponse.ok) {
-            const errorText = await createCustomerResponse.text();
-            console.error("Error creating customer:", errorText);
-            throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
-          }
-
-          const createCustomerData = await createCustomerResponse.json();
-          console.log("Create customer response:", createCustomerData);
-          
-          if (createCustomerData.errors) {
-            return new Response(
-              JSON.stringify({ error: "Failed to create customer", details: createCustomerData.errors }),
-              {
-                status: 500,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              }
-            );
-          }
-          
-          customerId = createCustomerData.id;
-          console.log("New customer created with ID:", customerId);
-        }
       }
 
       // Step 2: Create the payment
