@@ -23,6 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 
 export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();
@@ -98,7 +99,11 @@ export const SubscriptionPlanSelector = () => {
       }
       
       // Redirect to checkout
-      window.location.href = checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        throw new Error("Não foi possível obter a URL de checkout.");
+      }
     } catch (error) {
       console.error('Error creating checkout:', error);
       
@@ -108,8 +113,10 @@ export const SubscriptionPlanSelector = () => {
         
         // Show a more user-friendly message for common errors
         if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
-          setError('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API do Stripe está configurada corretamente.');
+          setError('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
         }
+      } else {
+        setError('Ocorreu um erro desconhecido ao processar o pagamento.');
       }
       
       setIsProcessing(false);
@@ -206,14 +213,14 @@ export const SubscriptionPlanSelector = () => {
       )}
       
       {/* Payment Method Selection Dialog */}
-      <AlertDialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Selecione o método de pagamento</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecione o método de pagamento</DialogTitle>
+            <DialogDescription>
               Escolha como você prefere pagar sua assinatura.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </DialogDescription>
+          </DialogHeader>
           
           <div className="py-4">
             <Tabs 
@@ -258,9 +265,15 @@ export const SubscriptionPlanSelector = () => {
             )}
           </div>
           
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsPaymentDialogOpen(false)}
+              disabled={isProcessing}
+            >
+              Cancelar
+            </Button>
+            <Button 
               onClick={handleCheckout}
               disabled={isProcessing}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -273,10 +286,10 @@ export const SubscriptionPlanSelector = () => {
               ) : (
                 <>Continuar</>
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
