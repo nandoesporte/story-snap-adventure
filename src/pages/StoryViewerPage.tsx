@@ -8,8 +8,7 @@ const StoryViewerPage = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Pass id as a string or undefined */}
-      <StoryViewer storyId={id || undefined} />
+      <StoryViewer storyId={id} />
     </div>
   );
 };
