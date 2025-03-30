@@ -10,6 +10,7 @@ import Admin from './pages/Admin';
 import Planos from './pages/Planos';
 import Subscription from './pages/Subscription';
 import CreateStory from './pages/CreateStory';
+import MyStories from './pages/MyStories';
 import { useAuth } from './context/AuthContext';
 
 function App() {
@@ -37,6 +38,10 @@ function App() {
       <Route 
         path="/library" 
         element={user ? <Library /> : <Navigate to="/login" />} 
+      />
+      <Route
+        path="/my-stories"
+        element={user ? <MyStories /> : <Navigate to="/login" />}
       />
       <Route
         path="/login"
