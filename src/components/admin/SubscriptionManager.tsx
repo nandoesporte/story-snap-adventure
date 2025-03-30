@@ -6,6 +6,20 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { runStripeColumnsMigration } from '@/lib/runMigration';
 import { createStripeProduct, updateStripeProduct } from '@/lib/stripe';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Check, X } from 'lucide-react';
 
 // Form schema for plan validation
 const planFormSchema = z.object({
@@ -27,6 +41,23 @@ const SubscriptionManager = () => {
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [migrationRun, setMigrationRun] = useState(false);
   const queryClient = useQueryClient();
+  
+  // Form state
+  const [formValues, setFormValues] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    currency: 'BRL',
+    interval: 'month',
+    stories_limit: 1,
+    is_active: true,
+    features: '',
+    create_in_stripe: false,
+    stripe_product_id: '',
+    stripe_price_id: '',
+  });
+  
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Run migration when component mounts
   useEffect(() => {
@@ -66,6 +97,43 @@ const SubscriptionManager = () => {
 
   // Open dialog to create/edit a plan
   const openDialog = (plan = null) => {
+    if (plan) {
+      // Convert features array back to string for editing
+      const featuresString = Array.isArray(plan.features) 
+        ? plan.features.join('\n') 
+        : '';
+        
+      setFormValues({
+        name: plan.name || '',
+        description: plan.description || '',
+        price: plan.price || 0,
+        currency: plan.currency || 'BRL',
+        interval: plan.interval || 'month',
+        stories_limit: plan.stories_limit || 1,
+        is_active: plan.is_active !== undefined ? plan.is_active : true,
+        features: featuresString,
+        create_in_stripe: false, // Default to false when editing
+        stripe_product_id: plan.stripe_product_id || '',
+        stripe_price_id: plan.stripe_price_id || '',
+      });
+    } else {
+      // Reset form for new plan
+      setFormValues({
+        name: '',
+        description: '',
+        price: 0,
+        currency: 'BRL',
+        interval: 'month',
+        stories_limit: 1,
+        is_active: true,
+        features: '',
+        create_in_stripe: false,
+        stripe_product_id: '',
+        stripe_price_id: '',
+      });
+    }
+    
+    setFormErrors({});
     setEditingPlan(plan);
     setIsDialogOpen(true);
   };
@@ -74,6 +142,31 @@ const SubscriptionManager = () => {
   const closeDialog = () => {
     setEditingPlan(null);
     setIsDialogOpen(false);
+    setFormErrors({});
+  };
+  
+  // Handle form field changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    // Handle different input types
+    if (type === 'number') {
+      setFormValues(prev => ({ ...prev, [name]: value === '' ? '' : Number(value) }));
+    } else {
+      setFormValues(prev => ({ ...prev, [name]: value }));
+    }
+  };
+  
+  // Handle checkbox/switch changes
+  const handleSwitchChange = (name: string, checked: boolean) => {
+    setFormValues(prev => ({ ...prev, [name]: checked }));
+  };
+  
+  // Handle interval change
+  const handleIntervalChange = (value: string) => {
+    if (value === 'month' || value === 'year') {
+      setFormValues(prev => ({ ...prev, interval: value }));
+    }
   };
 
   // Create or update a subscription plan
@@ -181,17 +274,45 @@ const SubscriptionManager = () => {
       toast.error(errorMessage);
     },
   });
+  
+  // Validate and submit form
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Validate form values
+      const validatedData = planFormSchema.parse(formValues);
+      planMutation.mutate(validatedData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        // Convert Zod errors to a record of field errors
+        const fieldErrors: Record<string, string> = {};
+        error.errors.forEach((err) => {
+          if (err.path.length > 0) {
+            fieldErrors[err.path[0]] = err.message;
+          }
+        });
+        setFormErrors(fieldErrors);
+        
+        // Show toast with first error
+        const firstError = error.errors[0];
+        toast.error(`Erro de validação: ${firstError.message}`);
+      } else {
+        toast.error('Erro ao validar o formulário');
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-medium">Planos de Assinatura</h3>
-        <button 
+        <Button 
           onClick={() => openDialog()} 
           className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
         >
           Adicionar Plano
-        </button>
+        </Button>
       </div>
       
       {!migrationRun && (
@@ -249,10 +370,165 @@ const SubscriptionManager = () => {
         </div>
       )}
       
-      {/* Dialog implementation would go here - 
-         For brevity, I've omitted the dialog implementation as it depends on your UI components.
-         You would need to implement a form with fields for name, description, price, etc.
-      */}
+      {/* Plan Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPlan ? 'Editar Plano' : 'Adicionar Plano'}</DialogTitle>
+            <DialogDescription>
+              Configure os detalhes do plano de assinatura.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome do Plano<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="name"
+                  name="name"
+                  value={formValues.name}
+                  onChange={handleChange}
+                  className={formErrors.name ? 'border-red-500' : ''}
+                />
+                {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea 
+                  id="description"
+                  name="description"
+                  value={formValues.description || ''}
+                  onChange={handleChange}
+                  rows={2}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Preço<span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="price"
+                    name="price"
+                    type="number"
+                    value={formValues.price}
+                    onChange={handleChange}
+                    className={formErrors.price ? 'border-red-500' : ''}
+                    min={0}
+                    step="0.01"
+                  />
+                  {formErrors.price && <p className="text-xs text-red-500">{formErrors.price}</p>}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Moeda</Label>
+                  <Input 
+                    id="currency"
+                    name="currency"
+                    value={formValues.currency}
+                    onChange={handleChange}
+                    placeholder="BRL"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="interval">Intervalo<span className="text-red-500">*</span></Label>
+                <div className="flex gap-4">
+                  <Button
+                    type="button"
+                    variant={formValues.interval === 'month' ? 'default' : 'outline'}
+                    onClick={() => handleIntervalChange('month')}
+                  >
+                    Mensal
+                    {formValues.interval === 'month' && <Check className="ml-2 h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formValues.interval === 'year' ? 'default' : 'outline'}
+                    onClick={() => handleIntervalChange('year')}
+                  >
+                    Anual
+                    {formValues.interval === 'year' && <Check className="ml-2 h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="stories_limit">Limite de Histórias<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="stories_limit"
+                  name="stories_limit"
+                  type="number"
+                  value={formValues.stories_limit}
+                  onChange={handleChange}
+                  className={formErrors.stories_limit ? 'border-red-500' : ''}
+                  min={1}
+                />
+                {formErrors.stories_limit && <p className="text-xs text-red-500">{formErrors.stories_limit}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="features">Recursos (um por linha)</Label>
+                <Textarea 
+                  id="features"
+                  name="features"
+                  value={formValues.features || ''}
+                  onChange={handleChange}
+                  rows={4}
+                  placeholder="Ex: Histórias ilimitadas&#10;Suporte prioritário&#10;Acesso a todos os temas"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is_active">Plano Ativo</Label>
+                  <Switch 
+                    id="is_active"
+                    checked={formValues.is_active}
+                    onCheckedChange={(checked) => handleSwitchChange('is_active', checked)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Planos inativos não serão exibidos para os usuários.
+                </p>
+              </div>
+              
+              {!editingPlan || !editingPlan.stripe_product_id ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="create_in_stripe">Criar no Stripe</Label>
+                    <Switch 
+                      id="create_in_stripe"
+                      checked={formValues.create_in_stripe}
+                      onCheckedChange={(checked) => handleSwitchChange('create_in_stripe', checked)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Habilite para criar automaticamente o produto e preço no Stripe.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground border rounded p-3 bg-muted/50">
+                  <p>Este plano já está vinculado ao Stripe.</p>
+                  <p className="mt-1">ID do Produto: {editingPlan.stripe_product_id}</p>
+                  {editingPlan.stripe_price_id && <p>ID do Preço: {editingPlan.stripe_price_id}</p>}
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeDialog}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={planMutation.isPending}>
+                {planMutation.isPending ? 'Salvando...' : editingPlan ? 'Atualizar Plano' : 'Criar Plano'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
