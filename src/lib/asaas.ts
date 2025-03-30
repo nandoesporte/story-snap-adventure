@@ -19,12 +19,12 @@ export const createAsaasCheckout = async (userId: string, planId: string, return
     
     if (!data || !data.url) {
       console.error('Invalid response from payment server:', data);
-      throw new Error('Resposta inválida do servidor de pagamento. Verifique os logs para mais detalhes.');
+      throw new Error('Resposta inválida do servidor de pagamento. Por favor, tente novamente mais tarde.');
     }
 
     return data.url;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating Asaas checkout:', error);
-    throw new Error(error.message || 'Não foi possível criar a sessão de pagamento. Verifique os logs para mais detalhes.');
+    throw new Error(error.message || 'Não foi possível criar a sessão de pagamento. Por favor, tente novamente mais tarde.');
   }
 };

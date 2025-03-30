@@ -77,22 +77,21 @@ serve(async (req) => {
     const apiUrl = getAsaasApiUrl(environment);
     console.log("Using API URL:", apiUrl);
 
-    // Get user data
+    // Get user data from user_profiles instead of using admin auth
     console.log("Fetching user data...");
     const { data: userData, error: userError } = await supabaseClient
       .from("user_profiles")
-      .select("display_name, id")
+      .select("display_name")
       .eq("id", user_id)
       .single();
 
-    // Get auth user data
-    const { data: authData, error: authError } = await supabaseClient
-      .auth.admin.getUserById(user_id);
-
-    if (userError || !userData || authError || !authData?.user) {
-      console.error("User data error:", userError || authError);
+    // Get email from auth meta data if available
+    const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !userData) {
+      console.error("User data error:", userError);
       return new Response(
-        JSON.stringify({ error: "User not found" }),
+        JSON.stringify({ error: "User profile not found" }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,8 +99,9 @@ serve(async (req) => {
       );
     }
 
-    const userEmail = authData.user.email;
-    const userName = userData.display_name || authData.user.email.split('@')[0];
+    // Use the authenticated user's email or a fallback
+    const userEmail = authUser?.email || `user-${user_id.substring(0, 8)}@example.com`;
+    const userName = userData.display_name || userEmail.split('@')[0];
 
     // Get subscription plan data
     console.log("Fetching plan data...");
