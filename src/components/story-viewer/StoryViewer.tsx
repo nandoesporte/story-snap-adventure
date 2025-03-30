@@ -222,7 +222,7 @@ const StoryViewer: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
+          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100vh - 100px)' }}>
             <div
               ref={bookRef}
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
