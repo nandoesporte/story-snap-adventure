@@ -45,6 +45,7 @@ export const SubscriptionPlanSelector = () => {
   // Set default payment method when data loads
   useEffect(() => {
     if (paymentMethods) {
+      // Find the first enabled payment method to set as default
       if (paymentMethods.stripe) {
         setActivePaymentMethod("stripe");
       } else if (paymentMethods.mercadopago) {
@@ -68,9 +69,14 @@ export const SubscriptionPlanSelector = () => {
     setError(null);
   };
 
+  // Check if any payment methods are available
+  const hasEnabledPaymentMethods = paymentMethods && (
+    paymentMethods.stripe || paymentMethods.mercadopago
+  );
+
   // Handle checkout process
   const handleCheckout = async () => {
-    if (!user || !selectedPlanId) return;
+    if (!user || !selectedPlanId || !hasEnabledPaymentMethods) return;
     
     setIsProcessing(true);
     setError(null);
@@ -151,6 +157,23 @@ export const SubscriptionPlanSelector = () => {
     );
   }
 
+  // Check if there are no enabled payment methods
+  if (paymentMethods && !hasEnabledPaymentMethods) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto bg-destructive/10 p-6 rounded-lg shadow-sm text-center">
+          <h2 className="text-xl font-semibold mb-4 text-destructive">Sistema de pagamento indisponível</h2>
+          <p className="mb-4">
+            Nosso sistema de pagamento está temporariamente indisponível. Por favor, tente novamente mais tarde.
+          </p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-12">
@@ -219,7 +242,7 @@ export const SubscriptionPlanSelector = () => {
                 <Button 
                   className="w-full" 
                   onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !hasEnabledPaymentMethods}
                 >
                   {isProcessing && selectedPlanId === plan.id ? 'Processando...' : 'Assinar agora'}
                 </Button>
@@ -250,40 +273,50 @@ export const SubscriptionPlanSelector = () => {
           </DialogHeader>
           
           <div className="py-4">
-            <Tabs 
-              value={activePaymentMethod} 
-              onValueChange={setActivePaymentMethod}
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
+            {hasEnabledPaymentMethods ? (
+              <Tabs 
+                value={activePaymentMethod} 
+                onValueChange={setActivePaymentMethod}
+                className="w-full"
+              >
+                <TabsList className={`grid w-full ${paymentMethods?.stripe && paymentMethods?.mercadopago ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {paymentMethods?.stripe && (
+                    <TabsTrigger value="stripe" disabled={isProcessing} className="flex items-center justify-center">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      <span>Cartão de crédito</span>
+                    </TabsTrigger>
+                  )}
+                  {paymentMethods?.mercadopago && (
+                    <TabsTrigger value="mercadopago" disabled={isProcessing} className="flex items-center justify-center">
+                      <Store className="h-4 w-4 mr-2" />
+                      <span>Mercado Pago</span>
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+                
                 {paymentMethods?.stripe && (
-                  <TabsTrigger value="stripe" disabled={isProcessing} className="flex items-center justify-center">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    <span>Cartão de crédito</span>
-                  </TabsTrigger>
+                  <TabsContent value="stripe" className="mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      <p>Checkout seguro via Stripe.</p>
+                      <p>Aceita diversos cartões de crédito internacionais.</p>
+                    </div>
+                  </TabsContent>
                 )}
+                
                 {paymentMethods?.mercadopago && (
-                  <TabsTrigger value="mercadopago" disabled={isProcessing} className="flex items-center justify-center">
-                    <Store className="h-4 w-4 mr-2" />
-                    <span>Mercado Pago</span>
-                  </TabsTrigger>
+                  <TabsContent value="mercadopago" className="mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      <p>Checkout seguro via Mercado Pago.</p>
+                      <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
+                    </div>
+                  </TabsContent>
                 )}
-              </TabsList>
-              
-              <TabsContent value="stripe" className="mt-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>Checkout seguro via Stripe.</p>
-                  <p>Aceita diversos cartões de crédito internacionais.</p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="mercadopago" className="mt-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>Checkout seguro via Mercado Pago.</p>
-                  <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
-                </div>
-              </TabsContent>
-            </Tabs>
+              </Tabs>
+            ) : (
+              <div className="text-center p-4 bg-destructive/10 rounded-md">
+                <p className="text-destructive">Nenhum método de pagamento disponível no momento.</p>
+              </div>
+            )}
             
             {error && (
               <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive space-y-2">
@@ -313,7 +346,7 @@ export const SubscriptionPlanSelector = () => {
             </Button>
             <Button 
               onClick={() => !isProcessing && handleCheckout()}
-              disabled={isProcessing}
+              disabled={isProcessing || !hasEnabledPaymentMethods}
               className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
               type="button"
             >
