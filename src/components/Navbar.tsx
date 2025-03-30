@@ -1,203 +1,218 @@
-import { useState, useEffect } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+
+import React from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useIsMobile } from "../hooks/use-mobile";
-import { Sparkles } from "lucide-react";
-import NavbarUser from "./NavbarUser";
-import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { Book, Menu, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import NavbarUser from "./NavbarUser";
 import { useAuth } from "@/context/AuthContext";
 
-type NavItem = {
-  name: string;
-  path: string;
-  adminOnly?: boolean;
-};
-
 const Navbar = () => {
-  const isMobile = useIsMobile();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isOpen, setIsOpen] = React.useState(false);
   const location = useLocation();
-  const { isAdmin } = useAdminCheck();
   const { user } = useAuth();
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location]);
-
-  const navItems: NavItem[] = [
-    { name: 'Início', path: '/' },
-    { name: 'Planos', path: '/planos' },
-    { name: 'Criar História', path: '/create-story' },
-    { name: 'Minhas Histórias', path: '/my-stories' },
-    { name: 'Biblioteca', path: '/library' },
-    { name: 'Admin', path: '/admin', adminOnly: true },
-  ];
-
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const toggleMenu = () => setIsOpen(!isOpen);
+  const closeMenu = () => setIsOpen(false);
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-white/90 backdrop-blur-md shadow-sm" : "bg-transparent"
-      }`}
-    >
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
       <div className="container mx-auto px-4">
-        <nav className="flex items-center justify-between py-4">
-          <Link to="/" className="flex items-center">
-            <div className="flex items-center gap-2">
-              <div className="text-violet-600 relative">
-                <Sparkles className="w-6 h-6" />
-                <motion.div
-                  className="absolute -top-1 -right-1 w-2 h-2 bg-violet-400 rounded-full"
-                  animate={{
-                    scale: [1, 1.5, 1],
-                    opacity: [0.7, 1, 0.7],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                />
-              </div>
-              <span className="text-2xl font-bold text-violet-700 tracking-tight">HISTÓRIAS MÁGICAS</span>
-            </div>
-          </Link>
+        <div className="flex items-center justify-between h-16">
+          <NavLink 
+            to="/" 
+            className="flex items-center"
+            onClick={closeMenu}
+          >
+            <span className="text-2xl font-bold bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
+              HISTÓRIAS MÁGICAS
+            </span>
+          </NavLink>
 
-          {!isMobile && (
-            <ul className="flex items-center space-x-6">
-              {filteredNavItems.map((link) => (
-                <li key={link.path}>
-                  <NavLink
-                    to={link.path}
-                    className={({ isActive }) =>
-                      `relative font-medium text-sm transition-colors hover:text-violet-700 ${
-                        isActive
-                          ? "text-violet-700"
-                          : "text-slate-600"
-                      }`
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {link.name}
-                        {isActive && (
-                          <motion.div
-                            layoutId="navbar-indicator"
-                            className="absolute -bottom-1 left-0 right-0 h-0.5 bg-violet-700"
-                            transition={{ type: "spring", duration: 0.5 }}
-                          />
-                        )}
-                      </>
-                    )}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {!user ? (
-            <div className="flex items-center gap-4">
-              <Link to="/login">
-                <Button variant="outline">Entrar</Button>
-              </Link>
-              <Link to="/register">
-                <Button className="bg-indigo-700 hover:bg-indigo-800">Inscrever-se</Button>
-              </Link>
-            </div>
-          ) : (
-            <NavbarUser />
-          )}
-
-          {isMobile && (
-            <button
-              onClick={toggleMenu}
-              className="text-violet-700 focus:outline-none"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-6">
+            <NavLink 
+              to="/" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-indigo-700 transition-colors"
+              }
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+              Início
+            </NavLink>
+            <NavLink 
+              to="/create-story" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-indigo-700 transition-colors"
+              }
+            >
+              Criar História
+            </NavLink>
+            {user && (
+              <NavLink 
+                to="/library" 
+                className={({ isActive }) => 
+                  isActive 
+                    ? "text-indigo-700 font-medium"
+                    : "text-slate-600 hover:text-indigo-700 transition-colors"
+                }
               >
-                {isMenuOpen ? (
-                  <path
-                    d="M18 6L6 18M6 6L18 18"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ) : (
-                  <path
-                    d="M4 6H20M4 12H20M4 18H20"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )}
-              </svg>
-            </button>
-          )}
-
-          {isMobile && isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-              className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg py-4 px-4"
+                Biblioteca
+              </NavLink>
+            )}
+            <NavLink 
+              to="/planos" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-indigo-700 transition-colors"
+              }
             >
-              <ul className="space-y-3">
-                {filteredNavItems.map((link) => (
-                  <li key={link.path}>
-                    <NavLink
-                      to={link.path}
-                      className={({ isActive }) =>
-                        `block py-2 px-4 rounded-lg ${
-                          isActive
-                            ? "bg-violet-100 text-violet-700"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`
-                      }
-                    >
-                      {link.name}
-                    </NavLink>
-                  </li>
-                ))}
-                <li>
-                  <Link
-                    to="/register"
-                    className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
-                  >
-                    Inscreva-se
-                  </Link>
-                </li>
-              </ul>
-            </motion.div>
-          )}
-        </nav>
+              Planos
+            </NavLink>
+            
+            {user ? (
+              <NavbarUser />
+            ) : (
+              <>
+                <NavLink to="/login">
+                  <Button variant="ghost" className="text-slate-600 hover:text-indigo-700">
+                    Entrar
+                  </Button>
+                </NavLink>
+                <NavLink to="/register">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    Cadastrar
+                  </Button>
+                </NavLink>
+              </>
+            )}
+          </nav>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden text-slate-600 hover:text-indigo-700 transition-colors"
+            onClick={toggleMenu}
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+          >
+            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          className="md:hidden bg-white border-t"
+        >
+          <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
+            <NavLink 
+              to="/" 
+              className={`px-3 py-2 rounded-lg ${
+                location.pathname === "/" 
+                  ? "bg-indigo-50 text-indigo-700 font-medium" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={closeMenu}
+            >
+              Início
+            </NavLink>
+            <NavLink 
+              to="/create-story" 
+              className={`px-3 py-2 rounded-lg ${
+                location.pathname === "/create-story" 
+                  ? "bg-indigo-50 text-indigo-700 font-medium" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={closeMenu}
+            >
+              Criar História
+            </NavLink>
+            {user && (
+              <NavLink 
+                to="/library" 
+                className={`px-3 py-2 rounded-lg ${
+                  location.pathname === "/library" 
+                    ? "bg-indigo-50 text-indigo-700 font-medium" 
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={closeMenu}
+              >
+                Biblioteca
+              </NavLink>
+            )}
+            <NavLink 
+              to="/planos" 
+              className={`px-3 py-2 rounded-lg ${
+                location.pathname === "/planos" 
+                  ? "bg-indigo-50 text-indigo-700 font-medium" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={closeMenu}
+            >
+              Planos
+            </NavLink>
+            
+            {user ? (
+              <div className="border-t pt-4 mt-2">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
+                    <User size={16} className="text-indigo-700" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-800">
+                      {user.email?.split('@')[0]}
+                    </p>
+                    <p className="text-xs text-slate-500">{user.email}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NavLink 
+                    to="/profile" 
+                    className="text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    onClick={closeMenu}
+                  >
+                    Perfil
+                  </NavLink>
+                  <Button 
+                    variant="ghost"
+                    className="text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    onClick={() => {
+                      closeMenu();
+                      // Logout logic here
+                    }}
+                  >
+                    Sair
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-t pt-4 mt-2 grid grid-cols-2 gap-2">
+                <NavLink 
+                  to="/login" 
+                  className="text-center px-3 py-2 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  onClick={closeMenu}
+                >
+                  Entrar
+                </NavLink>
+                <NavLink 
+                  to="/register" 
+                  className="text-center px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                  onClick={closeMenu}
+                >
+                  Cadastrar
+                </NavLink>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
     </header>
   );
 };

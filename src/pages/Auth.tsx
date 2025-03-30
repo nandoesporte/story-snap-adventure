@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -33,7 +32,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       return;
     }
     
-    // Add password confirmation validation for registration
     if (isRegister && password !== confirmPassword) {
       toast.error("As senhas não coincidem");
       return;
@@ -46,10 +44,8 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         console.log("Registering with:", email, password);
         await signUp(email, password);
         
-        // Show success message after registration
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
-        // Don't navigate away so user can see the success message
       } else {
         console.log("Logging in with:", email);
         await signIn(email, password);
@@ -59,7 +55,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     } catch (error: any) {
       console.error("Authentication error:", error);
       
-      // Handle specific error messages
       if (error.message.includes("Invalid login credentials")) {
         toast.error("Email ou senha incorretos");
       } else if (error.message.includes("User already registered")) {
@@ -122,7 +117,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
               ) : (
                 <>
                   <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
-                    {isRegister ? "Criar Conta" : "Entrar"}
+                    {isRegister ? "Criar Conta" : "Entrar"} na <br/> HISTÓRIAS MÁGICAS
                   </h2>
                   <form className="space-y-6" onSubmit={handleSubmit}>
                     <div>
