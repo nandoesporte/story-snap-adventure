@@ -48,15 +48,22 @@ const SubscriptionPlanSelector = () => {
         
         // Check current subscription
         if (user) {
-          const subscription = await checkUserSubscription(user.id);
-          setCurrentSubscription(subscription);
-          
-          // Set the current plan as selected by default
-          if (subscription && subscription.subscription_plan_id) {
-            const currentPlan = plansData.find(p => p.id === subscription.subscription_plan_id);
-            if (currentPlan) {
-              setSelectedPlan(currentPlan);
+          try {
+            const subscription = await checkUserSubscription(user.id);
+            if (subscription) {
+              setCurrentSubscription(subscription);
+              
+              // Set the current plan as selected by default
+              if (subscription.subscription_plan_id) {
+                const currentPlan = plansData.find(p => p.id === subscription.subscription_plan_id);
+                if (currentPlan) {
+                  setSelectedPlan(currentPlan);
+                }
+              }
             }
+          } catch (error) {
+            console.error('Error checking user subscription:', error);
+            // Don't show error toast for subscription check as it might just be a missing table
           }
         }
       } catch (error) {
@@ -226,10 +233,6 @@ const SubscriptionPlanSelector = () => {
                     <span>{feature}</span>
                   </li>
                 ))}
-                <li className="flex items-start">
-                  <Check className="text-green-600 mr-2 h-5 w-5 mt-0.5" />
-                  <span>Até {plan.stories_limit} histórias por mês</span>
-                </li>
               </ul>
             </CardContent>
             <CardFooter>

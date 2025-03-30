@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
 CREATE TABLE IF NOT EXISTS user_subscriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  plan_id UUID NOT NULL REFERENCES subscription_plans(id),
+  subscription_plan_id UUID NOT NULL REFERENCES subscription_plans(id),
   status TEXT NOT NULL CHECK (status IN ('active', 'canceled', 'past_due', 'pending', 'trialing')),
   current_period_start TIMESTAMP WITH TIME ZONE,
   current_period_end TIMESTAMP WITH TIME ZONE,
