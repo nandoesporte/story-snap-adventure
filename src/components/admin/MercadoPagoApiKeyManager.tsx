@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,12 +117,28 @@ const MercadoPagoApiKeyManager = () => {
 
   // Generate the Supabase Edge Function URL for the webhook
   const generateWebhookUrl = () => {
-    // Extract project reference from Supabase URL
-    const projectRef = supabase.supabaseUrl.match(/https:\/\/([^.]+)/)?.[1];
+    const currentUrl = window.location.origin;
+    let projectRef = '';
+    
+    try {
+      const configStr = JSON.stringify(supabase);
+      const matches = configStr.match(/"url":"https:\/\/([^.]+)\.supabase\.co/);
+      if (matches && matches[1]) {
+        projectRef = matches[1];
+      }
+    } catch (e) {
+      console.error("Could not extract project ref from supabase config:", e);
+    }
     
     if (!projectRef) {
-      toast.error("Could not determine Supabase project reference");
-      return;
+      if (currentUrl.includes('supabase')) {
+        const urlParts = currentUrl.split('.');
+        if (urlParts.length > 0) {
+          projectRef = urlParts[0].replace('https://', '');
+        }
+      } else {
+        projectRef = 'your-project-ref';
+      }
     }
     
     const webhookUrl = `https://${projectRef}.supabase.co/functions/v1/mercadopago-webhook`;
