@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 import { MercadoPagoConfig, Preference } from "https://esm.sh/mercadopago@2.0.5";
@@ -7,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WEBHOOK_URL = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
+const WEBHOOK_URL = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
 
 serve(async (req) => {
   // Handle CORS preflight request
@@ -19,7 +20,21 @@ serve(async (req) => {
 
   try {
     // Parse the webhook payload
-    const payload = await req.json();
+    let payload;
+    const contentType = req.headers.get("content-type") || "";
+    
+    if (contentType.includes("application/json")) {
+      payload = await req.json();
+    } else {
+      const text = await req.text();
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        console.error("Failed to parse webhook payload as JSON:", text);
+        payload = { raw: text };
+      }
+    }
+    
     console.log("Received Mercado Pago webhook:", JSON.stringify(payload));
 
     // Handle test requests from MercadoPago
@@ -27,7 +42,8 @@ serve(async (req) => {
     if (payload.type === "test" || 
         (payload.data && payload.data.id === "123456") || 
         payload.id === "123456" ||
-        payload.action === "payment.updated") {
+        payload.action === "payment.updated" ||
+        payload.type === "ping") {
       console.log("Received test webhook from MercadoPago");
       
       return new Response(
@@ -44,7 +60,14 @@ serve(async (req) => {
     const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
     if (!supabaseUrl || !supabaseServiceRole) {
-      throw new Error("Missing Supabase environment variables");
+      console.error("Missing Supabase environment variables");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error", details: "Missing environment variables" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceRole, {
@@ -56,25 +79,22 @@ serve(async (req) => {
 
     // Process the webhook based on the event type
     // For Mercado Pago, we need to check the type of notification
-    if (payload.type === "payment") {
+    if (payload.type === "payment" || (payload.data && payload.data.id)) {
       const paymentId = payload.data?.id;
       
       if (!paymentId) {
         throw new Error("Missing payment ID in webhook payload");
       }
       
-      // Fetch payment details from Mercado Pago API
-      // Note: In a production environment, we would call the Mercado Pago API to verify payment details
-      // For this demo, we'll use the metadata directly from the webhook
-      
       // Extract metadata from the payment 
-      const { data: configData } = await supabase
+      const { data: configData, error: configError } = await supabase
         .from("system_configurations")
         .select("value")
         .eq("key", "mercadopago_access_token")
         .single();
       
-      if (!configData?.value) {
+      if (configError || !configData?.value) {
+        console.error("Error fetching Mercado Pago API key:", configError);
         throw new Error("Mercado Pago API key not configured");
       }
       
@@ -86,6 +106,9 @@ serve(async (req) => {
       });
       
       if (!mpResponse.ok) {
+        console.error(`Failed to fetch payment details: ${mpResponse.status} ${mpResponse.statusText}`);
+        const responseText = await mpResponse.text();
+        console.error("Response:", responseText);
         throw new Error(`Failed to fetch payment details: ${mpResponse.statusText}`);
       }
       
@@ -99,6 +122,7 @@ serve(async (req) => {
       const status = payment.status;
       
       if (!userId || !planId) {
+        console.warn("Missing user ID or plan ID in payment metadata:", metadata);
         throw new Error("Missing user ID or plan ID in payment metadata");
       }
       
@@ -235,6 +259,8 @@ serve(async (req) => {
           
         console.log(`Payment ${payment.id} failed with status ${status}`);
       }
+    } else {
+      console.log("Unhandled webhook event type:", payload.type || "unknown");
     }
 
     // Return a success response
@@ -248,10 +274,12 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error processing Mercado Pago webhook:", error);
     
+    // Always return 200 status to prevent MercadoPago from retrying
+    // This is important because MercadoPago will retry failed webhooks
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: false, error: error.message }),
       {
-        status: 400,
+        status: 200, // Return 200 even for errors to prevent retries
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
