@@ -8,10 +8,17 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'sonner';
 
+const queryClient = new QueryClient();
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <App />
+          <Toaster position="top-right" richColors closeButton />
+        </AuthProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>,
 )
