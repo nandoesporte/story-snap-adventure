@@ -88,7 +88,7 @@ serve(async (req) => {
         .from("user_profiles")
         .select("display_name")
         .eq("id", user_id)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
         console.error("Error fetching user profile:", profileError);
@@ -102,7 +102,7 @@ serve(async (req) => {
     
     // Try to get email from auth.users using admin API
     try {
-      console.log("Fetching user from auth API...");
+      console.log("Fetching user auth data...");
       const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
       
       if (userError) {
@@ -136,7 +136,7 @@ serve(async (req) => {
       .from("subscription_plans")
       .select("*")
       .eq("id", plan_id)
-      .single();
+      .maybeSingle();
 
     if (planError || !planData) {
       console.error("Plan error:", planError);
@@ -151,7 +151,6 @@ serve(async (req) => {
 
     console.log("Plan found:", planData.name);
 
-    // Process payment with Asaas
     return await processAsaasPayment(
       apiKeyConfig.value,
       apiUrl,
@@ -191,16 +190,11 @@ async function processAsaasPayment(
     
     // Step 1: Check if the customer already exists or create a new one
     try {
-      // First, try to find an existing customer with the user's email
-      console.log("Checking for existing customer with email:", userEmail);
+      // First, let's validate our API key before making any customer-related requests
+      console.log("Validating API key...");
       
-      if (!accessToken) {
-        throw new Error("Invalid API key configuration");
-      }
-      
-      // Validate API key before making any requests
       try {
-        const testResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+        const validateResponse = await fetch(`${apiUrl}/status`, {
           method: "GET",
           headers: {
             "access_token": accessToken,
@@ -208,19 +202,21 @@ async function processAsaasPayment(
           },
         });
         
-        if (!testResponse.ok) {
-          const errorText = await testResponse.text();
+        if (!validateResponse.ok) {
+          const errorText = await validateResponse.text();
           console.error("API key validation failed:", errorText);
           return new Response(
             JSON.stringify({ 
               error: "Invalid Asaas API key or connection issue", 
-              details: `Status: ${testResponse.status}` 
+              details: `Status: ${validateResponse.status}` 
             }),
             {
               status: 500,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             }
           );
+        } else {
+          console.log("API key validation successful");
         }
       } catch (validationError) {
         console.error("API validation error:", validationError);
@@ -234,67 +230,78 @@ async function processAsaasPayment(
       }
       
       // Now search for existing customer
+      console.log("Checking for existing customer with email:", userEmail);
       const findCustomerUrl = `${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`;
-      console.log("Making request to:", findCustomerUrl);
       
-      const findCustomerResponse = await fetch(findCustomerUrl, {
-        method: "GET",
-        headers: {
-          "access_token": accessToken,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!findCustomerResponse.ok) {
-        const errorText = await findCustomerResponse.text();
-        console.error("Error finding customer:", errorText);
-        throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
-      }
-
-      const findCustomerData = await findCustomerResponse.json();
-      console.log("Find customer response:", findCustomerData);
-      
-      if (findCustomerData.data && findCustomerData.data.length > 0) {
-        // Use existing customer
-        customerId = findCustomerData.data[0].id;
-        console.log("Using existing customer ID:", customerId);
-      } else {
-        // Create a new customer
-        console.log("Creating new customer...");
-        const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
-          method: "POST",
+      try {
+        const findCustomerResponse = await fetch(findCustomerUrl, {
+          method: "GET",
           headers: {
             "access_token": accessToken,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            name: userName,
-            email: userEmail,
-            notificationDisabled: false,
-          }),
         });
         
-        if (!createCustomerResponse.ok) {
-          const errorText = await createCustomerResponse.text();
-          console.error("Error creating customer:", errorText);
-          throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
+        if (!findCustomerResponse.ok) {
+          const errorText = await findCustomerResponse.text();
+          console.error("Error finding customer:", errorText);
+          throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
         }
 
-        const createCustomerData = await createCustomerResponse.json();
-        console.log("Create customer response:", createCustomerData);
+        const findCustomerData = await findCustomerResponse.json();
+        console.log("Find customer response:", findCustomerData);
         
-        if (createCustomerData.errors) {
-          return new Response(
-            JSON.stringify({ error: "Failed to create customer", details: createCustomerData.errors }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
+        if (findCustomerData.data && findCustomerData.data.length > 0) {
+          // Use existing customer
+          customerId = findCustomerData.data[0].id;
+          console.log("Using existing customer ID:", customerId);
+        } else {
+          // Create a new customer
+          console.log("Creating new customer...");
+          const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
+            method: "POST",
+            headers: {
+              "access_token": accessToken,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: userName,
+              email: userEmail,
+              notificationDisabled: false,
+            }),
+          });
+          
+          if (!createCustomerResponse.ok) {
+            const errorText = await createCustomerResponse.text();
+            console.error("Error creating customer:", errorText);
+            throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
+          }
+
+          const createCustomerData = await createCustomerResponse.json();
+          console.log("Create customer response:", createCustomerData);
+          
+          if (createCustomerData.errors) {
+            return new Response(
+              JSON.stringify({ error: "Failed to create customer", details: createCustomerData.errors }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          
+          customerId = createCustomerData.id;
+          console.log("New customer created with ID:", customerId);
         }
-        
-        customerId = createCustomerData.id;
-        console.log("New customer created with ID:", customerId);
+      } catch (customerError) {
+        console.error("Customer processing error:", customerError);
+        return new Response(
+          JSON.stringify({ error: "Failed to process customer data", details: customerError.message }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
 
       // Step 2: Create the payment
@@ -322,77 +329,101 @@ async function processAsaasPayment(
       }
 
       console.log("Creating payment with data:", paymentData);
-      const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
-        method: "POST",
-        headers: {
-          "access_token": accessToken,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(paymentData),
-      });
-      
-      if (!createPaymentResponse.ok) {
-        const errorText = await createPaymentResponse.text();
-        console.error("Error creating payment:", errorText);
-        throw new Error(`Failed to create payment: ${createPaymentResponse.status}`);
-      }
-
-      const paymentResult = await createPaymentResponse.json();
-      console.log("Payment creation response:", paymentResult);
-      
-      if (paymentResult.errors) {
-        return new Response(
-          JSON.stringify({ error: "Failed to create payment", details: paymentResult.errors }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      // Step 3: Get the payment link
-      const paymentId = paymentResult.id;
-      console.log("Getting checkout URL for payment ID:", paymentId);
-      const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
-        method: "GET",
-        headers: {
-          "access_token": accessToken,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!getPaymentResponse.ok) {
-        const errorText = await getPaymentResponse.text();
-        console.error("Error getting payment details:", errorText);
-        throw new Error(`Failed to get payment details: ${getPaymentResponse.status}`);
-      }
-      
-      const paymentDetails = await getPaymentResponse.json();
-      console.log("Payment details:", paymentDetails);
-
-      if (!paymentDetails.invoiceUrl) {
-        console.error("Invoice URL not found in payment details");
-        return new Response(
-          JSON.stringify({ error: "Failed to get payment checkout URL" }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      
-      console.log("Returning invoice URL:", paymentDetails.invoiceUrl);
-      return new Response(
-        JSON.stringify({ url: paymentDetails.invoiceUrl }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
+          method: "POST",
+          headers: {
+            "access_token": accessToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(paymentData),
+        });
+        
+        if (!createPaymentResponse.ok) {
+          const errorText = await createPaymentResponse.text();
+          console.error("Error creating payment:", errorText);
+          throw new Error(`Failed to create payment: ${createPaymentResponse.status}`);
         }
-      );
-    } catch (error) {
-      console.error("API processing error:", error);
+
+        const paymentResult = await createPaymentResponse.json();
+        console.log("Payment creation response:", paymentResult);
+        
+        if (paymentResult.errors) {
+          return new Response(
+            JSON.stringify({ error: "Failed to create payment", details: paymentResult.errors }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        // Step 3: Get the payment link
+        const paymentId = paymentResult.id;
+        console.log("Getting checkout URL for payment ID:", paymentId);
+        
+        try {
+          const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
+            method: "GET",
+            headers: {
+              "access_token": accessToken,
+              "Content-Type": "application/json",
+            },
+          });
+          
+          if (!getPaymentResponse.ok) {
+            const errorText = await getPaymentResponse.text();
+            console.error("Error getting payment details:", errorText);
+            throw new Error(`Failed to get payment details: ${getPaymentResponse.status}`);
+          }
+          
+          const paymentDetails = await getPaymentResponse.json();
+          console.log("Payment details:", paymentDetails);
+
+          if (!paymentDetails.invoiceUrl) {
+            console.error("Invoice URL not found in payment details");
+            return new Response(
+              JSON.stringify({ error: "Failed to get payment checkout URL" }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          
+          console.log("Returning invoice URL:", paymentDetails.invoiceUrl);
+          return new Response(
+            JSON.stringify({ url: paymentDetails.invoiceUrl }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        } catch (paymentDetailsError) {
+          console.error("Error getting payment details:", paymentDetailsError);
+          return new Response(
+            JSON.stringify({ error: "Failed to get payment details", details: paymentDetailsError.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+      } catch (paymentCreationError) {
+        console.error("Payment creation error:", paymentCreationError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create payment", details: paymentCreationError.message }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            
+          }
+        );
+      }
+    } catch (processError) {
+      console.error("API processing error:", processError);
       return new Response(
-        JSON.stringify({ error: error.message || "Failed to process payment" }),
+        JSON.stringify({ error: processError.message || "Failed to process payment" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -400,7 +431,7 @@ async function processAsaasPayment(
       );
     }
   } catch (error) {
-    console.error("Payment creation error:", error);
+    console.error("Payment processing error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Failed to create payment" }),
       {
