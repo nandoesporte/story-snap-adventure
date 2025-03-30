@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Check, Loader, CreditCard, Store } from 'lucide-react';
+import { Check, Loader, CreditCard, Store, RefreshCw } from 'lucide-react';
 import { SubscriptionPlan, checkUserSubscription, createSubscriptionCheckout, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
 import {
   Tabs,
@@ -21,6 +22,7 @@ export const SubscriptionPlanSelector = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePaymentMethod, setActivePaymentMethod] = useState("stripe");
+  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch current subscription
   const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
@@ -80,40 +82,46 @@ export const SubscriptionPlanSelector = () => {
       
       let checkoutUrl;
       
-      if (activePaymentMethod === "mercadopago") {
-        checkoutUrl = await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
-      } else {
-        // Default to Stripe
-        checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
+      try {
+        if (activePaymentMethod === "mercadopago") {
+          checkoutUrl = await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
+        } else {
+          // Default to Stripe
+          checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
+        }
+      } catch (requestError) {
+        console.error('Failed to connect to payment API:', requestError);
+        throw new Error('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
       }
       
-      // Redirect to checkout
-      if (checkoutUrl) {
-        // Instead of directly changing location, create a test to ensure the URL is valid
-        try {
-          // Check if URL is valid
-          new URL(checkoutUrl);
-          
-          // Redirect after a short delay to allow state updates to complete
-          setTimeout(() => {
-            window.location.href = checkoutUrl;
-          }, 100);
-        } catch (e) {
-          throw new Error("URL de checkout inválida: " + checkoutUrl);
-        }
-      } else {
+      // Validate checkout URL before redirect
+      if (!checkoutUrl) {
         throw new Error("Não foi possível obter a URL de checkout.");
+      }
+      
+      // Validate URL format
+      try {
+        const urlObject = new URL(checkoutUrl);
+        
+        // Add a slight delay to allow state updates to complete
+        setTimeout(() => {
+          // Prevent redirect in test/development environments if needed
+          window.location.href = checkoutUrl;
+        }, 200);
+      } catch (urlError) {
+        console.error('Invalid checkout URL:', urlError);
+        throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
       }
     } catch (error) {
       console.error('Error creating checkout:', error);
       
-      // Try to get a more specific error message
+      // Get a user-friendly error message
       let errorMessage = 'Ocorreu um erro desconhecido ao processar o pagamento.';
       
       if (error.message) {
         errorMessage = `${error.message}`;
         
-        // Show a more user-friendly message for common errors
+        // Provide more specific error messages for common issues
         if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
           errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
         }
@@ -123,6 +131,13 @@ export const SubscriptionPlanSelector = () => {
       toast.error(errorMessage);
       setIsProcessing(false);
     }
+  };
+
+  // Retry payment processing
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    handleCheckout();
   };
 
   const isLoading = isLoadingSubscription || isLoadingPlans;
@@ -215,12 +230,17 @@ export const SubscriptionPlanSelector = () => {
       )}
       
       {/* Payment Method Selection Dialog */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={(open) => {
-        // Only allow closing if not processing
-        if (!isProcessing || !open) {
-          setIsPaymentDialogOpen(open);
-        }
-      }}>
+      <Dialog 
+        open={isPaymentDialogOpen} 
+        onOpenChange={(open) => {
+          // Only allow closing if not processing
+          if (!isProcessing || !open) {
+            setIsPaymentDialogOpen(open);
+            // Reset error state when reopening
+            if (open) setError(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Selecione o método de pagamento</DialogTitle>
@@ -266,8 +286,18 @@ export const SubscriptionPlanSelector = () => {
             </Tabs>
             
             {error && (
-              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
-                {error}
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive space-y-2">
+                <p>{error}</p>
+                <Button 
+                  onClick={handleRetry} 
+                  disabled={isProcessing} 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-2 flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Tentar novamente
+                </Button>
               </div>
             )}
           </div>
