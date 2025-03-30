@@ -53,7 +53,7 @@ serve(async (req) => {
       .from("system_configurations")
       .select("value")
       .eq("key", "asaas_api_key")
-      .single();
+      .maybeSingle();
 
     if (apiKeyError || !apiKeyConfig?.value) {
       console.error("API key error:", apiKeyError);
@@ -70,52 +70,74 @@ serve(async (req) => {
       .from("system_configurations")
       .select("value")
       .eq("key", "asaas_environment")
-      .single();
+      .maybeSingle();
 
     // Default to sandbox if not configured
     const environment = envConfig?.value || "sandbox";
     const apiUrl = getAsaasApiUrl(environment);
     console.log("Using API URL:", apiUrl);
 
-    // Get user information (name and email)
+    // Get user information (name and email) - MODIFIED APPROACH
     let userEmail = "";
     let userName = "";
     
-    // Try to get information from user_profiles table first
+    // Try to get user information from user_profiles table
     try {
       console.log("Fetching user profile data...");
       const { data: profileData, error: profileError } = await supabaseClient
         .from("user_profiles")
-        .select("display_name")
+        .select("display_name, email")
         .eq("id", user_id)
         .maybeSingle();
         
       if (profileError) {
         console.error("Error fetching user profile:", profileError);
-        // We'll continue and try auth method next
+        // We'll fallback to default values later
       } else if (profileData) {
         userName = profileData.display_name || `User ${user_id.substring(0, 8)}`;
+        // If there's an email field in user_profiles we can use it
+        if (profileData.email) {
+          userEmail = profileData.email;
+        }
       }
     } catch (profileError) {
       console.error("Unexpected error fetching user profile:", profileError);
     }
     
-    // Try to get email from auth.users using admin API
-    try {
-      console.log("Fetching user auth data...");
-      const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
-      
-      if (userError) {
-        console.error("Error fetching user from auth admin API:", userError);
-      } else if (userData?.user) {
-        userEmail = userData.user.email || "";
-        // If we didn't get a name from user_profiles, try to get it from auth metadata
-        if (!userName && userData.user.user_metadata?.name) {
-          userName = userData.user.user_metadata.name;
+    // If we still don't have user info, try to get it from auth.users
+    // But we'll use the public API instead of admin API
+    if (!userEmail) {
+      console.log("Fetching user email from session data...");
+      try {
+        // Get the authorization header from the request
+        const authHeader = req.headers.get('authorization');
+        if (authHeader) {
+          const token = authHeader.split(' ')[1];
+          if (token) {
+            // Set the auth token to get the user's session
+            supabaseClient.auth.setSession({
+              access_token: token,
+              refresh_token: '',
+            });
+            
+            // Get the user session
+            const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+            if (sessionError) {
+              console.error("Error getting session:", sessionError);
+            } else if (sessionData?.session?.user?.email) {
+              userEmail = sessionData.session.user.email;
+              console.log("Found email from session:", userEmail);
+              
+              // If we don't have a name yet, try to get it from metadata
+              if (!userName && sessionData.session.user.user_metadata?.name) {
+                userName = sessionData.session.user.user_metadata.name;
+              }
+            }
+          }
         }
+      } catch (authError) {
+        console.error("Failed to fetch user email from session:", authError);
       }
-    } catch (authError) {
-      console.error("Failed to fetch user from auth admin API:", authError);
     }
     
     // If we still don't have a valid email, generate a fallback
