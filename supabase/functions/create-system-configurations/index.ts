@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 
@@ -24,7 +23,20 @@ serve(async (req) => {
     const body = await req.json();
     const { key, value } = body;
 
-    // Importante: Verifique se a chave já existe antes de substituir
+    if (!key) {
+      return new Response(
+        JSON.stringify({ error: "Chave não fornecida" }),
+        {
+          status: 400,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
+        }
+      );
+    }
+
+    // Check if the key already exists before replacing
     const { data: existingConfig, error: checkError } = await supabaseClient
       .from("system_configurations")
       .select("*")
@@ -36,28 +48,42 @@ serve(async (req) => {
     }
 
     let result;
+    
     if (existingConfig) {
-      // Se a configuração já existir, faça um update APENAS se o novo valor não estiver vazio
-      if (value) {
+      // If the configuration already exists, update ONLY if the new value isn't empty
+      // and is different from the existing value
+      if (value && value !== existingConfig.value) {
+        console.log(`Updating existing configuration: ${key}`);
         const { data, error } = await supabaseClient
           .from("system_configurations")
           .update({ value })
-          .eq("key", key);
+          .eq("key", key)
+          .select();
         
         if (error) throw error;
         result = data;
+        console.log(`Updated configuration: ${key}`);
       } else {
-        // Se o novo valor estiver vazio, mantenha o valor existente
+        // Keep the existing value if the new value is empty or unchanged
+        console.log(`Keeping existing configuration value for: ${key}`);
         result = existingConfig;
       }
     } else {
-      // Se não existir, insira um novo registro
-      const { data, error } = await supabaseClient
-        .from("system_configurations")
-        .insert({ key, value });
-      
-      if (error) throw error;
-      result = data;
+      // If it doesn't exist, insert a new record only if value is not empty
+      if (value) {
+        console.log(`Creating new configuration: ${key}`);
+        const { data, error } = await supabaseClient
+          .from("system_configurations")
+          .insert({ key, value })
+          .select();
+        
+        if (error) throw error;
+        result = data;
+        console.log(`Created new configuration: ${key}`);
+      } else {
+        console.log(`Skipping creation of empty configuration: ${key}`);
+        result = { key, value: "" };
+      }
     }
 
     return new Response(

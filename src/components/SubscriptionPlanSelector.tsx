@@ -78,7 +78,7 @@ export const SubscriptionPlanSelector = () => {
       console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl });
       
       let checkoutUrl;
-      let retryCount = 0;
+      let currentRetryCount = 0;
       const maxRetries = 2;
       
       const attemptCheckout = async () => {
@@ -90,46 +90,53 @@ export const SubscriptionPlanSelector = () => {
             return await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
           }
         } catch (requestError) {
-          console.error(`Checkout attempt ${retryCount + 1} failed:`, requestError);
+          console.error(`Checkout attempt ${currentRetryCount + 1} failed:`, requestError);
           
-          if (retryCount >= maxRetries) {
+          if (currentRetryCount >= maxRetries) {
             throw requestError;
           }
           
-          const delay = 300 * Math.pow(2, retryCount);
+          const delay = 300 * Math.pow(2, currentRetryCount);
           console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           
-          retryCount++;
+          currentRetryCount++;
           return null;
         }
       };
       
       while (checkoutUrl === undefined || checkoutUrl === null) {
+        if (currentRetryCount > maxRetries) {
+          break;
+        }
         checkoutUrl = await attemptCheckout();
       }
       
-      if (activePaymentMethod === "mercadopago") {
-        if (!checkoutUrl) {
-          throw new Error("Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente.");
-        }
-      }
-      
       if (!checkoutUrl) {
-        throw new Error("Não foi possível obter a URL de checkout.");
+        throw new Error(
+          activePaymentMethod === "mercadopago" 
+            ? "Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente."
+            : "Não foi possível obter a URL de checkout."
+        );
       }
       
-      const urlObject = new URL(checkoutUrl);
+      // Safety check for URL validity
+      try {
+        new URL(checkoutUrl);
+      } catch (urlError) {
+        throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
+      }
       
       toast.success(`Redirecionando para o ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Stripe"}...`);
       
+      // Brief timeout to allow the toast to be seen
       setTimeout(() => {
         window.location.href = checkoutUrl;
-      }, 200);
+      }, 500);
     } catch (error) {
       console.error('Error creating checkout:', error);
       
-      let errorMessage = 'Ocorreu um erro desconhecido ao processar o pagamento.';
+      let errorMessage = 'Ocorreu um erro ao processar o pagamento.';
       
       if (error.message) {
         errorMessage = `${error.message}`;

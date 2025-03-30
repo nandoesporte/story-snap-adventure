@@ -197,51 +197,52 @@ export const createMercadoPagoCheckout = async (
   returnUrl?: string
 ): Promise<string> => {
   try {
-    console.log('Creating MercadoPago checkout for', userId, planId);
+    console.log(`Creating MercadoPago checkout for ${userId} ${planId}`);
     
-    // Verificar se temos credenciais configuradas primeiro
-    const { data: configCheck, error: configCheckError } = await supabase
-      .from("system_configurations")
-      .select("value")
-      .eq("key", "mercadopago_access_token")
-      .single();
-
-    if (configCheckError || !configCheck?.value) {
-      console.error('MercadoPago não está configurado corretamente:', configCheckError);
-      throw new Error('A API do MercadoPago não está configurada. Verifique as configurações de administrador.');
+    // Make the request to the Edge Function with proper error handling
+    let response;
+    try {
+      response = await supabase.functions.invoke('create-mercadopago-checkout', {
+        method: 'POST',
+        body: { planId, returnUrl },
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+    } catch (fetchError) {
+      console.error("Erro ao criar checkout do MercadoPago:", fetchError);
+      throw new Error("Não foi possível conectar ao servidor do MercadoPago. Verifique sua conexão de internet ou se o serviço está disponível.");
     }
     
-    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
-      body: { planId, returnUrl }
-    });
-    
-    if (error) {
-      console.error('Erro ao criar checkout do MercadoPago:', error);
+    if (!response || response.error) {
+      console.error("Erro em createMercadoPagoCheckout:", response?.error || "Resposta vazia");
       
-      // Tratamento especial para erros de conectividade
-      if (error.message?.includes('Failed to fetch') || 
-          error.message?.includes('Failed to send') ||
-          error.message?.includes('network') ||
-          error.message?.includes('connection')) {
-        throw new Error('Não foi possível conectar ao servidor do MercadoPago. Verifique sua conexão de internet ou se o serviço está disponível.');
+      // Get a more descriptive error message if available
+      let errorMessage = "Erro desconhecido ao processar pagamento.";
+      if (response?.error) {
+        if (typeof response.error === 'string') {
+          errorMessage = response.error;
+        } else if (response.error.message) {
+          errorMessage = response.error.message;
+        } else if (response.error.details) {
+          errorMessage = response.error.details;
+        }
       }
       
-      throw new Error(`Falha ao criar checkout: ${error.message}`);
+      throw new Error(errorMessage);
     }
     
+    const data = response.data;
+    
     if (!data || !data.url) {
-      console.error('Resposta inválida do MercadoPago:', data);
-      throw new Error('Resposta inválida do servidor de pagamento');
+      console.error("Resposta inválida do MercadoPago:", data);
+      throw new Error("A resposta do servidor do MercadoPago foi inválida.");
     }
     
     return data.url;
   } catch (error) {
-    console.error('Erro em createMercadoPagoCheckout:', error);
-    if (error instanceof Error) {
-      throw error;
-    } else {
-      throw new Error('Falha ao processar pagamento com MercadoPago');
-    }
+    console.error("Erro em createMercadoPagoCheckout:", error);
+    throw error;
   }
 };
 

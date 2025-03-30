@@ -18,9 +18,9 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 300) {
     } catch (error) {
       retries++;
       
-      // If we've reached max retries or it's not a temporary error, rethrow
-      if (retries >= maxRetries || 
-         !(error.status === 429 || error.status === 500 || error.status === 503)) {
+      // Check if we've reached max retries
+      if (retries >= maxRetries) {
+        console.error(`Max retries (${maxRetries}) reached. Giving up.`);
         throw error;
       }
       
@@ -94,14 +94,9 @@ serve(async (req) => {
       );
     }
     
-    // Get webhook URL if configured
-    const { data: webhookData } = await supabaseClient
-      .from("system_configurations")
-      .select("value")
-      .eq("key", "mercadopago_webhook_url")
-      .single();
-
-    if (!configData.value || configData.value.trim() === "") {
+    // Validate API key format
+    const mercadoPagoAccessToken = configData.value;
+    if (!mercadoPagoAccessToken || mercadoPagoAccessToken.trim() === "") {
       return new Response(
         JSON.stringify({ error: "MercadoPago API key está vazio. Configure uma chave válida." }),
         {
@@ -111,16 +106,22 @@ serve(async (req) => {
       );
     }
     
-    const mercadoPagoAccessToken = configData.value;
+    // Get webhook URL if configured
+    const { data: webhookData } = await supabaseClient
+      .from("system_configurations")
+      .select("value")
+      .eq("key", "mercadopago_webhook_url")
+      .single();
     
     try {
-      // Teste a validade do token fazendo uma chamada simples à API do MercadoPago
-      const testResponse = await retryWithBackoff(() => fetch("https://api.mercadopago.com/v1/payment_methods", {
+      // Test the token validity by making a simple API call to MercadoPago
+      console.log("Testing MercadoPago token validity...");
+      const testResponse = await fetch("https://api.mercadopago.com/v1/payment_methods", {
         headers: {
           "Authorization": `Bearer ${mercadoPagoAccessToken}`,
           "Content-Type": "application/json"
         }
-      }));
+      });
       
       if (!testResponse.ok) {
         console.error("Invalid MercadoPago token:", await testResponse.text());
@@ -132,6 +133,7 @@ serve(async (req) => {
           }
         );
       }
+      console.log("MercadoPago token is valid.");
     } catch (tokenTestError) {
       console.error("Failed to validate MercadoPago token:", tokenTestError);
       return new Response(
@@ -143,74 +145,73 @@ serve(async (req) => {
       );
     }
     
-    const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
-    const preference = new Preference(client);
-
-    // Parse request body
-    const { planId, returnUrl } = await req.json();
-
-    if (!planId) {
-      return new Response(
-        JSON.stringify({ error: "Missing planId" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Get plan details from database
-    const { data: plan, error: planError } = await supabaseClient
-      .from("subscription_plans")
-      .select("id, name, price, currency, interval")
-      .eq("id", planId)
-      .single();
-
-    if (planError || !plan) {
-      return new Response(
-        JSON.stringify({ error: "Plan not found" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Set return URL
-    const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
-    const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
-    
-    // Use the webhook URL from configuration or default to the Mercado Pago webhook URL
-    const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
-
-    // Create preference object
-    const preferenceData = {
-      items: [
-        {
-          id: plan.id,
-          title: `${plan.name} - ${plan.interval === 'month' ? 'Mensal' : 'Anual'}`,
-          quantity: 1,
-          unit_price: Number(plan.price),
-          currency_id: plan.currency || "BRL"
-        }
-      ],
-      back_urls: {
-        success: successUrl,
-        failure: cancelUrl,
-        pending: successUrl
-      },
-      auto_return: "approved",
-      notification_url: webhookUrl,
-      metadata: {
-        userId: user.id,
-        planId: planId
-      }
-    };
-
-    console.log("Creating MercadoPago preference:", JSON.stringify(preferenceData));
-
-    // Create a preference with retry logic for API rate limits
+    // Initialize MercadoPago client
     try {
+      const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
+      const preference = new Preference(client);
+
+      // Parse request body
+      const { planId, returnUrl } = await req.json();
+
+      if (!planId) {
+        return new Response(
+          JSON.stringify({ error: "Missing planId" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Get plan details from database
+      const { data: plan, error: planError } = await supabaseClient
+        .from("subscription_plans")
+        .select("id, name, price, currency, interval")
+        .eq("id", planId)
+        .single();
+
+      if (planError || !plan) {
+        return new Response(
+          JSON.stringify({ error: "Plan not found" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Set return URL and webhook URL
+      const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
+      const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
+      const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
+
+      // Create preference object
+      const preferenceData = {
+        items: [
+          {
+            id: plan.id,
+            title: `${plan.name} - ${plan.interval === 'month' ? 'Mensal' : 'Anual'}`,
+            quantity: 1,
+            unit_price: Number(plan.price),
+            currency_id: plan.currency || "BRL"
+          }
+        ],
+        back_urls: {
+          success: successUrl,
+          failure: cancelUrl,
+          pending: successUrl
+        },
+        auto_return: "approved",
+        notification_url: webhookUrl,
+        metadata: {
+          userId: user.id,
+          planId: planId
+        }
+      };
+
+      console.log("Creating MercadoPago preference:", JSON.stringify(preferenceData));
+
+      // Create preference with retry logic
       const result = await retryWithBackoff(() => preference.create({
         body: preferenceData
       }));
@@ -230,7 +231,7 @@ serve(async (req) => {
     } catch (mpError) {
       console.error("MercadoPago API error:", mpError);
       
-      // Tentar obter detalhes do erro
+      // Get detailed error information
       let errorDetails = "Erro desconhecido";
       try {
         if (mpError.message) {
@@ -239,7 +240,7 @@ serve(async (req) => {
           errorDetails = JSON.stringify(mpError);
         }
       } catch (e) {
-        // Ignorar erros ao extrair detalhes
+        // Ignore errors when extracting details
       }
       
       return new Response(
@@ -262,7 +263,7 @@ serve(async (req) => {
         errorMessage = error.message;
       }
     } catch (e) {
-      // Ignorar erros ao extrair mensagem
+      // Ignore errors when extracting message
     }
     
     return new Response(
