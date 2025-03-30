@@ -5,7 +5,7 @@ import Index from './pages/Index';
 import Auth from './pages/Auth';
 import StoryCreator from './pages/StoryCreator';
 import Library from './pages/Library';
-import StoryViewer from './components/StoryViewer';
+import StoryViewer from './components/story-viewer/StoryViewer';
 import Admin from './pages/Admin';
 import Planos from './pages/Planos';
 import Subscription from './pages/Subscription';
