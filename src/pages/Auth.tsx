@@ -87,12 +87,9 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
 
         console.log("Registration response:", data);
         
-        // Check if email confirmation is required based on the response
-        const emailConfirmationRequired = !data?.user?.identities?.[0]?.identity_data?.email_confirmed_at;
-        
-        // Show success message after registration
-        toast.success("Conta criada com sucesso!");
+        // Set registration success state to show confirmation message
         setRegistrationSuccess(true);
+        toast.success("Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.");
       } else {
         console.log("Logging in with:", email);
         const { error } = await signIn(email, password);
@@ -115,7 +112,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       } else if (error.message?.includes("Password should be at least 6 characters")) {
         setFormError("A senha deve ter pelo menos 6 caracteres");
       } else {
-        setFormError(`Erro: ${error.message}`);
+        setFormError(error.message || "Erro no processamento da solicitação");
       }
       
       toast.error(formError || "Erro no processamento da solicitação");

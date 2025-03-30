@@ -154,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Add more detailed logging
       console.info('AuthContext: Signing up with:', email);
       
-      // Use site URL for redirect
+      // Use site URL for redirect - IMPORTANT: this creates the full URL for email confirmation
       const siteUrl = window.location.origin;
       console.info('Using site URL for redirect:', siteUrl);
       
