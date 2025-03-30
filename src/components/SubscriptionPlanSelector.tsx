@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,16 +12,16 @@ import { UserManager } from '@/components/admin/UserManager';
 import { ThemeManager } from '@/components/admin/ThemeManager';
 import { StoryManager } from '@/components/admin/StoryManager';
 import { CharacterManager } from '@/components/admin/CharacterManager';
-import { TestModeManager } from '@/components/admin/TestModeManager';
-import { SubscriptionManager } from '@/components/admin/SubscriptionManager';
-import { PaymentMethodsManager } from '@/components/admin/PaymentMethodsManager';
+import TestModeManager from '@/components/admin/TestModeManager';
+import SubscriptionManager from '@/components/admin/SubscriptionManager';
+import PaymentMethodsManager from '@/components/admin/PaymentMethodsManager';
 import { StoryBotPromptManager } from '@/components/admin/StoryBotPromptManager';
-import { GoogleTTSApiKeyManager } from '@/components/admin/GoogleTTSApiKeyManager';
-import { MercadoPagoApiKeyManager } from '@/components/admin/MercadoPagoApiKeyManager';
-import { AsaasApiKeyManager } from '@/components/admin/AsaasApiKeyManager';
+import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
+import MercadoPagoApiKeyManager from '@/components/admin/MercadoPagoApiKeyManager';
+import AsaasApiKeyManager from '@/components/admin/AsaasApiKeyManager';
 import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
 
-const Admin = () => {
+const SubscriptionPlanSelector = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, loading } = useAdminCheck();
@@ -112,4 +113,4 @@ const Admin = () => {
   );
 };
 
-export default Admin;
+export default SubscriptionPlanSelector;

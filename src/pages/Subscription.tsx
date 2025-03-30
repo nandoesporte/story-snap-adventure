@@ -2,7 +2,7 @@
 import React from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { SubscriptionPlanSelector } from '@/components/SubscriptionPlanSelector';
+import SubscriptionPlanSelector from '@/components/SubscriptionPlanSelector';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 
