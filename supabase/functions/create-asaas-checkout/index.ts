@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -17,6 +16,8 @@ const getAsaasApiUrl = (environment: string) => {
 // Enhanced validation function with better error handling and more specific validation
 async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
   try {
+    console.log("Starting API key validation process");
+    
     // Validate API key format first
     if (!apiKey || apiKey.trim() === '') {
       return { 
@@ -59,6 +60,8 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
         status: 400
       };
     }
+    
+    console.log("API key format validation passed, now testing connectivity");
     
     // Try multiple validation endpoints in sequence to provide the most specific error message
     console.log("Validating Asaas API key using balance endpoint...");
@@ -124,6 +127,25 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
           status: 403
         };
       }
+    }
+    
+    // Try one more endpoint as a last resort
+    console.log("Trying one more validation endpoint...");
+    try {
+      const lastResortResponse = await fetch(`${apiUrl}/paymentLinks?limit=1`, {
+        method: "GET",
+        headers: {
+          "access_token": apiKey,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (lastResortResponse.ok) {
+        console.log("API key validation successful with payment links endpoint");
+        return { valid: true };
+      }
+    } catch (e) {
+      console.error("Last resort validation failed:", e);
     }
     
     // Generic error for other cases
