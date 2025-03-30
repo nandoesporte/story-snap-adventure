@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./context/AuthContext";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import CreateStoryPage from "./pages/CreateStoryPage";
+import CreateStory from "./pages/CreateStory";
 import StoryCreatorPage from "./pages/StoryCreatorPage";
 import StoryViewerPage from "./components/story-viewer/StoryViewer";
 import NotFound from "./pages/NotFound";
@@ -18,8 +18,8 @@ function App() {
       <AuthProvider>
         <Toaster position="top-right" richColors closeButton />
         <Routes>
-          <Route path="/" element={<CreateStoryPage />} />
-          <Route path="/create-story" element={<CreateStoryPage />} />
+          <Route path="/" element={<CreateStory />} />
+          <Route path="/create-story" element={<CreateStory />} />
           <Route path="/view-story/:id?" element={<StoryViewerPage />} />
           <Route path="/story-creator" element={<StoryCreatorPage />} />
           <Route path="/my-stories" element={<MyStories />} />
