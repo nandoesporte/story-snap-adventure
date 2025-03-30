@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -197,7 +196,7 @@ const StoryViewer: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden" style={{ height: '100vh' }}>
+    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />
@@ -222,12 +221,13 @@ const StoryViewer: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden" data-testid="story-book-container">
+          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
             <div
               ref={bookRef}
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
                 isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
               } ${isRendered ? 'opacity-100' : 'opacity-0'}`}
+              data-testid="story-book-container"
               style={{ width: '100%', height: '100%' }}
             >
               {storyData && (

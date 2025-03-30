@@ -46,7 +46,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
-        <div className="story-image-fullscreen h-full">
+        <div className="story-image-fullscreen">
           <img 
             src={imageUrl} 
             alt={`Ilustração da página ${pageIndex + 1}`}
@@ -60,7 +60,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           <div className="story-text-overlay">
             <div className="relative z-10 p-4 pb-6">
               <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
-              <div className="prose prose-sm story-text text-white story-text-content">
+              <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
                   <p key={idx} className="mb-2 leading-relaxed text-shadow">{paragraph}</p>
                 ))}
@@ -104,22 +104,19 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6">
-        <div className="max-w-full max-h-full rounded-lg shadow-md overflow-hidden" style={{ height: "75%", width: "auto" }}>
-          <img 
-            src={imageUrl} 
-            alt={`Ilustração da página ${pageIndex + 1}`}
-            className="w-full h-full object-contain cursor-pointer"
-            onClick={() => onImageClick(imageUrl)}
-            onError={() => onImageError(imageUrl)}
-            style={{ maxHeight: "100%", maxWidth: "100%" }}
-          />
-        </div>
+        <img 
+          src={imageUrl} 
+          alt={`Ilustração da página ${pageIndex + 1}`}
+          className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
+          onClick={() => onImageClick(imageUrl)}
+          onError={() => onImageError(imageUrl)}
+        />
       </div>
       
-      <div className="w-1/2 h-full p-8 bg-white overflow-hidden flex flex-col justify-between relative">
+      <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between relative">
         {!hideText ? (
           <>
-            <div className="h-full story-text-content pr-2">
+            <ScrollArea className="h-full pr-2">
               <div className="mb-6">
                 <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{title}</h2>
                 <div className="prose prose-lg">
@@ -129,7 +126,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                   <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
                 </div>
               </div>
-            </div>
+            </ScrollArea>
             <div className="mt-6 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
               {!isFullscreen && (
                 <>
