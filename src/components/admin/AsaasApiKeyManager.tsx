@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AsaasApiKeyManager = () => {
   const [apiKey, setApiKey] = useState('');
@@ -119,6 +120,24 @@ const AsaasApiKeyManager = () => {
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (apiKey && !apiKey.startsWith('$aact_')) {
+      toast.error('A chave de API do Asaas deve começar com $aact_');
+      return;
+    }
+    
+    // Validate API key format
+    if (environment === 'sandbox' && apiKey && !apiKey.startsWith('$aact_sandbox_')) {
+      toast.error('No ambiente Sandbox, a chave deve começar com $aact_sandbox_');
+      return;
+    }
+    
+    if (environment === 'production' && apiKey && apiKey.includes('sandbox')) {
+      toast.error('No ambiente de Produção, não use chaves que contenham "sandbox"');
+      return;
+    }
+    
     saveConfig.mutate({ key: 'asaas_api_key', value: apiKey });
   };
 
@@ -165,6 +184,17 @@ const AsaasApiKeyManager = () => {
           <TabsContent value="api-key">
             <form onSubmit={handleSaveApiKey}>
               <div className="space-y-4">
+                <Alert className="bg-amber-50 border-amber-200 mb-4">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    Importante: Use o formato correto de chave API.
+                    <ul className="list-disc pl-5 text-sm mt-1 space-y-1">
+                      <li>Para ambiente Sandbox: <code className="bg-amber-100 px-1 rounded">$aact_sandbox_...</code></li>
+                      <li>Para ambiente Produção: <code className="bg-amber-100 px-1 rounded">$aact_...</code></li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+                
                 <div className="space-y-2">
                   <Label htmlFor="asaas-api-key">API Key do Asaas</Label>
                   <div className="flex">
@@ -173,7 +203,7 @@ const AsaasApiKeyManager = () => {
                       type={isRevealed ? 'text' : 'password'}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="$aact_YourApiKeyHere"
+                      placeholder={environment === 'sandbox' ? "$aact_sandbox_YourApiKeyHere" : "$aact_YourApiKeyHere"}
                       className="flex-grow"
                     />
                     <Button

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -13,12 +14,53 @@ const getAsaasApiUrl = (environment: string) => {
     : 'https://sandbox.asaas.com/api/v3';
 };
 
-// Helper function to validate API key with better error handling
+// Enhanced validation function with better error handling and more specific validation
 async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
   try {
-    // Try multiple validation endpoints in sequence to provide the most specific error message
+    // Validate API key format first
+    if (!apiKey || apiKey.trim() === '') {
+      return { 
+        valid: false, 
+        error: "Chave de API não configurada", 
+        details: "Configure uma chave de API do Asaas nas configurações do sistema",
+        status: 400
+      };
+    }
+
+    // Check if API key has proper format (production or sandbox)
+    const apiKeyPattern = /^\$aact_(sandbox_)?[a-zA-Z0-9]+$/;
+    if (!apiKeyPattern.test(apiKey)) {
+      return { 
+        valid: false, 
+        error: "Formato de chave API inválido", 
+        details: "A chave API do Asaas deve começar com $aact_ (produção) ou $aact_sandbox_ (sandbox)",
+        status: 400
+      };
+    }
     
-    // Start with a simple endpoint that requires minimal permissions
+    // Production key used in sandbox environment or vice versa
+    const isSandboxKey = apiKey.includes('sandbox');
+    const isSandboxEnvironment = apiUrl.includes('sandbox');
+    
+    if (isSandboxKey && !isSandboxEnvironment) {
+      return { 
+        valid: false, 
+        error: "Incompatibilidade de ambiente", 
+        details: "Você está usando uma chave de sandbox no ambiente de produção",
+        status: 400
+      };
+    }
+    
+    if (!isSandboxKey && isSandboxEnvironment) {
+      return { 
+        valid: false, 
+        error: "Incompatibilidade de ambiente", 
+        details: "Você está usando uma chave de produção no ambiente de sandbox",
+        status: 400
+      };
+    }
+    
+    // Try multiple validation endpoints in sequence to provide the most specific error message
     console.log("Validating Asaas API key using balance endpoint...");
     const testResponse = await fetch(`${apiUrl}/finance/balance`, {
       method: "GET",
@@ -35,15 +77,20 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
     
     // If that fails, try a different endpoint
     console.log("First validation attempt failed, trying customers endpoint...");
-    const responseText = await testResponse.text();
-    console.log(`First validation error: ${responseText}`);
+    let responseText = '';
+    try {
+      responseText = await testResponse.text();
+      console.log(`First validation error: ${responseText}`);
+    } catch (e) {
+      console.error("Could not read response text:", e);
+    }
     
     // Check for specific error signatures
     if (testResponse.status === 401 || responseText.includes("invalid_token") || responseText.includes("token inválido")) {
       return { 
         valid: false, 
         error: "API key inválida", 
-        details: "A chave fornecida é inválida ou expirou",
+        details: "A chave de API fornecida é inválida ou expirou. Verifique no portal do Asaas.",
         status: 401
       };
     } else if (testResponse.status === 403 || responseText.includes("permiss")) {
@@ -61,8 +108,13 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
         return { valid: true };
       }
       
-      const altText = await altResponse.text();
-      console.log(`Alternative validation error: ${altText}`);
+      let altText = '';
+      try {
+        altText = await altResponse.text();
+        console.log(`Alternative validation error: ${altText}`);
+      } catch (e) {
+        console.error("Could not read alt response text:", e);
+      }
       
       if (altResponse.status === 403 || altText.includes("permiss")) {
         return { 
@@ -78,7 +130,7 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
     return { 
       valid: false, 
       error: "Falha na validação da API do Asaas", 
-      details: `Código de status: ${testResponse.status}. Verifique sua API key e configurações.`,
+      details: `Código de status: ${testResponse.status}. Verifique sua API key e configurações no portal do Asaas.`,
       status: 500
     };
   } catch (error) {
@@ -136,7 +188,10 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyConfig?.value) {
       console.error("API key error:", apiKeyError);
       return new Response(
-        JSON.stringify({ error: "Asaas API key not configured" }),
+        JSON.stringify({ 
+          error: "Chave de API do Asaas não configurada", 
+          details: "Configure a chave de API do Asaas nas configurações do sistema" 
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -155,7 +210,7 @@ serve(async (req) => {
     const apiUrl = getAsaasApiUrl(environment);
     console.log("Using API URL:", apiUrl);
     
-    // Validate the API key before proceeding
+    // Enhanced validation of the API key before proceeding
     console.log("Validating Asaas API key...");
     const validationResult = await validateAsaasApiKey(apiKeyConfig.value, apiUrl);
     
