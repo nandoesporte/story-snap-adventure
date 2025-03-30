@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
   is_active BOOLEAN DEFAULT true,
   features JSONB DEFAULT '[]'::JSONB,
   stripe_price_id TEXT,
+  stripe_product_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
