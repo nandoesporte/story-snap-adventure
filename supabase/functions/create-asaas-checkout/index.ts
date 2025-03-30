@@ -191,7 +191,7 @@ serve(async (req) => {
       billingType: "UNDEFINED", // This creates a payment link with multiple options
       value: planData.price,
       dueDate: dueDate.toISOString().split('T')[0],
-      description: `Assinatura: ${planData.name}`,
+      description: `Assinatura: ${planData.name} (${planData.interval === 'month' ? 'Mensal' : 'Anual'})`,
       externalReference: externalReference,
       postalService: false,
     };

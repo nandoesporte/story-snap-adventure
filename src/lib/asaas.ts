@@ -12,19 +12,19 @@ export const createAsaasCheckout = async (userId: string, planId: string, return
 
     if (error) {
       console.error('Supabase function error:', error);
-      throw error;
+      throw new Error(`Erro na função Supabase: ${error.message}`);
     }
     
     console.log('Asaas checkout response:', data);
     
     if (!data || !data.url) {
       console.error('Invalid response from payment server:', data);
-      throw new Error('Resposta inválida do servidor de pagamento');
+      throw new Error('Resposta inválida do servidor de pagamento. Verifique os logs para mais detalhes.');
     }
 
     return data.url;
   } catch (error) {
     console.error('Error creating Asaas checkout:', error);
-    throw new Error('Não foi possível criar a sessão de pagamento. Verifique os logs');
+    throw new Error(error.message || 'Não foi possível criar a sessão de pagamento. Verifique os logs para mais detalhes.');
   }
 };

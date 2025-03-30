@@ -24,6 +24,7 @@ const SubscriptionPlanSelector = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [intervalFilter, setIntervalFilter] = useState('month');
 
   // Fetch subscription plans and user current subscription
   useEffect(() => {
@@ -58,6 +59,7 @@ const SubscriptionPlanSelector = () => {
                 const currentPlan = plansData.find(p => p.id === subscription.plan_id);
                 if (currentPlan) {
                   setSelectedPlan(currentPlan);
+                  setIntervalFilter(currentPlan.interval || 'month');
                 }
               }
             }
@@ -151,13 +153,23 @@ const SubscriptionPlanSelector = () => {
   const calculateSavings = (plan) => {
     if (plan.interval === 'year') {
       const monthlyEquivalent = plan.price / 12;
-      const monthlyPlan = plans.find(p => p.interval === 'month');
+      const monthlyPlan = plans.find(p => p.interval === 'month' && p.name === plan.name);
       if (monthlyPlan) {
         const savings = ((monthlyPlan.price * 12) - plan.price) / (monthlyPlan.price * 12) * 100;
         return Math.round(savings);
       }
     }
     return 0;
+  };
+
+  const getMonthlyPrice = (plan) => {
+    if (plan.interval === 'month') {
+      return formatCurrency(plan.price) + '/mês';
+    } else if (plan.interval === 'year') {
+      const monthlyPrice = plan.price / 12;
+      return formatCurrency(monthlyPrice) + '/mês';
+    }
+    return formatCurrency(plan.price);
   };
 
   if (isLoading) {
@@ -169,12 +181,15 @@ const SubscriptionPlanSelector = () => {
     );
   }
 
+  // Filter plans by the selected interval
+  const filteredPlans = plans.filter(plan => plan.interval === intervalFilter);
+
   // If no payment methods are available
   const noPaymentMethodsConfigured = !paymentMethods.mercadopago && !paymentMethods.asaas;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold text-center mb-8">Escolha seu plano</h1>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <h1 className="text-5xl font-bold text-center mb-2 text-[#5E58A5]">Preços</h1>
       
       {currentSubscription && (
         <Card className="mb-8 border-primary">
@@ -183,7 +198,7 @@ const SubscriptionPlanSelector = () => {
               <div>
                 <h2 className="text-xl font-medium">Sua assinatura atual</h2>
                 <p className="text-muted-foreground">
-                  {currentSubscription.subscription_plans.name} - {formatCurrency(currentSubscription.subscription_plans.price)}/{currentSubscription.subscription_plans.interval === 'month' ? 'mês' : 'ano'}
+                  {currentSubscription.subscription_plans?.name} - {formatCurrency(currentSubscription.subscription_plans?.price)}/{currentSubscription.subscription_plans?.interval === 'month' ? 'mês' : 'ano'}
                 </p>
                 <p className="text-sm mt-2">
                   Válida até {new Date(currentSubscription.current_period_end).toLocaleDateString('pt-BR')}
@@ -213,51 +228,96 @@ const SubscriptionPlanSelector = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {plans.map((plan) => (
-          <Card 
-            key={plan.id} 
-            className={`relative ${selectedPlan?.id === plan.id ? 'border-primary ring-2 ring-primary ring-opacity-50' : ''}`}
-          >
-            {plan.interval === 'year' && calculateSavings(plan) > 0 && (
-              <Badge className="absolute -top-3 right-4 bg-green-600">
-                Economize {calculateSavings(plan)}%
-              </Badge>
-            )}
-            <CardHeader>
-              <CardTitle>{plan.name}</CardTitle>
-              <CardDescription className="mt-2">
-                <span className="text-2xl font-bold">{formatCurrency(plan.price)}</span>
-                <span className="text-muted-foreground">/{plan.interval === 'month' ? 'mês' : 'ano'}</span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-4">{plan.description}</p>
-              <p className="font-medium mb-2">O que está incluído:</p>
-              <ul className="space-y-2">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start">
-                    <Check className="text-green-600 mr-2 h-5 w-5 mt-0.5" />
-                    <span>{feature}</span>
-                  </li>
+      {/* Interval selector */}
+      <div className="flex justify-center my-8">
+        <div className="bg-[#f0f0ff] rounded-full inline-flex p-1 shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 min-w-[300px]">
+            <TabsTrigger
+              value="month"
+              onClick={() => setIntervalFilter('month')}
+              className={`rounded-full py-2 px-8 ${intervalFilter === 'month' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+            >
+              MENSAL
+            </TabsTrigger>
+            <TabsTrigger
+              value="year"
+              onClick={() => setIntervalFilter('year')}
+              className={`rounded-full py-2 px-8 relative ${intervalFilter === 'year' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+            >
+              ANUAL
+              {intervalFilter === 'year' && (
+                <span className="absolute -top-3 -right-3 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  ECONOMIZE 40%
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+      </div>
+
+      {/* Benefits table */}
+      <div className="overflow-x-auto mb-8">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="text-left py-4 px-4 font-medium text-lg text-[#5E58A5] w-1/3">Benefícios</th>
+              {filteredPlans.map(plan => (
+                <th key={plan.id} className="py-4 px-4 text-center">
+                  <div className={`rounded-lg p-6 ${selectedPlan?.id === plan.id ? 'bg-[#f0f0ff] shadow-lg' : 'bg-[#f8f8ff]'}`}>
+                    <div className="relative">
+                      {plan.interval === 'year' && calculateSavings(plan) > 0 && (
+                        <Badge className="absolute -top-10 -right-6 bg-[#844FFC] text-white">
+                          {calculateSavings(plan)}% OFF
+                        </Badge>
+                      )}
+                      <h3 className="text-2xl font-bold text-[#5E58A5] mb-2">{plan.name}</h3>
+                      <div className="mb-4">
+                        <div className="text-3xl font-bold text-[#5E58A5]">
+                          {formatCurrency(plan.price)}
+                        </div>
+                        <div className="text-sm text-[#727090]">
+                          {getMonthlyPrice(plan)}
+                        </div>
+                      </div>
+                      <Button 
+                        className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
+                        onClick={() => handleSelectPlan(plan)}
+                      >
+                        {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
+                      </Button>
+                    </div>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-gray-200">
+              <td className="py-4 px-4 font-medium">Criar histórias</td>
+              {filteredPlans.map(plan => (
+                <td key={plan.id} className="py-4 px-4 text-center">
+                  <div className="text-center">
+                    {plan.stories_limit} histórias/mês
+                  </div>
+                </td>
+              ))}
+            </tr>
+            {['Editar histórias', 'Criar personagens', 'Baixar em PDF', 'Narração de áudio'].map((feature, index) => (
+              <tr key={index} className="border-t border-gray-200">
+                <td className="py-4 px-4 font-medium">{feature}</td>
+                {filteredPlans.map(plan => (
+                  <td key={plan.id} className="py-4 px-4 text-center">
+                    <Check className="inline-block text-green-500 h-6 w-6" />
+                  </td>
                 ))}
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full" 
-                variant={selectedPlan?.id === plan.id ? "default" : "outline"}
-                onClick={() => handleSelectPlan(plan)}
-              >
-                {selectedPlan?.id === plan.id ? "Selecionado" : "Selecionar"}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {selectedPlan && (
-        <Card className="mb-8">
+        <Card className="mb-8 border-[#8B5CF6]/20 bg-[#f8f8ff]">
           <CardHeader>
             <CardTitle>Método de Pagamento</CardTitle>
             <CardDescription>Escolha como deseja pagar sua assinatura</CardDescription>
@@ -343,7 +403,7 @@ const SubscriptionPlanSelector = () => {
             </div>
             <Button 
               onClick={handleProceedToPayment} 
-              className="w-full sm:w-auto order-1 sm:order-2"
+              className="w-full sm:w-auto order-1 sm:order-2 bg-[#8B5CF6] hover:bg-[#7A4CE0]"
               disabled={isProcessing || noPaymentMethodsConfigured || !selectedPaymentMethod}
             >
               {isProcessing ? (

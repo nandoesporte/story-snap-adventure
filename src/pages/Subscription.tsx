@@ -22,7 +22,7 @@ const Subscription = () => {
   }
   
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-purple-50">
       <Navbar />
       <main className="flex-grow container mx-auto px-4 py-12">
         <SubscriptionPlanSelector />
