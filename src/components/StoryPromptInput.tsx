@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { HelpCircle, Sparkles, Send, Wand2 } from "lucide-react";
+import { HelpCircle, Sparkles, Send, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -9,6 +9,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "sonner";
 
 interface StoryPromptInputProps {
@@ -20,7 +26,72 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const examplePrompts = [
+  // Categorized suggestions based on child development themes
+  const categorizedSuggestions = {
+    "emotional": {
+      title: "Desenvolvimento Emocional",
+      suggestions: [
+        "Uma história sobre como lidar com a frustração quando não conseguimos o que queremos",
+        "Uma aventura que ensina sobre a importância de pedir desculpas e mostrar empatia",
+        "Um conto sobre o valor da paciência e esperar a sua vez",
+        "Uma história para ajudar crianças a superar o medo do escuro",
+        "Uma aventura que ensina a expressar e lidar com diferentes emoções"
+      ]
+    },
+    "social": {
+      title: "Educação Social e Cidadania",
+      suggestions: [
+        "Uma história sobre a importância da honestidade e ser sempre sincero",
+        "Um conto mágico sobre o poder da gentileza no dia a dia",
+        "Uma aventura que ensina sobre trabalho em equipe e cooperação",
+        "Uma história sobre respeitar as diferenças e valorizar a diversidade",
+        "Uma jornada sobre a importância de cuidar do meio ambiente e dos animais"
+      ]
+    },
+    "financial": {
+      title: "Educação Financeira e Autonomia",
+      suggestions: [
+        "Uma história que ensina sobre o valor do dinheiro de forma lúdica",
+        "Um conto sobre como pequenas economias fazem diferença no futuro",
+        "Uma aventura sobre a importância de cuidar dos próprios pertences",
+        "Uma história sobre o esforço por trás das conquistas e recompensas",
+        "Um conto que mostra que compartilhar também é ganhar"
+      ]
+    },
+    "health": {
+      title: "Hábitos Saudáveis e Rotina",
+      suggestions: [
+        "Uma história mágica sobre a importância de comer frutas e verduras",
+        "Um conto de fadas sobre a importância de dormir bem",
+        "Uma aventura que explica por que escovar os dentes é importante",
+        "Uma história divertida sobre brincar ao ar livre e praticar atividades físicas",
+        "Um conto sobre a transição do desfralde de forma divertida"
+      ]
+    },
+    "reading": {
+      title: "Incentivo à Leitura e Criatividade",
+      suggestions: [
+        "Uma história sobre um livro mágico que transporta para mundos incríveis",
+        "Uma aventura sobre criar histórias com a imaginação",
+        "Um conto sobre o poder das palavras para alegrar ou magoar alguém",
+        "Uma história que incentiva brincadeiras fora do mundo digital",
+        "Uma aventura musical sobre descobrir sons e expressar emoções"
+      ]
+    },
+    "selfesteem": {
+      title: "Autoestima e Confiança",
+      suggestions: [
+        "Uma história sobre uma criança que aprende a valorizar suas qualidades únicas",
+        "Um conto sobre coragem e acreditar em si mesmo",
+        "Uma aventura sobre aprender com os erros e seguir em frente",
+        "Uma história sobre respeito ao próprio corpo e consentimento",
+        "Um conto inspirador sobre sonhar grande e acreditar em si mesmo"
+      ]
+    }
+  };
+
+  // Original simple suggestions for quick access
+  const simpleSuggestions = [
     "Uma aventura espacial com uma criança que descobre um planeta de doces",
     "Um conto sobre amizade entre uma criança e um dragão tímido",
     "Uma história sobre coragem onde a criança supera o medo de nadar no oceano",
@@ -96,10 +167,10 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
         <div>
           <p className="text-sm font-medium mb-2 flex items-center gap-1">
             <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-            Sugestões de histórias
+            Sugestões rápidas
           </p>
-          <div className="flex flex-wrap gap-2">
-            {examplePrompts.map((example, index) => (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {simpleSuggestions.map((example, index) => (
               <button
                 key={index}
                 onClick={() => applyExamplePrompt(example)}
@@ -108,6 +179,35 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
                 {example.length > 45 ? example.substring(0, 45) + "..." : example}
               </button>
             ))}
+          </div>
+          
+          <div className="mt-6">
+            <p className="text-sm font-medium mb-2 flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+              Temas para histórias
+            </p>
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(categorizedSuggestions).map(([key, category]) => (
+                <AccordionItem key={key} value={key} className="border rounded-lg mb-2 overflow-hidden">
+                  <AccordionTrigger className="px-4 py-3 text-sm font-medium hover:bg-violet-50 hover:no-underline">
+                    📚 {category.title}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <div className="flex flex-col gap-2 pt-1 pb-2 px-4">
+                      {category.suggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => applyExamplePrompt(suggestion)}
+                          className="text-xs px-3 py-2 text-left bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg transition-colors"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
         </div>
       </div>
