@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { HelpCircle, Sparkles, Send, Wand2, ChevronDown, ChevronUp } from "lucide-react";
@@ -62,10 +61,10 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
       title: "Hábitos Saudáveis e Rotina",
       suggestions: [
         "Uma história mágica sobre a importância de comer frutas e verduras",
-        "Um conto de fadas sobre a importância de dormir bem",
+        "Uma conto de fadas sobre a importância de dormir bem",
         "Uma aventura que explica por que escovar os dentes é importante",
         "Uma história divertida sobre brincar ao ar livre e praticar atividades físicas",
-        "Um conto sobre a transição do desfralde de forma divertida"
+        "Uma história sobre a transição do desfralde de forma divertida"
       ]
     },
     "reading": {
@@ -73,7 +72,7 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
       suggestions: [
         "Uma história sobre um livro mágico que transporta para mundos incríveis",
         "Uma aventura sobre criar histórias com a imaginação",
-        "Um conto sobre o poder das palavras para alegrar ou magoar alguém",
+        "Uma conto sobre o poder das palavras para alegrar ou magoar alguém",
         "Uma história que incentiva brincadeiras fora do mundo digital",
         "Uma aventura musical sobre descobrir sons e expressar emoções"
       ]
@@ -165,22 +164,6 @@ const StoryPromptInput = ({ onSubmit, onBack }: StoryPromptInputProps) => {
         />
         
         <div>
-          <p className="text-sm font-medium mb-2 flex items-center gap-1">
-            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-            Sugestões rápidas
-          </p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {simpleSuggestions.map((example, index) => (
-              <button
-                key={index}
-                onClick={() => applyExamplePrompt(example)}
-                className="text-xs px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-full transition-colors"
-              >
-                {example.length > 45 ? example.substring(0, 45) + "..." : example}
-              </button>
-            ))}
-          </div>
-          
           <div className="mt-6">
             <p className="text-sm font-medium mb-2 flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5 text-violet-500" />
