@@ -5,13 +5,14 @@ import { Book, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 
 interface HeroProps {
   customImageUrl?: string;
+  actionButtons?: ReactNode;
 }
 
-const Hero = ({ customImageUrl }: HeroProps) => {
+const Hero = ({ customImageUrl, actionButtons }: HeroProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [preloadedImage, setPreloadedImage] = useState<HTMLImageElement | null>(null);
   
@@ -119,19 +120,25 @@ const Hero = ({ customImageUrl }: HeroProps) => {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-wrap items-center gap-4 pt-2"
             >
-              <NavLink to="/create-story">
-                <Button 
-                  size="lg"
-                  className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-full px-8 py-3 h-auto text-base"
-                >
-                  <Book className="mr-2 h-5 w-5" />
-                  {getContent("button_text", "CRIAR HISTÓRIA")}
-                </Button>
-              </NavLink>
+              {actionButtons ? (
+                actionButtons
+              ) : (
+                <NavLink to="/create-story">
+                  <Button 
+                    size="lg"
+                    className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-full px-8 py-3 h-auto text-base"
+                  >
+                    <Book className="mr-2 h-5 w-5" />
+                    {getContent("button_text", "CRIAR HISTÓRIA")}
+                  </Button>
+                </NavLink>
+              )}
               
-              <span className="text-indigo-700 font-medium ml-2">
-                {getContent("button_subtitle", "Experimente Grátis!")}
-              </span>
+              {!actionButtons && (
+                <span className="text-indigo-700 font-medium ml-2">
+                  {getContent("button_subtitle", "Experimente Grátis!")}
+                </span>
+              )}
             </motion.div>
           </div>
           
