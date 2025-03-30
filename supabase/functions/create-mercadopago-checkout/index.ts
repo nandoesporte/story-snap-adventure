@@ -113,9 +113,11 @@ serve(async (req) => {
       .eq("key", "mercadopago_webhook_url")
       .single();
     
+    // Validate the MercadoPago API key with more comprehensive error handling
     try {
-      // Test the token validity by making a simple API call to MercadoPago
       console.log("Testing MercadoPago token validity...");
+      
+      // First attempt with payment methods endpoint, which requires minimal permissions
       const testResponse = await fetch("https://api.mercadopago.com/v1/payment_methods", {
         headers: {
           "Authorization": `Bearer ${mercadoPagoAccessToken}`,
@@ -124,20 +126,65 @@ serve(async (req) => {
       });
       
       if (!testResponse.ok) {
-        console.error("Invalid MercadoPago token:", await testResponse.text());
-        return new Response(
-          JSON.stringify({ error: "O token do MercadoPago parece ser inválido. Verifique suas configurações." }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const errorText = await testResponse.text();
+        console.error("Invalid MercadoPago token response:", errorText);
+        
+        // Check for specific error response patterns
+        if (testResponse.status === 401) {
+          return new Response(
+            JSON.stringify({ 
+              error: "API key do MercadoPago inválida", 
+              details: "A chave fornecida é inválida ou expirou. Verifique se digitou corretamente."
+            }),
+            {
+              status: 401,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        } else if (testResponse.status === 403) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Erro de permissão na API do MercadoPago", 
+              details: "Verifique se a API Key tem as permissões necessárias na sua conta MercadoPago."
+            }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        } else {
+          // For other errors, try a second validation endpoint
+          console.log("Trying alternative validation endpoint...");
+          const altResponse = await fetch("https://api.mercadopago.com/users/me", {
+            headers: {
+              "Authorization": `Bearer ${mercadoPagoAccessToken}`,
+              "Content-Type": "application/json"
+            }
+          });
+          
+          if (!altResponse.ok) {
+            console.error("Second validation attempt failed:", await altResponse.text());
+            return new Response(
+              JSON.stringify({ 
+                error: "O token do MercadoPago parece ser inválido", 
+                details: "Ambos os testes de validação falharam. Verifique suas credenciais e permissões."
+              }),
+              {
+                status: 401,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
           }
-        );
+        }
       }
       console.log("MercadoPago token is valid.");
     } catch (tokenTestError) {
       console.error("Failed to validate MercadoPago token:", tokenTestError);
       return new Response(
-        JSON.stringify({ error: "Não foi possível validar o token do MercadoPago. Verifique sua conexão." }),
+        JSON.stringify({ 
+          error: "Não foi possível validar o token do MercadoPago", 
+          details: "Erro de conexão ou serviço indisponível. Tente novamente mais tarde."
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
