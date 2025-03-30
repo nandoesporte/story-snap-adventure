@@ -48,49 +48,103 @@ ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_history ENABLE ROW LEVEL SECURITY;
 
 -- Subscription plans policies
-CREATE POLICY "Anyone can view active subscription plans"
-  ON subscription_plans FOR SELECT
-  USING (is_active = true);
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'subscription_plans' 
+    AND policyname = 'Anyone can view active subscription plans'
+  ) THEN
+    CREATE POLICY "Anyone can view active subscription plans"
+      ON subscription_plans FOR SELECT
+      USING (is_active = true);
+  END IF;
+END $$;
 
-CREATE POLICY "Admin users can manage subscription plans"
-  ON subscription_plans
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.is_admin = true
-    )
-  );
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'subscription_plans' 
+    AND policyname = 'Admin users can manage subscription plans'
+  ) THEN
+    CREATE POLICY "Admin users can manage subscription plans"
+      ON subscription_plans
+      USING (
+        EXISTS (
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.id = auth.uid()
+          AND user_profiles.is_admin = true
+        )
+      );
+  END IF;
+END $$;
 
 -- User subscriptions policies
-CREATE POLICY "Users can view their own subscriptions"
-  ON user_subscriptions FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'user_subscriptions' 
+    AND policyname = 'Users can view their own subscriptions'
+  ) THEN
+    CREATE POLICY "Users can view their own subscriptions"
+      ON user_subscriptions FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "Admin users can manage all subscriptions"
-  ON user_subscriptions
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.is_admin = true
-    )
-  );
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'user_subscriptions' 
+    AND policyname = 'Admin users can manage all subscriptions'
+  ) THEN
+    CREATE POLICY "Admin users can manage all subscriptions"
+      ON user_subscriptions
+      USING (
+        EXISTS (
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.id = auth.uid()
+          AND user_profiles.is_admin = true
+        )
+      );
+  END IF;
+END $$;
 
 -- Subscription history policies
-CREATE POLICY "Users can view their own subscription history"
-  ON subscription_history FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'subscription_history' 
+    AND policyname = 'Users can view their own subscription history'
+  ) THEN
+    CREATE POLICY "Users can view their own subscription history"
+      ON subscription_history FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "Admin users can view all subscription history"
-  ON subscription_history FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.is_admin = true
-    )
-  );
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy 
+    WHERE tablename = 'subscription_history' 
+    AND policyname = 'Admin users can view all subscription history'
+  ) THEN
+    CREATE POLICY "Admin users can view all subscription history"
+      ON subscription_history FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.id = auth.uid()
+          AND user_profiles.is_admin = true
+        )
+      );
+  END IF;
+END $$;
 
 -- Update the user_profiles table to add subscription-related fields
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_id UUID REFERENCES user_subscriptions(id);
@@ -108,6 +162,10 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop triggers if they exist and recreate them
+DROP TRIGGER IF EXISTS after_story_insert ON stories;
+DROP TRIGGER IF EXISTS after_story_delete ON stories;
 
 CREATE TRIGGER after_story_insert
 AFTER INSERT ON stories
