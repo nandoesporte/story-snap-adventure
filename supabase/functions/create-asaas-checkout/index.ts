@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -55,9 +54,11 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
     
     console.log("API key format validation passed, now testing connectivity");
     
-    // Try multiple validation endpoints in sequence to provide the most specific error message
-    console.log("Validating Asaas API key using balance endpoint...");
-    const testResponse = await fetch(`${apiUrl}/finance/balance`, {
+    // Using the correct header format according to Asaas documentation
+    // https://docs.asaas.com/reference/criar-novo-cliente
+    console.log("Validating Asaas API key using customers endpoint...");
+    
+    const testResponse = await fetch(`${apiUrl}/customers?limit=1`, {
       method: "GET",
       headers: {
         "access_token": apiKey,
@@ -65,19 +66,18 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
       },
     });
     
-    if (testResponse.ok) {
-      console.log("API key validation successful with balance endpoint");
-      return { valid: true };
-    }
-    
-    // If that fails, try a different endpoint
-    console.log("First validation attempt failed, trying customers endpoint...");
+    // Try to get detailed error information
     let responseText = '';
     try {
       responseText = await testResponse.text();
-      console.log(`First validation error: ${responseText}`);
+      console.log(`Validation response: ${responseText}`);
     } catch (e) {
       console.error("Could not read response text:", e);
+    }
+    
+    if (testResponse.ok) {
+      console.log("API key validation successful with customers endpoint");
+      return { valid: true };
     }
     
     // Check for specific error signatures
@@ -89,55 +89,27 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
         status: 401
       };
     } else if (testResponse.status === 403 || responseText.includes("permiss")) {
-      // Try another endpoint that might require different permissions
-      const altResponse = await fetch(`${apiUrl}/customers?limit=1`, {
-        method: "GET",
-        headers: {
-          "access_token": apiKey,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      if (altResponse.ok) {
-        console.log("API key validation successful with customers endpoint");
-        return { valid: true };
-      }
-      
-      let altText = '';
-      try {
-        altText = await altResponse.text();
-        console.log(`Alternative validation error: ${altText}`);
-      } catch (e) {
-        console.error("Could not read alt response text:", e);
-      }
-      
-      if (altResponse.status === 403 || altText.includes("permiss")) {
-        return { 
-          valid: false, 
-          error: "Erro de permissão na API do Asaas", 
-          details: "Sua chave de API não tem as permissões necessárias. Verifique as permissões na sua conta Asaas.",
-          status: 403
-        };
-      }
+      return { 
+        valid: false, 
+        error: "Erro de permissão na API do Asaas", 
+        details: "Sua chave de API não tem as permissões necessárias. Verifique as permissões na sua conta Asaas.",
+        status: 403
+      };
     }
     
-    // Try one more endpoint as a last resort
-    console.log("Trying one more validation endpoint...");
-    try {
-      const lastResortResponse = await fetch(`${apiUrl}/paymentLinks?limit=1`, {
-        method: "GET",
-        headers: {
-          "access_token": apiKey,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      if (lastResortResponse.ok) {
-        console.log("API key validation successful with payment links endpoint");
-        return { valid: true };
-      }
-    } catch (e) {
-      console.error("Last resort validation failed:", e);
+    // Try another endpoint as a fallback
+    console.log("Trying another validation endpoint (balance)...");
+    const balanceResponse = await fetch(`${apiUrl}/finance/balance`, {
+      method: "GET",
+      headers: {
+        "access_token": apiKey,
+        "Content-Type": "application/json"
+      },
+    });
+    
+    if (balanceResponse.ok) {
+      console.log("API key validation successful with balance endpoint");
+      return { valid: true };
     }
     
     // Generic error for other cases

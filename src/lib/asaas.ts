@@ -21,8 +21,13 @@ export const createAsaasCheckout = async (userId: string, planId: string, return
     if (!data || !data.url) {
       console.error('Invalid response from payment server:', data);
       if (data && data.error) {
-        toast.error(`Erro de pagamento: ${data.error}`);
-        throw new Error(`Erro de pagamento: ${data.error}`);
+        let errorMessage = data.error;
+        // Add more detailed information if available
+        if (data.details) {
+          errorMessage += `: ${data.details}`;
+        }
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
       throw new Error('Resposta inválida do servidor de pagamento. Por favor, tente novamente mais tarde.');
     }
