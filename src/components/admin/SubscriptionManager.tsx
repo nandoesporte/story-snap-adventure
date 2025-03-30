@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { runStripeColumnsMigration } from '@/lib/runMigration';
-import { createStripeProduct, updateStripeProduct } from '@/lib/stripe';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,7 +30,6 @@ const planFormSchema = z.object({
   stories_limit: z.coerce.number().min(1, 'Limite de histórias deve ser pelo menos 1'),
   is_active: z.boolean().default(true),
   features: z.string().optional(),
-  create_in_stripe: z.boolean().default(false),
   stripe_product_id: z.string().optional(),
   stripe_price_id: z.string().optional(),
 });
@@ -52,7 +50,6 @@ const SubscriptionManager = () => {
     stories_limit: 1,
     is_active: true,
     features: '',
-    create_in_stripe: false,
     stripe_product_id: '',
     stripe_price_id: '',
   });
@@ -112,7 +109,6 @@ const SubscriptionManager = () => {
         stories_limit: plan.stories_limit || 1,
         is_active: plan.is_active !== undefined ? plan.is_active : true,
         features: featuresString,
-        create_in_stripe: false, // Default to false when editing
         stripe_product_id: plan.stripe_product_id || '',
         stripe_price_id: plan.stripe_price_id || '',
       });
@@ -127,7 +123,6 @@ const SubscriptionManager = () => {
         stories_limit: 1,
         is_active: true,
         features: '',
-        create_in_stripe: false,
         stripe_product_id: '',
         stripe_price_id: '',
       });
@@ -183,39 +178,12 @@ const SubscriptionManager = () => {
           features: featuresArray,
         };
         
-        // If create_in_stripe is true, create product in Stripe first
-        if (values.create_in_stripe) {
-          try {
-            let stripeResponse;
-            
-            if (editingPlan && editingPlan.stripe_product_id) {
-              // Update existing product in Stripe
-              stripeResponse = await updateStripeProduct(editingPlan.stripe_product_id, planData);
-            } else {
-              // Create new product in Stripe
-              stripeResponse = await createStripeProduct(planData);
-              
-              // Update planData with Stripe IDs
-              if (stripeResponse.product && stripeResponse.price) {
-                planData.stripe_product_id = stripeResponse.product.id;
-                planData.stripe_price_id = stripeResponse.price.id;
-              }
-            }
-          } catch (error) {
-            console.error('Error creating/updating product in Stripe:', error);
-            throw new Error('Falha ao criar/atualizar produto no Stripe');
-          }
-        }
-        
         // Now save to database
         if (editingPlan) {
-          // Remove create_in_stripe from data to save
-          const { create_in_stripe, ...dataToSave } = planData;
-          
           // Update existing plan
           const { data, error } = await supabase
             .from('subscription_plans')
-            .update(dataToSave)
+            .update(planData)
             .eq('id', editingPlan.id)
             .select()
             .single();
@@ -234,13 +202,10 @@ const SubscriptionManager = () => {
           }
           return data;
         } else {
-          // Remove create_in_stripe from data to save
-          const { create_in_stripe, ...dataToSave } = planData;
-          
           // Create new plan
           const { data, error } = await supabase
             .from('subscription_plans')
-            .insert(dataToSave)
+            .insert(planData)
             .select()
             .single();
             
@@ -495,23 +460,9 @@ const SubscriptionManager = () => {
                 </p>
               </div>
               
-              {!editingPlan || !editingPlan.stripe_product_id ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="create_in_stripe">Criar no Stripe</Label>
-                    <Switch 
-                      id="create_in_stripe"
-                      checked={formValues.create_in_stripe}
-                      onCheckedChange={(checked) => handleSwitchChange('create_in_stripe', checked)}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Habilite para criar automaticamente o produto e preço no Stripe.
-                  </p>
-                </div>
-              ) : (
+              {editingPlan && editingPlan.stripe_product_id && (
                 <div className="text-sm text-muted-foreground border rounded p-3 bg-muted/50">
-                  <p>Este plano já está vinculado ao Stripe.</p>
+                  <p>Este plano possui informações de um produto Stripe vinculado.</p>
                   <p className="mt-1">ID do Produto: {editingPlan.stripe_product_id}</p>
                   {editingPlan.stripe_price_id && <p>ID do Preço: {editingPlan.stripe_price_id}</p>}
                 </div>
