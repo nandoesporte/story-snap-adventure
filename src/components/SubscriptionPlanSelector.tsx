@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -7,16 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { Check, Loader, CreditCard, Store } from 'lucide-react';
 import { SubscriptionPlan, checkUserSubscription, createSubscriptionCheckout, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Tabs,
   TabsContent,
@@ -100,7 +89,18 @@ export const SubscriptionPlanSelector = () => {
       
       // Redirect to checkout
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        // Instead of directly changing location, create a test to ensure the URL is valid
+        try {
+          // Check if URL is valid
+          new URL(checkoutUrl);
+          
+          // Redirect after a short delay to allow state updates to complete
+          setTimeout(() => {
+            window.location.href = checkoutUrl;
+          }, 100);
+        } catch (e) {
+          throw new Error("URL de checkout inválida: " + checkoutUrl);
+        }
       } else {
         throw new Error("Não foi possível obter a URL de checkout.");
       }
@@ -108,17 +108,19 @@ export const SubscriptionPlanSelector = () => {
       console.error('Error creating checkout:', error);
       
       // Try to get a more specific error message
+      let errorMessage = 'Ocorreu um erro desconhecido ao processar o pagamento.';
+      
       if (error.message) {
-        setError(`${error.message}`);
+        errorMessage = `${error.message}`;
         
         // Show a more user-friendly message for common errors
         if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
-          setError('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
+          errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
         }
-      } else {
-        setError('Ocorreu um erro desconhecido ao processar o pagamento.');
       }
       
+      setError(errorMessage);
+      toast.error(errorMessage);
       setIsProcessing(false);
     }
   };
@@ -213,7 +215,12 @@ export const SubscriptionPlanSelector = () => {
       )}
       
       {/* Payment Method Selection Dialog */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+      <Dialog open={isPaymentDialogOpen} onOpenChange={(open) => {
+        // Only allow closing if not processing
+        if (!isProcessing || !open) {
+          setIsPaymentDialogOpen(open);
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Selecione o método de pagamento</DialogTitle>
@@ -265,18 +272,20 @@ export const SubscriptionPlanSelector = () => {
             )}
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={() => setIsPaymentDialogOpen(false)}
+              onClick={() => !isProcessing && setIsPaymentDialogOpen(false)}
               disabled={isProcessing}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
             <Button 
-              onClick={handleCheckout}
+              onClick={() => !isProcessing && handleCheckout()}
               disabled={isProcessing}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
+              type="button"
             >
               {isProcessing ? (
                 <>
