@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,7 +113,8 @@ const MercadoPagoApiKeyManager = () => {
   };
 
   const generateWebhookUrl = () => {
-    const webhookUrl = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
+    // Use the dedicated Mercado Pago webhook endpoint
+    const webhookUrl = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/mercadopago-webhook";
     setWebhookUrl(webhookUrl);
     toast.success("Webhook URL generated");
   };
@@ -213,7 +215,7 @@ const MercadoPagoApiKeyManager = () => {
                       type="text"
                       value={webhookUrl}
                       onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://seu-projeto.supabase.co/functions/v1/stripe-webhook"
+                      placeholder="https://seu-projeto.supabase.co/functions/v1/mercadopago-webhook"
                       className="flex-grow"
                     />
                     <Button
