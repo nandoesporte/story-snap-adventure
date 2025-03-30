@@ -29,7 +29,7 @@ const Subscription = () => {
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("*")
-        .eq("active", true);
+        .eq("is_active", true);
       
       if (error) {
         console.error("Error fetching subscription plans:", error);

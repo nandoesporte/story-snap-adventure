@@ -18,7 +18,7 @@ const SubscriptionPlansSection = ({ onSelectPlan }: SubscriptionPlansSectionProp
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("*")
-        .eq("active", true)
+        .eq("is_active", true)
         .order("price");
       
       if (error) {
