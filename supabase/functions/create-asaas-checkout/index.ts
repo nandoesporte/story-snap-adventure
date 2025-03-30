@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -28,37 +29,28 @@ async function validateAsaasApiKey(apiKey: string, apiUrl: string) {
       };
     }
 
-    // Check if API key has proper format (production or sandbox)
-    const apiKeyPattern = /^\$aact_(sandbox_)?[a-zA-Z0-9]+$/;
+    // Mais flexível para aceitar diferentes formatos de chave de API do Asaas
+    const apiKeyPattern = /^\$aact_[a-zA-Z0-9_]+/;
     if (!apiKeyPattern.test(apiKey)) {
       return { 
         valid: false, 
         error: "Formato de chave API inválido", 
-        details: "A chave API do Asaas deve começar com $aact_ (produção) ou $aact_sandbox_ (sandbox)",
+        details: "A chave API do Asaas deve começar com $aact_ seguido por caracteres válidos",
         status: 400
       };
     }
     
-    // Production key used in sandbox environment or vice versa
-    const isSandboxKey = apiKey.includes('sandbox');
+    // Verificação menos restritiva sobre o tipo de ambiente
+    const isSandboxKey = apiKey.includes('sandbox') || apiKey.includes('hmlg');
     const isSandboxEnvironment = apiUrl.includes('sandbox');
     
+    // Vamos registrar para debugging, mas não vamos mais bloquear por incompatibilidade de ambiente
     if (isSandboxKey && !isSandboxEnvironment) {
-      return { 
-        valid: false, 
-        error: "Incompatibilidade de ambiente", 
-        details: "Você está usando uma chave de sandbox no ambiente de produção",
-        status: 400
-      };
+      console.log("AVISO: Você está usando uma chave de sandbox/homologação no ambiente de produção");
     }
     
     if (!isSandboxKey && isSandboxEnvironment) {
-      return { 
-        valid: false, 
-        error: "Incompatibilidade de ambiente", 
-        details: "Você está usando uma chave de produção no ambiente de sandbox",
-        status: 400
-      };
+      console.log("AVISO: Você está usando uma chave de produção no ambiente de sandbox");
     }
     
     console.log("API key format validation passed, now testing connectivity");
@@ -637,14 +629,13 @@ async function processAsaasPayment(
           {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            
           }
         );
       }
-    } catch (processError) {
-      console.error("API processing error:", processError);
+    } catch (customerProcessingError) {
+      console.error("Customer processing error:", customerProcessingError);
       return new Response(
-        JSON.stringify({ error: processError.message || "Failed to process payment" }),
+        JSON.stringify({ error: "Failed to process customer data", details: customerProcessingError.message }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -652,9 +643,9 @@ async function processAsaasPayment(
       );
     }
   } catch (error) {
-    console.error("Payment processing error:", error);
+    console.error("Error in processAsaasPayment:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to create payment" }),
+      JSON.stringify({ error: "Failed to process Asaas payment", details: error.message }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

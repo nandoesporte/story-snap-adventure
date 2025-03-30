@@ -118,19 +118,22 @@ const AsaasApiKeyManager = () => {
     toast.success(`${type} copiado para a área de transferência`);
   };
 
+  // Atualizado para aceitar formatos de chave Asaas conforme a documentação
+  // https://docs.asaas.com/docs/
   const validateApiKeyFormat = (key: string, env: string): boolean => {
-    // Basic format validation: $aact_ prefix for all keys
-    if (!key.startsWith('$aact_')) {
-      return false;
-    }
+    if (!key.trim()) return true; // Chave vazia é válida (para limpar a chave)
     
-    // Environment-specific validation
-    if (env === 'sandbox' && !key.startsWith('$aact_sandbox_')) {
-      return false;
-    }
+    // Aceita todos os formatos de chave Asaas, incluindo $aact_, $aact_sandbox_ e $aact_hmlg_
+    const sandboxPattern = /^\$aact_sandbox_/;
+    const homologPattern = /^\$aact_hmlg_/;
+    const prodPattern = /^\$aact_[^s][^a][^n][^d][^b][^o][^x][^_]/;
     
-    if (env === 'production' && key.includes('sandbox')) {
-      return false;
+    if (env === 'sandbox') {
+      // No ambiente sandbox, aceitamos chaves de sandbox ou homologação
+      return sandboxPattern.test(key) || homologPattern.test(key);
+    } else if (env === 'production') {
+      // No ambiente de produção, não aceitamos chaves de sandbox
+      return prodPattern.test(key) && !sandboxPattern.test(key) && !homologPattern.test(key);
     }
     
     return true;
@@ -145,18 +148,7 @@ const AsaasApiKeyManager = () => {
       return;
     }
     
-    // Validate API key format
-    if (!validateApiKeyFormat(apiKey, environment)) {
-      if (environment === 'sandbox') {
-        toast.error('No ambiente Sandbox, a chave deve começar com $aact_sandbox_');
-      } else if (environment === 'production') {
-        toast.error('No ambiente de Produção, a chave deve começar com $aact_ (sem "sandbox")');
-      } else {
-        toast.error('A chave de API do Asaas deve começar com $aact_');
-      }
-      return;
-    }
-    
+    // Sempre salvar a chave, a validação será feita no edge function
     saveConfig.mutate({ key: 'asaas_api_key', value: apiKey });
   };
 
@@ -171,7 +163,7 @@ const AsaasApiKeyManager = () => {
       const isKeyValid = validateApiKeyFormat(apiKey, value);
       if (!isKeyValid) {
         if (value === 'sandbox') {
-          toast.warning('Ambiente alterado para Sandbox. Você precisa atualizar sua chave API para o formato $aact_sandbox_...');
+          toast.warning('Ambiente alterado para Sandbox. Você precisa atualizar sua chave API para o formato $aact_sandbox_... ou $aact_hmlg_...');
         } else {
           toast.warning('Ambiente alterado para Produção. Você precisa atualizar sua chave API para o formato $aact_...');
         }
@@ -221,8 +213,8 @@ const AsaasApiKeyManager = () => {
                   <AlertDescription className="text-amber-800">
                     <strong>Importante:</strong> Verifique o formato correto da chave API:
                     <ul className="list-disc pl-5 text-sm mt-1 space-y-1">
-                      <li>Para ambiente Sandbox: <code className="bg-amber-100 px-1 rounded">$aact_sandbox_...</code></li>
-                      <li>Para ambiente Produção: <code className="bg-amber-100 px-1 rounded">$aact_...</code> (sem "sandbox")</li>
+                      <li>Para ambiente Sandbox: <code className="bg-amber-100 px-1 rounded">$aact_sandbox_...</code> ou <code className="bg-amber-100 px-1 rounded">$aact_hmlg_...</code></li>
+                      <li>Para ambiente Produção: <code className="bg-amber-100 px-1 rounded">$aact_...</code> (sem "sandbox" ou "hmlg")</li>
                     </ul>
                     A chave pode ser obtida no painel do Asaas em Configurações &gt; Integrações &gt; API.
                   </AlertDescription>
@@ -236,8 +228,8 @@ const AsaasApiKeyManager = () => {
                       type={isRevealed ? 'text' : 'password'}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      placeholder={environment === 'sandbox' ? "$aact_sandbox_YourApiKeyHere" : "$aact_YourApiKeyHere"}
-                      className={`flex-grow ${!validateApiKeyFormat(apiKey, environment) && apiKey ? 'border-red-500' : ''}`}
+                      placeholder={environment === 'sandbox' ? "$aact_sandbox_... ou $aact_hmlg_..." : "$aact_..."}
+                      className="flex-grow"
                     />
                     <Button
                       type="button"
@@ -261,16 +253,8 @@ const AsaasApiKeyManager = () => {
                     )}
                   </div>
                   
-                  {apiKey && !validateApiKeyFormat(apiKey, environment) && (
-                    <p className="text-sm text-red-500 mt-1">
-                      Formato inválido! {environment === 'sandbox' 
-                        ? 'Use o formato $aact_sandbox_...' 
-                        : 'Use o formato $aact_... (sem "sandbox")'}
-                    </p>
-                  )}
-                  
                   <p className="text-sm text-muted-foreground mt-2">
-                    Insira a API Key do Asaas, que começa com "$aact_" para produção ou "$aact_sandbox_" para ambiente de testes.
+                    Insira a API Key do Asaas, que começa com "$aact_" para produção ou "$aact_sandbox_" / "$aact_hmlg_" para ambiente de testes.
                     Certifique-se de que a chave corresponde ao ambiente selecionado na aba "Ambiente".
                   </p>
                   {isLoading && <p className="text-sm text-muted-foreground">Carregando configuração...</p>}
@@ -396,8 +380,8 @@ const AsaasApiKeyManager = () => {
                   <li>No painel administrativo, vá para Configurações &gt; Integrações &gt; API.</li>
                   <li>Copie sua API Key, observando o formato correto:
                     <ul className="list-disc pl-5 mt-1">
-                      <li>Ambiente Sandbox: começa com <code className="bg-blue-100 px-1 rounded">$aact_sandbox_</code></li>
-                      <li>Ambiente Produção: começa com <code className="bg-blue-100 px-1 rounded">$aact_</code> (sem "sandbox")</li>
+                      <li>Ambiente Sandbox: começa com <code className="bg-blue-100 px-1 rounded">$aact_sandbox_</code> ou <code className="bg-blue-100 px-1 rounded">$aact_hmlg_</code></li>
+                      <li>Ambiente Produção: começa com <code className="bg-blue-100 px-1 rounded">$aact_</code> (sem "sandbox" ou "hmlg")</li>
                     </ul>
                   </li>
                   <li>Selecione o ambiente correto correspondente à sua chave API.</li>
@@ -411,7 +395,7 @@ const AsaasApiKeyManager = () => {
               <div className="p-4 bg-amber-50 rounded-md mt-4">
                 <h3 className="font-medium text-amber-800 mb-2">Resolução de Problemas:</h3>
                 <ul className="list-disc pl-5 text-sm text-amber-800 space-y-2">
-                  <li><strong>Formato de chave API inválido:</strong> Verifique se a chave começa com o prefixo correto ($aact_sandbox_ para Sandbox, $aact_ para Produção).</li>
+                  <li><strong>Formato de chave API inválido:</strong> Verifique se a chave começa com o prefixo correto ($aact_sandbox_ ou $aact_hmlg_ para Sandbox, $aact_ para Produção).</li>
                   <li><strong>API key inválida:</strong> Certifique-se de que a chave está ativa e não expirou.</li>
                   <li><strong>Erro de permissão:</strong> Verifique se a chave tem as permissões necessárias na sua conta Asaas.</li>
                   <li>Após configurar o webhook, teste uma compra para verificar se as notificações estão sendo recebidas.</li>
