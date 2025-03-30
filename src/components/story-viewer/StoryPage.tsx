@@ -38,6 +38,11 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onImageError,
   onToggleTextVisibility
 }) => {
+  // Log de debugging para verificar props
+  console.log("StoryPage rendering with props:", { 
+    title, imageUrl, isMobile, hideText, typedText: typedText.substring(0, 20) + "..."
+  });
+
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
