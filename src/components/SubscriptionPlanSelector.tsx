@@ -46,11 +46,7 @@ export const SubscriptionPlanSelector = () => {
   const { data: plans, isLoading: loadingPlans, error: plansError } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: getSubscriptionPlans,
-    retry: 1,
-    onError: (err: any) => {
-      console.error('Error fetching subscription plans:', err);
-      setError(`Erro ao buscar planos: ${err.message || 'Verifique as configurações da API do Stripe'}`);
-    }
+    retry: 1
   });
   
   // Get user's current subscription
@@ -61,18 +57,23 @@ export const SubscriptionPlanSelector = () => {
       return checkUserSubscription(user.id);
     },
     enabled: !!user,
-    retry: 1,
-    onError: (err: any) => {
-      console.error('Error fetching user subscription:', err);
-    }
+    retry: 1
   });
 
-  // Show API errors
+  // Handle errors from queries
   useEffect(() => {
     if (plansError) {
+      console.error('Error fetching subscription plans:', plansError);
+      setError(`Erro ao buscar planos: ${plansError instanceof Error ? plansError.message : 'Verifique as configurações da API do Stripe'}`);
       toast.error("Erro ao carregar planos. Verifique se a API do Stripe está configurada");
     }
   }, [plansError]);
+
+  useEffect(() => {
+    if (subscriptionError) {
+      console.error('Error fetching user subscription:', subscriptionError);
+    }
+  }, [subscriptionError]);
   
   // Format currency
   const formatCurrency = (amount: number, currency: string = 'BRL') => {
