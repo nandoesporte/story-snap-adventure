@@ -1,4 +1,5 @@
 
+
 -- Create subscription plans table
 CREATE TABLE IF NOT EXISTS subscription_plans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -52,7 +53,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'subscription_plans' 
+    WHERE schemaname = 'public' 
+    AND tablename = 'subscription_plans' 
     AND policyname = 'Anyone can view active subscription plans'
   ) THEN
     CREATE POLICY "Anyone can view active subscription plans"
@@ -65,7 +67,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'subscription_plans' 
+    WHERE schemaname = 'public'
+    AND tablename = 'subscription_plans' 
     AND policyname = 'Admin users can manage subscription plans'
   ) THEN
     CREATE POLICY "Admin users can manage subscription plans"
@@ -85,7 +88,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'user_subscriptions' 
+    WHERE schemaname = 'public'
+    AND tablename = 'user_subscriptions' 
     AND policyname = 'Users can view their own subscriptions'
   ) THEN
     CREATE POLICY "Users can view their own subscriptions"
@@ -98,7 +102,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'user_subscriptions' 
+    WHERE schemaname = 'public'
+    AND tablename = 'user_subscriptions' 
     AND policyname = 'Admin users can manage all subscriptions'
   ) THEN
     CREATE POLICY "Admin users can manage all subscriptions"
@@ -118,7 +123,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'subscription_history' 
+    WHERE schemaname = 'public'
+    AND tablename = 'subscription_history' 
     AND policyname = 'Users can view their own subscription history'
   ) THEN
     CREATE POLICY "Users can view their own subscription history"
@@ -131,7 +137,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policy 
-    WHERE tablename = 'subscription_history' 
+    WHERE schemaname = 'public'
+    AND tablename = 'subscription_history' 
     AND policyname = 'Admin users can view all subscription history'
   ) THEN
     CREATE POLICY "Admin users can view all subscription history"
@@ -184,3 +191,4 @@ VALUES
 ('Padrão', 'Para famílias que adoram histórias', 39.90, 'month', 15, '["Criação de 15 histórias por mês", "Acesso à biblioteca completa de personagens", "Download de histórias em PDF", "Narração de áudio"]'::jsonb),
 ('Premium', 'Experiência completa de histórias', 59.90, 'month', 50, '["Criação de histórias ilimitadas", "Acesso prioritário a novos recursos", "Personagens personalizados", "Narração de áudio premium", "Suporte prioritário"]'::jsonb)
 ON CONFLICT DO NOTHING;
+
