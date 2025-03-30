@@ -63,11 +63,18 @@ const CreateStory = () => {
     const suggestedTheme = getSuggestedTheme(prompt);
     const suggestedSetting = getSuggestedSetting(prompt);
     
-    setFormData(prevData => ({
-      ...prevData,
+    setFormData({
+      childName: "",
+      childAge: "",
       theme: suggestedTheme,
       setting: suggestedSetting,
-    } as StoryFormData));
+      style: "papercraft",
+      length: "medium",
+      readingLevel: "intermediate",
+      language: "portuguese",
+      moral: "friendship",
+      voiceType: "female"
+    });
   };
   
   const getSuggestedTheme = (prompt: string): string => {
