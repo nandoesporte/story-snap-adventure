@@ -22,6 +22,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const { processedUrl, hasError, isLoading } = useStoryImages(imageUrl);
   const [imgError, setImgError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   
   // Use processed URL or fallback if there was an error
   const displayUrl = hasError || imgError ? fallbackImage : processedUrl;
@@ -30,33 +31,62 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   useEffect(() => {
     setImgError(false);
     setLoaded(false);
+    setRetryCount(0);
   }, [imageUrl]);
   
   // Pre-load the image to verify if it's valid
   useEffect(() => {
-    if (displayUrl) {
+    if (displayUrl && !loaded && !imgError && retryCount < 2) {
       const img = new Image();
       img.src = displayUrl;
-      img.onload = () => setLoaded(true);
-      img.onerror = () => {
+      
+      const handleLoad = () => {
+        setLoaded(true);
+        console.log("Image pre-loaded successfully:", displayUrl);
+      };
+      
+      const handleError = () => {
         console.error(`Failed to pre-load image: ${displayUrl}`);
-        setImgError(true);
-        if (onError) onError();
+        
+        if (retryCount < 1 && !displayUrl.includes('placeholder')) {
+          // Try once more with a small delay
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => {
+            img.src = displayUrl + '?retry=' + Date.now();
+          }, 1000);
+        } else {
+          setImgError(true);
+          if (onError) onError();
+        }
+      };
+      
+      img.onload = handleLoad;
+      img.onerror = handleError;
+      
+      return () => {
+        img.onload = null;
+        img.onerror = null;
       };
     }
-  }, [displayUrl, onError]);
+  }, [displayUrl, onError, loaded, imgError, retryCount]);
   
   // Handle image loading error
   const handleError = () => {
     console.error(`Failed to load image: ${processedUrl}`);
-    setImgError(true);
-    // Cache the fallback image for future reference
-    try {
-      localStorage.setItem(`image_cache_fallback_${imageUrl.split('/').pop()}`, fallbackImage);
-    } catch (error) {
-      console.error("Error saving fallback to cache:", error);
+    
+    if (retryCount < 1 && !processedUrl.includes('placeholder')) {
+      // Try once more
+      setRetryCount(prev => prev + 1);
+    } else {
+      setImgError(true);
+      // Cache the fallback image for future reference
+      try {
+        localStorage.setItem(`image_cache_fallback_${imageUrl.split('/').pop()}`, fallbackImage);
+      } catch (error) {
+        console.error("Error saving fallback to cache:", error);
+      }
+      if (onError) onError();
     }
-    if (onError) onError();
   };
 
   const handleLoad = () => {
@@ -72,15 +102,25 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         </div>
       )}
       <img
-        src={displayUrl}
+        src={`${displayUrl}${retryCount > 0 ? `?retry=${Date.now()}` : ''}`}
         alt={alt}
-        className={`transition-opacity duration-300 ${isLoading || !loaded ? 'opacity-50' : 'opacity-100'} w-full h-full object-cover`}
+        className={`transition-opacity duration-300 ${(isLoading || !loaded) && !imgError ? 'opacity-50' : 'opacity-100'} w-full h-full object-cover`}
         onClick={onClick}
         onError={handleError}
         onLoad={handleLoad}
         loading="eager"
         style={{objectFit: 'cover', width: '100%', height: '100%'}}
       />
+      {imgError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+          <img 
+            src={fallbackImage} 
+            alt={`Fallback for ${alt}`}
+            className="w-full h-full object-cover"
+            onError={() => console.error("Even fallback image failed to load")}
+          />
+        </div>
+      )}
     </div>
   );
 };

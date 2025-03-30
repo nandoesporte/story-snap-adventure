@@ -7,7 +7,7 @@ import { jsPDF } from "jspdf";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingEffect } from "@/hooks/useTypingEffect";
 import LoadingSpinner from "../LoadingSpinner";
-import { getImageUrl } from "./helpers";
+import { getImageUrl, getFallbackImage } from "./helpers";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
 import { CoverPage } from "./CoverPage";
@@ -39,6 +39,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [hideText, setHideText] = useState(false);
   const [isRendered, setIsRendered] = useState(false);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   
   const bookRef = useRef<HTMLDivElement>(null);
   const storyContainerRef = useRef<HTMLDivElement>(null);
@@ -87,6 +88,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       }, 100);
     }
   }, [storyData, loading]);
+  
+  useEffect(() => {
+    // Reset image errors when story data changes
+    setImageLoadErrors({});
+  }, [storyData]);
   
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -198,6 +204,28 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const toggleTextVisibility = () => {
     setHideText(!hideText);
   };
+  
+  const handleLocalImageError = (url: string) => {
+    console.error("Image failed to load:", url);
+    
+    // Record the error
+    setImageLoadErrors(prev => {
+      const newErrors = { ...prev, [url]: true };
+      
+      // Show toast only on first few errors to avoid spamming
+      if (Object.keys(newErrors).length === 1) {
+        toast.error("Some images could not be loaded. Displaying alternative images.", {
+          id: "image-load-error",
+          duration: 3000
+        });
+      }
+      
+      return newErrors;
+    });
+    
+    // Call the parent error handler
+    handleImageError(url);
+  };
 
   return (
     <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
@@ -246,7 +274,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                       style={storyData.style}
                       isMobile={isMobile}
                       onImageClick={handleImageClick}
-                      onImageError={handleImageError}
+                      onImageError={(url) => handleLocalImageError(url)}
                     />
                   ) : (
                     <StoryPage
@@ -266,7 +294,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                       hideText={hideText}
                       voiceType={storyData.voiceType || 'female'}
                       onImageClick={handleImageClick}
-                      onImageError={() => handleImageError(
+                      onImageError={() => handleLocalImageError(
                         storyData.pages[currentPage - 1]?.imageUrl || 
                         storyData.pages[currentPage - 1]?.image_url || ""
                       )}

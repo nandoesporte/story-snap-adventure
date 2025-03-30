@@ -18,6 +18,14 @@ export const getImageUrl = (url?: string, theme: string = ""): string => {
       console.log("Using cached image URL:", cachedUrl);
       return cachedUrl;
     }
+    
+    // Check if there's a fallback cached for this URL (for previously failed images)
+    const fallbackKey = `image_cache_fallback_${url.split('/').pop()}`;
+    const fallbackUrl = localStorage.getItem(fallbackKey);
+    if (fallbackUrl) {
+      console.log("Using cached fallback for failed image:", fallbackUrl);
+      return fallbackUrl;
+    }
   } catch (error) {
     console.error("Failed to check cache for URL:", url, error);
     // Continue with normal processing if cache check fails
@@ -106,4 +114,45 @@ export const getFallbackImage = (theme: string = ""): string => {
   
   console.log("Using default placeholder");
   return "/placeholder.svg";
+};
+
+// Function to verify if an image URL is accessible
+export const verifyImageUrl = async (url: string): Promise<boolean> => {
+  try {
+    if (url.startsWith('data:')) return true;
+    
+    // Add a cache-busting parameter to prevent getting a cached error response
+    const urlWithParam = url.includes('?') 
+      ? `${url}&cacheBust=${Date.now()}` 
+      : `${url}?cacheBust=${Date.now()}`;
+      
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(urlWithParam, { 
+      method: 'HEAD',
+      signal: controller.signal,
+      cache: 'no-store',
+      mode: 'no-cors'
+    });
+    
+    clearTimeout(timeoutId);
+    return true;
+  } catch (error) {
+    console.error("Failed to verify image URL:", url, error);
+    return false;
+  }
+};
+
+// Utility to clean up the URL to make it more likely to work
+export const sanitizeImageUrl = (url: string): string => {
+  if (!url) return "";
+  
+  // Fix double slashes not at the beginning of the URL
+  let sanitized = url.replace(/([^:])\/\//g, '$1/');
+  
+  // Remove query parameters that might cause issues
+  sanitized = sanitized.split('?')[0];
+  
+  return sanitized;
 };

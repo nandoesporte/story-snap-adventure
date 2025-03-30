@@ -4,6 +4,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NarrationPlayer } from "../NarrationPlayer";
+import CoverImage from "../CoverImage";
+import { getFallbackImage } from "./helpers";
 
 interface StoryPageProps {
   storyId: string | undefined;
@@ -43,12 +45,15 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     title, imageUrl, isMobile, hideText, typedText: typedText.substring(0, 20) + "..."
   });
 
+  const fallbackImage = getFallbackImage("");
+
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
-        <div className="story-image-fullscreen">
-          <img 
-            src={imageUrl} 
+        <div className="w-full h-full">
+          <CoverImage 
+            imageUrl={imageUrl}
+            fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageIndex + 1}`}
             className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
@@ -104,10 +109,11 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
-        <img 
-          src={imageUrl} 
+        <CoverImage 
+          imageUrl={imageUrl}
+          fallbackImage={fallbackImage}
           alt={`Ilustração da página ${pageIndex + 1}`}
-          className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
+          className="max-w-full max-h-full object-contain rounded-lg shadow-md"
           onClick={() => onImageClick(imageUrl)}
           onError={() => onImageError(imageUrl)}
         />
