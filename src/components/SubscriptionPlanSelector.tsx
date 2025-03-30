@@ -109,18 +109,34 @@ export const SubscriptionPlanSelector = () => {
       setIsCheckoutLoading(true);
       setError(null);
       const returnUrl = window.location.origin + '/my-stories';
+      
+      console.log('Creating checkout with:', {
+        userId: user.id,
+        planId: selectedPlanId,
+        returnUrl
+      });
+      
       const checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
       
       if (!checkoutUrl) {
         throw new Error('Falha ao criar sessão de checkout');
       }
       
+      console.log('Checkout URL received:', checkoutUrl);
+      
       // Redirect to Stripe checkout
       window.location.href = checkoutUrl;
     } catch (error: any) {
       console.error('Error creating checkout:', error);
-      setError(`Erro ao processar checkout: ${error.message || 'Verifique a configuração da API do Stripe'}`);
-      toast.error(`Erro ao processar checkout: ${error.message || 'Verifique a configuração da API do Stripe'}`);
+      let errorMessage = 'Falha ao processar checkout';
+      
+      // Try to get a more specific error message
+      if (error.message) {
+        errorMessage = `Erro ao processar checkout: ${error.message}`;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsCheckoutLoading(false);
     }

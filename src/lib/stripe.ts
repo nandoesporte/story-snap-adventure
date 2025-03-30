@@ -124,20 +124,30 @@ export async function checkStoryLimitReached(userId: string) {
 // Create a checkout session for a subscription
 export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
   try {
+    console.log('Creating checkout session with:', { userId, planId, returnUrl });
+    
     // Call the Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('create-checkout', {
       body: { planId, returnUrl }
     });
     
     if (error) {
-      console.error('Error creating checkout:', error);
-      throw new Error('Falha ao criar sessão de pagamento');
+      console.error('Error from create-checkout function:', error);
+      throw new Error(`Falha ao criar sessão de pagamento: ${error.message}`);
     }
     
+    if (!data || !data.url) {
+      console.error('Invalid response from create-checkout function:', data);
+      throw new Error('Resposta inválida do servidor de pagamento');
+    }
+    
+    console.log('Checkout session created successfully, URL received');
     return data.url;
   } catch (error) {
     console.error('Error in createSubscriptionCheckout:', error);
-    throw error;
+    throw error instanceof Error 
+      ? error 
+      : new Error('Falha ao criar sessão de pagamento');
   }
 }
 
