@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -26,35 +25,29 @@ const SubscriptionPlanSelector = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [intervalFilter, setIntervalFilter] = useState('month');
 
-  // Fetch subscription plans and user current subscription
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
         
-        // Get available payment methods
         const methods = await getAvailablePaymentMethods();
         setPaymentMethods(methods);
         
-        // Set default payment method if available
         if (methods.mercadopago) {
           setSelectedPaymentMethod('mercadopago');
         } else if (methods.asaas) {
           setSelectedPaymentMethod('asaas');
         }
         
-        // Get subscription plans
         const plansData = await getSubscriptionPlans();
         setPlans(plansData);
         
-        // Check current subscription
         if (user) {
           try {
             const subscription = await checkUserSubscription(user.id);
             if (subscription) {
               setCurrentSubscription(subscription);
               
-              // Set the current plan as selected by default
               if (subscription.plan_id) {
                 const currentPlan = plansData.find(p => p.id === subscription.plan_id);
                 if (currentPlan) {
@@ -65,7 +58,6 @@ const SubscriptionPlanSelector = () => {
             }
           } catch (error) {
             console.error('Error checking user subscription:', error);
-            // Don't show error toast for subscription check as it might just be a missing table
           }
         }
       } catch (error) {
@@ -99,12 +91,10 @@ const SubscriptionPlanSelector = () => {
       setIsProcessing(true);
       setPaymentError('');
       
-      // Return URL after payment
       const returnUrl = `${window.location.origin}/my-account`;
       
       let checkoutUrl;
       
-      // Process based on selected payment method
       if (selectedPaymentMethod === 'mercadopago') {
         checkoutUrl = await createMercadoPagoCheckout(
           user.id,
@@ -128,7 +118,6 @@ const SubscriptionPlanSelector = () => {
       }
       
       if (checkoutUrl) {
-        // Redirect to checkout
         window.location.href = checkoutUrl;
       } else {
         throw new Error('URL de checkout inválida');
@@ -149,7 +138,6 @@ const SubscriptionPlanSelector = () => {
     }).format(value);
   };
 
-  // Calculate savings for annual plans
   const calculateSavings = (plan) => {
     if (plan.interval === 'year') {
       const monthlyEquivalent = plan.price / 12;
@@ -181,10 +169,8 @@ const SubscriptionPlanSelector = () => {
     );
   }
 
-  // Filter plans by the selected interval
   const filteredPlans = plans.filter(plan => plan.interval === intervalFilter);
 
-  // If no payment methods are available
   const noPaymentMethodsConfigured = !paymentMethods.mercadopago && !paymentMethods.asaas;
 
   return (
@@ -228,34 +214,34 @@ const SubscriptionPlanSelector = () => {
         </Card>
       )}
 
-      {/* Interval selector */}
       <div className="flex justify-center my-8">
         <div className="bg-[#f0f0ff] rounded-full inline-flex p-1 shadow-sm">
-          <TabsList className="grid w-full grid-cols-2 min-w-[300px]">
-            <TabsTrigger
-              value="month"
-              onClick={() => setIntervalFilter('month')}
-              className={`rounded-full py-2 px-8 ${intervalFilter === 'month' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
-            >
-              MENSAL
-            </TabsTrigger>
-            <TabsTrigger
-              value="year"
-              onClick={() => setIntervalFilter('year')}
-              className={`rounded-full py-2 px-8 relative ${intervalFilter === 'year' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
-            >
-              ANUAL
-              {intervalFilter === 'year' && (
-                <span className="absolute -top-3 -right-3 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  ECONOMIZE 40%
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <Tabs value={intervalFilter} onValueChange={setIntervalFilter} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 min-w-[300px]">
+              <TabsTrigger
+                value="month"
+                className={`rounded-full py-2 px-8 ${intervalFilter === 'month' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+              >
+                MENSAL
+              </TabsTrigger>
+              <TabsTrigger
+                value="year"
+                className={`rounded-full py-2 px-8 relative ${intervalFilter === 'year' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+              >
+                ANUAL
+                {intervalFilter === 'year' && (
+                  <span className="absolute -top-3 -right-3 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    ECONOMIZE 40%
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="month" className="hidden"></TabsContent>
+            <TabsContent value="year" className="hidden"></TabsContent>
+          </Tabs>
         </div>
       </div>
 
-      {/* Benefits table */}
       <div className="overflow-x-auto mb-8">
         <table className="w-full border-collapse">
           <thead>
