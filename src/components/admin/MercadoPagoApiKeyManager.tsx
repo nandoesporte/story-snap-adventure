@@ -16,7 +16,6 @@ const MercadoPagoApiKeyManager = () => {
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch current API key and webhook URL
   const { data, isLoading, error } = useQuery({
     queryKey: ['mercadopago-config'],
     queryFn: async () => {
@@ -50,7 +49,6 @@ const MercadoPagoApiKeyManager = () => {
     }
   }, [data]);
 
-  // Save configuration
   const saveConfig = useMutation({
     mutationFn: async ({ key, value }: { key: string, value: string }) => {
       const { data: existingRecord, error: checkError } = await supabase
@@ -64,7 +62,6 @@ const MercadoPagoApiKeyManager = () => {
       }
       
       if (existingRecord) {
-        // Update existing record
         const { error: updateError } = await supabase
           .from('system_configurations')
           .update({ value })
@@ -72,7 +69,6 @@ const MercadoPagoApiKeyManager = () => {
           
         if (updateError) throw updateError;
       } else {
-        // Insert new record
         const { error: insertError } = await supabase
           .from('system_configurations')
           .insert({ key, value });
@@ -115,33 +111,8 @@ const MercadoPagoApiKeyManager = () => {
     saveConfig.mutate({ key: 'mercadopago_webhook_url', value: webhookUrl });
   };
 
-  // Generate the Supabase Edge Function URL for the webhook
   const generateWebhookUrl = () => {
-    const currentUrl = window.location.origin;
-    let projectRef = '';
-    
-    try {
-      const configStr = JSON.stringify(supabase);
-      const matches = configStr.match(/"url":"https:\/\/([^.]+)\.supabase\.co/);
-      if (matches && matches[1]) {
-        projectRef = matches[1];
-      }
-    } catch (e) {
-      console.error("Could not extract project ref from supabase config:", e);
-    }
-    
-    if (!projectRef) {
-      if (currentUrl.includes('supabase')) {
-        const urlParts = currentUrl.split('.');
-        if (urlParts.length > 0) {
-          projectRef = urlParts[0].replace('https://', '');
-        }
-      } else {
-        projectRef = 'your-project-ref';
-      }
-    }
-    
-    const webhookUrl = `https://${projectRef}.supabase.co/functions/v1/mercadopago-webhook`;
+    const webhookUrl = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
     setWebhookUrl(webhookUrl);
     toast.success("Webhook URL generated");
   };
@@ -237,7 +208,7 @@ const MercadoPagoApiKeyManager = () => {
                       type="text"
                       value={webhookUrl}
                       onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://seu-projeto.supabase.co/functions/v1/mercadopago-webhook"
+                      placeholder="https://seu-projeto.supabase.co/functions/v1/stripe-webhook"
                       className="flex-grow"
                     />
                     <Button
@@ -260,8 +231,16 @@ const MercadoPagoApiKeyManager = () => {
                     Gerar URL automática
                   </Button>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Use esta URL para configurar webhooks no painel do Mercado Pago. Isto permitirá processamento automático de pagamentos.
+                    Use esta URL para configurar webhooks no painel do Mercado Pago. 
+                    Isto permitirá processamento automático de pagamentos.
                   </p>
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mt-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Importante:</strong> Ao configurar seu webhook no Mercado Pago, 
+                      defina o método HTTP como POST e certifique-se de permitir todos os eventos 
+                      de pagamento.
+                    </p>
+                  </div>
                 </div>
                 <Button type="submit" disabled={saveConfig.isPending}>
                   {saveConfig.isPending && saveConfig.variables?.key === 'mercadopago_webhook_url' ? (

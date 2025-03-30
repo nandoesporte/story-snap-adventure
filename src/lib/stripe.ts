@@ -190,36 +190,35 @@ export async function createSubscriptionCheckout(userId: string, planId: string,
   }
 }
 
-// Create a checkout session for Mercado Pago
-export const createMercadoPagoCheckout = async (userId: string, planId: string, returnUrl?: string) => {
-  if (!userId || !planId) {
-    throw new Error('Missing required parameters');
-  }
-
+// Creates a MercadoPago checkout session
+export const createMercadoPagoCheckout = async (
+  userId: string,
+  planId: string,
+  returnUrl?: string
+): Promise<string> => {
   try {
-    const { data, error } = await supabase.functions.invoke("create-mercadopago-checkout", {
-      body: {
-        planId: planId,
-        returnUrl: returnUrl
-      }
+    console.log('Creating MercadoPago checkout for', userId, planId);
+    
+    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
+      body: { planId, returnUrl }
     });
-
+    
     if (error) {
-      console.error('Error creating Mercado Pago checkout:', error);
+      console.error('Error in createMercadoPagoCheckout:', error);
       throw new Error(`Failed to create checkout: ${error.message}`);
     }
-
-    if (!data?.url) {
-      throw new Error('No checkout URL returned from Mercado Pago');
+    
+    if (!data || !data.url) {
+      console.error('Invalid response from createMercadoPagoCheckout:', data);
+      throw new Error('Failed to create checkout: Invalid response from server');
     }
-
-    console.log('Mercado Pago checkout created:', data);
+    
     return data.url;
-  } catch (err) {
-    console.error('Error in createMercadoPagoCheckout:', err);
-    throw err;
+  } catch (error) {
+    console.error('Error in createMercadoPagoCheckout:', error);
+    throw new Error(`Failed to create checkout: ${error.message}`);
   }
-}
+};
 
 // Cancel a subscription
 export async function cancelSubscription(subscriptionId: string): Promise<any> {

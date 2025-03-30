@@ -113,6 +113,9 @@ serve(async (req) => {
     // Set return URL
     const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
     const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
+    
+    // Use the fixed webhook URL as specified
+    const webhookUrl = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
 
     // Create preference object
     const preferenceData = {
@@ -131,32 +134,44 @@ serve(async (req) => {
         pending: successUrl
       },
       auto_return: "approved",
+      notification_url: webhookUrl,
       metadata: {
         userId: user.id,
         planId: planId
       }
     };
 
-    // Add notification URL if configured
-    if (webhookData?.value) {
-      preferenceData.notification_url = webhookData.value;
-    }
+    console.log("Creating MercadoPago preference:", JSON.stringify(preferenceData));
 
     // Create a preference
-    const result = await preference.create({
-      body: preferenceData
-    });
+    try {
+      const result = await preference.create({
+        body: preferenceData
+      });
 
-    return new Response(
-      JSON.stringify({ 
-        url: result.init_point,
-        preferenceId: result.id
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+      return new Response(
+        JSON.stringify({ 
+          url: result.init_point,
+          preferenceId: result.id
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (mpError) {
+      console.error("MercadoPago API error:", mpError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to create MercadoPago preference", 
+          details: mpError.message 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (error) {
     console.error("Error creating Mercado Pago checkout:", error);
     return new Response(

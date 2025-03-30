@@ -8,6 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Using the same URL as Stripe webhook as requested
 const WEBHOOK_URL = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
 
 serve(async (req) => {
@@ -55,19 +56,13 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
     if (!supabaseUrl || !supabaseServiceRole) {
       console.error("Missing Supabase environment variables");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error", details: "Missing environment variables" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      throw new Error("Server configuration error: Missing environment variables");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceRole, {
@@ -101,7 +96,8 @@ serve(async (req) => {
       // Fetch payment details
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
-          "Authorization": `Bearer ${configData.value}`
+          "Authorization": `Bearer ${configData.value}`,
+          "Content-Type": "application/json"
         }
       });
       
