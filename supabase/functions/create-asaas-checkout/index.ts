@@ -77,15 +77,14 @@ serve(async (req) => {
     const apiUrl = getAsaasApiUrl(environment);
     console.log("Using API URL:", apiUrl);
 
-    // Get user data from auth.users instead of user_profiles
+    // First try to get the user from auth.users using the admin auth API
     console.log("Fetching user data...");
-    // First try to get the user from auth.users using the admin auth client
     const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(user_id);
 
     if (userError || !userData?.user) {
-      console.error("User data error:", userError);
+      console.error("Error fetching user from auth:", userError);
       
-      // Fallback to user_profiles table for display_name
+      // Fallback to user_profiles table for display_name only, not email
       const { data: profileData, error: profileError } = await supabaseClient
         .from("user_profiles")
         .select("display_name")
@@ -103,11 +102,10 @@ serve(async (req) => {
         );
       }
       
-      // Generate a fallback email as there's no direct way to get email
+      // Generate a fallback email since we couldn't get the real one
       const userEmail = `user-${user_id.substring(0, 8)}@example.com`;
       const userName = profileData.display_name || userEmail.split('@')[0];
       
-      // Continue with customer creation using fallback values
       return await handlePaymentCreation(
         apiKeyConfig.value,
         apiUrl,
@@ -116,11 +114,12 @@ serve(async (req) => {
         userName,
         user_id,
         plan_id,
-        supabaseClient
+        supabaseClient,
+        return_url
       );
     }
     
-    // We successfully got the user from auth
+    // We successfully got the user data from auth
     const userEmail = userData.user.email || `user-${user_id.substring(0, 8)}@example.com`;
     const userName = userData.user.user_metadata?.name || userEmail.split('@')[0];
     
@@ -132,7 +131,8 @@ serve(async (req) => {
       userName,
       user_id,
       plan_id,
-      supabaseClient
+      supabaseClient,
+      return_url
     );
     
   } catch (error) {
@@ -156,7 +156,8 @@ async function handlePaymentCreation(
   userName: string,
   user_id: string,
   plan_id: string,
-  supabaseClient: any
+  supabaseClient: any,
+  return_url?: string
 ) {
   try {
     // Get subscription plan data
@@ -270,6 +271,11 @@ async function handlePaymentCreation(
         postalService: false,
       };
 
+      // Add return URL if provided
+      if (return_url) {
+        paymentData["callbackUrl"] = return_url;
+      }
+
       console.log("Creating payment with data:", paymentData);
       const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
         method: "POST",
@@ -355,6 +361,7 @@ async function handlePaymentCreation(
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+        
       }
     );
   }
