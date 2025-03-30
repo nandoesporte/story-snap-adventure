@@ -18,8 +18,8 @@ const defaultContextValue: AuthContextType = {
   user: null,
   session: null,
   loading: true,
-  signIn: async () => null,
-  signUp: async () => null,
+  signIn: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
   signOut: async () => {},
 };
 
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Sign in error:', error.message);
-        throw error;
+        return { error };
       }
       
       console.info('Sign in successful for:', email);
@@ -137,10 +137,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await initializeDBIfAdmin(data.user);
       }
       
-      return data;
+      return { data, error: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
-      throw error;
+      return { error };
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -151,18 +151,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
+      // Fixed: Return error object directly
       const { data, error } = await supabase.auth.signUp({ email, password });
       
       if (error) {
         console.error('Sign up error:', error.message);
-        throw error;
+        return { error };
       }
       
       console.info('Sign up successful for:', email);
-      return data;
+      return { data, error: null };
     } catch (error: any) {
       console.error('Sign up error:', error);
-      throw error;
+      return { error };
     } finally {
       if (isMounted.current) {
         setLoading(false);

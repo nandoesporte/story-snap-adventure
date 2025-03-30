@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -15,7 +15,7 @@ interface AuthProps {
 
 const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const isRegister = type === "register";
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState("");
@@ -24,6 +24,13 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,8 +50,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     
     try {
       if (isRegister) {
-        console.log("Registering with:", email, password);
-        await signUp(email, password);
+        console.log("Registering with:", email);
+        const { error } = await signUp(email, password);
+        
+        if (error) {
+          throw error;
+        }
         
         // Show success message after registration
         toast.success("Conta criada com sucesso!");
@@ -52,7 +63,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         // Don't navigate away so user can see the success message
       } else {
         console.log("Logging in with:", email);
-        await signIn(email, password);
+        const { error } = await signIn(email, password);
+        
+        if (error) {
+          throw error;
+        }
+        
         toast.success("Login realizado com sucesso!");
         navigate("/");
       }
@@ -60,9 +76,9 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       console.error("Authentication error:", error);
       
       // Handle specific error messages
-      if (error.message.includes("Invalid login credentials")) {
+      if (error.message?.includes("Invalid login credentials")) {
         toast.error("Email ou senha incorretos");
-      } else if (error.message.includes("User already registered")) {
+      } else if (error.message?.includes("User already registered")) {
         toast.error("Este email já está registrado");
       } else {
         toast.error(`Erro: ${error.message}`);
