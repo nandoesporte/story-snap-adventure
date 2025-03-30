@@ -197,7 +197,7 @@ const StoryViewer: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
+    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden" style={{ height: '100vh' }}>
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />
@@ -207,7 +207,6 @@ const StoryViewer: React.FC = () => {
           ref={storyContainerRef} 
           className="flex-1 flex flex-col h-full overflow-hidden"
           data-testid="story-viewer-container"
-          style={{ minHeight: "90vh" }} // Ensure minimum height in desktop view
         >
           <ViewerControls
             storyId={id}
@@ -223,13 +222,12 @@ const StoryViewer: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100vh - 100px)', minHeight: '500px' }}>
+          <div className="flex-1 relative overflow-hidden" data-testid="story-book-container">
             <div
               ref={bookRef}
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
                 isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
               } ${isRendered ? 'opacity-100' : 'opacity-0'}`}
-              data-testid="story-book-container"
               style={{ width: '100%', height: '100%' }}
             >
               {storyData && (
