@@ -205,12 +205,12 @@ async function processAsaasPayment(
     
     // Step 1: Check if the customer already exists or create a new one
     try {
-      // First, let's validate our API key with a simpler approach
+      // First, validate API key with a simple health check endpoint
       console.log("Validating API key...");
       
       try {
-        // Just try to get customer information, a simpler operation that should work with minimal permissions
-        const validateResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+        // Use a simple health check endpoint that requires minimal permissions
+        const validateResponse = await fetch(`${apiUrl}/finance/balance`, {
           method: "GET",
           headers: {
             "access_token": accessToken,
@@ -222,8 +222,10 @@ async function processAsaasPayment(
           const errorText = await validateResponse.text();
           console.error("API key validation failed:", errorText);
           
-          // Check for specific permission error messages
-          if (errorText.includes("permissões necessárias") || errorText.includes("permissions") || validateResponse.status === 403) {
+          // Check for specific error response patterns
+          if (errorText.includes("permissões necessárias") || 
+              errorText.includes("permissions") || 
+              validateResponse.status === 403) {
             return new Response(
               JSON.stringify({ 
                 error: "Erro de permissão na API do Asaas", 
@@ -234,18 +236,70 @@ async function processAsaasPayment(
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               }
             );
-          }
-          
-          return new Response(
-            JSON.stringify({ 
-              error: "Chave de API do Asaas inválida ou problema de conexão", 
-              details: `Status: ${validateResponse.status}` 
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
+          } else if (validateResponse.status === 401) {
+            return new Response(
+              JSON.stringify({ 
+                error: "API key do Asaas inválida", 
+                details: "A chave de API fornecida é inválida. Verifique se digitou corretamente."
+              }),
+              {
+                status: 401,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          } else if (validateResponse.status === 404) {
+            // Try an alternative endpoint if the first one isn't available
+            console.log("Trying alternative validation endpoint...");
+            const altResponse = await fetch(`${apiUrl}/customers?limit=1`, {
+              method: "GET",
+              headers: {
+                "access_token": accessToken,
+                "Content-Type": "application/json",
+              },
+            });
+            
+            if (!altResponse.ok) {
+              const altErrorText = await altResponse.text();
+              console.error("Alternative API key validation failed:", altErrorText);
+              
+              if (altErrorText.includes("permissões necessárias") || 
+                  altErrorText.includes("permissions") || 
+                  altResponse.status === 403) {
+                return new Response(
+                  JSON.stringify({ 
+                    error: "Erro de permissão na API do Asaas", 
+                    details: "Verifique se a API Key tem as permissões necessárias na sua conta Asaas."
+                  }),
+                  {
+                    status: 403,
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                  }
+                );
+              }
+              
+              return new Response(
+                JSON.stringify({ 
+                  error: "Falha na conexão com a API do Asaas", 
+                  details: `Erro: ${altResponse.status}. Verifique sua API key e conexão.`
+                }),
+                {
+                  status: 500,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                }
+              );
             }
-          );
+          } else {
+            return new Response(
+              JSON.stringify({ 
+                error: "Falha na conexão com a API do Asaas", 
+                details: `Erro: ${validateResponse.status}. Verifique sua API key e conexão.`
+              }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
         } else {
           console.log("API key validation successful");
         }
