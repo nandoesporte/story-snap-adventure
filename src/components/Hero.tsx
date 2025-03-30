@@ -175,7 +175,7 @@ const Hero = ({ customImageUrl }: HeroProps) => {
       >
         <div className="container mx-auto px-4">
           <p className="text-white text-center text-sm md:text-base lg:text-lg">
-            {getContent("banner_text", "Junte-se a mais de 100.000 famílias usando o Story Spark para cultivar a paixão pela leitura.")}
+            {getContent("banner_text", "Junte-se a mais de 100.000 famílias usando o Contos Mágicos para cultivar a paixão pela leitura.")}
           </p>
         </div>
       </motion.div>

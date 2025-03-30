@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -77,7 +78,7 @@ const Navbar = () => {
                   }}
                 />
               </div>
-              <span className="text-2xl font-bold text-violet-700 tracking-tight">HISTÓRIAS MÁGICAS</span>
+              <span className="text-2xl font-bold text-violet-700 tracking-tight">CONTOS MÁGICOS</span>
             </div>
           </Link>
 
