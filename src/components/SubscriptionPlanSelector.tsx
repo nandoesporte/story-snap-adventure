@@ -77,16 +77,10 @@ const SubscriptionPlanSelector = () => {
     loadData();
   }, [user]);
 
+  // Modified to directly open the payment dialog without needing the "Continue to payment" button
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
     setPaymentError('');
-  };
-
-  const openPaymentDialog = () => {
-    if (!selectedPlan) {
-      toast.error('Selecione um plano antes de continuar');
-      return;
-    }
     
     // Get available payment methods count
     const availableMethodsCount = Object.values(paymentMethods).filter(Boolean).length;
@@ -102,6 +96,7 @@ const SubscriptionPlanSelector = () => {
       if (paymentMethods.asaas) setSelectedPaymentMethod('asaas');
     }
     
+    // Open the payment dialog immediately
     setIsPaymentDialogOpen(true);
   };
 
@@ -280,7 +275,6 @@ const SubscriptionPlanSelector = () => {
             <Card 
               key={plan.id}
               className={`overflow-hidden transition-all duration-200 ${selectedPlan?.id === plan.id ? 'border-[#8B5CF6] ring-1 ring-[#8B5CF6]/30' : 'border-border'}`}
-              onClick={() => handleSelectPlan(plan)}
             >
               <CardHeader className="bg-[#f8f8ff] pb-3 pt-5">
                 <div className="relative">
@@ -385,26 +379,6 @@ const SubscriptionPlanSelector = () => {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {selectedPlan && (
-        <div className="flex justify-center">
-          <Button 
-            onClick={openPaymentDialog} 
-            size={isMobile ? "lg" : "xl"}
-            className="bg-[#8B5CF6] hover:bg-[#7A4CE0] transition-all w-full md:w-auto md:px-12 shadow-md"
-            disabled={isProcessing || noPaymentMethodsConfigured}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Processando...
-              </>
-            ) : (
-              "Continuar para pagamento"
-            )}
-          </Button>
         </div>
       )}
 
