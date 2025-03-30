@@ -18,7 +18,6 @@ import PaymentMethodsManager from '@/components/admin/PaymentMethodsManager';
 import { StoryBotPromptManager } from '@/components/admin/StoryBotPromptManager';
 import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
 import MercadoPagoApiKeyManager from '@/components/admin/MercadoPagoApiKeyManager';
-import AsaasApiKeyManager from '@/components/admin/AsaasApiKeyManager';
 import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
 
 const Admin = () => {
@@ -92,10 +91,7 @@ const Admin = () => {
 
           <TabsContent value="payment" className="space-y-8">
             <PaymentMethodsManager />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <MercadoPagoApiKeyManager />
-              <AsaasApiKeyManager />
-            </div>
+            <MercadoPagoApiKeyManager />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-8">
