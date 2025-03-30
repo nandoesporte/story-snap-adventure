@@ -127,45 +127,137 @@ serve(async (req) => {
     // Step 1: Check if the customer already exists or create a new one
     let customerId = "";
     
-    // First, try to find an existing customer with the user's email
-    console.log("Checking for existing customer with email:", userEmail);
-    const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`, {
-      method: "GET",
-      headers: {
-        "access_token": apiKeyConfig.value,
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      // First, try to find an existing customer with the user's email
+      console.log("Checking for existing customer with email:", userEmail);
+      const findCustomerResponse = await fetch(`${apiUrl}/customers?email=${encodeURIComponent(userEmail)}`, {
+        method: "GET",
+        headers: {
+          "access_token": apiKeyConfig.value,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!findCustomerResponse.ok) {
+        console.error("Error finding customer:", await findCustomerResponse.text());
+        throw new Error(`Failed to find customer: ${findCustomerResponse.status}`);
+      }
 
-    const findCustomerData = await findCustomerResponse.json();
-    console.log("Find customer response:", findCustomerData);
-    
-    if (findCustomerData.data && findCustomerData.data.length > 0) {
-      // Use existing customer
-      customerId = findCustomerData.data[0].id;
-      console.log("Using existing customer ID:", customerId);
-    } else {
-      // Create a new customer
-      console.log("Creating new customer...");
-      const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
+      const findCustomerData = await findCustomerResponse.json();
+      console.log("Find customer response:", findCustomerData);
+      
+      if (findCustomerData.data && findCustomerData.data.length > 0) {
+        // Use existing customer
+        customerId = findCustomerData.data[0].id;
+        console.log("Using existing customer ID:", customerId);
+      } else {
+        // Create a new customer
+        console.log("Creating new customer...");
+        const createCustomerResponse = await fetch(`${apiUrl}/customers`, {
+          method: "POST",
+          headers: {
+            "access_token": apiKeyConfig.value,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: userName || `User ${user_id.substring(0, 8)}`,
+            email: userEmail,
+            notificationDisabled: false,
+          }),
+        });
+        
+        if (!createCustomerResponse.ok) {
+          console.error("Error creating customer:", await createCustomerResponse.text());
+          throw new Error(`Failed to create customer: ${createCustomerResponse.status}`);
+        }
+
+        const createCustomerData = await createCustomerResponse.json();
+        console.log("Create customer response:", createCustomerData);
+        
+        if (createCustomerData.errors) {
+          return new Response(
+            JSON.stringify({ error: "Failed to create customer", details: createCustomerData.errors }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+        
+        customerId = createCustomerData.id;
+        console.log("New customer created with ID:", customerId);
+      }
+
+      // Step 2: Create the payment
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
+      
+      const externalReference = JSON.stringify({
+        user_id,
+        plan_id,
+      });
+
+      const paymentData = {
+        customer: customerId,
+        billingType: "UNDEFINED", // This creates a payment link with multiple options
+        value: planData.price,
+        dueDate: dueDate.toISOString().split('T')[0],
+        description: `Assinatura: ${planData.name} (${planData.interval === 'month' ? 'Mensal' : 'Anual'})`,
+        externalReference: externalReference,
+        postalService: false,
+      };
+
+      console.log("Creating payment with data:", paymentData);
+      const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
         method: "POST",
         headers: {
           "access_token": apiKeyConfig.value,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: userName || `User ${user_id.substring(0, 8)}`,
-          email: userEmail,
-          notificationDisabled: false,
-        }),
+        body: JSON.stringify(paymentData),
       });
-
-      const createCustomerData = await createCustomerResponse.json();
-      console.log("Create customer response:", createCustomerData);
       
-      if (createCustomerData.errors) {
+      if (!createPaymentResponse.ok) {
+        console.error("Error creating payment:", await createPaymentResponse.text());
+        throw new Error(`Failed to create payment: ${createPaymentResponse.status}`);
+      }
+
+      const paymentResult = await createPaymentResponse.json();
+      console.log("Payment creation response:", paymentResult);
+      
+      if (paymentResult.errors) {
         return new Response(
-          JSON.stringify({ error: "Failed to create customer", details: createCustomerData.errors }),
+          JSON.stringify({ error: "Failed to create payment", details: paymentResult.errors }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Step 3: Get the payment link
+      const paymentId = paymentResult.id;
+      console.log("Getting checkout URL for payment ID:", paymentId);
+      const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
+        method: "GET",
+        headers: {
+          "access_token": apiKeyConfig.value,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!getPaymentResponse.ok) {
+        console.error("Error getting payment details:", await getPaymentResponse.text());
+        throw new Error(`Failed to get payment details: ${getPaymentResponse.status}`);
+      }
+      
+      const paymentDetails = await getPaymentResponse.json();
+      console.log("Payment details:", paymentDetails);
+
+      if (!paymentDetails.invoiceUrl) {
+        console.error("Invoice URL not found in payment details");
+        return new Response(
+          JSON.stringify({ error: "Failed to get payment checkout URL" }),
           {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -173,85 +265,24 @@ serve(async (req) => {
         );
       }
       
-      customerId = createCustomerData.id;
-      console.log("New customer created with ID:", customerId);
-    }
-
-    // Step 2: Create the payment
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
-    
-    const externalReference = JSON.stringify({
-      user_id,
-      plan_id,
-    });
-
-    const paymentData = {
-      customer: customerId,
-      billingType: "UNDEFINED", // This creates a payment link with multiple options
-      value: planData.price,
-      dueDate: dueDate.toISOString().split('T')[0],
-      description: `Assinatura: ${planData.name} (${planData.interval === 'month' ? 'Mensal' : 'Anual'})`,
-      externalReference: externalReference,
-      postalService: false,
-    };
-
-    console.log("Creating payment with data:", paymentData);
-    const createPaymentResponse = await fetch(`${apiUrl}/payments`, {
-      method: "POST",
-      headers: {
-        "access_token": apiKeyConfig.value,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paymentData),
-    });
-
-    const paymentResult = await createPaymentResponse.json();
-    console.log("Payment creation response:", paymentResult);
-    
-    if (paymentResult.errors) {
+      console.log("Returning invoice URL:", paymentDetails.invoiceUrl);
       return new Response(
-        JSON.stringify({ error: "Failed to create payment", details: paymentResult.errors }),
+        JSON.stringify({ url: paymentDetails.invoiceUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.error("API processing error:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to process payment" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
-    // Step 3: Get the payment link
-    const paymentId = paymentResult.id;
-    console.log("Getting checkout URL for payment ID:", paymentId);
-    const getPaymentResponse = await fetch(`${apiUrl}/payments/${paymentId}`, {
-      method: "GET",
-      headers: {
-        "access_token": apiKeyConfig.value,
-        "Content-Type": "application/json",
-      },
-    });
-    
-    const paymentDetails = await getPaymentResponse.json();
-    console.log("Payment details:", paymentDetails);
-
-    if (!paymentDetails.invoiceUrl) {
-      console.error("Invoice URL not found in payment details");
-      return new Response(
-        JSON.stringify({ error: "Failed to get payment checkout URL" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-    
-    console.log("Returning invoice URL:", paymentDetails.invoiceUrl);
-    return new Response(
-      JSON.stringify({ url: paymentDetails.invoiceUrl }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
   } catch (error) {
     console.error("Error creating Asaas checkout:", error);
     return new Response(
