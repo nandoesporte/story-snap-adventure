@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ export const NarrationPlayer = ({
     isGenerating, 
     playAudio, 
     toggleMute,
+    generateAudio,
     VOICE_PRESETS 
   } = useStoryNarration({
     storyId,
@@ -128,7 +130,15 @@ export const NarrationPlayer = ({
         return;
       }
       
-      await playAudio(selectedVoice);
+      // Generate and automatically play the audio
+      toast.info("Gerando narração...");
+      const generatedUrl = await generateAudio(selectedVoice);
+      if (generatedUrl) {
+        setAudioUrl(generatedUrl);
+        // Automatically play the audio after generation
+        await playAudio(selectedVoice, generatedUrl);
+        toast.success("Narração gerada e reproduzindo!");
+      }
     } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);
       
