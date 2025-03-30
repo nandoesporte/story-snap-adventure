@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -9,12 +10,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Check, CreditCard, Loader2, Store } from 'lucide-react';
+import { AlertCircle, Check, CreditCard, Loader2, Store, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const SubscriptionPlanSelector = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [currentSubscription, setCurrentSubscription] = useState(null);
@@ -24,6 +28,7 @@ const SubscriptionPlanSelector = () => {
   const [paymentError, setPaymentError] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [intervalFilter, setIntervalFilter] = useState('month');
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,6 +38,7 @@ const SubscriptionPlanSelector = () => {
         const methods = await getAvailablePaymentMethods();
         setPaymentMethods(methods);
         
+        // Set first available payment method as default
         if (methods.mercadopago) {
           setSelectedPaymentMethod('mercadopago');
         } else if (methods.asaas) {
@@ -74,6 +80,29 @@ const SubscriptionPlanSelector = () => {
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
     setPaymentError('');
+  };
+
+  const openPaymentDialog = () => {
+    if (!selectedPlan) {
+      toast.error('Selecione um plano antes de continuar');
+      return;
+    }
+    
+    // Get available payment methods count
+    const availableMethodsCount = Object.values(paymentMethods).filter(Boolean).length;
+    
+    if (availableMethodsCount === 0) {
+      toast.error('Não há métodos de pagamento disponíveis');
+      return;
+    }
+    
+    // If there's only one payment method, select it automatically
+    if (availableMethodsCount === 1) {
+      if (paymentMethods.mercadopago) setSelectedPaymentMethod('mercadopago');
+      if (paymentMethods.asaas) setSelectedPaymentMethod('asaas');
+    }
+    
+    setIsPaymentDialogOpen(true);
   };
 
   const handleProceedToPayment = async () => {
@@ -170,12 +199,14 @@ const SubscriptionPlanSelector = () => {
   }
 
   const filteredPlans = plans.filter(plan => plan.interval === intervalFilter);
-
   const noPaymentMethodsConfigured = !paymentMethods.mercadopago && !paymentMethods.asaas;
+  
+  // Count available payment methods
+  const availablePaymentMethods = Object.keys(paymentMethods).filter(key => paymentMethods[key]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <h1 className="text-5xl font-bold text-center mb-2 text-[#5E58A5]">Preços</h1>
+      <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 text-[#5E58A5]">Preços</h1>
       
       {currentSubscription && (
         <Card className="mb-8 border-primary">
@@ -217,21 +248,21 @@ const SubscriptionPlanSelector = () => {
       <div className="flex justify-center my-8">
         <div className="bg-[#f0f0ff] rounded-full inline-flex p-1 shadow-sm">
           <Tabs value={intervalFilter} onValueChange={setIntervalFilter} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 min-w-[300px]">
+            <TabsList className="grid w-full grid-cols-2 min-w-[260px]">
               <TabsTrigger
                 value="month"
-                className={`rounded-full py-2 px-8 ${intervalFilter === 'month' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+                className={`rounded-full py-2 px-6 ${intervalFilter === 'month' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
               >
                 MENSAL
               </TabsTrigger>
               <TabsTrigger
                 value="year"
-                className={`rounded-full py-2 px-8 relative ${intervalFilter === 'year' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
+                className={`rounded-full py-2 px-6 relative ${intervalFilter === 'year' ? 'bg-[#8B5CF6] text-white shadow' : 'text-[#5E58A5]'}`}
               >
                 ANUAL
                 {intervalFilter === 'year' && (
-                  <span className="absolute -top-3 -right-3 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    ECONOMIZE 40%
+                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    SAVE 40%
                   </span>
                 )}
               </TabsTrigger>
@@ -242,170 +273,291 @@ const SubscriptionPlanSelector = () => {
         </div>
       </div>
 
-      <div className="overflow-x-auto mb-8">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="text-left py-4 px-4 font-medium text-lg text-[#5E58A5] w-1/3">Benefícios</th>
-              {filteredPlans.map(plan => (
-                <th key={plan.id} className="py-4 px-4 text-center">
-                  <div className={`rounded-lg p-6 ${selectedPlan?.id === plan.id ? 'bg-[#f0f0ff] shadow-lg' : 'bg-[#f8f8ff]'}`}>
-                    <div className="relative">
-                      {plan.interval === 'year' && calculateSavings(plan) > 0 && (
-                        <Badge className="absolute -top-10 -right-6 bg-[#844FFC] text-white">
-                          {calculateSavings(plan)}% OFF
-                        </Badge>
-                      )}
-                      <h3 className="text-2xl font-bold text-[#5E58A5] mb-2">{plan.name}</h3>
-                      <div className="mb-4">
-                        <div className="text-3xl font-bold text-[#5E58A5]">
-                          {formatCurrency(plan.price)}
-                        </div>
-                        <div className="text-sm text-[#727090]">
-                          {getMonthlyPrice(plan)}
-                        </div>
-                      </div>
-                      <Button 
-                        className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
-                        onClick={() => handleSelectPlan(plan)}
-                      >
-                        {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
-                      </Button>
+      {/* Mobile View */}
+      {isMobile ? (
+        <div className="space-y-6 mb-8">
+          {filteredPlans.map(plan => (
+            <Card 
+              key={plan.id}
+              className={`overflow-hidden transition-all duration-200 ${selectedPlan?.id === plan.id ? 'border-[#8B5CF6] ring-1 ring-[#8B5CF6]/30' : 'border-border'}`}
+              onClick={() => handleSelectPlan(plan)}
+            >
+              <CardHeader className="bg-[#f8f8ff] pb-3 pt-5">
+                <div className="relative">
+                  {plan.interval === 'year' && calculateSavings(plan) > 0 && (
+                    <Badge className="absolute -top-3 right-0 bg-[#844FFC] text-white">
+                      {calculateSavings(plan)}% OFF
+                    </Badge>
+                  )}
+                  <CardTitle className="text-xl text-[#5E58A5]">{plan.name}</CardTitle>
+                  <div className="mt-2">
+                    <span className="text-2xl font-bold text-[#5E58A5]">
+                      {formatCurrency(plan.price)}
+                    </span>
+                    <span className="text-sm text-[#727090] ml-1">
+                      /{plan.interval === 'month' ? 'mês' : 'ano'}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <Check className="text-green-500 h-5 w-5 mr-2" />
+                    <span>{plan.stories_limit} histórias/mês</span>
+                  </div>
+                  {['Editar histórias', 'Criar personagens', 'Baixar em PDF', 'Narração de áudio'].map((feature, index) => (
+                    <div key={index} className="flex items-center">
+                      <Check className="text-green-500 h-5 w-5 mr-2" />
+                      <span>{feature}</span>
                     </div>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-gray-200">
-              <td className="py-4 px-4 font-medium">Criar histórias</td>
-              {filteredPlans.map(plan => (
-                <td key={plan.id} className="py-4 px-4 text-center">
-                  <div className="text-center">
-                    {plan.stories_limit} histórias/mês
-                  </div>
-                </td>
-              ))}
-            </tr>
-            {['Editar histórias', 'Criar personagens', 'Baixar em PDF', 'Narração de áudio'].map((feature, index) => (
-              <tr key={index} className="border-t border-gray-200">
-                <td className="py-4 px-4 font-medium">{feature}</td>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className="bg-[#f8f8ff]/50 py-4">
+                <Button 
+                  className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
+                  onClick={() => handleSelectPlan(plan)}
+                >
+                  {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        // Desktop Table View
+        <div className="overflow-x-auto mb-8 hidden md:block">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="text-left py-4 px-4 font-medium text-lg text-[#5E58A5] w-1/3">Benefícios</th>
+                {filteredPlans.map(plan => (
+                  <th key={plan.id} className="py-4 px-4 text-center">
+                    <div className={`rounded-lg p-6 ${selectedPlan?.id === plan.id ? 'bg-[#f0f0ff] shadow-lg' : 'bg-[#f8f8ff]'}`}>
+                      <div className="relative">
+                        {plan.interval === 'year' && calculateSavings(plan) > 0 && (
+                          <Badge className="absolute -top-10 -right-6 bg-[#844FFC] text-white">
+                            {calculateSavings(plan)}% OFF
+                          </Badge>
+                        )}
+                        <h3 className="text-2xl font-bold text-[#5E58A5] mb-2">{plan.name}</h3>
+                        <div className="mb-4">
+                          <div className="text-3xl font-bold text-[#5E58A5]">
+                            {formatCurrency(plan.price)}
+                          </div>
+                          <div className="text-sm text-[#727090]">
+                            {getMonthlyPrice(plan)}
+                          </div>
+                        </div>
+                        <Button 
+                          className={`w-full ${selectedPlan?.id === plan.id ? 'bg-[#8B5CF6] hover:bg-[#7A4CE0]' : 'bg-white text-[#8B5CF6] hover:bg-[#f0f0ff] border border-[#8B5CF6]'}`}
+                          onClick={() => handleSelectPlan(plan)}
+                        >
+                          {selectedPlan?.id === plan.id ? "Selecionado" : "Assinar"}
+                        </Button>
+                      </div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-gray-200">
+                <td className="py-4 px-4 font-medium">Criar histórias</td>
                 {filteredPlans.map(plan => (
                   <td key={plan.id} className="py-4 px-4 text-center">
-                    <Check className="inline-block text-green-500 h-6 w-6" />
+                    <div className="text-center">
+                      {plan.stories_limit} histórias/mês
+                    </div>
                   </td>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {['Editar histórias', 'Criar personagens', 'Baixar em PDF', 'Narração de áudio'].map((feature, index) => (
+                <tr key={index} className="border-t border-gray-200">
+                  <td className="py-4 px-4 font-medium">{feature}</td>
+                  {filteredPlans.map(plan => (
+                    <td key={plan.id} className="py-4 px-4 text-center">
+                      <Check className="inline-block text-green-500 h-6 w-6" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {selectedPlan && (
-        <Card className="mb-8 border-[#8B5CF6]/20 bg-[#f8f8ff]">
-          <CardHeader>
-            <CardTitle>Método de Pagamento</CardTitle>
-            <CardDescription>Escolha como deseja pagar sua assinatura</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs 
-              value={selectedPaymentMethod} 
-              onValueChange={setSelectedPaymentMethod}
-              className="w-full"
-            >
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger 
-                  value="mercadopago" 
-                  disabled={!paymentMethods.mercadopago}
-                  className="flex items-center justify-center"
-                >
-                  <Store className="h-4 w-4 mr-2" />
-                  Mercado Pago
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="asaas" 
-                  disabled={!paymentMethods.asaas}
-                  className="flex items-center justify-center"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Asaas
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="mercadopago" className="pt-4">
-                <div className="space-y-4">
-                  <p>
-                    <span className="font-medium">Pagamento com Mercado Pago</span>
-                    <br />
-                    Você será redirecionado para o Mercado Pago para completar o pagamento.
-                  </p>
-                  <div className="bg-muted p-4 rounded-md">
-                    <p className="text-sm">
-                      <span className="font-medium">Checkout seguro via Mercado Pago.</span>
-                      <br />
-                      Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="asaas" className="pt-4">
-                <div className="space-y-4">
-                  <p>
-                    <span className="font-medium">Pagamento com Asaas</span>
-                    <br />
-                    Você será redirecionado para a plataforma de pagamento para completar sua compra.
-                  </p>
-                  <div className="bg-muted p-4 rounded-md">
-                    <p className="text-sm">
-                      <span className="font-medium">Checkout seguro via Asaas.</span>
-                      <br />
-                      Aceita cartões de crédito, boleto bancário e Pix.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
+        <div className="flex justify-center">
+          <Button 
+            onClick={openPaymentDialog} 
+            size={isMobile ? "lg" : "xl"}
+            className="bg-[#8B5CF6] hover:bg-[#7A4CE0] transition-all w-full md:w-auto md:px-12 shadow-md"
+            disabled={isProcessing || noPaymentMethodsConfigured}
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              "Continuar para pagamento"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Payment Method Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-[#8B5CF6]/90 to-[#6366F1]/90 p-5">
+            <DialogTitle className="text-white flex items-center justify-between">
+              <span>Método de Pagamento</span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full text-white hover:bg-white/20 h-8 w-8 -mr-2" 
+                onClick={() => setIsPaymentDialogOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </DialogTitle>
+            <DialogDescription className="text-white/80">
+              Escolha como deseja pagar sua assinatura
+            </DialogDescription>
+          </div>
           
-          {paymentError && (
-            <div className="px-6 pb-4">
-              <div className="p-4 bg-destructive/10 border border-destructive rounded-md text-destructive flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+          <div className="p-6">
+            <div className="mb-6">
+              <h3 className="font-semibold text-foreground mb-2">Assinatura</h3>
+              <div className="bg-muted rounded-md p-3 flex justify-between items-center">
                 <div>
-                  <p className="font-medium">Erro de processamento</p>
-                  <p className="text-sm mt-1">{paymentError}</p>
+                  <p className="font-medium">{selectedPlan?.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatCurrency(selectedPlan?.price)}/{selectedPlan?.interval === 'month' ? 'mês' : 'ano'}
+                  </p>
                 </div>
+                <Badge variant="outline" className="bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/20">
+                  {selectedPlan?.interval === 'month' ? 'Mensal' : 'Anual'}
+                </Badge>
               </div>
             </div>
-          )}
-          
-          <CardFooter className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="text-sm text-muted-foreground order-2 sm:order-1">
-              Ao clicar no botão continuar, você será redirecionado para o site do 
-              {selectedPaymentMethod === 'mercadopago' ? ' Mercado Pago' : ' Asaas'} 
-              para completar o pagamento de forma segura.
-            </div>
-            <Button 
-              onClick={handleProceedToPayment} 
-              className="w-full sm:w-auto order-1 sm:order-2 bg-[#8B5CF6] hover:bg-[#7A4CE0]"
-              disabled={isProcessing || noPaymentMethodsConfigured || !selectedPaymentMethod}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando...
-                </>
-              ) : paymentError ? (
-                "Tentar novamente"
+            
+            <div className="space-y-4">
+              <h3 className="font-semibold text-foreground">Forma de pagamento</h3>
+              
+              {availablePaymentMethods.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {paymentMethods.mercadopago && (
+                    <div 
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPaymentMethod === 'mercadopago' 
+                          ? 'bg-[#8B5CF6]/5 border-[#8B5CF6]' 
+                          : 'hover:bg-muted/60'
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('mercadopago')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-full w-5 h-5 flex items-center justify-center border ${
+                          selectedPaymentMethod === 'mercadopago' 
+                            ? 'border-[#8B5CF6] bg-[#8B5CF6]' 
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedPaymentMethod === 'mercadopago' && (
+                            <Check className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium flex items-center">
+                            <Store className="h-4 w-4 mr-2 text-[#8B5CF6]" />
+                            Mercado Pago
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Cartão, Boleto e Pix
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {paymentMethods.asaas && (
+                    <div 
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPaymentMethod === 'asaas' 
+                          ? 'bg-[#8B5CF6]/5 border-[#8B5CF6]' 
+                          : 'hover:bg-muted/60'
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('asaas')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-full w-5 h-5 flex items-center justify-center border ${
+                          selectedPaymentMethod === 'asaas' 
+                            ? 'border-[#8B5CF6] bg-[#8B5CF6]' 
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedPaymentMethod === 'asaas' && (
+                            <Check className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium flex items-center">
+                            <CreditCard className="h-4 w-4 mr-2 text-[#8B5CF6]" />
+                            Asaas
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Cartão de crédito, Boleto e Pix
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
-                "Continuar"
+                <div className="text-center p-4 bg-muted rounded-md">
+                  <p className="text-muted-foreground">
+                    Nenhum método de pagamento disponível
+                  </p>
+                </div>
               )}
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+            </div>
+            
+            {paymentError && (
+              <div className="mt-6">
+                <div className="p-3 bg-destructive/10 border border-destructive rounded-md text-destructive flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Erro de processamento</p>
+                    <p className="text-sm mt-1">{paymentError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-8">
+              <Button 
+                className="w-full bg-[#8B5CF6] hover:bg-[#7A4CE0]"
+                onClick={handleProceedToPayment}
+                disabled={isProcessing || !selectedPaymentMethod}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  "Continuar"
+                )}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-3">
+                Ao clicar em continuar, você será redirecionado para o site do 
+                {selectedPaymentMethod === 'mercadopago' ? ' Mercado Pago' : ' Asaas'} 
+                para completar o pagamento de forma segura.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
