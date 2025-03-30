@@ -8,9 +8,6 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'sonner';
 
-// Update document title
-document.title = "HISTÓRIAS MÁGICAS por Contos Mágicos";
-
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
