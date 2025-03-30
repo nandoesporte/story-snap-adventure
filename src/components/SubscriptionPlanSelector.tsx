@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Check, Loader, Store, RefreshCw } from 'lucide-react';
+import { Check, Loader, Store, RefreshCw, CreditCard } from 'lucide-react';
 import { SubscriptionPlan, checkUserSubscription, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
 import {
   Tabs,
@@ -13,6 +14,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogHeader, DialogFooter } from '@/components/ui/dialog';
+import { createAsaasCheckout } from '@/lib/asaas';
 
 export const SubscriptionPlanSelector = () => {
   const { user } = useAuth();
@@ -41,7 +43,9 @@ export const SubscriptionPlanSelector = () => {
 
   useEffect(() => {
     if (paymentMethods) {
-      if (paymentMethods.mercadopago) {
+      if (paymentMethods.asaas) {
+        setActivePaymentMethod("asaas");
+      } else if (paymentMethods.mercadopago) {
         setActivePaymentMethod("mercadopago");
       }
     }
@@ -60,7 +64,7 @@ export const SubscriptionPlanSelector = () => {
     setError(null);
   };
 
-  const hasEnabledPaymentMethods = paymentMethods && paymentMethods.mercadopago;
+  const hasEnabledPaymentMethods = paymentMethods && (paymentMethods.mercadopago || paymentMethods.asaas);
 
   const handleCheckout = async () => {
     if (!user || !selectedPlanId || !hasEnabledPaymentMethods) return;
@@ -71,7 +75,7 @@ export const SubscriptionPlanSelector = () => {
     try {
       const returnUrl = window.location.origin + '/my-stories'; // Redirect to my stories after payment
       
-      console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl });
+      console.log('Creating checkout with:', { userId: user.id, planId: selectedPlanId, returnUrl, paymentMethod: activePaymentMethod });
       
       let checkoutUrl;
       let currentRetryCount = 0;
@@ -79,7 +83,12 @@ export const SubscriptionPlanSelector = () => {
       
       const attemptCheckout = async () => {
         try {
-          return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
+          if (activePaymentMethod === "mercadopago") {
+            return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
+          } else if (activePaymentMethod === "asaas") {
+            return await createAsaasCheckout(user.id, selectedPlanId, returnUrl);
+          }
+          return null;
         } catch (requestError) {
           console.error(`Checkout attempt ${currentRetryCount + 1} failed:`, requestError);
           
@@ -104,7 +113,7 @@ export const SubscriptionPlanSelector = () => {
       }
       
       if (!checkoutUrl) {
-        throw new Error("Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente.");
+        throw new Error(`Não foi possível obter a URL de checkout do ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}. Verifique se a API está configurada corretamente.`);
       }
       
       // Safety check for URL validity
@@ -114,7 +123,7 @@ export const SubscriptionPlanSelector = () => {
         throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
       }
       
-      toast.success(`Redirecionando para o Mercado Pago...`);
+      toast.success(`Redirecionando para o ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}...`);
       
       // Brief timeout to allow the toast to be seen
       setTimeout(() => {
@@ -135,11 +144,11 @@ export const SubscriptionPlanSelector = () => {
         
         if (error.message.includes('não está configurada') || error.message.includes('API key') || 
             error.message.includes('token') || error.message.includes('vazio')) {
-          errorMessage = 'O Mercado Pago não está configurado corretamente. Entre em contato com o administrador.';
+          errorMessage = `O ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"} não está configurado corretamente. Entre em contato com o administrador.`;
         } else if (error.message.includes('inválido')) {
-          errorMessage = 'A chave do Mercado Pago é inválida. Entre em contato com o administrador.';
+          errorMessage = `A chave do ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"} é inválida. Entre em contato com o administrador.`;
         } else if (error.message.includes('quota') || error.message.includes('limite')) {
-          errorMessage = 'Limite de requisições excedido no Mercado Pago. Tente novamente em alguns minutos.';
+          errorMessage = `Limite de requisições excedido no ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Asaas"}. Tente novamente em alguns minutos.`;
         }
       }
       
@@ -271,42 +280,71 @@ export const SubscriptionPlanSelector = () => {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Pagamento com Mercado Pago</DialogTitle>
+            <DialogTitle>Escolha o método de pagamento</DialogTitle>
             <DialogDescription>
-              Você será redirecionado para o Mercado Pago para completar o pagamento.
+              Selecione como você deseja pagar pela sua assinatura.
             </DialogDescription>
           </DialogHeader>
           
           <div className="py-4">
             {hasEnabledPaymentMethods ? (
-              <div className="mt-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>Checkout seguro via Mercado Pago.</p>
-                  <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
-                  </p>
-                </div>
+              <div className="mt-4 space-y-4">
+                <Tabs value={activePaymentMethod} onValueChange={setActivePaymentMethod}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    {paymentMethods?.mercadopago && (
+                      <TabsTrigger value="mercadopago" className="flex items-center gap-2">
+                        <Store className="h-4 w-4" />
+                        Mercado Pago
+                      </TabsTrigger>
+                    )}
+                    {paymentMethods?.asaas && (
+                      <TabsTrigger value="asaas" className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Asaas
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                  
+                  <TabsContent value="mercadopago" className="mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      <p>Checkout seguro via Mercado Pago.</p>
+                      <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
+                      </p>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="asaas" className="mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      <p>Checkout seguro via Asaas.</p>
+                      <p>Aceita cartões de crédito, boleto bancário e Pix.</p>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Você será redirecionado para o site do Asaas para completar o pagamento de forma segura.
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                
+                {error && (
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive space-y-2">
+                    <p>{error}</p>
+                    <Button 
+                      onClick={handleRetry} 
+                      disabled={isProcessing} 
+                      variant="outline" 
+                      size="sm"
+                      className="mt-2 flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Tentar novamente
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center p-4 bg-destructive/10 rounded-md">
                 <p className="text-destructive">Nenhum método de pagamento disponível no momento.</p>
-              </div>
-            )}
-            
-            {error && (
-              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive space-y-2">
-                <p>{error}</p>
-                <Button 
-                  onClick={handleRetry} 
-                  disabled={isProcessing} 
-                  variant="outline" 
-                  size="sm"
-                  className="mt-2 flex items-center gap-1"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Tentar novamente
-                </Button>
               </div>
             )}
           </div>

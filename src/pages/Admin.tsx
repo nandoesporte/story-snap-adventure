@@ -1,165 +1,114 @@
-import React, { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/context/AuthContext";
-import { StoryManager } from "@/components/admin/StoryManager";
-import { UserManager } from "@/components/admin/UserManager";
-import { CharacterManager } from "@/components/admin/CharacterManager";
-import { ThemeManager } from "@/components/admin/ThemeManager";
-import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
-import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
-import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
-import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
-import TestModeManager from "@/components/admin/TestModeManager";
-import LeonardoWebhookConfig from "@/components/LeonardoWebhookConfig";
-import SubscriptionManager from "@/components/admin/SubscriptionManager";
-import { useNavigate, useLocation } from "react-router-dom";
-import { toast } from "sonner";
-import { useAdminCheck } from "@/hooks/useAdminCheck";
+
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { ArrowLeft } from 'lucide-react';
+
+import UserManager from '@/components/admin/UserManager';
+import ThemeManager from '@/components/admin/ThemeManager';
+import StoryManager from '@/components/admin/StoryManager';
+import CharacterManager from '@/components/admin/CharacterManager';
+import TestModeManager from '@/components/admin/TestModeManager';
+import SubscriptionManager from '@/components/admin/SubscriptionManager';
+import PaymentMethodsManager from '@/components/admin/PaymentMethodsManager';
+import StoryBotPromptManager from '@/components/admin/StoryBotPromptManager';
+import GoogleTTSApiKeyManager from '@/components/admin/GoogleTTSApiKeyManager';
+import MercadoPagoApiKeyManager from '@/components/admin/MercadoPagoApiKeyManager';
+import AsaasApiKeyManager from '@/components/admin/AsaasApiKeyManager';
+import LeonardoWebhookConfig from '@/components/LeonardoWebhookConfig';
 
 const Admin = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState("stories");
-  
-  const { isAdmin, loading } = useAdminCheck();
-  
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['stories', 'users', 'characters', 'themes', 'prompts', 'config', 'test', 'apis', 'subscriptions', 'payments'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-  }, [location]);
+  const { user } = useAuth();
+  const { isAdmin, isLoading } = useAdminCheck();
+  const [activeTab, setActiveTab] = useState('users');
 
-  useEffect(() => {
-    if (!loading) {
-      if (user === null) {
-        console.log("Redirecting to auth: No user");
-        navigate("/auth");
-        toast.error("Faça login para acessar esta página");
-      } else if (user && !isAdmin) {
-        console.log("Redirecting to home: Not admin");
-        navigate("/");
-        toast.error("Você não tem permissão para acessar esta página");
-      } else {
-        console.log("Admin access allowed");
-      }
-    }
-  }, [user, isAdmin, loading, navigate]);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="container mx-auto my-8 p-4">
-        <h1 className="text-2xl font-bold">Verificando permissões...</h1>
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Verificando permissões...</p>
       </div>
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
-      <div className="container mx-auto my-8 p-4">
-        <h1 className="text-2xl font-bold">Verificando permissões...</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <h1 className="text-2xl font-bold mb-4">Acesso Restrito</h1>
+        <p className="mb-6 text-center">
+          Esta área é restrita a administradores. Você não tem permissão para acessar esta página.
+        </p>
+        <Button onClick={() => navigate('/')}>Voltar para a Página Inicial</Button>
       </div>
     );
   }
-
-  const handleTabChange = (value) => {
-    setActiveTab(value);
-    // Update URL with tab parameter
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set('tab', value);
-    navigate(`${location.pathname}?${searchParams.toString()}`);
-  };
 
   return (
-    <div className="container mx-auto my-8 p-4">
-      <h1 className="text-3xl font-bold mb-8">Painel de Administração</h1>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-2">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Painel de Administração</h1>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Logado como: {user?.email}
+          </div>
+        </div>
 
-      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid grid-cols-10 w-full">
-          <TabsTrigger value="stories">Histórias</TabsTrigger>
-          <TabsTrigger value="users">Usuários</TabsTrigger>
-          <TabsTrigger value="characters">Personagens</TabsTrigger>
-          <TabsTrigger value="themes">Temas</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="config">Configurações</TabsTrigger>
-          <TabsTrigger value="apis">APIs</TabsTrigger>
-          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
-          <TabsTrigger value="test">Modo Teste</TabsTrigger>
-          <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="stories" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Histórias</h2>
-          <StoryManager />
-        </TabsContent>
-        
-        <TabsContent value="users" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Usuários</h2>
-          <UserManager />
-        </TabsContent>
-        
-        <TabsContent value="characters" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Personagens</h2>
-          <CharacterManager />
-        </TabsContent>
-        
-        <TabsContent value="themes" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Temas</h2>
-          <ThemeManager />
-        </TabsContent>
-        
-        <TabsContent value="prompts" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Prompts</h2>
-          <StoryBotPromptManager />
-        </TabsContent>
-        
-        <TabsContent value="config" className="space-y-6">
-          <h2 className="text-2xl font-bold">Configurações</h2>
-          
-          <div className="grid grid-cols-1 gap-6">
-            <GoogleTTSApiKeyManager />
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="apis" className="space-y-4">
-          <h2 className="text-2xl font-bold">Configuração de APIs</h2>
-          <p className="text-muted-foreground mb-4">
-            Configure as APIs para geração de histórias, imagens e processamento de pagamentos.
-          </p>
-          <div className="grid grid-cols-1 gap-6">
-            <LeonardoWebhookConfig />
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="payments" className="space-y-4">
-          <h2 className="text-2xl font-bold">Configuração de Pagamentos</h2>
-          <p className="text-muted-foreground mb-4">
-            Configure as opções de pagamento disponíveis para seus clientes.
-          </p>
-          <div className="grid grid-cols-1 gap-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 h-auto gap-2">
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="stories">Histórias</TabsTrigger>
+            <TabsTrigger value="themes">Temas & Personagens</TabsTrigger>
+            <TabsTrigger value="subscription">Assinaturas</TabsTrigger>
+            <TabsTrigger value="payment">Pagamentos</TabsTrigger>
+            <TabsTrigger value="settings">Configurações</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+            <UserManager />
+          </TabsContent>
+
+          <TabsContent value="stories" className="space-y-4">
+            <StoryManager />
+          </TabsContent>
+
+          <TabsContent value="themes" className="space-y-8">
+            <ThemeManager />
+            <Separator />
+            <CharacterManager />
+          </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-4">
+            <SubscriptionManager />
+          </TabsContent>
+
+          <TabsContent value="payment" className="space-y-8">
             <PaymentMethodsManager />
-            <MercadoPagoApiKeyManager />
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="test" className="space-y-4">
-          <h2 className="text-2xl font-bold">Modo de Teste</h2>
-          <p className="text-muted-foreground mb-4">
-            Gere histórias de teste sem usar APIs externas, facilitando testes do sistema.
-          </p>
-          <TestModeManager />
-        </TabsContent>
-        
-        <TabsContent value="subscriptions" className="space-y-4">
-          <h2 className="text-2xl font-bold">Gerenciar Assinaturas</h2>
-          <p className="text-muted-foreground mb-4">
-            Configure os planos de assinatura e gerencie as assinaturas dos usuários.
-          </p>
-          <SubscriptionManager />
-        </TabsContent>
-      </Tabs>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <MercadoPagoApiKeyManager />
+              <AsaasApiKeyManager />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-8">
+            <GoogleTTSApiKeyManager />
+            <Separator />
+            <StoryBotPromptManager />
+            <Separator />
+            <LeonardoWebhookConfig />
+            <Separator />
+            <TestModeManager />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Loader, Store } from 'lucide-react';
+import { Loader, Store, CreditCard } from 'lucide-react';
 
 interface PaymentMethod {
   id: string;
@@ -26,6 +26,13 @@ const PaymentMethodsManager = () => {
       key: 'mercadopago_enabled',
       is_active: false,
       icon: <Store className="h-5 w-5 mr-2" />
+    },
+    { 
+      id: 'asaas', 
+      name: 'Asaas', 
+      key: 'asaas_enabled',
+      is_active: false,
+      icon: <CreditCard className="h-5 w-5 mr-2" />
     }
   ];
 
@@ -36,7 +43,7 @@ const PaymentMethodsManager = () => {
       const { data, error } = await supabase
         .from('system_configurations')
         .select('key, value')
-        .in('key', ['mercadopago_enabled']);
+        .in('key', ['mercadopago_enabled', 'asaas_enabled']);
         
       if (error) {
         console.error('Error fetching payment methods config:', error);
