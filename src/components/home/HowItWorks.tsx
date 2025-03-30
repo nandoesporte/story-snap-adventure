@@ -121,8 +121,7 @@ const HowItWorks = () => {
             </p>
           </motion.div>
           
-          {/* Connecting lines between steps (only visible on md screens and up) */}
-          <div className="hidden md:block absolute top-1/3 left-0 w-full h-0.5 bg-white/20 -z-0"></div>
+          {/* Removed the horizontal line that was here */}
         </div>
         
         {/* Bottom message and CTA */}
