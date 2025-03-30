@@ -12,7 +12,7 @@ const Footer = () => {
             transition={{ delay: 0.5, duration: 0.5 }}
             className="text-sm text-muted-foreground text-center md:text-left"
           >
-            &copy; 2024 Contos Mágicos. Todos os direitos reservados.
+            &copy; 2024 StorySnap. Todos os direitos reservados.
           </motion.div>
           
           <motion.div
