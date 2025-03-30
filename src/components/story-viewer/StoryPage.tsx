@@ -46,7 +46,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
-        <div className="story-image-fullscreen">
+        <div className="story-image-fullscreen h-full">
           <img 
             src={imageUrl} 
             alt={`Ilustração da página ${pageIndex + 1}`}
@@ -104,13 +104,16 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6">
-        <img 
-          src={imageUrl} 
-          alt={`Ilustração da página ${pageIndex + 1}`}
-          className="max-w-full max-h-full object-contain cursor-pointer rounded-lg shadow-md"
-          onClick={() => onImageClick(imageUrl)}
-          onError={() => onImageError(imageUrl)}
-        />
+        <div className="max-w-full max-h-full rounded-lg shadow-md overflow-hidden" style={{ height: "75%", width: "auto" }}>
+          <img 
+            src={imageUrl} 
+            alt={`Ilustração da página ${pageIndex + 1}`}
+            className="w-full h-full object-contain cursor-pointer"
+            onClick={() => onImageClick(imageUrl)}
+            onError={() => onImageError(imageUrl)}
+            style={{ maxHeight: "100%", maxWidth: "100%" }}
+          />
+        </div>
       </div>
       
       <div className="w-1/2 h-full p-8 bg-white overflow-auto flex flex-col justify-between relative">

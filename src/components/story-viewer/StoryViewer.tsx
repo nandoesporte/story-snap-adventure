@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -206,6 +207,7 @@ const StoryViewer: React.FC = () => {
           ref={storyContainerRef} 
           className="flex-1 flex flex-col h-full overflow-hidden"
           data-testid="story-viewer-container"
+          style={{ minHeight: "90vh" }} // Ensure minimum height in desktop view
         >
           <ViewerControls
             storyId={id}
@@ -221,7 +223,7 @@ const StoryViewer: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100% - 57px)' }}>
+          <div className="flex-1 relative overflow-hidden" style={{ height: 'calc(100vh - 100px)', minHeight: '500px' }}>
             <div
               ref={bookRef}
               className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
