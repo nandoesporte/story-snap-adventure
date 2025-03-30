@@ -9,6 +9,7 @@ import StoryViewer from './components/StoryViewer';
 import Admin from './pages/Admin';
 import Planos from './pages/Planos';
 import Subscription from './pages/Subscription';
+import CreateStory from './pages/CreateStory';
 import { useAuth } from './context/AuthContext';
 
 function App() {
@@ -25,6 +26,10 @@ function App() {
       <Route path="/story/:id" element={<StoryViewer />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/planos" element={<Planos />} />
+      <Route 
+        path="/create-story" 
+        element={<CreateStory />} 
+      />
       <Route
         path="/subscription"
         element={user ? <Subscription /> : <Navigate to="/login" />}
