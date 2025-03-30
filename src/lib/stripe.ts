@@ -1,29 +1,40 @@
-
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 // Get available payment methods from system configurations
 export const getAvailablePaymentMethods = async () => {
   try {
+    // Check for mercadopago_enabled flag first
+    const { data: mpEnabledConfig, error: mpEnabledError } = await supabase
+      .from('system_configurations')
+      .select('value')
+      .eq('key', 'mercadopago_enabled')
+      .single();
+    
+    // Check for API key as a fallback
     const { data: mercadopagoConfig, error: mpError } = await supabase
       .from('system_configurations')
       .select('value')
-      .eq('key', 'mercadopago_api_key')
+      .eq('key', 'mercadopago_access_token')
       .single();
-
-    const { data: asaasConfig, error: asaasError } = await supabase
-      .from('system_configurations')
-      .select('value')
-      .eq('key', 'asaas_api_key')
-      .single();
-
+    
+    // If mercadopago_enabled is explicitly false, return false regardless of API key
+    if (mpEnabledConfig && mpEnabledConfig.value === 'false') {
+      console.log('Mercado Pago disabled by configuration flag');
+      return { mercadopago: false };
+    }
+    
+    // Otherwise check if API key exists and is non-empty
+    const hasMercadoPago = mercadopagoConfig?.value && mercadopagoConfig.value.length > 0;
+    
+    console.log('Mercado Pago available:', hasMercadoPago);
+    
     return {
-      mercadopago: mercadopagoConfig?.value && mercadopagoConfig.value.length > 0,
-      asaas: asaasConfig?.value && asaasConfig.value.length > 0,
+      mercadopago: hasMercadoPago,
     };
   } catch (error) {
     console.error('Error getting payment methods:', error);
-    return { mercadopago: false, asaas: false };
+    return { mercadopago: false };
   }
 };
 

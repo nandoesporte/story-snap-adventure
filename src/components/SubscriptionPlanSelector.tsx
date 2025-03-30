@@ -34,11 +34,14 @@ const SubscriptionPlanSelector = () => {
         setIsLoading(true);
         
         const methods = await getAvailablePaymentMethods();
+        console.log('Payment methods loaded:', methods);
         setPaymentMethods(methods);
         
-        // Set Mercado Pago as default payment method
+        // Set Mercado Pago as default payment method if available
         if (methods.mercadopago) {
           setSelectedPaymentMethod('mercadopago');
+        } else {
+          console.warn('Mercado Pago is not available');
         }
         
         const plansData = await getSubscriptionPlans();
@@ -73,14 +76,16 @@ const SubscriptionPlanSelector = () => {
     loadData();
   }, [user]);
 
-  // Modified to directly open the payment dialog without needing the "Continue to payment" button
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
     setPaymentError('');
     
+    // Log payment methods state
+    console.log('Payment methods when selecting plan:', paymentMethods);
+    
     // Check if Mercado Pago is available
     if (!paymentMethods.mercadopago) {
-      toast.error('O método de pagamento Mercado Pago não está disponível');
+      toast.error('O método de pagamento Mercado Pago não está disponível. Por favor, contate o administrador.');
       return;
     }
     
@@ -98,6 +103,7 @@ const SubscriptionPlanSelector = () => {
       setIsProcessing(true);
       setPaymentError('');
       
+      console.log('Processing payment with Mercado Pago');
       const returnUrl = `${window.location.origin}/my-account`;
       
       const checkoutUrl = await createMercadoPagoCheckout(
