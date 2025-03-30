@@ -6,8 +6,10 @@ import Footer from "../components/Footer";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface AuthProps {
   type?: "login" | "register";
@@ -24,6 +26,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -32,21 +35,46 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     }
   }, [user, navigate]);
 
+  const validateForm = () => {
+    setFormError(null);
+    
+    if (!email) {
+      setFormError("Por favor, informe seu e-mail");
+      return false;
+    }
+    
+    if (!email.includes('@') || !email.includes('.')) {
+      setFormError("Por favor, informe um e-mail válido");
+      return false;
+    }
+    
+    if (!password) {
+      setFormError("Por favor, informe sua senha");
+      return false;
+    }
+    
+    if (password.length < 6) {
+      setFormError("A senha deve ter pelo menos 6 caracteres");
+      return false;
+    }
+    
+    if (isRegister && password !== confirmPassword) {
+      setFormError("As senhas não coincidem");
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      toast.error("Por favor, preencha todos os campos");
-      return;
-    }
-    
-    // Add password confirmation validation for registration
-    if (isRegister && password !== confirmPassword) {
-      toast.error("As senhas não coincidem");
+    if (!validateForm()) {
       return;
     }
     
     setIsSubmitting(true);
+    setFormError(null);
     
     try {
       if (isRegister) {
@@ -57,13 +85,14 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
           throw error;
         }
 
-        // Log the response to understand what's happening
         console.log("Registration response:", data);
+        
+        // Check if email confirmation is required based on the response
+        const emailConfirmationRequired = !data?.user?.identities?.[0]?.identity_data?.email_confirmed_at;
         
         // Show success message after registration
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
-        // Don't navigate away so user can see the success message
       } else {
         console.log("Logging in with:", email);
         const { error } = await signIn(email, password);
@@ -80,12 +109,16 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       
       // Handle specific error messages
       if (error.message?.includes("Invalid login credentials")) {
-        toast.error("Email ou senha incorretos");
+        setFormError("Email ou senha incorretos");
       } else if (error.message?.includes("User already registered")) {
-        toast.error("Este email já está registrado");
+        setFormError("Este email já está registrado");
+      } else if (error.message?.includes("Password should be at least 6 characters")) {
+        setFormError("A senha deve ter pelo menos 6 caracteres");
       } else {
-        toast.error(`Erro: ${error.message}`);
+        setFormError(`Erro: ${error.message}`);
       }
+      
+      toast.error(formError || "Erro no processamento da solicitação");
     } finally {
       setIsSubmitting(false);
     }
@@ -111,6 +144,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                   </h2>
                   
                   <Alert className="bg-green-50 border-green-200">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
                     <AlertTitle className="text-green-800">Verifique seu email</AlertTitle>
                     <AlertDescription className="text-green-700">
                       Enviamos um link de confirmação para <strong>{email}</strong>. 
@@ -143,55 +177,53 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                   <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
                     {isRegister ? "Criar Conta" : "Entrar"}
                   </h2>
+                  
+                  {formError && (
+                    <Alert variant="destructive" className="mb-6">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erro</AlertTitle>
+                      <AlertDescription>{formError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <form className="space-y-6" onSubmit={handleSubmit}>
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-slate-700 text-sm font-bold mb-2"
-                      >
-                        Email
-                      </label>
-                      <input
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
                         type="email"
                         id="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="shadow appearance-none border rounded w-full py-3 px-4 text-slate-700 leading-tight focus:outline-none focus:shadow-outline"
                         placeholder="Seu email"
+                        className="w-full"
+                        disabled={isSubmitting}
                       />
                     </div>
-                    <div>
-                      <label
-                        htmlFor="password"
-                        className="block text-slate-700 text-sm font-bold mb-2"
-                      >
-                        Senha
-                      </label>
-                      <input
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Senha</Label>
+                      <Input
                         type="password"
                         id="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="shadow appearance-none border rounded w-full py-3 px-4 text-slate-700 leading-tight focus:outline-none focus:shadow-outline"
                         placeholder="Sua senha"
+                        className="w-full"
+                        disabled={isSubmitting}
                       />
                     </div>
                     
                     {isRegister && (
-                      <div>
-                        <label
-                          htmlFor="confirmPassword"
-                          className="block text-slate-700 text-sm font-bold mb-2"
-                        >
-                          Confirmar Senha
-                        </label>
-                        <input
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                        <Input
                           type="password"
                           id="confirmPassword"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="shadow appearance-none border rounded w-full py-3 px-4 text-slate-700 leading-tight focus:outline-none focus:shadow-outline"
                           placeholder="Confirme sua senha"
+                          className="w-full"
+                          disabled={isSubmitting}
                         />
                       </div>
                     )}
@@ -203,11 +235,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                           id="remember"
                           checked={rememberMe}
                           onChange={(e) => setRememberMe(e.target.checked)}
-                          className="mr-2 leading-tight"
+                          className="mr-2 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                          disabled={isSubmitting}
                         />
-                        <label htmlFor="remember" className="text-sm text-slate-700">
+                        <Label htmlFor="remember" className="text-sm text-slate-700">
                           Lembrar-me
-                        </label>
+                        </Label>
                       </div>
                       {!isRegister && (
                         <a
@@ -218,23 +251,23 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                         </a>
                       )}
                     </div>
-                    <div>
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full py-3 px-4 font-bold text-white rounded-lg focus:outline-none focus:shadow-outline bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 flex items-center justify-center"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                            {isRegister ? "Criando conta..." : "Entrando..."}
-                          </>
-                        ) : (
-                          isRegister ? "Criar Conta" : "Entrar"
-                        )}
-                      </button>
-                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full py-3 px-4 font-bold text-white rounded-lg focus:outline-none focus:shadow-outline bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 flex items-center justify-center"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                          {isRegister ? "Criando conta..." : "Entrando..."}
+                        </>
+                      ) : (
+                        isRegister ? "Criar Conta" : "Entrar"
+                      )}
+                    </button>
                   </form>
+                  
                   <p className="text-center mt-6 text-slate-700">
                     {isRegister ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
                     <a

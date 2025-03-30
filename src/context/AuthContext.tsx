@@ -154,12 +154,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Add more detailed logging
       console.info('AuthContext: Signing up with:', email);
       
+      // Use site URL for redirect
+      const siteUrl = window.location.origin;
+      console.info('Using site URL for redirect:', siteUrl);
+      
       // Explicitly pass emailRedirectTo to ensure confirmation emails work properly
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          emailRedirectTo: window.location.origin + '/login',
+          emailRedirectTo: `${siteUrl}/login`,
+          data: {
+            email: email,
+          }
         }
       });
       
@@ -168,8 +175,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
       
+      // Check if the user was created but needs email verification
+      if (data?.user && !data.user.confirmed_at) {
+        console.info('User created but needs email verification:', email);
+      }
+      
       // Log whether confirmation email is required
-      console.info('Sign up successful for:', email, 'Confirmation email required:', data?.user?.identities?.[0]?.identity_data?.email_confirmed_at ? 'No' : 'Yes');
+      const confirmationRequired = !data?.user?.identities?.[0]?.identity_data?.email_confirmed_at;
+      console.info('Sign up successful for:', email, 'Confirmation email required:', confirmationRequired ? 'Yes' : 'No');
       
       return { data, error: null };
     } catch (error: any) {
