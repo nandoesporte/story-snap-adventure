@@ -4,8 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Check, Loader, CreditCard, Store, RefreshCw } from 'lucide-react';
-import { SubscriptionPlan, checkUserSubscription, createSubscriptionCheckout, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
+import { Check, Loader, Store, RefreshCw } from 'lucide-react';
+import { SubscriptionPlan, checkUserSubscription, createMercadoPagoCheckout, getSubscriptionPlans, getAvailablePaymentMethods } from '@/lib/stripe';
 import {
   Tabs,
   TabsContent,
@@ -20,7 +20,7 @@ export const SubscriptionPlanSelector = () => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activePaymentMethod, setActivePaymentMethod] = useState("stripe");
+  const [activePaymentMethod, setActivePaymentMethod] = useState("mercadopago");
   const [retryCount, setRetryCount] = useState(0);
 
   const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
@@ -41,9 +41,7 @@ export const SubscriptionPlanSelector = () => {
 
   useEffect(() => {
     if (paymentMethods) {
-      if (paymentMethods.stripe) {
-        setActivePaymentMethod("stripe");
-      } else if (paymentMethods.mercadopago) {
+      if (paymentMethods.mercadopago) {
         setActivePaymentMethod("mercadopago");
       }
     }
@@ -62,9 +60,7 @@ export const SubscriptionPlanSelector = () => {
     setError(null);
   };
 
-  const hasEnabledPaymentMethods = paymentMethods && (
-    paymentMethods.stripe || paymentMethods.mercadopago
-  );
+  const hasEnabledPaymentMethods = paymentMethods && paymentMethods.mercadopago;
 
   const handleCheckout = async () => {
     if (!user || !selectedPlanId || !hasEnabledPaymentMethods) return;
@@ -83,12 +79,7 @@ export const SubscriptionPlanSelector = () => {
       
       const attemptCheckout = async () => {
         try {
-          if (activePaymentMethod === "mercadopago") {
-            return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
-          } else {
-            // Default to Stripe
-            return await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
-          }
+          return await createMercadoPagoCheckout(user.id, selectedPlanId, returnUrl);
         } catch (requestError) {
           console.error(`Checkout attempt ${currentRetryCount + 1} failed:`, requestError);
           
@@ -113,11 +104,7 @@ export const SubscriptionPlanSelector = () => {
       }
       
       if (!checkoutUrl) {
-        throw new Error(
-          activePaymentMethod === "mercadopago" 
-            ? "Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente."
-            : "Não foi possível obter a URL de checkout."
-        );
+        throw new Error("Não foi possível obter a URL de checkout do Mercado Pago. Verifique se a API está configurada corretamente.");
       }
       
       // Safety check for URL validity
@@ -127,7 +114,7 @@ export const SubscriptionPlanSelector = () => {
         throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
       }
       
-      toast.success(`Redirecionando para o ${activePaymentMethod === "mercadopago" ? "Mercado Pago" : "Stripe"}...`);
+      toast.success(`Redirecionando para o Mercado Pago...`);
       
       // Brief timeout to allow the toast to be seen
       setTimeout(() => {
@@ -146,15 +133,13 @@ export const SubscriptionPlanSelector = () => {
           errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
         }
         
-        if (activePaymentMethod === "mercadopago") {
-          if (error.message.includes('não está configurada') || error.message.includes('API key') || 
-              error.message.includes('token') || error.message.includes('vazio')) {
-            errorMessage = 'O Mercado Pago não está configurado corretamente. Entre em contato com o administrador.';
-          } else if (error.message.includes('inválido')) {
-            errorMessage = 'A chave do Mercado Pago é inválida. Entre em contato com o administrador.';
-          } else if (error.message.includes('quota') || error.message.includes('limite')) {
-            errorMessage = 'Limite de requisições excedido no Mercado Pago. Tente novamente em alguns minutos.';
-          }
+        if (error.message.includes('não está configurada') || error.message.includes('API key') || 
+            error.message.includes('token') || error.message.includes('vazio')) {
+          errorMessage = 'O Mercado Pago não está configurado corretamente. Entre em contato com o administrador.';
+        } else if (error.message.includes('inválido')) {
+          errorMessage = 'A chave do Mercado Pago é inválida. Entre em contato com o administrador.';
+        } else if (error.message.includes('quota') || error.message.includes('limite')) {
+          errorMessage = 'Limite de requisições excedido no Mercado Pago. Tente novamente em alguns minutos.';
         }
       }
       
@@ -286,55 +271,23 @@ export const SubscriptionPlanSelector = () => {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Selecione o método de pagamento</DialogTitle>
+            <DialogTitle>Pagamento com Mercado Pago</DialogTitle>
             <DialogDescription>
-              Escolha como você prefere pagar sua assinatura.
+              Você será redirecionado para o Mercado Pago para completar o pagamento.
             </DialogDescription>
           </DialogHeader>
           
           <div className="py-4">
             {hasEnabledPaymentMethods ? (
-              <Tabs 
-                value={activePaymentMethod} 
-                onValueChange={setActivePaymentMethod}
-                className="w-full"
-              >
-                <TabsList className={`grid w-full ${paymentMethods?.stripe && paymentMethods?.mercadopago ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {paymentMethods?.stripe && (
-                    <TabsTrigger value="stripe" disabled={isProcessing} className="flex items-center justify-center">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      <span>Cartão de crédito</span>
-                    </TabsTrigger>
-                  )}
-                  {paymentMethods?.mercadopago && (
-                    <TabsTrigger value="mercadopago" disabled={isProcessing} className="flex items-center justify-center">
-                      <Store className="h-4 w-4 mr-2" />
-                      <span>Mercado Pago</span>
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-                
-                {paymentMethods?.stripe && (
-                  <TabsContent value="stripe" className="mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      <p>Checkout seguro via Stripe.</p>
-                      <p>Aceita diversos cartões de crédito internacionais.</p>
-                    </div>
-                  </TabsContent>
-                )}
-                
-                {paymentMethods?.mercadopago && (
-                  <TabsContent value="mercadopago" className="mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      <p>Checkout seguro via Mercado Pago.</p>
-                      <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
-                      <p className="mt-2 text-xs text-gray-500">
-                        Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
-                      </p>
-                    </div>
-                  </TabsContent>
-                )}
-              </Tabs>
+              <div className="mt-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>Checkout seguro via Mercado Pago.</p>
+                  <p>Aceita diversos métodos de pagamento, incluindo cartões nacionais, boleto e Pix.</p>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Você será redirecionado para o site do Mercado Pago para completar o pagamento de forma segura.
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="text-center p-4 bg-destructive/10 rounded-md">
                 <p className="text-destructive">Nenhum método de pagamento disponível no momento.</p>

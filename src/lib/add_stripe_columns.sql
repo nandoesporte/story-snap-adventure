@@ -1,4 +1,3 @@
-
 -- Add the stripe_product_id column to subscription_plans if it doesn't exist
 DO $$
 BEGIN

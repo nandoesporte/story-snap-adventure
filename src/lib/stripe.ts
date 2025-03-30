@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 
 // Define types for subscription plan and user subscription
@@ -11,8 +12,6 @@ export interface SubscriptionPlan {
   stories_limit: number;
   is_active: boolean;
   features: string[];
-  stripe_price_id?: string;
-  stripe_product_id?: string;
 }
 
 export interface UserSubscription {
@@ -127,22 +126,20 @@ export async function getAvailablePaymentMethods() {
     const { data, error } = await supabase
       .from('system_configurations')
       .select('key, value')
-      .in('key', ['stripe_enabled', 'mercadopago_enabled']);
+      .in('key', ['mercadopago_enabled']);
     
     if (error) {
       console.error('Error fetching payment methods:', error);
-      return { stripe: true, mercadopago: false }; // Default to Stripe only if error
+      return { stripe: false, mercadopago: false }; // Default to none if error
     }
     
     const methods = {
-      stripe: true, // Default to true for backward compatibility
+      stripe: false, // Default to false now that we've removed Stripe
       mercadopago: false
     };
     
     data?.forEach(item => {
-      if (item.key === 'stripe_enabled') {
-        methods.stripe = item.value === 'true';
-      } else if (item.key === 'mercadopago_enabled') {
+      if (item.key === 'mercadopago_enabled') {
         methods.mercadopago = item.value === 'true';
       }
     });
@@ -150,43 +147,7 @@ export async function getAvailablePaymentMethods() {
     return methods;
   } catch (error) {
     console.error('Error in getAvailablePaymentMethods:', error);
-    return { stripe: true, mercadopago: false }; // Default to Stripe only if error
-  }
-}
-
-// Create a checkout session for a subscription using Stripe
-export async function createSubscriptionCheckout(userId: string, planId: string, returnUrl: string): Promise<string> {
-  try {
-    console.log('Creating checkout session with:', { userId, planId, returnUrl });
-    
-    // Call the Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { planId, returnUrl }
-    });
-    
-    if (error) {
-      console.error('Error from create-checkout function:', error);
-      
-      // Check if it's a connectivity issue
-      if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
-        throw new Error('Falha ao conectar com o servidor de pagamento. Verifique sua conexão ou tente novamente mais tarde.');
-      }
-      
-      throw new Error(`Falha ao criar sessão de pagamento: ${error.message}`);
-    }
-    
-    if (!data || !data.url) {
-      console.error('Invalid response from create-checkout function:', data);
-      throw new Error('Resposta inválida do servidor de pagamento');
-    }
-    
-    console.log('Checkout session created successfully, URL received');
-    return data.url;
-  } catch (error) {
-    console.error('Error in createSubscriptionCheckout:', error);
-    throw error instanceof Error 
-      ? error 
-      : new Error('Falha ao criar sessão de pagamento');
+    return { stripe: false, mercadopago: false }; // Default to none if error
   }
 }
 
@@ -246,25 +207,6 @@ export const createMercadoPagoCheckout = async (
   }
 };
 
-// Cancel a subscription
-export async function cancelSubscription(subscriptionId: string): Promise<any> {
-  try {
-    const { data, error } = await supabase.functions.invoke('cancel-subscription', {
-      body: { subscriptionId }
-    });
-    
-    if (error) {
-      console.error('Error canceling subscription:', error);
-      throw new Error('Falha ao cancelar assinatura');
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error in cancelSubscription:', error);
-    throw error;
-  }
-}
-
 // Get subscription plans
 export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   try {
@@ -294,107 +236,5 @@ export async function verifyActiveSubscription(userId: string): Promise<boolean>
   } catch (error) {
     console.error('Error verifying subscription:', error);
     return false;
-  }
-}
-
-// New function: Sync plans with Stripe
-export async function syncPlansWithStripe(): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
-      body: { action: 'sync_plans' }
-    });
-    
-    if (error) {
-      console.error('Error syncing plans with Stripe:', error);
-      throw new Error('Falha ao sincronizar planos com o Stripe');
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in syncPlansWithStripe:', error);
-    throw error;
-  }
-}
-
-// New function: Get Stripe products
-export async function getStripeProducts(): Promise<any[]> {
-  try {
-    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
-      body: { action: 'get_products' }
-    });
-    
-    if (error) {
-      console.error('Error getting Stripe products:', error);
-      throw new Error('Falha ao buscar produtos do Stripe');
-    }
-    
-    return data.products;
-  } catch (error) {
-    console.error('Error in getStripeProducts:', error);
-    throw error;
-  }
-}
-
-// New function: Get Stripe prices
-export async function getStripePrices(): Promise<any[]> {
-  try {
-    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
-      body: { action: 'get_prices' }
-    });
-    
-    if (error) {
-      console.error('Error getting Stripe prices:', error);
-      throw new Error('Falha ao buscar preços do Stripe');
-    }
-    
-    return data.prices;
-  } catch (error) {
-    console.error('Error in getStripePrices:', error);
-    throw error;
-  }
-}
-
-// New function: Create a Stripe product and price
-export async function createStripeProduct(productData: Partial<SubscriptionPlan>): Promise<any> {
-  try {
-    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
-      body: { 
-        action: 'create_product',
-        productData
-      }
-    });
-    
-    if (error) {
-      console.error('Error creating Stripe product:', error);
-      throw new Error('Falha ao criar produto no Stripe');
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error in createStripeProduct:', error);
-    throw error;
-  }
-}
-
-// New function: Update a Stripe product and price
-export async function updateStripeProduct(productId: string, productData: Partial<SubscriptionPlan>): Promise<any> {
-  try {
-    const { data, error } = await supabase.functions.invoke('admin-stripe-sync', {
-      body: { 
-        action: 'update_product',
-        productId,
-        productData
-      }
-    });
-    
-    if (error) {
-      console.error('Error updating Stripe product:', error);
-      throw new Error('Falha ao atualizar produto no Stripe');
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error in updateStripeProduct:', error);
-    throw error;
   }
 }

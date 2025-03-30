@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
@@ -8,8 +7,6 @@ import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
 import { StoryBotPromptManager } from "@/components/admin/StoryBotPromptManager";
 import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
-import StripeApiKeyManager from "@/components/admin/StripeApiKeyManager";
-import StripeWebhookSecretManager from "@/components/admin/StripeWebhookSecretManager";
 import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
 import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
 import TestModeManager from "@/components/admin/TestModeManager";
@@ -143,11 +140,7 @@ const Admin = () => {
           </p>
           <div className="grid grid-cols-1 gap-6">
             <PaymentMethodsManager />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <StripeApiKeyManager />
-              <MercadoPagoApiKeyManager />
-            </div>
-            <StripeWebhookSecretManager />
+            <MercadoPagoApiKeyManager />
           </div>
         </TabsContent>
         
