@@ -138,6 +138,7 @@ const MercadoPagoApiKeyManager = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="api-key">API Key</TabsTrigger>
             <TabsTrigger value="webhook">Webhook</TabsTrigger>
+            <TabsTrigger value="help">Ajuda</TabsTrigger>
           </TabsList>
           
           <TabsContent value="api-key">
@@ -175,6 +176,10 @@ const MercadoPagoApiKeyManager = () => {
                       </Button>
                     )}
                   </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Insira o Access Token de produção, que começa com "APP_USR-". 
+                    <span className="text-yellow-600">Não use Access Token de teste.</span>
+                  </p>
                   {isLoading && <p className="text-sm text-muted-foreground">Carregando configuração...</p>}
                   {error && (
                     <div className="flex items-center text-destructive text-sm mt-2">
@@ -237,8 +242,8 @@ const MercadoPagoApiKeyManager = () => {
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mt-4">
                     <p className="text-sm text-yellow-800">
                       <strong>Importante:</strong> Ao configurar seu webhook no Mercado Pago, 
-                      defina o método HTTP como POST e certifique-se de permitir todos os eventos 
-                      de pagamento.
+                      acesse Seu Negócio > Configurações > Webhooks e defina o método HTTP como POST.
+                      Certifique-se de permitir todos os eventos de pagamento.
                     </p>
                   </div>
                 </div>
@@ -254,6 +259,34 @@ const MercadoPagoApiKeyManager = () => {
                 </Button>
               </div>
             </form>
+          </TabsContent>
+          
+          <TabsContent value="help">
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-md">
+                <h3 className="font-medium text-blue-800 mb-2">Passos para configurar o Mercado Pago:</h3>
+                <ol className="list-decimal pl-5 text-sm text-blue-800 space-y-2">
+                  <li>Acesse sua conta do <a href="https://www.mercadopago.com.br/developers/panel" target="_blank" rel="noreferrer" className="underline">Mercado Pago Developers</a>.</li>
+                  <li>Vá para "Suas integrações" e crie uma nova aplicação ou use uma existente.</li>
+                  <li>Nas credenciais de produção, copie o <strong>Access Token</strong> (começa com APP_USR-).</li>
+                  <li>Cole o Access Token no campo API Key acima e salve.</li>
+                  <li>Gere a URL de webhook automática clicando no botão na aba Webhook.</li>
+                  <li>No painel do Mercado Pago, acesse Seu Negócio > Configurações > Webhooks.</li>
+                  <li>Adicione a URL de webhook gerada e selecione todos os eventos de pagamento.</li>
+                  <li>Defina o método HTTP como POST.</li>
+                </ol>
+              </div>
+              
+              <div className="p-4 bg-amber-50 rounded-md mt-4">
+                <h3 className="font-medium text-amber-800 mb-2">Resolução de Problemas:</h3>
+                <ul className="list-disc pl-5 text-sm text-amber-800 space-y-2">
+                  <li>Certifique-se de estar usando o <strong>Access Token de produção</strong>, não o token de teste.</li>
+                  <li>Verifique se todas as permissões estão habilitadas para sua aplicação no Mercado Pago.</li>
+                  <li>Após configurar o webhook, teste uma compra para verificar se as notificações estão sendo recebidas.</li>
+                  <li>Se os pagamentos não estão sendo processados, verifique os logs do Supabase Edge Functions.</li>
+                </ul>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

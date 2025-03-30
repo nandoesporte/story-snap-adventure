@@ -60,6 +60,7 @@ serve(async (req) => {
       .single();
       
     if (configError || !configData?.value) {
+      console.error("Mercado Pago API key not configured:", configError);
       return new Response(
         JSON.stringify({ error: "Mercado Pago API key not configured" }),
         {
@@ -75,8 +76,49 @@ serve(async (req) => {
       .select("value")
       .eq("key", "mercadopago_webhook_url")
       .single();
+
+    if (!configData.value || configData.value.trim() === "") {
+      return new Response(
+        JSON.stringify({ error: "MercadoPago API key está vazio. Configure uma chave válida." }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     
     const mercadoPagoAccessToken = configData.value;
+    
+    try {
+      // Teste a validade do token fazendo uma chamada simples à API do MercadoPago
+      const testResponse = await fetch("https://api.mercadopago.com/v1/payment_methods", {
+        headers: {
+          "Authorization": `Bearer ${mercadoPagoAccessToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (!testResponse.ok) {
+        console.error("Invalid MercadoPago token:", await testResponse.text());
+        return new Response(
+          JSON.stringify({ error: "O token do MercadoPago parece ser inválido. Verifique suas configurações." }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    } catch (tokenTestError) {
+      console.error("Failed to validate MercadoPago token:", tokenTestError);
+      return new Response(
+        JSON.stringify({ error: "Não foi possível validar o token do MercadoPago. Verifique sua conexão." }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
     const client = new MercadoPagoConfig({ accessToken: mercadoPagoAccessToken });
     const preference = new Preference(client);
 
@@ -114,8 +156,8 @@ serve(async (req) => {
     const successUrl = returnUrl || `${req.headers.get("origin")}/my-account`;
     const cancelUrl = returnUrl || `${req.headers.get("origin")}/subscription`;
     
-    // Use the fixed webhook URL as specified
-    const webhookUrl = "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
+    // Use the webhook URL from configuration or default to the Stripe webhook URL
+    const webhookUrl = webhookData?.value || "https://znumbovtprdnfddwwerf.supabase.co/functions/v1/stripe-webhook";
 
     // Create preference object
     const preferenceData = {
@@ -149,6 +191,8 @@ serve(async (req) => {
         body: preferenceData
       });
 
+      console.log("MercadoPago preference created successfully:", result.id);
+      
       return new Response(
         JSON.stringify({ 
           url: result.init_point,
@@ -161,10 +205,23 @@ serve(async (req) => {
       );
     } catch (mpError) {
       console.error("MercadoPago API error:", mpError);
+      
+      // Tentar obter detalhes do erro
+      let errorDetails = "Erro desconhecido";
+      try {
+        if (mpError.message) {
+          errorDetails = mpError.message;
+        } else if (typeof mpError === 'object') {
+          errorDetails = JSON.stringify(mpError);
+        }
+      } catch (e) {
+        // Ignorar erros ao extrair detalhes
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: "Failed to create MercadoPago preference", 
-          details: mpError.message 
+          error: "Falha ao criar preferência no MercadoPago", 
+          details: errorDetails
         }),
         {
           status: 500,
@@ -173,9 +230,19 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("Error creating Mercado Pago checkout:", error);
+    console.error("Erro ao criar checkout do Mercado Pago:", error);
+    
+    let errorMessage = "Erro desconhecido";
+    try {
+      if (error.message) {
+        errorMessage = error.message;
+      }
+    } catch (e) {
+      // Ignorar erros ao extrair mensagem
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

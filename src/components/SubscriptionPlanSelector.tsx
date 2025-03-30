@@ -95,8 +95,19 @@ export const SubscriptionPlanSelector = () => {
           // Default to Stripe
           checkoutUrl = await createSubscriptionCheckout(user.id, selectedPlanId, returnUrl);
         }
-      } catch (requestError) {
+      } catch (requestError: any) {
         console.error('Failed to connect to payment API:', requestError);
+        
+        // Fornecer uma mensagem específica para MercadoPago
+        if (activePaymentMethod === "mercadopago") {
+          if (requestError.message?.includes('não está configurada') || 
+              requestError.message?.includes('API key')) {
+            throw new Error('O MercadoPago não está configurado corretamente. Entre em contato com o administrador.');
+          } else if (requestError.message?.includes('inválido')) {
+            throw new Error('A chave do MercadoPago é inválida. Entre em contato com o administrador.');
+          }
+        }
+        
         throw new Error('Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.');
       }
       
@@ -111,14 +122,14 @@ export const SubscriptionPlanSelector = () => {
         
         // Add a slight delay to allow state updates to complete
         setTimeout(() => {
-          // Prevent redirect in test/development environments if needed
+          // Prevenir redirect em ambientes de teste/desenvolvimento se necessário
           window.location.href = checkoutUrl;
         }, 200);
       } catch (urlError) {
         console.error('Invalid checkout URL:', urlError);
         throw new Error(`URL de checkout inválida: ${checkoutUrl}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating checkout:', error);
       
       // Get a user-friendly error message
@@ -128,7 +139,8 @@ export const SubscriptionPlanSelector = () => {
         errorMessage = `${error.message}`;
         
         // Provide more specific error messages for common issues
-        if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch')) {
+        if (error.message.includes('Failed to send') || error.message.includes('Failed to fetch') || 
+            error.message.includes('conexão') || error.message.includes('conectar')) {
           errorMessage = 'Não foi possível conectar ao servidor de pagamento. Verifique sua conexão ou se a API está configurada corretamente.';
         }
       }

@@ -199,24 +199,49 @@ export const createMercadoPagoCheckout = async (
   try {
     console.log('Creating MercadoPago checkout for', userId, planId);
     
+    // Verificar se temos credenciais configuradas primeiro
+    const { data: configCheck, error: configCheckError } = await supabase
+      .from("system_configurations")
+      .select("value")
+      .eq("key", "mercadopago_access_token")
+      .single();
+
+    if (configCheckError || !configCheck?.value) {
+      console.error('MercadoPago não está configurado corretamente:', configCheckError);
+      throw new Error('A API do MercadoPago não está configurada. Verifique as configurações de administrador.');
+    }
+    
     const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
       body: { planId, returnUrl }
     });
     
     if (error) {
-      console.error('Error in createMercadoPagoCheckout:', error);
-      throw new Error(`Failed to create checkout: ${error.message}`);
+      console.error('Erro ao criar checkout do MercadoPago:', error);
+      
+      // Tratamento especial para erros de conectividade
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('Failed to send') ||
+          error.message?.includes('network') ||
+          error.message?.includes('connection')) {
+        throw new Error('Não foi possível conectar ao servidor do MercadoPago. Verifique sua conexão de internet ou se o serviço está disponível.');
+      }
+      
+      throw new Error(`Falha ao criar checkout: ${error.message}`);
     }
     
     if (!data || !data.url) {
-      console.error('Invalid response from createMercadoPagoCheckout:', data);
-      throw new Error('Failed to create checkout: Invalid response from server');
+      console.error('Resposta inválida do MercadoPago:', data);
+      throw new Error('Resposta inválida do servidor de pagamento');
     }
     
     return data.url;
   } catch (error) {
-    console.error('Error in createMercadoPagoCheckout:', error);
-    throw new Error(`Failed to create checkout: ${error.message}`);
+    console.error('Erro em createMercadoPagoCheckout:', error);
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Falha ao processar pagamento com MercadoPago');
+    }
   }
 };
 
