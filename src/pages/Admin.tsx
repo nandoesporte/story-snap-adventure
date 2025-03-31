@@ -1,8 +1,8 @@
+
 import React, { useState } from "react";
 import {
   BookOpen,
   CreditCard,
-  Flask,
   MessageSquareText,
   Palette,
   Settings,
@@ -10,7 +10,8 @@ import {
   Users,
   UserRound,
   WalletCards,
-  CheckCircle
+  CheckCircle,
+  Beaker
 } from "lucide-react";
 import {
   Tabs,
@@ -22,14 +23,14 @@ import { UserManager } from "@/components/admin/UserManager";
 import { StoryManager } from "@/components/admin/StoryManager";
 import { CharacterManager } from "@/components/admin/CharacterManager";
 import { ThemeManager } from "@/components/admin/ThemeManager";
-import { FeaturedStories } from "@/components/admin/FeaturedStories";
-import { SystemConfiguration } from "@/components/admin/SystemConfiguration";
-import { SubscriptionManager } from "@/components/admin/SubscriptionManager";
-import { PaymentMethods } from "@/components/admin/PaymentMethods";
-import { TestMode } from "@/components/admin/TestMode";
-import { PromptManager } from "@/components/admin/PromptManager";
+import FeaturedStoryManager from "@/components/admin/FeaturedStoryManager";
+import SystemConfigurationManager from "@/components/admin/SystemConfigurationManager";
+import SubscriptionManager from "@/components/admin/SubscriptionManager";
+import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
+import TestModeManager from "@/components/admin/TestModeManager";
+import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
 
-// Import the new UserSubscriptionManager
+// Import the UserSubscriptionManager
 import UserSubscriptionManager from '@/components/admin/UserSubscriptionManager';
 
 const Admin = () => {
@@ -46,7 +47,7 @@ const Admin = () => {
     { id: 'featured', label: 'Destaque', icon: <Star className="h-5 w-5" /> },
     { id: 'prompts', label: 'Prompts', icon: <MessageSquareText className="h-5 w-5" /> },
     { id: 'payment-methods', label: 'Métodos de Pagamento', icon: <WalletCards className="h-5 w-5" /> },
-    { id: 'test-mode', label: 'Modo de Teste', icon: <Flask className="h-5 w-5" /> },
+    { id: 'test-mode', label: 'Modo de Teste', icon: <Beaker className="h-5 w-5" /> },
     { id: 'config', label: 'Configurações', icon: <Settings className="h-5 w-5" /> },
   ];
 
@@ -82,19 +83,19 @@ const Admin = () => {
           <UserSubscriptionManager />
         </TabsContent>
         <TabsContent value="featured" className="space-y-4">
-          <FeaturedStories />
+          <FeaturedStoryManager />
         </TabsContent>
         <TabsContent value="prompts" className="space-y-4">
-          <PromptManager />
+          <StoryBotPromptManager />
         </TabsContent>
         <TabsContent value="payment-methods" className="space-y-4">
-          <PaymentMethods />
+          <PaymentMethodsManager />
         </TabsContent>
         <TabsContent value="test-mode" className="space-y-4">
-          <TestMode />
+          <TestModeManager />
         </TabsContent>
         <TabsContent value="config" className="space-y-4">
-          <SystemConfiguration />
+          <SystemConfigurationManager />
         </TabsContent>
       </Tabs>
     </div>
