@@ -33,7 +33,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
+  const { isMobile, windowWidth, windowHeight } = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [forceRender, setForceRender] = useState(0);
@@ -80,14 +80,15 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   useEffect(() => {
     console.log("StoryViewer montado com estado inicial:", {
       isMobile,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
+      viewportWidth: windowWidth,
+      viewportHeight: windowHeight,
       hasStoryData: !!storyData,
       storyId: effectiveStoryId,
       isFullscreen,
-      currentPage
+      currentPage,
+      forceRender
     });
-  }, [isMobile, storyData, effectiveStoryId, isFullscreen, currentPage]);
+  }, [isMobile, storyData, effectiveStoryId, isFullscreen, currentPage, windowWidth, windowHeight, forceRender]);
 
   // Garantir que o conteúdo esteja pronto após o carregamento
   useEffect(() => {
@@ -99,17 +100,25 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
         console.log("Conteúdo da história pronto para exibição", {
           storyDataExists: !!storyData,
           pageCount: storyData?.pages?.length || 0,
-          coverImage: storyData?.cover_image_url || storyData?.coverImageUrl
+          coverImage: storyData?.cover_image_url || storyData?.coverImageUrl,
+          mode: isFullscreen ? "fullscreen" : "regular",
+          deviceType: isMobile ? "mobile" : "desktop",
+          dimensions: { width: windowWidth, height: windowHeight }
         });
       }, 300);
       
       return () => clearTimeout(timer);
     }
-  }, [loading, storyData]);
+  }, [loading, storyData, isFullscreen, isMobile, windowWidth, windowHeight]);
 
   // Forçar uma reinicialização quando o tamanho da tela muda drasticamente
   useEffect(() => {
-    console.log("Mudança de estado móvel detectada:", isMobile);
+    console.log("Mudança de estado detectada:", { 
+      isMobile, 
+      isFullscreen, 
+      width: windowWidth, 
+      height: windowHeight 
+    });
     
     if (hasInitialized && storyData) {
       // Pequeno atraso para garantir que o DOM foi atualizado
@@ -121,7 +130,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       
       return () => clearTimeout(timer);
     }
-  }, [isMobile, hasInitialized, storyData, forcePageReset]);
+  }, [isMobile, hasInitialized, storyData, forcePageReset, isFullscreen, windowWidth, windowHeight]);
 
   // Efeito para manter o estado visual correto ao alternar tela cheia
   useEffect(() => {
@@ -156,36 +165,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     
     window.addEventListener('error', handleUnhandledErrors);
     
-    // Adicionar um listener de resize especial para atualizar após redimensionamento
-    const handleResize = () => {
-      console.log("Resize detectado, atualizando visualização", {
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-      
-      if (storyData && isContentReady) {
-        // Usar um debounce para não resetar muitas vezes durante um redimensionamento
-        if (window.resizeTimer) {
-          clearTimeout(window.resizeTimer);
-        }
-        window.resizeTimer = setTimeout(() => {
-          forcePageReset();
-          setForceRender(prev => prev + 1);
-        }, 250);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleUnhandledErrors);
-      window.removeEventListener('resize', handleResize);
-      if (window.resizeTimer) {
-        clearTimeout(window.resizeTimer);
-      }
     };
-  }, [storyData, forcePageReset, isContentReady]);
+  }, [storyData, forcePageReset]);
   
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
@@ -234,7 +218,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           ref={storyContainerRef} 
           className="flex-1 flex flex-col h-full overflow-hidden"
           data-testid="story-viewer-container"
-          key={`story-container-${forceRender}`}
+          key={`story-container-${forceRender}-${isFullscreen ? 'fullscreen' : 'regular'}-${isMobile ? 'mobile' : 'desktop'}`}
         >
           <ViewerControls
             storyId={effectiveStoryId}
@@ -262,6 +246,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                 isFullscreen={isFullscreen}
                 isMobile={isMobile}
                 hideText={hideText}
+                windowWidth={windowWidth}
+                windowHeight={windowHeight}
                 onImageClick={handleImageClick}
                 onImageError={handleImageError}
                 onToggleTextVisibility={toggleTextVisibility}

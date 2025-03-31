@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage } from "./helpers";
@@ -15,6 +15,8 @@ interface PageTransitionProps {
   isFullscreen: boolean;
   isMobile: boolean;
   hideText: boolean;
+  windowWidth: number;
+  windowHeight: number;
   onImageClick: (url: string) => void;
   onImageError: (url: string) => void;
   onToggleTextVisibility: () => void;
@@ -30,11 +32,14 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   isFullscreen,
   isMobile,
   hideText,
+  windowWidth,
+  windowHeight,
   onImageClick,
   onImageError,
   onToggleTextVisibility
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
+  const [contentKey, setContentKey] = useState<number>(0);
   
   // Log de depuração
   useEffect(() => {
@@ -44,10 +49,17 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       isFullscreen,
       hasStoryData: !!storyData,
       isRendered,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight
+      viewportWidth: windowWidth,
+      viewportHeight: windowHeight,
+      mode: isFullscreen ? "fullscreen" : "regular",
+      contentKey
     });
-  }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
+  }, [currentPage, isMobile, isFullscreen, storyData, isRendered, windowWidth, windowHeight, contentKey]);
+  
+  // Força a renderização quando as dimensões da janela mudam significativamente
+  useEffect(() => {
+    setContentKey(prev => prev + 1);
+  }, [isFullscreen, isMobile]);
   
   // Verificar se temos dados da história
   if (!storyData) {
@@ -118,6 +130,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       className={transitionClasses}
       data-testid="story-book-container"
       style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}
+      key={`page-content-${contentKey}-${isFullscreen ? 'fullscreen' : 'regular'}-${isMobile ? 'mobile' : 'desktop'}`}
     >
       {currentPage === 0 ? (
         <CoverPage
