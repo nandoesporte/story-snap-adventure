@@ -177,6 +177,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Log response details for debugging
       console.info('Sign up response:', data);
       
+      // Check if user was created immediately or needs email confirmation
+      if (data.user) {
+        console.info('User created successfully:', data.user.email);
+        
+        // Try to ensure user_profiles entry is created
+        try {
+          // This will trigger the user profile creation if it doesn't exist
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .upsert({ 
+              id: data.user.id,
+              display_name: email,
+              story_credits: 5,
+              is_admin: email === 'nandoesporte1@gmail.com'
+            }, { onConflict: 'id' });
+            
+          if (profileError) {
+            console.error('Error creating user profile:', profileError);
+          } else {
+            console.info('User profile created/updated successfully');
+          }
+        } catch (profileError) {
+          console.error('Error in profile creation:', profileError);
+        }
+      }
+      
       return { data, error: null };
     } catch (error: any) {
       console.error('Sign up error:', error);
