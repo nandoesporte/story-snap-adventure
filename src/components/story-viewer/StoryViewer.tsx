@@ -169,7 +169,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   }
 
   return (
-    <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
+    <div className="relative w-full h-full bg-amber-50/40 flex flex-col overflow-hidden font-sans">
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />

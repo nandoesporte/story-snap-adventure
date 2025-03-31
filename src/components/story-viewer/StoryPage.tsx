@@ -94,11 +94,10 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         
         {!hideText && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
-            <div className="relative p-5 pb-6 bg-black/40 backdrop-blur-md rounded-t-xl">
-              <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
+            <div className="relative p-5 pb-8 bg-black/50 backdrop-blur-md rounded-t-2xl">
               <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
-                  <p key={idx} className="mb-2 leading-relaxed text-shadow font-medium">{paragraph}</p>
+                  <p key={idx} className="mb-2 leading-relaxed text-shadow font-medium text-balance">{paragraph}</p>
                 ))}
                 <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
               </div>
@@ -115,7 +114,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                   pageIndex={pageIndex}
                   pageText={typedText}
                   voiceType={voiceType}
-                  className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
+                  className="bg-amber-400/80 hover:bg-amber-500/90 text-black rounded-full p-1"
                   autoPlay={!isMobile}
                 />
               </div>
@@ -124,7 +123,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         )}
         
         <Button 
-          className="fixed bottom-24 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 flex items-center gap-1 shadow-lg"
+          className="fixed bottom-24 right-4 z-50 rounded-full bg-amber-400/90 hover:bg-amber-500 text-black text-sm py-1 px-3 flex items-center gap-1 shadow-lg"
           size="sm"
           variant="ghost"
           onClick={onToggleTextVisibility}
@@ -138,52 +137,54 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   
   // Desktop layout
   return (
-    <div className="w-full h-full flex flex-row">
-      <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
-        <CoverImage 
-          imageUrl={imageError ? themeFallback : imageUrl}
-          fallbackImage={themeFallback}
-          alt={`Ilustração da página ${pageIndex + 1}`}
-          className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-          onClick={() => onImageClick(imageUrl)}
-          onError={handleImageError}
-          onLoad={handleImageLoad}
-          storyId={storyId}
-        />
+    <div className="w-full h-full flex flex-row bg-amber-50/50">
+      <div className="w-1/2 h-full bg-amber-50/30 border-r border-amber-200/40 flex items-center justify-center p-6 overflow-hidden">
+        <div className="relative w-full h-full max-w-md max-h-[80vh] mx-auto">
+          <CoverImage 
+            imageUrl={imageError ? themeFallback : imageUrl}
+            fallbackImage={themeFallback}
+            alt={`Ilustração da página ${pageIndex + 1}`}
+            className="w-full h-full object-contain rounded-lg shadow-md"
+            onClick={() => onImageClick(imageUrl)}
+            onError={handleImageError}
+            onLoad={handleImageLoad}
+            storyId={storyId}
+          />
+        </div>
       </div>
       
-      <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col relative">
+      <div className="w-1/2 h-full bg-white/80 overflow-hidden flex flex-col relative">
         {!hideText ? (
           <>
-            <ScrollArea className="h-full pr-2 p-8 bg-white/95">
-              <div className="mb-6 bg-white/90 p-5 rounded-lg backdrop-blur-sm shadow-sm">
-                <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{title}</h2>
+            <ScrollArea className="h-full px-6 py-8 bg-white/50">
+              <div className="mb-6 bg-white/80 p-6 rounded-xl backdrop-blur-sm shadow-sm border border-amber-100">
                 <div className="prose prose-lg">
                   {typedText.split('\n').map((paragraph, idx) => (
-                    <p key={idx} className="mb-3 text-lg leading-relaxed font-medium text-gray-700">{paragraph}</p>
+                    <p key={idx} className="mb-4 text-lg leading-relaxed font-medium text-gray-700">{paragraph}</p>
                   ))}
-                  <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
+                  <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-amber-600"></div>
                 </div>
               </div>
             </ScrollArea>
-            <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-center items-center bg-white/95 backdrop-blur-sm">
+            <div className="p-4 pt-3 border-t border-amber-100 text-sm text-gray-500 flex justify-center items-center bg-white/90 backdrop-blur-sm">
               <NarrationPlayer
                 storyId={storyId || ''}
                 pageIndex={pageIndex}
                 pageText={typedText}
                 voiceType={voiceType}
                 autoPlay={false}
+                className="bg-amber-100 hover:bg-amber-200 text-amber-800"
               />
             </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-400 italic">Texto oculto</p>
+            <p className="text-amber-700/50 italic">Texto oculto</p>
           </div>
         )}
         
         <Button 
-          className="absolute bottom-4 right-4 z-10"
+          className="absolute bottom-4 right-4 z-10 bg-amber-400/90 hover:bg-amber-500 text-black"
           size="sm"
           variant="secondary"
           onClick={onToggleTextVisibility}

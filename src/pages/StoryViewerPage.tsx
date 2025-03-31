@@ -63,7 +63,7 @@ const StoryViewerPage = () => {
   // If user is not authenticated, show login notice
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-white to-orange-50">
         <Navbar />
         
         <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
@@ -72,21 +72,21 @@ const StoryViewerPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-8 text-center"
+              className="bg-white rounded-2xl shadow-xl overflow-hidden border border-amber-100 p-8 text-center"
             >
               <div className="flex flex-col items-center gap-4 py-8">
-                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center">
-                  <LogIn className="h-8 w-8 text-violet-600" />
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+                  <LogIn className="h-8 w-8 text-amber-600" />
                 </div>
-                <h1 className="text-3xl font-bold">Login Necessário</h1>
+                <h1 className="text-3xl font-bold text-amber-800">Login Necessário</h1>
                 <p className="text-gray-600 max-w-md mb-4">
                   Para ler histórias, você precisa estar conectado à sua conta.
                 </p>
                 <div className="flex gap-4 flex-wrap justify-center">
-                  <Button variant="outline" onClick={() => navigate("/")}>
+                  <Button variant="outline" onClick={() => navigate("/")} className="border-amber-200 text-amber-800 hover:bg-amber-50">
                     Voltar para Início
                   </Button>
-                  <Button variant="storyPrimary" onClick={() => navigate("/auth")}>
+                  <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => navigate("/auth")}>
                     Entrar na Conta
                   </Button>
                 </div>
@@ -103,7 +103,7 @@ const StoryViewerPage = () => {
   // If user doesn't have an active subscription, show subscription notice
   if (!isLoadingSubscription && !hasActiveSubscription) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-white to-orange-50">
         <Navbar />
         
         <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
@@ -112,18 +112,18 @@ const StoryViewerPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-8 text-center"
+              className="bg-white rounded-2xl shadow-xl overflow-hidden border border-amber-100 p-8 text-center"
             >
               <div className="flex flex-col items-center gap-4 py-8">
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
                   <CreditCard className="h-8 w-8 text-amber-600" />
                 </div>
-                <h1 className="text-3xl font-bold">Assinatura Necessária</h1>
+                <h1 className="text-3xl font-bold text-amber-800">Assinatura Necessária</h1>
                 <p className="text-gray-600 max-w-md mb-4">
                   Para ler histórias, você precisa ter uma assinatura ativa.
                 </p>
                 <div className="flex gap-4 flex-wrap justify-center">
-                  <Button variant="outline" onClick={() => navigate("/")}>
+                  <Button variant="outline" onClick={() => navigate("/")} className="border-amber-200 text-amber-800 hover:bg-amber-50">
                     Voltar para Início
                   </Button>
                   <Button 
@@ -144,14 +144,17 @@ const StoryViewerPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-amber-50/40">
       <Navbar />
       
       <main className="flex-1 pt-16">
         {loading || isRefreshing ? (
           <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
-            <LoadingSpinner size="lg" />
-            <p className="text-gray-500 animate-pulse">Carregando história...</p>
+            <div className="w-16 h-16 relative">
+              <div className="absolute inset-0 rounded-full border-4 border-amber-200 border-dashed animate-spin"></div>
+              <div className="absolute inset-2 rounded-full bg-amber-400/50"></div>
+            </div>
+            <p className="text-amber-800 font-medium">Carregando sua história...</p>
           </div>
         ) : storyData ? (
           <StoryViewer 
@@ -159,14 +162,14 @@ const StoryViewerPage = () => {
           />
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
-            <h2 className="text-2xl font-bold text-gray-700 mb-4">
+            <h2 className="text-2xl font-bold text-amber-800 mb-4">
               {error ? "Erro ao carregar a história" : "História não encontrada"}
             </h2>
             <p className="text-gray-600 mb-8">
               {error ? "Ocorreu um erro ao carregar esta história." : "Esta história não existe ou foi removida."}
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button onClick={() => navigate('/')} variant="outline">
+              <Button onClick={() => navigate('/')} variant="outline" className="border-amber-200 text-amber-800 hover:bg-amber-50">
                 Voltar para Início
               </Button>
               {error && retryCount < 4 && (
@@ -174,7 +177,7 @@ const StoryViewerPage = () => {
                   variant="default" 
                   onClick={handleRetryLoad}
                   disabled={isRefreshing}
-                  className="gap-2"
+                  className="gap-2 bg-amber-400 hover:bg-amber-500 text-black"
                 >
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   Tentar novamente
@@ -183,7 +186,7 @@ const StoryViewerPage = () => {
               <Button 
                 variant="secondary" 
                 onClick={handleForceRefresh}
-                className="gap-2"
+                className="gap-2 bg-amber-200 hover:bg-amber-300 text-amber-800"
               >
                 <RefreshCw className="h-4 w-4" />
                 Recarregar página

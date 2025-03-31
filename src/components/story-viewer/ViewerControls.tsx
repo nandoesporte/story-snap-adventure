@@ -12,7 +12,6 @@ import {
   Minimize
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 interface ViewerControlsProps {
   storyId: string | undefined;
@@ -53,7 +52,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   
   const handleShareStory = () => {
     if (!storyId) {
-      toast.info("Salve a história primeiro para poder compartilhá-la.");
+      console.info("Salve a história primeiro para poder compartilhá-la.");
       return;
     }
     
@@ -76,61 +75,60 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
-        toast.success("Link copiado para a área de transferência!");
+        console.log("Link copiado para a área de transferência!");
       })
       .catch(err => {
         console.error("Erro ao copiar texto:", err);
-        toast.error("Não foi possível copiar o link");
       });
   };
   
   return (
-    <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-between gap-2 z-20">
-      <div className="flex items-center gap-2">
+    <div className="bg-white border-b border-amber-200/50 px-4 py-3 flex items-center justify-between gap-2 z-20 shadow-sm">
+      <div className="flex items-center gap-3">
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={handleGoHome} 
-          className="text-gray-600"
+          className="text-amber-800 hover:bg-amber-100"
           aria-label="Ir para página inicial"
         >
           <Home className="w-4 h-4" />
-          <span className="ml-1 hidden md:inline">Início</span>
+          <span className="ml-2 hidden md:inline font-medium">Início</span>
         </Button>
         
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={handleCreateNew} 
-          className="text-gray-600"
+          className="text-amber-800 hover:bg-amber-100"
           aria-label="Criar nova história"
         >
           <BookText className="w-4 h-4" />
-          <span className="ml-1 hidden md:inline">Nova História</span>
+          <span className="ml-2 hidden md:inline font-medium">Nova História</span>
         </Button>
       </div>
       
       <div className="flex-1 flex justify-center items-center">
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onPrevious}
             disabled={currentPage <= 0}
-            className="text-gray-600"
+            className="text-amber-800 border-amber-200 hover:bg-amber-100"
             aria-label="Página anterior"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="text-sm text-gray-500 font-medium">
+          <div className="text-sm font-medium px-3 py-1 bg-amber-100/70 rounded-full text-amber-800 min-w-[4rem] text-center">
             {currentPage + 1} / {totalPages}
           </div>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onNext}
             disabled={currentPage >= totalPages - 1}
-            className="text-gray-600"
+            className="text-amber-800 border-amber-200 hover:bg-amber-100"
             aria-label="Próxima página"
           >
             <ChevronRight className="w-4 h-4" />
@@ -138,17 +136,17 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
         </div>
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {!isMobile && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggleFullscreen}
-            className="text-gray-600"
+            className="text-amber-800 hover:bg-amber-100"
             aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            <span className="ml-1 hidden md:inline">
+            <span className="ml-2 hidden md:inline font-medium">
               {isFullscreen ? "Sair" : "Tela Cheia"}
             </span>
           </Button>
@@ -158,24 +156,24 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           variant="ghost"
           size="sm"
           onClick={handleShareStory}
-          className="text-gray-600"
+          className="text-amber-800 hover:bg-amber-100"
           aria-label="Compartilhar história"
         >
           <Share className="w-4 h-4" />
-          <span className="ml-1 hidden md:inline">Compartilhar</span>
+          <span className="ml-2 hidden md:inline font-medium">Compartilhar</span>
         </Button>
         
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={onDownloadPDF}
           disabled={isDownloading}
-          className="text-gray-600"
+          className="bg-amber-400/90 hover:bg-amber-500 text-black border-none"
           aria-label="Baixar PDF"
         >
-          <Download className="w-4 h-4" />
-          <span className="ml-1 hidden md:inline">
-            {isDownloading ? "Processando..." : "Download"}
+          <Download className="w-4 h-4 mr-2" />
+          <span>
+            {isDownloading ? "Processando..." : "Baixar PDF"}
           </span>
         </Button>
       </div>
