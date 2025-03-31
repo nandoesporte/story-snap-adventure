@@ -1,7 +1,6 @@
 
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
-import { isPermanentStorage, isTemporaryUrl } from '@/components/story-viewer/helpers';
 
 /**
  * Saves an image to the permanent storage bucket
@@ -11,24 +10,10 @@ import { isPermanentStorage, isTemporaryUrl } from '@/components/story-viewer/he
  */
 export const saveImagePermanently = async (imageUrl: string, storyId?: string): Promise<string> => {
   try {
-    // If already a URL from permanent storage, return it
-    if (isPermanentStorage(imageUrl)) {
+    // If already a URL from the storage bucket, return it
+    if (imageUrl.includes('supabase.co/storage/v1/object/public/story_images')) {
       console.log("Image is already in permanent storage:", imageUrl);
       return imageUrl;
-    }
-    
-    // Check local cache first
-    try {
-      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-      if (urlKey) {
-        const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
-        if (cachedUrl && isPermanentStorage(cachedUrl)) {
-          console.log("Using cached permanent URL:", cachedUrl);
-          return cachedUrl;
-        }
-      }
-    } catch (cacheError) {
-      console.error("Error checking cache:", cacheError);
     }
     
     // Generate a unique filename
@@ -46,14 +31,9 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       // Fetch image from external URL
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        // Add cache-busting for temporary URLs
-        const fetchUrl = isTemporaryUrl(imageUrl) 
-          ? `${imageUrl}&_cb=${Date.now()}`
-          : imageUrl;
-        
-        const response = await fetch(fetchUrl, { 
+        const response = await fetch(imageUrl, { 
           signal: controller.signal,
           method: 'GET',
           headers: {
@@ -97,17 +77,6 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       .getPublicUrl(fileName);
       
     console.log("Image saved permanently:", publicUrl);
-    
-    // Cache the permanent URL
-    try {
-      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-      if (urlKey) {
-        localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
-      }
-    } catch (cacheError) {
-      console.error("Error caching URL:", cacheError);
-    }
-    
     return publicUrl;
   } catch (error) {
     console.error("Error saving image permanently:", error);
@@ -135,14 +104,14 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
       updatedStoryData.cover_image_url = permanentCoverUrl;
     }
     
-    // Save page images with parallel processing for faster results
+    // Save page images
     if (Array.isArray(updatedStoryData.pages)) {
-      const pagePromises = updatedStoryData.pages.map(async (page: any, index: number) => {
+      updatedStoryData.pages = await Promise.all(updatedStoryData.pages.map(async (page: any, index: number) => {
         const imageUrl = page.imageUrl || page.image_url;
         if (imageUrl) {
           const permanentImageUrl = await saveImagePermanently(
             imageUrl, 
-            `${updatedStoryData.id || 'page'}_page${index}`
+            `${updatedStoryData.id}_page${index}`
           );
           
           return {
@@ -152,9 +121,7 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
           };
         }
         return page;
-      });
-      
-      updatedStoryData.pages = await Promise.all(pagePromises);
+      }));
     }
     
     return updatedStoryData;

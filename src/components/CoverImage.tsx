@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { isPermanentStorage, isTemporaryUrl } from './story-viewer/helpers';
 
 interface CoverImageProps {
   imageUrl: string;
@@ -32,48 +31,15 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     setFinalUrl(imageUrl);
   }, [imageUrl]);
   
-  // Check if URL is cached
-  useEffect(() => {
-    if (finalUrl) {
-      try {
-        const cachedUrlKey = `image_cache_${finalUrl.split('/').pop()?.split('?')[0]}`;
-        const cachedUrl = localStorage.getItem(cachedUrlKey);
-        
-        if (cachedUrl && cachedUrl !== finalUrl && isPermanentStorage(cachedUrl)) {
-          console.log("Using permanent cached image URL:", cachedUrl);
-          setFinalUrl(cachedUrl);
-        }
-      } catch (error) {
-        console.error("Error checking image cache:", error);
-      }
-    }
-  }, [finalUrl]);
-  
   // Pre-load the image to verify if it's valid
   useEffect(() => {
     if (finalUrl && !loaded && !imgError && retryCount < 2) {
       const img = new Image();
-      
-      // Add cache-busting parameter for temporary URLs
-      const urlWithCacheBusting = isTemporaryUrl(finalUrl)
-        ? `${finalUrl}&_cb=${Date.now()}`
-        : finalUrl;
-        
-      img.src = urlWithCacheBusting;
+      img.src = finalUrl;
       
       const handleLoad = () => {
         setLoaded(true);
         console.log("Image pre-loaded successfully:", finalUrl);
-        
-        // Cache the successful URL for future reference
-        try {
-          const urlKey = finalUrl.split('/').pop()?.split('?')[0];
-          if (urlKey) {
-            localStorage.setItem(`image_cache_${urlKey}`, finalUrl);
-          }
-        } catch (error) {
-          console.error("Error saving to cache:", error);
-        }
       };
       
       const handleError = () => {
@@ -116,10 +82,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
       setImgError(true);
       // Cache the fallback image for future reference
       try {
-        const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-        if (urlKey) {
-          localStorage.setItem(`image_cache_fallback_${urlKey}`, fallbackImage);
-        }
+        localStorage.setItem(`image_cache_fallback_${imageUrl.split('/').pop()}`, fallbackImage);
       } catch (error) {
         console.error("Error saving fallback to cache:", error);
       }
