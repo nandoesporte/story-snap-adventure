@@ -4,29 +4,27 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean>(false)
-  const [isInitialized, setIsInitialized] = React.useState<boolean>(false)
+  const [isMobile, setIsMobile] = React.useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false
+  )
 
   React.useEffect(() => {
-    // Function to check if device is mobile
+    // Função para verificar se o dispositivo é móvel
     const checkIfMobile = () => {
       const isMobileView = window.innerWidth < MOBILE_BREAKPOINT
       setIsMobile(isMobileView)
-      
-      if (!isInitialized) {
-        setIsInitialized(true)
-      }
+      console.log("Tamanho da tela alterado:", { width: window.innerWidth, isMobile: isMobileView })
     }
     
-    // Initial check
+    // Verificação inicial
     checkIfMobile()
     
-    // Set up event listener for screen resize
+    // Configurar listener para redimensionamento da tela
     window.addEventListener('resize', checkIfMobile)
     
-    // Clean up
+    // Limpar
     return () => window.removeEventListener('resize', checkIfMobile)
-  }, [isInitialized])
+  }, [])
 
   return isMobile
 }

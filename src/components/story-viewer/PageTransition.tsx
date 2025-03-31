@@ -36,18 +36,19 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   
-  // Debug logging
+  // Log de depuração
   useEffect(() => {
-    console.log("PageTransition rendering with:", {
+    console.log("PageTransition renderizada:", {
       currentPage,
       isMobile,
       isFullscreen,
       hasStoryData: !!storyData,
-      isRendered
+      isRendered,
+      viewportWidth: window.innerWidth
     });
   }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
   
-  // Check if we have story data
+  // Verificar se temos dados da história
   if (!storyData) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -58,13 +59,13 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
   
-  // Preload next and previous page images to improve transitions
+  // Pré-carregar imagens das páginas adjacentes para melhorar as transições
   useEffect(() => {
     if (!storyData || !storyData.pages || storyData.pages.length === 0) return;
     
     const preloadAdjacentPages = async () => {
       try {
-        // Preload current page image
+        // Pré-carregar imagem da página atual
         const currentImageUrl = currentPage === 0 
           ? coverImageSrc 
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
@@ -73,7 +74,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
         }
         
-        // Preload next page image if available
+        // Pré-carregar imagem da próxima página se disponível
         if (currentPage < storyData.pages.length) {
           const nextImageUrl = currentPage === 0 
             ? (storyData.pages[0]?.imageUrl || storyData.pages[0]?.image_url)
@@ -84,7 +85,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
         
-        // Preload previous page image if available
+        // Pré-carregar imagem da página anterior se disponível
         if (currentPage > 0) {
           const prevImageUrl = currentPage === 1 
             ? coverImageSrc
@@ -95,16 +96,16 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
       } catch (error) {
-        console.error("Error preloading adjacent pages:", error);
+        console.error("Erro ao pré-carregar páginas adjacentes:", error);
       }
     };
     
     preloadAdjacentPages();
   }, [currentPage, storyData, coverImageSrc]);
   
-  // Calculate transition classes based on state
+  // Calcular classes de transição com base no estado
   const transitionClasses = `
-    absolute inset-0 
+    absolute inset-0 w-full h-full
     transition-all duration-300 ease-in-out 
     ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : "translate-x-0"} 
     ${isRendered ? 'opacity-100' : 'opacity-0'}
@@ -115,7 +116,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       ref={bookRef}
       className={transitionClasses}
       data-testid="story-book-container"
-      style={{ width: '100%', height: '100%' }}
     >
       {currentPage === 0 ? (
         <CoverPage

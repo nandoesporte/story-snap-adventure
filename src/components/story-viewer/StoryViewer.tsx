@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button"; // Add Button import
+import { Button } from "@/components/ui/button";
 import LoadingSpinner from "../LoadingSpinner";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
@@ -35,6 +35,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // Custom hooks
   const {
@@ -74,18 +75,44 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handleZoomOut
   } = useImageViewer();
 
-  // Make sure content is ready after loading
+  // Log inicial para depuração
+  useEffect(() => {
+    console.log("StoryViewer montado com estado inicial:", {
+      isMobile,
+      viewportWidth: window.innerWidth,
+      hasStoryData: !!storyData,
+      storyId: effectiveStoryId
+    });
+  }, []);
+
+  // Garantir que o conteúdo esteja pronto após o carregamento
   useEffect(() => {
     if (!loading && storyData) {
-      // Add a small delay to ensure all components are ready
+      // Adicionar um pequeno atraso para garantir que todos os componentes estejam prontos
       const timer = setTimeout(() => {
         setIsContentReady(true);
-        console.log("Story content is ready to display");
+        setHasInitialized(true);
+        console.log("Conteúdo da história pronto para exibição");
       }, 200);
       
       return () => clearTimeout(timer);
     }
   }, [loading, storyData]);
+
+  // Forçar uma reinicialização quando o tamanho da tela muda drasticamente
+  useEffect(() => {
+    console.log("Mudança de estado móvel detectada:", isMobile);
+    
+    if (hasInitialized && storyData) {
+      // Pequeno atraso para garantir que o DOM foi atualizado
+      const timer = setTimeout(() => {
+        forcePageReset();
+        console.log("Forçando reset após mudança de tamanho de tela");
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile, hasInitialized, storyData, forcePageReset]);
 
   // Efeito para manter o estado visual correto ao alternar tela cheia
   useEffect(() => {
@@ -118,11 +145,31 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     
     window.addEventListener('error', handleUnhandledErrors);
     
+    // Adicionar um listener de resize especial para atualizar após redimensionamento
+    const handleResize = () => {
+      console.log("Resize detectado, atualizando visualização");
+      if (storyData && isContentReady) {
+        // Usar um debounce para não resetar muitas vezes durante um redimensionamento
+        if (window.resizeTimer) {
+          clearTimeout(window.resizeTimer);
+        }
+        window.resizeTimer = setTimeout(() => {
+          forcePageReset();
+        }, 250);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleUnhandledErrors);
+      window.removeEventListener('resize', handleResize);
+      if (window.resizeTimer) {
+        clearTimeout(window.resizeTimer);
+      }
     };
-  }, [storyData, forcePageReset]);
+  }, [storyData, forcePageReset, isContentReady]);
   
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
@@ -226,5 +273,15 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     </div>
   );
 };
+
+// Adicionando declaração de tipo global para o timer de redimensionamento
+declare global {
+  interface Window {
+    resizeTimer: ReturnType<typeof setTimeout> | null;
+  }
+}
+
+// Inicialização
+window.resizeTimer = null;
 
 export default StoryViewer;
