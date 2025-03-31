@@ -71,36 +71,7 @@ export const useStoryData = (storyId?: string) => {
           }
           
           if (data) {
-            console.log("Story data loaded:", data);
-            
-            const coverImage = data.cover_image_url || 
-                            (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
-                            "/placeholder.svg";
-                            
-            console.log("Selected cover image:", coverImage);
-            
-            const formattedStory: StoryData = {
-              title: data.title || "Untitled Story",
-              coverImageUrl: coverImage,
-              cover_image_url: coverImage,
-              childName: data.character_name || "Reader",
-              childAge: data.character_age || "",
-              theme: data.theme || "",
-              setting: data.setting || "",
-              style: data.style || "",
-              voiceType: data.voice_type || 'female',
-              pages: Array.isArray(data.pages) 
-                ? data.pages.map((page: any) => ({
-                    text: page.text || "",
-                    imageUrl: page.image_url || "/placeholder.svg",
-                    image_url: page.image_url || "/placeholder.svg"
-                  }))
-                : [{ text: "No content available.", imageUrl: "/placeholder.svg" }]
-            };
-            
-            setStoryData(formattedStory);
-            setTotalPages(formattedStory.pages.length + 1); // +1 for cover page
-            setLoading(false);
+            processStoryData(data);
           } else {
             loadFromSessionStorage();
           }
@@ -114,6 +85,39 @@ export const useStoryData = (storyId?: string) => {
         setTotalPages(defaultStory.pages.length + 1);
         setLoading(false);
       }
+    };
+    
+    const processStoryData = (data: any) => {
+      console.log("Story data loaded:", data);
+      
+      const coverImage = data.cover_image_url || 
+                      (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+                      "/placeholder.svg";
+                      
+      console.log("Selected cover image:", coverImage);
+      
+      const formattedStory: StoryData = {
+        title: data.title || "Untitled Story",
+        coverImageUrl: coverImage,
+        cover_image_url: coverImage,
+        childName: data.character_name || "Reader",
+        childAge: data.character_age || "",
+        theme: data.theme || "",
+        setting: data.setting || "",
+        style: data.style || "",
+        voiceType: data.voice_type || 'female',
+        pages: Array.isArray(data.pages) 
+          ? data.pages.map((page: any) => ({
+              text: page.text || "",
+              imageUrl: page.image_url || "/placeholder.svg",
+              image_url: page.image_url || "/placeholder.svg"
+            }))
+          : [{ text: "No content available.", imageUrl: "/placeholder.svg" }]
+      };
+      
+      setStoryData(formattedStory);
+      setTotalPages(formattedStory.pages.length + 1);
+      setLoading(false);
     };
     
     const loadFromSessionStorage = () => {
