@@ -79,6 +79,7 @@ const ViewStoryPage: React.FC = () => {
   const [isFlipping, setIsFlipping] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
   const [flipDirection, setFlipDirection] = useState<'left' | 'right'>('right');
+  const [hideText, setHideText] = useState(false);
   
   // Refs para o livro e container
   const bookRef = useRef<HTMLDivElement>(null);
@@ -147,6 +148,11 @@ const ViewStoryPage: React.FC = () => {
 
     fetchStory();
   }, [id]);
+
+  // Alternar visibilidade do texto (apenas no mobile)
+  const toggleTextVisibility = () => {
+    setHideText(!hideText);
+  };
 
   // Lidar com navegação entre páginas
   const handlePreviousPage = () => {
@@ -331,6 +337,16 @@ const ViewStoryPage: React.FC = () => {
               >
                 {isPlaying ? <VolumeX /> : <Volume />}
               </Button>
+              
+              {isMobile && (
+                <Button
+                  onClick={toggleTextVisibility}
+                  className={`rounded-full w-12 h-12 flex items-center justify-center bg-white text-purple-600 border-2 border-purple-600`}
+                  aria-label={hideText ? "Mostrar texto" : "Ocultar texto"}
+                >
+                  {hideText ? "T" : "T"}
+                </Button>
+              )}
             </div>
             
             {/* Navegação de página */}
@@ -395,7 +411,7 @@ const ViewStoryPage: React.FC = () => {
                     transition: { duration: 0.2 } 
                   }}
                   style={{ transformStyle: 'preserve-3d' }}
-                  className={`w-full max-w-4xl ${isMobile ? 'h-[70vh]' : 'h-[80vh]'} ${
+                  className={`w-full max-w-4xl ${isMobile ? 'h-[90vh]' : 'h-[80vh]'} ${
                     isNightMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
                   } rounded-lg shadow-xl overflow-hidden`}
                 >
@@ -420,29 +436,59 @@ const ViewStoryPage: React.FC = () => {
                     </div>
                   ) : (
                     // Páginas do livro
-                    <div className="w-full h-full flex flex-col md:flex-row">
-                      {/* Lado da ilustração */}
-                      <div className={`${isMobile ? 'h-1/2' : 'w-1/2 h-full'} relative flex items-center justify-center p-4`}>
-                        <img 
-                          src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
-                          alt={`Ilustração da página ${currentPage}`}
-                          className="max-w-full max-h-full object-contain rounded shadow-md"
-                        />
+                    isMobile ? (
+                      // Layout para celular com imagem em tela cheia
+                      <div className="w-full h-full relative">
+                        {/* Imagem em tela cheia */}
+                        <div className="absolute inset-0 z-0">
+                          <img 
+                            src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                            alt={`Ilustração da página ${currentPage}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        {/* Texto sobreposto na parte inferior */}
+                        {!hideText && (
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
+                            <div className="p-5 pb-16">
+                              <div className="prose prose-sm prose-invert max-w-none text-white">
+                                {story.pages[currentPage - 1]?.text.split('\n').map((paragraph, index) => (
+                                  <p key={index} className="mb-3 leading-relaxed text-white/90 text-shadow">
+                                    {paragraph}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      
-                      {/* Lado do texto */}
-                      <div className={`${isMobile ? 'h-1/2' : 'w-1/2 h-full'} flex flex-col p-8 overflow-auto ${
-                        isNightMode ? 'bg-gray-800' : 'bg-gray-50'
-                      }`}>
-                        <div className="flex-1 flex flex-col items-center justify-center">
-                          <div className={`prose ${isNightMode ? 'prose-invert' : ''} max-w-none text-lg md:text-xl text-center leading-relaxed`}>
-                            {story.pages[currentPage - 1]?.text.split('\n').map((paragraph, index) => (
-                              <p key={index} className="mb-4">{paragraph}</p>
-                            ))}
+                    ) : (
+                      // Layout original para desktop
+                      <div className="w-full h-full flex flex-col md:flex-row">
+                        {/* Lado da ilustração */}
+                        <div className="w-1/2 h-full relative flex items-center justify-center p-4">
+                          <img 
+                            src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                            alt={`Ilustração da página ${currentPage}`}
+                            className="max-w-full max-h-full object-contain rounded shadow-md"
+                          />
+                        </div>
+                        
+                        {/* Lado do texto */}
+                        <div className="w-1/2 h-full flex flex-col p-8 overflow-auto ${
+                          isNightMode ? 'bg-gray-800' : 'bg-gray-50'
+                        }">
+                          <div className="flex-1 flex flex-col items-center justify-center">
+                            <div className={`prose ${isNightMode ? 'prose-invert' : ''} max-w-none text-lg md:text-xl text-center leading-relaxed`}>
+                              {story.pages[currentPage - 1]?.text.split('\n').map((paragraph, index) => (
+                                <p key={index} className="mb-4">{paragraph}</p>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )
                   )}
                 </motion.div>
               </AnimatePresence>
@@ -471,6 +517,10 @@ const ViewStoryPage: React.FC = () => {
         
         .text-shadow-lg {
           text-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        
+        .text-shadow {
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
         
         .perspective-1000 {
