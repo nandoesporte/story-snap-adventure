@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, AlertTriangle, ImageIcon, Volume2, AlertCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from 'uuid';
 import StoryForm, { StoryFormData } from "./StoryForm";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryGeneration } from "@/hooks/useStoryGeneration";
@@ -144,19 +145,27 @@ const StoryCreator = () => {
         return null;
       }
       
+      const { saveStoryImagesPermanently } = await import('@/lib/imageStorage');
+      
+      console.log("Saving story images permanently before database storage");
+      const processedStoryData = await saveStoryImagesPermanently({
+        ...storyData,
+        id: uuidv4()
+      });
+      
       const storyToSave = {
-        title: storyData.title,
-        cover_image_url: storyData.coverImageUrl,
-        character_name: storyData.childName,
-        character_age: storyData.childAge,
-        theme: storyData.theme,
-        setting: storyData.setting,
-        style: storyData.style,
+        title: processedStoryData.title,
+        cover_image_url: processedStoryData.coverImageUrl,
+        character_name: processedStoryData.childName,
+        character_age: processedStoryData.childAge,
+        theme: processedStoryData.theme,
+        setting: processedStoryData.setting,
+        style: processedStoryData.style,
         user_id: userData.user.id,
         character_prompt: selectedCharacter?.generation_prompt || "",
-        pages: storyData.pages.map((page: any) => ({
+        pages: processedStoryData.pages.map((page: any) => ({
           text: page.text,
-          image_url: page.imageUrl
+          image_url: page.imageUrl || page.image_url
         }))
       };
       

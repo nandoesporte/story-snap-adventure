@@ -1,12 +1,14 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { saveImagePermanently } from '@/lib/imageStorage';
 
 // Este hook ajuda a garantir que as URLs das imagens das histórias sejam válidas e persistentes
 export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story_images') => {
   const [processedUrl, setProcessedUrl] = useState<string>(imageUrl || '/placeholder.svg');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [isPermanent, setIsPermanent] = useState<boolean>(false);
 
   useEffect(() => {
     const processImageUrl = async () => {
@@ -32,13 +34,19 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           console.log("Using cached image URL:", cachedUrl);
           setProcessedUrl(cachedUrl);
           setIsLoading(false);
+          
+          // Verificar se a URL é do armazenamento permanente
+          if (cachedUrl.includes('supabase.co/storage/v1/object/public/story_images')) {
+            setIsPermanent(true);
+          }
           return;
         }
         
-        // Handle URL that's already in correct format
-        if (imageUrl.includes('object/public')) {
-          console.log("URL already in correct format:", imageUrl);
+        // Handle URL that's already in storage bucket
+        if (imageUrl.includes('object/public/story_images')) {
+          console.log("URL already in permanent storage:", imageUrl);
           setProcessedUrl(imageUrl);
+          setIsPermanent(true);
           try {
             localStorage.setItem(cachedUrlKey, imageUrl);
           } catch (error) {
@@ -46,6 +54,30 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           }
           setIsLoading(false);
           return;
+        }
+        
+        // Try to save image permanently
+        if (!isPermanent) {
+          try {
+            console.log("Attempting to save image permanently:", imageUrl);
+            const permanentUrl = await saveImagePermanently(imageUrl);
+            
+            if (permanentUrl !== imageUrl) {
+              console.log("Image saved to permanent storage:", permanentUrl);
+              setProcessedUrl(permanentUrl);
+              setIsPermanent(true);
+              try {
+                localStorage.setItem(cachedUrlKey, permanentUrl);
+              } catch (cacheError) {
+                console.error("Error saving URL to cache:", cacheError);
+              }
+              setIsLoading(false);
+              return;
+            }
+          } catch (saveError) {
+            console.error("Error saving image to permanent storage:", saveError);
+            // Continue with fallback methods if permanent save fails
+          }
         }
         
         // Handle temporary OpenAI/DALL-E URLs
@@ -151,6 +183,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               } else {
                 const publicUrl = data.publicUrl;
                 console.log("Processed Supabase URL:", publicUrl);
+                setIsPermanent(true);
                 try {
                   localStorage.setItem(`image_cache_${fileName}`, publicUrl);
                 } catch (error) {
@@ -218,7 +251,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
     };
 
     processImageUrl();
-  }, [imageUrl, bucketName]);
+  }, [imageUrl, bucketName, isPermanent]);
   
   // Hash function helper
   const hashString = async (str: string): Promise<string> => {
@@ -230,5 +263,10 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
     return hashHex;
   };
 
-  return { processedUrl, isLoading, hasError };
+  return { 
+    processedUrl, 
+    isLoading, 
+    hasError, 
+    isPermanent 
+  };
 };

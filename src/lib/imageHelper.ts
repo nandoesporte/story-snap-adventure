@@ -1,5 +1,6 @@
 
 import { supabase } from './supabase';
+import { saveImagePermanently } from './imageStorage';
 
 /**
  * Verifica e corrige URLs de imagens quebradas
@@ -24,21 +25,29 @@ export const validateAndFixStoryImages = async (storyId: string) => {
     
     // Verificar a imagem de capa
     if (story.cover_image_url) {
-      const fixedCoverUrl = await validateImageUrl(story.cover_image_url, 'story_images');
-      if (fixedCoverUrl && fixedCoverUrl !== story.cover_image_url) {
-        updatedStory.cover_image_url = fixedCoverUrl;
+      const permanentCoverUrl = await saveImagePermanently(
+        story.cover_image_url,
+        storyId
+      );
+      
+      if (permanentCoverUrl && permanentCoverUrl !== story.cover_image_url) {
+        updatedStory.cover_image_url = permanentCoverUrl;
         updates = true;
       }
     }
     
     // Verificar imagens das páginas
     if (Array.isArray(story.pages)) {
-      const updatedPages = await Promise.all(story.pages.map(async (page) => {
+      const updatedPages = await Promise.all(story.pages.map(async (page, index) => {
         if (page.image_url) {
-          const fixedPageUrl = await validateImageUrl(page.image_url, 'story_images');
-          if (fixedPageUrl && fixedPageUrl !== page.image_url) {
+          const permanentPageUrl = await saveImagePermanently(
+            page.image_url,
+            `${storyId}_page${index}`
+          );
+          
+          if (permanentPageUrl && permanentPageUrl !== page.image_url) {
             updates = true;
-            return { ...page, image_url: fixedPageUrl };
+            return { ...page, image_url: permanentPageUrl };
           }
         }
         return page;
@@ -76,32 +85,12 @@ export const validateImageUrl = async (
 ): Promise<string | null> => {
   try {
     // Já está no formato correto
-    if (imageUrl.includes('object/public')) {
+    if (imageUrl.includes('object/public/story_images')) {
       return imageUrl;
     }
     
-    // É uma URL de armazenamento do Supabase que precisa ser corrigida
-    if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
-      try {
-        const urlObj = new URL(imageUrl);
-        const pathParts = urlObj.pathname.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        
-        // Use getPublicUrl para obter a URL correta
-        const { data } = supabase
-          .storage
-          .from(bucketName)
-          .getPublicUrl(fileName);
-          
-        return data.publicUrl;
-      } catch (error) {
-        console.error("Erro ao processar URL do Supabase:", error);
-        return null;
-      }
-    }
-    
-    // Outros formatos de URL mantemos como estão
-    return imageUrl;
+    // Tenta salvar permanentemente
+    return await saveImagePermanently(imageUrl);
   } catch (e) {
     console.error("Erro ao validar URL de imagem:", e);
     return null;

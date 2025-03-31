@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { saveStoryImagesPermanently } from "@/lib/imageStorage";
 
 interface StoryPage {
   text: string;
@@ -47,6 +48,7 @@ export const useStoryData = (storyId?: string) => {
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [imagesProcessed, setImagesProcessed] = useState(false);
 
   useEffect(() => {
     const loadStory = async () => {
@@ -87,7 +89,7 @@ export const useStoryData = (storyId?: string) => {
       }
     };
     
-    const processStoryData = (data: any) => {
+    const processStoryData = async (data: any) => {
       console.log("Story data loaded:", data);
       
       const coverImage = data.cover_image_url || 
@@ -118,6 +120,9 @@ export const useStoryData = (storyId?: string) => {
       setStoryData(formattedStory);
       setTotalPages(formattedStory.pages.length + 1);
       setLoading(false);
+      
+      // Processar imagens para armazenamento permanente após carregar a história
+      processStoryImages(formattedStory, data.id);
     };
     
     const loadFromSessionStorage = () => {
@@ -153,6 +158,9 @@ export const useStoryData = (storyId?: string) => {
           
           setStoryData(formattedStory);
           setTotalPages(formattedStory.pages.length + 1);
+          
+          // Processar imagens para armazenamento permanente após carregar a história
+          processStoryImages(formattedStory);
         } else {
           console.error("No story data found in sessionStorage");
           setStoryData(defaultStory);
@@ -167,8 +175,46 @@ export const useStoryData = (storyId?: string) => {
       }
     };
     
+    const processStoryImages = async (story: StoryData, storyId?: string) => {
+      if (imagesProcessed) return;
+      
+      try {
+        // Processar imagens para armazenamento permanente
+        const updatedStory = await saveStoryImagesPermanently({
+          ...story,
+          id: storyId
+        });
+        
+        // Salvar versão atualizada da história se houver um ID
+        if (storyId) {
+          const { error: updateError } = await supabase
+            .from("stories")
+            .update({
+              cover_image_url: updatedStory.cover_image_url,
+              pages: updatedStory.pages
+            })
+            .eq("id", storyId);
+            
+          if (updateError) {
+            console.error("Error updating story with permanent images:", updateError);
+          } else {
+            console.log("Story updated with permanent images");
+          }
+        }
+        
+        // Atualizar estado com as novas URLs de imagem
+        setStoryData(updatedStory);
+        setImagesProcessed(true);
+        
+        // Atualizar sessionStorage para garantir persistência mesmo após refresh
+        sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
+      } catch (error) {
+        console.error("Error processing story images:", error);
+      }
+    };
+    
     loadStory();
-  }, [storyId]);
+  }, [storyId, imagesProcessed]);
 
   const getFallbackImage = (theme: string = ""): string => {
     const themeImages: {[key: string]: string} = {
