@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserSession, getUser, initializeDatabaseStructure } from '../lib/supabase';
@@ -160,46 +161,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign up response:', data);
       
+      // Note: We don't need to manually create the profile here anymore
+      // The database trigger will handle it automatically
+      // This is just a fallback in case the trigger fails
       if (data.user) {
-        console.info('User created successfully:', data.user.email);
+        console.info('User created successfully:', data.user.id, data.user.email);
         
-        try {
-          console.info('Creating user profile for:', data.user.id);
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .insert({ 
-              id: data.user.id,
-              display_name: email,
-              story_credits: 5,
-              is_admin: email === 'nandoesporte1@gmail.com'
-            });
-            
-          if (profileError) {
-            console.error('Error creating user profile:', profileError);
-            console.error('Profile error details:', JSON.stringify(profileError));
-            
-            console.info('Trying upsert as fallback...');
-            const { error: upsertError } = await supabase
+        // Wait a moment to ensure the trigger has time to execute
+        setTimeout(async () => {
+          try {
+            // Check if the profile was created by the trigger
+            const { data: profileData, error: checkError } = await supabase
               .from('user_profiles')
-              .upsert({ 
-                id: data.user.id,
-                display_name: email,
-                story_credits: 5,
-                is_admin: email === 'nandoesporte1@gmail.com'
-              }, { onConflict: 'id' });
+              .select('*')
+              .eq('id', data.user?.id)
+              .single();
               
-            if (upsertError) {
-              console.error('Upsert fallback also failed:', upsertError);
-              console.error('Upsert error details:', JSON.stringify(upsertError));
+            if (checkError || !profileData) {
+              console.warn('Profile might not have been created by trigger, attempting manual creation');
+              
+              // Fallback: Try to create the profile manually
+              const { error: profileError } = await supabase
+                .from('user_profiles')
+                .upsert({ 
+                  id: data.user.id,
+                  display_name: email,
+                  story_credits: 5,
+                  is_admin: email === 'nandoesporte1@gmail.com'
+                }, { onConflict: 'id' });
+                
+              if (profileError) {
+                console.error('Error creating user profile fallback:', profileError);
+              } else {
+                console.info('User profile created manually as fallback');
+              }
             } else {
-              console.info('User profile created/updated successfully via upsert');
+              console.info('User profile was created by trigger successfully');
             }
-          } else {
-            console.info('User profile created successfully via insert');
+          } catch (e) {
+            console.error('Error in profile creation check:', e);
           }
-        } catch (profileError) {
-          console.error('Exception in profile creation:', profileError);
-        }
+        }, 1000);
       }
       
       return { data, error: null };

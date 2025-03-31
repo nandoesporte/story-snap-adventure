@@ -10,7 +10,10 @@ BEGIN
     5,
     CASE WHEN NEW.email = 'nandoesporte1@gmail.com' THEN TRUE ELSE FALSE END
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE
+  SET display_name = EXCLUDED.display_name,
+      story_credits = EXCLUDED.story_credits,
+      is_admin = EXCLUDED.is_admin;
   
   RETURN NEW;
 END;
