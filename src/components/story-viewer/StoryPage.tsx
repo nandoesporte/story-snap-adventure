@@ -42,24 +42,20 @@ export const StoryPage: React.FC<StoryPageProps> = ({
 }) => {
   const fallbackImage = getFallbackImage("");
   
-  // Debug log
+  // Debug logging
   useEffect(() => {
-    console.log("StoryPage rendered:", {
+    console.log("StoryPage rendering:", {
       title,
       imageUrl,
       pageIndex,
       isMobile,
       isFullscreen,
       hideText,
-      hasText: !!typedText,
-      viewportSize: {
-        width: window.innerWidth,
-        height: window.innerHeight
-      }
+      hasText: !!typedText
     });
   }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText]);
 
-  // Layout for mobile devices
+  // Mobile layout
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
@@ -67,7 +63,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           <CoverImage 
             imageUrl={imageUrl}
             fallbackImage={fallbackImage}
-            alt={`Illustration for page ${pageIndex + 1}`}
+            alt={`Ilustração da página ${pageIndex + 1}`}
             className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
             onError={() => onImageError(imageUrl)}
@@ -76,8 +72,8 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         
         {!hideText && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
-            <div className="relative p-4 sm:p-5 pb-6 bg-black/40 backdrop-blur-md rounded-t-xl">
-              <h2 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-white text-shadow">{title}</h2>
+            <div className="relative p-5 pb-6 bg-black/40 backdrop-blur-md rounded-t-xl">
+              <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
               <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
                   <p key={idx} className="mb-2 leading-relaxed text-shadow font-medium">{paragraph}</p>
@@ -85,13 +81,13 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
               </div>
               
-              <div className="pt-2 sm:pt-3 mt-2 sm:mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
+              <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
                 {!isFullscreen && (
                   <span>{childName}</span>
                 )}
               </div>
               
-              <div className="mt-3 sm:mt-4 flex justify-center gap-2">
+              <div className="mt-4 flex justify-center gap-2">
                 <NarrationPlayer
                   storyId={storyId || ''}
                   pageIndex={pageIndex}
@@ -106,26 +102,26 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         )}
         
         <Button 
-          className="fixed bottom-20 sm:bottom-24 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm py-1 px-2 sm:px-3 flex items-center gap-1 shadow-lg"
+          className="fixed bottom-24 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 flex items-center gap-1 shadow-lg"
           size="sm"
           variant="ghost"
           onClick={onToggleTextVisibility}
         >
-          {hideText ? <Eye className="w-3 h-3 sm:w-4 sm:h-4" /> : <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" />}
-          {hideText ? "Show text" : "Hide text"}
+          {hideText ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          {hideText ? "Mostrar texto" : "Ocultar texto"}
         </Button>
       </div>
     );
   }
   
-  // Layout for desktop
+  // Desktop layout
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
         <CoverImage 
           imageUrl={imageUrl}
           fallbackImage={fallbackImage}
-          alt={`Illustration for page ${pageIndex + 1}`}
+          alt={`Ilustração da página ${pageIndex + 1}`}
           className="max-w-full max-h-full object-contain rounded-lg shadow-md"
           onClick={() => onImageClick(imageUrl)}
           onError={() => onImageError(imageUrl)}
@@ -158,7 +154,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-400 italic">Text hidden</p>
+            <p className="text-gray-400 italic">Texto oculto</p>
           </div>
         )}
         
@@ -169,7 +165,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           onClick={onToggleTextVisibility}
         >
           {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
-          {hideText ? "Show text" : "Hide text"}
+          {hideText ? "Mostrar texto" : "Ocultar texto"}
         </Button>
       </div>
     </div>

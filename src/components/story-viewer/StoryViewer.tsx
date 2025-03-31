@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; // Add Button import
 import LoadingSpinner from "../LoadingSpinner";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
@@ -33,10 +33,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<HTMLDivElement>(null);
-  const { isMobile, windowWidth, windowHeight } = useIsMobile();
+  const isMobile = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [forceRender, setForceRender] = useState(0);
   
   // Custom hooks
   const {
@@ -76,90 +74,45 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handleZoomOut
   } = useImageViewer();
 
-  // Initial log for debugging
-  useEffect(() => {
-    console.log("StoryViewer mounted with initial state:", {
-      isMobile,
-      viewportWidth: windowWidth,
-      viewportHeight: windowHeight,
-      hasStoryData: !!storyData,
-      storyId: effectiveStoryId,
-      isFullscreen,
-      currentPage,
-      forceRender
-    });
-  }, [isMobile, storyData, effectiveStoryId, isFullscreen, currentPage, windowWidth, windowHeight, forceRender]);
-
-  // Ensure content is ready after loading
+  // Make sure content is ready after loading
   useEffect(() => {
     if (!loading && storyData) {
       // Add a small delay to ensure all components are ready
       const timer = setTimeout(() => {
         setIsContentReady(true);
-        setHasInitialized(true);
-        console.log("Story content ready for display", {
-          storyDataExists: !!storyData,
-          pageCount: storyData?.pages?.length || 0,
-          coverImage: storyData?.cover_image_url || storyData?.coverImageUrl,
-          mode: isFullscreen ? "fullscreen" : "regular",
-          deviceType: isMobile ? "mobile" : "desktop",
-          dimensions: { width: windowWidth, height: windowHeight }
-        });
-      }, 300);
+        console.log("Story content is ready to display");
+      }, 200);
       
       return () => clearTimeout(timer);
     }
-  }, [loading, storyData, isFullscreen, isMobile, windowWidth, windowHeight]);
+  }, [loading, storyData]);
 
-  // Force a reset when screen size changes dramatically
-  useEffect(() => {
-    console.log("State change detected:", { 
-      isMobile, 
-      isFullscreen, 
-      width: windowWidth, 
-      height: windowHeight 
-    });
-    
-    if (hasInitialized && storyData) {
-      // Small delay to ensure DOM has updated
-      const timer = setTimeout(() => {
-        forcePageReset();
-        setForceRender(prev => prev + 1);
-        console.log("Forcing reset after screen size change");
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isMobile, hasInitialized, storyData, forcePageReset, isFullscreen, windowWidth, windowHeight]);
-
-  // Effect to maintain correct visual state when toggling fullscreen
+  // Efeito para manter o estado visual correto ao alternar tela cheia
   useEffect(() => {
     preserveFullscreenState(isFullscreen);
   }, [isFullscreen, preserveFullscreenState]);
   
-  // Add a handler to solve white screen issues
+  // Adicionar um manipulador para resolver problemas de tela branca
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && storyData) {
-        // Document became visible again, check if update needed
-        console.log("Document became visible again, checking if update needed");
+        // Documento voltou a ficar visível, verificar se precisa atualizar
+        console.log("Documento voltou a ficar visível, verificando necessidade de atualização");
         setTimeout(() => {
           forcePageReset();
-          setForceRender(prev => prev + 1);
         }, 300);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Add a listener for image loading errors
+    // Adiciona um ouvinte para erros de carregamento de imagem
     const handleUnhandledErrors = (event: ErrorEvent) => {
       if (event.message.includes('loading chunk') || 
           event.message.includes('loading CSS chunk') ||
           event.message.includes('Failed to load resource')) {
-        console.error("Loading error detected:", event.message);
+        console.error("Erro de carregamento detectado:", event.message);
         forcePageReset();
-        setForceRender(prev => prev + 1);
       }
     };
     
@@ -186,22 +139,21 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   };
   
   const handleResetPage = () => {
-    toast.info("Reloading page...");
+    toast.info("Recarregando página...");
     forcePageReset();
-    setForceRender(prev => prev + 1);
   };
 
   // Handle error cases
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center flex-col gap-4 p-8">
-        <p className="text-red-500">Error loading story</p>
+        <p className="text-red-500">Erro ao carregar a história</p>
         <Button 
           onClick={handleResetPage}
           variant="outline"
           size="sm"
         >
-          Try again
+          Tentar novamente
         </Button>
       </div>
     );
@@ -218,7 +170,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           ref={storyContainerRef} 
           className="flex-1 flex flex-col h-full overflow-hidden"
           data-testid="story-viewer-container"
-          key={`story-container-${forceRender}-${isFullscreen ? 'fullscreen' : 'regular'}-${isMobile ? 'mobile' : 'desktop'}`}
         >
           <ViewerControls
             storyId={effectiveStoryId}
@@ -246,8 +197,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                 isFullscreen={isFullscreen}
                 isMobile={isMobile}
                 hideText={hideText}
-                windowWidth={windowWidth}
-                windowHeight={windowHeight}
                 onImageClick={handleImageClick}
                 onImageError={handleImageError}
                 onToggleTextVisibility={toggleTextVisibility}
@@ -277,15 +226,5 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     </div>
   );
 };
-
-// Add global declaration for resize timer
-declare global {
-  interface Window {
-    resizeTimer: ReturnType<typeof setTimeout> | null;
-  }
-}
-
-// Initialization
-window.resizeTimer = null;
 
 export default StoryViewer;
