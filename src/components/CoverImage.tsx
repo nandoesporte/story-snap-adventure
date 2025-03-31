@@ -9,6 +9,7 @@ interface CoverImageProps {
   className?: string;
   onClick?: () => void;
   onError?: () => void;
+  onLoad?: () => void;
 }
 
 export const CoverImage: React.FC<CoverImageProps> = ({
@@ -17,7 +18,8 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   alt,
   className = '',
   onClick,
-  onError
+  onError,
+  onLoad
 }) => {
   const [imgError, setImgError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -136,6 +138,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
 
   const handleLoad = () => {
     setLoaded(true);
+    if (onLoad) onLoad();
   };
 
   // Use the fallback image if there was an error

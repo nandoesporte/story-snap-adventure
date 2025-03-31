@@ -123,3 +123,51 @@ const hashSimple = (str: string): string => {
   }
   return hash.toString(36);
 };
+
+/**
+ * Check if an URL points to permanent storage
+ */
+export const isPermanentStorage = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Check if URL is from Supabase storage
+  if (url.includes('supabase.co/storage/v1/object/public')) {
+    return true;
+  }
+  
+  // Check if URL is from our project's static assets
+  if (url.startsWith(window.location.origin) && url.includes('/images/')) {
+    return true;
+  }
+  
+  // Check if it's a relative path to static assets
+  if (url.startsWith('/images/') || url === '/placeholder.svg') {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Check if an URL is likely temporary
+ */
+export const isTemporaryUrl = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Check known temporary URL patterns
+  if (url.includes('oaidalleapiprodscus.blob.core.windows.net')) {
+    return true;
+  }
+  
+  // Check for URLs with expiry parameters
+  if (url.includes('se=') && (url.includes('sig=') || url.includes('token='))) {
+    return true;
+  }
+  
+  // Check for URLs with explicit expiry tokens
+  if (url.includes('expiry=') || url.includes('expires=')) {
+    return true;
+  }
+  
+  return false;
+};
