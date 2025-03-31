@@ -85,105 +85,67 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   };
   
   return (
-    <>
-      <div className="bg-white border-b border-gray-200 p-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleGoHome} 
-            className="text-gray-600"
-          >
-            <Home className="w-4 h-4" />
-            <span className="ml-1 hidden md:inline">Início</span>
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleCreateNew} 
-            className="text-gray-600"
-          >
-            <BookText className="w-4 h-4" />
-            <span className="ml-1 hidden md:inline">Nova História</span>
-          </Button>
-        </div>
+    <div className="bg-white border-b border-gray-200 p-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleGoHome} 
+          className="text-gray-600"
+        >
+          <Home className="w-4 h-4" />
+          <span className="ml-1 hidden md:inline">Início</span>
+        </Button>
         
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {!isMobile && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleFullscreen}
-              className="text-gray-600"
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-              <span className="ml-1 hidden md:inline">
-                {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-              </span>
-            </Button>
-          )}
-          
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleCreateNew} 
+          className="text-gray-600"
+        >
+          <BookText className="w-4 h-4" />
+          <span className="ml-1 hidden md:inline">Nova História</span>
+        </Button>
+      </div>
+      
+      <div className="flex items-center gap-2 flex-wrap justify-end">
+        {!isMobile && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleShareStory}
+            onClick={onToggleFullscreen}
             className="text-gray-600"
           >
-            <Share className="w-4 h-4" />
-            <span className="ml-1 hidden md:inline">Compartilhar</span>
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDownloadPDF}
-            disabled={isDownloading}
-            className="text-gray-600"
-          >
-            <Download className="w-4 h-4" />
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             <span className="ml-1 hidden md:inline">
-              {isDownloading ? "Processando..." : "Download PDF"}
+              {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
             </span>
           </Button>
-        </div>
-      </div>
-      
-      <div className="absolute inset-y-0 left-2 flex items-center z-10">
-        {currentPage > 0 && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onPrevious}
-            className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
         )}
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleShareStory}
+          className="text-gray-600"
+        >
+          <Share className="w-4 h-4" />
+          <span className="ml-1 hidden md:inline">Compartilhar</span>
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDownloadPDF}
+          disabled={isDownloading}
+          className="text-gray-600"
+        >
+          <Download className="w-4 h-4" />
+          <span className="ml-1 hidden md:inline">
+            {isDownloading ? "Processando..." : "Download PDF"}
+          </span>
+        </Button>
       </div>
-      
-      <div className="absolute inset-y-0 right-2 flex items-center z-10">
-        {currentPage < totalPages - 1 && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onNext}
-            className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-        )}
-      </div>
-      
-      {!isFullscreen && (
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
-          <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
-            <span className="text-xs text-gray-800">
-              {currentPage} / {totalPages - 1}
-            </span>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 };
