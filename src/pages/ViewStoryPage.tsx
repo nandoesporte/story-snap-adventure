@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Sun, Volume, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Moon, Sun, Volume, VolumeX, ChevronLeft, ChevronRight, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -302,65 +303,113 @@ const ViewStoryPage: React.FC = () => {
           </div>
         ) : story ? (
           <div className="flex-1 flex flex-col relative">
-            <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
-              <Button
-                onClick={toggleNightMode}
-                className={`rounded-full w-12 h-12 flex items-center justify-center ${
-                  isNightMode ? 'bg-yellow-400 text-gray-800' : 'bg-gray-800 text-white'
-                }`}
-                aria-label={isNightMode ? "Modo dia" : "Modo noite"}
-              >
-                {isNightMode ? <Sun /> : <Moon />}
-              </Button>
-              
-              <Button
-                onClick={play}
-                className={`rounded-full w-12 h-12 flex items-center justify-center ${
-                  isPlaying ? 'bg-purple-600 text-white' : 'bg-white text-purple-600'
-                } border-2 ${isPlaying ? 'border-white' : 'border-purple-600'}`}
-                aria-label={isPlaying ? "Parar narração" : "Ouvir narração"}
-              >
-                {isPlaying ? <VolumeX /> : <Volume />}
-              </Button>
-              
-              {isMobile && (
-                <Button
-                  onClick={toggleTextVisibility}
-                  className={`rounded-full w-12 h-12 flex items-center justify-center bg-white text-purple-600 border-2 border-purple-600`}
-                  aria-label={hideText ? "Mostrar texto" : "Ocultar texto"}
-                >
-                  {hideText ? "T" : "T"}
-                </Button>
-              )}
-            </div>
+            {/* Mobile bottom control bar */}
+            {isMobile && (
+              <div className="fixed bottom-6 left-0 right-0 z-50 px-4">
+                <div className="flex justify-center items-center gap-3">
+                  <div className="flex bg-white/80 backdrop-blur-md shadow-lg rounded-full p-1.5">
+                    {currentPage > 0 && !isFlipping && (
+                      <Button
+                        onClick={handlePreviousPage}
+                        className="rounded-full w-10 h-10 flex items-center justify-center bg-transparent hover:bg-gray-100 text-gray-800"
+                        aria-label="Página anterior"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                    )}
+                    
+                    <Button
+                      onClick={toggleNightMode}
+                      className={`rounded-full w-10 h-10 flex items-center justify-center bg-transparent hover:bg-gray-100 text-gray-800`}
+                      aria-label={isNightMode ? "Modo dia" : "Modo noite"}
+                    >
+                      {isNightMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                    </Button>
+                    
+                    <Button
+                      onClick={play}
+                      className={`rounded-full w-10 h-10 flex items-center justify-center bg-transparent hover:bg-gray-100 text-gray-800`}
+                      aria-label={isPlaying ? "Parar narração" : "Ouvir narração"}
+                    >
+                      {isPlaying ? <VolumeX className="h-5 w-5" /> : <Volume className="h-5 w-5" />}
+                    </Button>
+                    
+                    <Button
+                      onClick={toggleTextVisibility}
+                      className={`rounded-full w-10 h-10 flex items-center justify-center bg-transparent hover:bg-gray-100 text-gray-800`}
+                      aria-label={hideText ? "Mostrar texto" : "Ocultar texto"}
+                    >
+                      <Type className="h-5 w-5" />
+                    </Button>
+                    
+                    {currentPage < story.pages.length && !isFlipping && (
+                      <Button
+                        onClick={handleNextPage}
+                        className="rounded-full w-10 h-10 flex items-center justify-center bg-transparent hover:bg-gray-100 text-gray-800"
+                        aria-label="Próxima página"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
-            <div className="absolute inset-y-0 left-4 flex items-center z-30">
-              {currentPage > 0 && !isFlipping && (
-                <Button
-                  onClick={handlePreviousPage}
-                  className={`rounded-full w-12 h-12 flex items-center justify-center ${
-                    isNightMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'
-                  } shadow-lg`}
-                  aria-label="Página anterior"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </Button>
-              )}
-            </div>
-            
-            <div className="absolute inset-y-0 right-4 flex items-center z-30">
-              {currentPage < story.pages.length && !isFlipping && (
-                <Button
-                  onClick={handleNextPage}
-                  className={`rounded-full w-12 h-12 flex items-center justify-center ${
-                    isNightMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'
-                  } shadow-lg`}
-                  aria-label="Próxima página"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </Button>
-              )}
-            </div>
+            {/* Desktop controls - only visible on non-mobile devices */}
+            {!isMobile && (
+              <>
+                <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+                  <Button
+                    onClick={toggleNightMode}
+                    className={`rounded-full w-12 h-12 flex items-center justify-center ${
+                      isNightMode ? 'bg-yellow-400 text-gray-800' : 'bg-gray-800 text-white'
+                    }`}
+                    aria-label={isNightMode ? "Modo dia" : "Modo noite"}
+                  >
+                    {isNightMode ? <Sun /> : <Moon />}
+                  </Button>
+                  
+                  <Button
+                    onClick={play}
+                    className={`rounded-full w-12 h-12 flex items-center justify-center ${
+                      isPlaying ? 'bg-purple-600 text-white' : 'bg-white text-purple-600'
+                    } border-2 ${isPlaying ? 'border-white' : 'border-purple-600'}`}
+                    aria-label={isPlaying ? "Parar narração" : "Ouvir narração"}
+                  >
+                    {isPlaying ? <VolumeX /> : <Volume />}
+                  </Button>
+                </div>
+                
+                <div className="absolute inset-y-0 left-4 flex items-center z-30">
+                  {currentPage > 0 && !isFlipping && (
+                    <Button
+                      onClick={handlePreviousPage}
+                      className={`rounded-full w-12 h-12 flex items-center justify-center ${
+                        isNightMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'
+                      } shadow-lg`}
+                      aria-label="Página anterior"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="absolute inset-y-0 right-4 flex items-center z-30">
+                  {currentPage < story.pages.length && !isFlipping && (
+                    <Button
+                      onClick={handleNextPage}
+                      className={`rounded-full w-12 h-12 flex items-center justify-center ${
+                        isNightMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'
+                      } shadow-lg`}
+                      aria-label="Próxima página"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
             
             <div 
               className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-30 py-2 px-6 rounded-full font-medium ${
