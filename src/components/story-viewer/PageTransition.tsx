@@ -3,7 +3,6 @@ import React, { useRef, useEffect, useState } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage } from "./helpers";
-import { toast } from "sonner";
 
 interface PageTransitionProps {
   storyId: string | undefined;
@@ -133,7 +132,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   // Calculate transition classes based on state
   const transitionClasses = `
     absolute inset-0 
-    transition-all duration-300 ease-in-out 
+    transition-transform duration-300 ease-in-out 
     ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : "translate-x-0"} 
     ${isRendered ? 'opacity-100' : 'opacity-0'}
   `;
@@ -154,6 +153,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           setting={storyData.setting}
           style={storyData.style}
           isMobile={isMobile}
+          storyId={storyId}
           onImageClick={onImageClick}
           onImageError={handleImageLoadError}
         />

@@ -23,11 +23,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[90vw] h-[90vh] p-0 bg-black/95">
+      <DialogContent className="max-w-6xl w-[95vw] h-[95vh] p-0 bg-black/95 border-0">
         <DialogTitle className="sr-only">Visualização da imagem</DialogTitle>
         <div className="relative w-full h-full flex items-center justify-center">
           <div 
-            className="overflow-auto w-full h-full flex items-center justify-center"
+            className="overflow-auto w-full h-full flex items-center justify-center transition-transform duration-200"
             style={{ transform: `scale(${zoom})` }}
           >
             <img 
@@ -41,28 +41,28 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
               variant="ghost" 
               size="icon"
               onClick={onZoomIn}
-              className="bg-white/10 hover:bg-white/20 text-white"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full h-10 w-10"
               aria-label="Ampliar imagem"
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-5 w-5" />
             </Button>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={onZoomOut}
-              className="bg-white/10 hover:bg-white/20 text-white"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full h-10 w-10"
               aria-label="Diminuir imagem"
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-5 w-5" />
             </Button>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="bg-white/10 hover:bg-white/20 text-white"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full h-10 w-10"
               aria-label="Fechar visualização"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>

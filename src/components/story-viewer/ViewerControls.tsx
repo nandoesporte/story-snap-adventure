@@ -53,7 +53,6 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   
   const handleShareStory = () => {
     if (!storyId) {
-      toast.info("Salve a história primeiro para poder compartilhá-la.");
       return;
     }
     
@@ -74,24 +73,17 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   };
   
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        toast.success("Link copiado para a área de transferência!");
-      })
-      .catch(err => {
-        console.error("Erro ao copiar texto:", err);
-        toast.error("Não foi possível copiar o link");
-      });
+    navigator.clipboard.writeText(text);
   };
   
   return (
-    <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-between gap-2 z-20">
+    <div className="bg-white border-b border-gray-100 p-3 flex items-center justify-between gap-2 z-20 shadow-sm">
       <div className="flex items-center gap-2">
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={handleGoHome} 
-          className="text-gray-600"
+          className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
           aria-label="Ir para página inicial"
         >
           <Home className="w-4 h-4" />
@@ -102,7 +94,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           variant="ghost" 
           size="sm" 
           onClick={handleCreateNew} 
-          className="text-gray-600"
+          className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
           aria-label="Criar nova história"
         >
           <BookText className="w-4 h-4" />
@@ -117,12 +109,12 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             size="sm"
             onClick={onPrevious}
             disabled={currentPage <= 0}
-            className="text-gray-600"
+            className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
             aria-label="Página anterior"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="text-sm text-gray-500 font-medium">
+          <div className="text-sm text-violet-800 font-medium">
             {currentPage + 1} / {totalPages}
           </div>
           <Button
@@ -130,7 +122,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             size="sm"
             onClick={onNext}
             disabled={currentPage >= totalPages - 1}
-            className="text-gray-600"
+            className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
             aria-label="Próxima página"
           >
             <ChevronRight className="w-4 h-4" />
@@ -144,7 +136,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             variant="ghost"
             size="sm"
             onClick={onToggleFullscreen}
-            className="text-gray-600"
+            className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
             aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
@@ -158,7 +150,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           variant="ghost"
           size="sm"
           onClick={handleShareStory}
-          className="text-gray-600"
+          className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
           aria-label="Compartilhar história"
         >
           <Share className="w-4 h-4" />
@@ -170,7 +162,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           size="sm"
           onClick={onDownloadPDF}
           disabled={isDownloading}
-          className="text-gray-600"
+          className="text-violet-700 hover:text-violet-800 hover:bg-violet-50"
           aria-label="Baixar PDF"
         >
           <Download className="w-4 h-4" />

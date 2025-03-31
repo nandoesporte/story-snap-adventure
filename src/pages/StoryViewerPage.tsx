@@ -115,8 +115,8 @@ const StoryViewerPage = () => {
               className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-8 text-center"
             >
               <div className="flex flex-col items-center gap-4 py-8">
-                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
-                  <CreditCard className="h-8 w-8 text-amber-600" />
+                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center">
+                  <CreditCard className="h-8 w-8 text-violet-600" />
                 </div>
                 <h1 className="text-3xl font-bold">Assinatura Necessária</h1>
                 <p className="text-gray-600 max-w-md mb-4">
@@ -127,7 +127,7 @@ const StoryViewerPage = () => {
                     Voltar para Início
                   </Button>
                   <Button 
-                    className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
+                    className="bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white"
                     onClick={() => navigate("/planos")}
                   >
                     Ver Planos de Assinatura
