@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import CoverImage from "../CoverImage";
 import { getImageUrl } from "./helpers";
 
@@ -26,7 +26,10 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   onImageClick,
   onImageError
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const formattedImageUrl = getImageUrl(coverImageSrc, theme);
+  const fallbackImageUrl = `/images/placeholders/${theme || 'fantasy'}.jpg`;
 
   // Log for debugging
   useEffect(() => {
@@ -34,9 +37,22 @@ export const CoverPage: React.FC<CoverPageProps> = ({
       title,
       imageUrl: formattedImageUrl,
       isMobile,
-      theme
+      theme,
+      imageLoaded,
+      imageError
     });
-  }, [formattedImageUrl, isMobile, title, theme]);
+  }, [formattedImageUrl, isMobile, title, theme, imageLoaded, imageError]);
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    console.error("Failed to load cover image:", formattedImageUrl);
+    setImageError(true);
+    onImageError(coverImageSrc);
+  };
 
   // Mobile layout
   if (isMobile) {
@@ -45,12 +61,13 @@ export const CoverPage: React.FC<CoverPageProps> = ({
         <div className="w-full h-full relative overflow-hidden rounded-2xl shadow-lg">
           <div className="w-full h-full bg-gradient-to-br from-violet-50 to-indigo-50">
             <CoverImage 
-              imageUrl={formattedImageUrl}
-              fallbackImage={getImageUrl(undefined, theme)}
+              imageUrl={imageError ? fallbackImageUrl : formattedImageUrl}
+              fallbackImage={fallbackImageUrl}
               alt={title}
               className="w-full h-full object-cover"
               onClick={() => onImageClick(formattedImageUrl)}
-              onError={() => onImageError(coverImageSrc)}
+              onError={handleImageError}
+              onLoad={handleImageLoad}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-4 md:p-8">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4 text-white drop-shadow-md line-clamp-2">{title}</h2>
@@ -86,12 +103,13 @@ export const CoverPage: React.FC<CoverPageProps> = ({
         <div className="flex-1 p-4 flex items-center justify-center overflow-hidden">
           <div className="w-4/5 h-4/5 max-h-[70vh] relative rounded-xl shadow-md overflow-hidden">
             <CoverImage 
-              imageUrl={formattedImageUrl}
-              fallbackImage={getImageUrl(undefined, theme)}
+              imageUrl={imageError ? fallbackImageUrl : formattedImageUrl}
+              fallbackImage={fallbackImageUrl}
               alt={title}
               className="w-full h-full object-cover"
               onClick={() => onImageClick(formattedImageUrl)}
-              onError={() => onImageError(coverImageSrc)}
+              onError={handleImageError}
+              onLoad={handleImageLoad}
             />
           </div>
         </div>

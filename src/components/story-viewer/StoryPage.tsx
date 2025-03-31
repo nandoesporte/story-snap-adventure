@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +40,24 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onImageError,
   onToggleTextVisibility
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const fallbackImage = getFallbackImage("");
+  const themeFromUrl = imageUrl.includes('theme=') ? 
+    imageUrl.split('theme=')[1].split('&')[0] : 
+    'fantasy';
+  const themeFallback = `/images/placeholders/${themeFromUrl}.jpg`;
+  
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    console.error("Failed to load story image:", imageUrl);
+    setImageError(true);
+    onImageError(imageUrl);
+  };
   
   // Debug logging
   useEffect(() => {
@@ -51,9 +68,11 @@ export const StoryPage: React.FC<StoryPageProps> = ({
       isMobile,
       isFullscreen,
       hideText,
-      hasText: !!typedText
+      hasText: !!typedText,
+      imageLoaded,
+      imageError
     });
-  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText]);
+  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText, imageLoaded, imageError]);
 
   // Mobile layout
   if (isMobile) {
@@ -61,12 +80,13 @@ export const StoryPage: React.FC<StoryPageProps> = ({
       <div className="w-full h-full flex flex-col relative overflow-hidden">
         <div className="story-image-fullscreen h-full w-full relative">
           <CoverImage 
-            imageUrl={imageUrl}
-            fallbackImage={fallbackImage}
+            imageUrl={imageError ? themeFallback : imageUrl}
+            fallbackImage={themeFallback}
             alt={`Ilustração da página ${pageIndex + 1}`}
             className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
-            onError={() => onImageError(imageUrl)}
+            onError={handleImageError}
+            onLoad={handleImageLoad}
           />
         </div>
         
@@ -119,12 +139,13 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
         <CoverImage 
-          imageUrl={imageUrl}
-          fallbackImage={fallbackImage}
+          imageUrl={imageError ? themeFallback : imageUrl}
+          fallbackImage={themeFallback}
           alt={`Ilustração da página ${pageIndex + 1}`}
           className="max-w-full max-h-full object-contain rounded-lg shadow-md"
           onClick={() => onImageClick(imageUrl)}
-          onError={() => onImageError(imageUrl)}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
         />
       </div>
       

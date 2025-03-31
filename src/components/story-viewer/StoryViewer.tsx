@@ -35,6 +35,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
+  const [hasErrors, setHasErrors] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
   
   // Custom hooks
   const {
@@ -81,23 +83,23 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       const timer = setTimeout(() => {
         setIsContentReady(true);
         console.log("Story content is ready to display");
-      }, 200);
+      }, 500); // Increased delay to ensure images have time to load
       
       return () => clearTimeout(timer);
     }
   }, [loading, storyData]);
 
-  // Efeito para manter o estado visual correto ao alternar tela cheia
+  // Effect to maintain correct visual state when toggling fullscreen
   useEffect(() => {
     preserveFullscreenState(isFullscreen);
   }, [isFullscreen, preserveFullscreenState]);
   
-  // Adicionar um manipulador para resolver problemas de tela branca
+  // Add a handler to fix white screen issues
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && storyData) {
-        // Documento voltou a ficar visível, verificar se precisa atualizar
-        console.log("Documento voltou a ficar visível, verificando necessidade de atualização");
+        // Document became visible again, check if update is needed
+        console.log("Document became visible again, checking if update is needed");
         setTimeout(() => {
           forcePageReset();
         }, 300);
@@ -106,13 +108,22 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Adiciona um ouvinte para erros de carregamento de imagem
+    // Add a listener for unhandled loading errors
     const handleUnhandledErrors = (event: ErrorEvent) => {
       if (event.message.includes('loading chunk') || 
           event.message.includes('loading CSS chunk') ||
           event.message.includes('Failed to load resource')) {
-        console.error("Erro de carregamento detectado:", event.message);
-        forcePageReset();
+        console.error("Loading error detected:", event.message);
+        setHasErrors(true);
+        setErrorCount(prev => prev + 1);
+        
+        if (errorCount < 3) {
+          forcePageReset();
+        } else if (errorCount === 3) {
+          toast.error("Problemas ao carregar recursos. Tente recarregar a página.", {
+            duration: 5000
+          });
+        }
       }
     };
     
@@ -122,7 +133,23 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleUnhandledErrors);
     };
-  }, [storyData, forcePageReset]);
+  }, [storyData, forcePageReset, errorCount]);
+  
+  // Enhanced image error handling
+  const handleStoryImageError = (url: string) => {
+    console.error("Image failed to load:", url);
+    setErrorCount(prev => prev + 1);
+    handleImageError(url);
+    
+    // Only show a toast for the first few errors to avoid spamming
+    if (errorCount < 2) {
+      toast.error("Algumas imagens não puderam ser carregadas", { 
+        description: "Estamos usando imagens alternativas para garantir a leitura da história.",
+        duration: 3000,
+        id: "image-load-error" // Avoid duplicate toasts
+      });
+    }
+  };
   
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
@@ -198,7 +225,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                 isMobile={isMobile}
                 hideText={hideText}
                 onImageClick={handleImageClick}
-                onImageError={handleImageError}
+                onImageError={handleStoryImageError}
                 onToggleTextVisibility={toggleTextVisibility}
               />
             )}
