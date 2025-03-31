@@ -50,7 +50,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
-        <div className="w-full h-full">
+        <div className="story-image-fullscreen h-full w-full relative">
           <CoverImage 
             imageUrl={imageUrl}
             fallbackImage={fallbackImage}

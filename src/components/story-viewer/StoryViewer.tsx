@@ -1,5 +1,5 @@
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import LoadingSpinner from "../LoadingSpinner";
@@ -44,11 +44,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     typedText,
     handlePreviousPage,
     handleNextPage,
-    toggleTextVisibility
+    toggleTextVisibility,
+    preserveFullscreenState
   } = useStoryNavigation(storyData, isMobile);
   
   const {
     isFullscreen,
+    isTransitioning,
     toggleFullscreen
   } = useFullscreen();
   
@@ -66,6 +68,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handleZoomIn,
     handleZoomOut
   } = useImageViewer();
+
+  // Efeito para manter o estado visual correto ao alternar tela cheia
+  useEffect(() => {
+    preserveFullscreenState(isFullscreen);
+  }, [isFullscreen, preserveFullscreenState]);
   
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
@@ -107,7 +114,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
             onToggleFullscreen={handleToggleFullscreen}
           />
           
-          <div className="flex-1 relative overflow-hidden">
+          <div className={`flex-1 relative overflow-hidden ${isTransitioning ? 'opacity-95' : ''}`}>
             <PageTransition
               storyId={effectiveStoryId}
               storyData={storyDataWithTypedText}

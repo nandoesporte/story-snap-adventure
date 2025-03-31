@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTypingEffect } from "./useTypingEffect";
 
 export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
@@ -9,6 +9,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   const [isRendered, setIsRendered] = useState(false);
   const [hideText, setHideText] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
+  const [lastFullscreenState, setLastFullscreenState] = useState(false);
 
   // Calculate current page text
   const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
@@ -35,8 +36,8 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     }
   }, [storyData]);
 
-  const handlePreviousPage = () => {
-    if (currentPage > 0) {
+  const handlePreviousPage = useCallback(() => {
+    if (currentPage > 0 && !isFlipping) {
       setFlipDirection("left");
       setIsFlipping(true);
       setTimeout(() => {
@@ -44,10 +45,10 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
         setIsFlipping(false);
       }, 300);
     }
-  };
+  }, [currentPage, isFlipping]);
   
-  const handleNextPage = () => {
-    if (storyData && currentPage < totalPages - 1) {
+  const handleNextPage = useCallback(() => {
+    if (storyData && currentPage < totalPages - 1 && !isFlipping) {
       setFlipDirection("right");
       setIsFlipping(true);
       setTimeout(() => {
@@ -55,11 +56,23 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
         setIsFlipping(false);
       }, 300);
     }
-  };
+  }, [currentPage, isFlipping, storyData, totalPages]);
 
-  const toggleTextVisibility = () => {
+  const toggleTextVisibility = useCallback(() => {
     setHideText(!hideText);
-  };
+  }, [hideText]);
+
+  // Para preservar o estado ao alternar entre tela cheia
+  const preserveFullscreenState = useCallback((isNowFullscreen: boolean) => {
+    setLastFullscreenState(isNowFullscreen);
+    // Se estiver saindo da tela cheia, garanta que a página atual seja recarregada
+    if (!isNowFullscreen && lastFullscreenState) {
+      setIsFlipping(true);
+      setTimeout(() => {
+        setIsFlipping(false);
+      }, 100);
+    }
+  }, [lastFullscreenState]);
 
   return {
     currentPage,
@@ -72,6 +85,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     typedText,
     handlePreviousPage,
     handleNextPage,
-    toggleTextVisibility
+    toggleTextVisibility,
+    preserveFullscreenState
   };
 };

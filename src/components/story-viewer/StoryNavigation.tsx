@@ -20,7 +20,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
 }) => {
   return (
     <>
-      <div className="absolute inset-y-0 left-2 flex items-center z-20">
+      <div className="absolute inset-y-0 left-2 flex items-center z-50">
         {currentPage > 0 && !isFlipping && (
           <Button
             onClick={onPrevious}
@@ -31,7 +31,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
         )}
       </div>
       
-      <div className="absolute inset-y-0 right-2 flex items-center z-20">
+      <div className="absolute inset-y-0 right-2 flex items-center z-50">
         {currentPage < totalPages - 1 && !isFlipping && (
           <Button
             onClick={onNext}
@@ -42,7 +42,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
         )}
       </div>
       
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20 pointer-events-none">
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
         <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
           <span className="text-xs text-gray-800">
             {currentPage} / {totalPages - 1}
