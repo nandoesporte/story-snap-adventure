@@ -1,189 +1,203 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Menu, X } from 'lucide-react';
-import UserProfile from './UserProfile';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/context/AuthContext';
-import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from './ui/navigation-menu';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useIsMobile } from "../hooks/use-mobile";
+import { Sparkles } from "lucide-react";
+import NavbarUser from "./NavbarUser";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+
+type NavItem = {
+  name: string;
+  path: string;
+  adminOnly?: boolean;
+};
 
 const Navbar = () => {
+  const isMobile = useIsMobile();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { isAdmin } = useAdminCheck();
   const { user } = useAuth();
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setIsScrolled(scrollTop > 10);
+      setIsScrolled(window.scrollY > 10);
     };
 
-    window.addEventListener('scroll', handleScroll);
-
+    window.addEventListener("scroll", handleScroll);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location]);
+
+  const navItems: NavItem[] = [
+    { name: 'Início', path: '/' },
+    { name: 'Planos', path: '/planos' },
+    { name: 'Criar História', path: '/create-story' },
+    { name: 'Minhas Histórias', path: '/my-stories' },
+    { name: 'Biblioteca', path: '/library' },
+    { name: 'Admin', path: '/admin', adminOnly: true },
+  ];
+
+  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <header 
+    <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-transparent'
+        isScrolled ? "bg-white/90 backdrop-blur-md shadow-sm" : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="flex items-center">
-              <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                HistorAI
-              </span>
-            </Link>
+        <nav className="flex items-center justify-between py-4">
+          <Link to="/" className="flex items-center">
+            <div className="flex items-center gap-2">
+              <div className="text-violet-600 relative">
+                <Sparkles className="w-6 h-6" />
+                <motion.div
+                  className="absolute -top-1 -right-1 w-2 h-2 bg-violet-400 rounded-full"
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.7, 1, 0.7],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              </div>
+              <span className="text-2xl font-bold text-violet-700 tracking-tight">CONTOS MÁGICOS</span>
+            </div>
+          </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-1">
-              <NavigationMenu>
-                <NavigationMenuList>
-                  <NavigationMenuItem>
-                    <Link to="/">
-                      <Button 
-                        variant={isActive('/') ? 'secondary' : 'ghost'} 
-                        className="font-medium text-gray-700 hover:text-violet-700"
-                      >
-                        Início
-                      </Button>
-                    </Link>
-                  </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link to="/library">
-                      <Button 
-                        variant={isActive('/library') ? 'secondary' : 'ghost'} 
-                        className="font-medium text-gray-700 hover:text-violet-700"
-                      >
-                        Biblioteca
-                      </Button>
-                    </Link>
-                  </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link to="/planos">
-                      <Button 
-                        variant={isActive('/planos') ? 'secondary' : 'ghost'} 
-                        className="font-medium text-gray-700 hover:text-violet-700"
-                      >
-                        Planos
-                      </Button>
-                    </Link>
-                  </NavigationMenuItem>
-                  {user && (
-                    <NavigationMenuItem>
-                      <Link to="/create-story">
-                        <Button 
-                          variant={isActive('/create-story') ? 'secondary' : 'ghost'} 
-                          className="font-medium text-gray-700 hover:text-violet-700"
-                        >
-                          Criar História
-                        </Button>
-                      </Link>
-                    </NavigationMenuItem>
-                  )}
-                </NavigationMenuList>
-              </NavigationMenu>
-            </nav>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {user && (
-              <Link to="/create-story" className="hidden md:block">
-                <Button variant="storyPrimary">Criar História</Button>
-              </Link>
-            )}
-            
-            {/* Mobile menu button */}
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon" aria-label="Menu">
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <div className="flex flex-col h-full py-6">
-                  <div className="flex items-center justify-between mb-8">
-                    <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                        HistorAI
-                      </span>
-                    </Link>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      aria-label="Close menu"
-                    >
-                      <X className="h-6 w-6" />
-                    </Button>
-                  </div>
-                  <nav className="flex flex-col space-y-4">
-                    <Link 
-                      to="/" 
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`px-4 py-2 rounded-md ${isActive('/') ? 'bg-violet-100 text-violet-900' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      Início
-                    </Link>
-                    <Link 
-                      to="/library" 
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`px-4 py-2 rounded-md ${isActive('/library') ? 'bg-violet-100 text-violet-900' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      Biblioteca
-                    </Link>
-                    <Link 
-                      to="/planos" 
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`px-4 py-2 rounded-md ${isActive('/planos') ? 'bg-violet-100 text-violet-900' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      Planos
-                    </Link>
-                    
-                    {user && (
+          {!isMobile && (
+            <ul className="flex items-center space-x-6">
+              {filteredNavItems.map((link) => (
+                <li key={link.path}>
+                  <NavLink
+                    to={link.path}
+                    className={({ isActive }) =>
+                      `relative font-medium text-sm transition-colors hover:text-violet-700 ${
+                        isActive
+                          ? "text-violet-700"
+                          : "text-slate-600"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
                       <>
-                        <Link 
-                          to="/create-story" 
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className={`px-4 py-2 rounded-md ${isActive('/create-story') ? 'bg-violet-100 text-violet-900' : 'text-gray-700 hover:bg-gray-100'}`}
-                        >
-                          Criar História
-                        </Link>
-                        <Link 
-                          to="/my-stories" 
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className={`px-4 py-2 rounded-md ${isActive('/my-stories') ? 'bg-violet-100 text-violet-900' : 'text-gray-700 hover:bg-gray-100'}`}
-                        >
-                          Minhas Histórias
-                        </Link>
+                        {link.name}
+                        {isActive && (
+                          <motion.div
+                            layoutId="navbar-indicator"
+                            className="absolute -bottom-1 left-0 right-0 h-0.5 bg-violet-700"
+                            transition={{ type: "spring", duration: 0.5 }}
+                          />
+                        )}
                       </>
                     )}
-                  </nav>
-                </div>
-              </SheetContent>
-            </Sheet>
-            
-            {/* User profile/login button */}
-            <UserProfile />
-          </div>
-        </div>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!user ? (
+            <div className="flex items-center gap-4">
+              <Link to="/login">
+                <Button variant="outline">Entrar</Button>
+              </Link>
+              <Link to="/register">
+                <Button className="bg-indigo-700 hover:bg-indigo-800">Inscrever-se</Button>
+              </Link>
+            </div>
+          ) : (
+            <NavbarUser />
+          )}
+
+          {isMobile && (
+            <button
+              onClick={toggleMenu}
+              className="text-violet-700 focus:outline-none"
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                {isMenuOpen ? (
+                  <path
+                    d="M18 6L6 18M6 6L18 18"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : (
+                  <path
+                    d="M4 6H20M4 12H20M4 18H20"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+              </svg>
+            </button>
+          )}
+
+          {isMobile && isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg py-4 px-4"
+            >
+              <ul className="space-y-3">
+                {filteredNavItems.map((link) => (
+                  <li key={link.path}>
+                    <NavLink
+                      to={link.path}
+                      className={({ isActive }) =>
+                        `block py-2 px-4 rounded-lg ${
+                          isActive
+                            ? "bg-violet-100 text-violet-700"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`
+                      }
+                    >
+                      {link.name}
+                    </NavLink>
+                  </li>
+                ))}
+                <li>
+                  <Link
+                    to="/register"
+                    className="block py-2 px-4 mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-center font-medium shadow-sm"
+                  >
+                    Inscreva-se
+                  </Link>
+                </li>
+              </ul>
+            </motion.div>
+          )}
+        </nav>
       </div>
     </header>
   );
