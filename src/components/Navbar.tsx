@@ -57,7 +57,7 @@ const Navbar = () => {
               <NavigationMenu>
                 <NavigationMenuList>
                   <NavigationMenuItem>
-                    <Link to="/" passHref>
+                    <Link to="/">
                       <Button 
                         variant={isActive('/') ? 'secondary' : 'ghost'} 
                         className="font-medium text-gray-700 hover:text-violet-700"
@@ -67,7 +67,7 @@ const Navbar = () => {
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
-                    <Link to="/library" passHref>
+                    <Link to="/library">
                       <Button 
                         variant={isActive('/library') ? 'secondary' : 'ghost'} 
                         className="font-medium text-gray-700 hover:text-violet-700"
@@ -77,7 +77,7 @@ const Navbar = () => {
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
-                    <Link to="/planos" passHref>
+                    <Link to="/planos">
                       <Button 
                         variant={isActive('/planos') ? 'secondary' : 'ghost'} 
                         className="font-medium text-gray-700 hover:text-violet-700"
@@ -88,7 +88,7 @@ const Navbar = () => {
                   </NavigationMenuItem>
                   {user && (
                     <NavigationMenuItem>
-                      <Link to="/create-story" passHref>
+                      <Link to="/create-story">
                         <Button 
                           variant={isActive('/create-story') ? 'secondary' : 'ghost'} 
                           className="font-medium text-gray-700 hover:text-violet-700"

@@ -18,29 +18,34 @@ import Admin from "./pages/Admin";
 import Planos from "./pages/Planos";
 import Subscription from "./pages/Subscription";
 
+// Create a client
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <>
-      <Toaster position="top-right" richColors closeButton />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/profile" element={<UserProfilePage />} />
-        <Route path="/create-story" element={<CreateStoryPage />} />
-        <Route path="/view-story/:id?" element={<StoryViewerPage />} />
-        <Route path="/story-creator" element={<StoryCreatorPage />} />
-        <Route path="/library" element={<Library />} />
-        <Route path="/my-stories" element={<MyStories />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/login" element={<Auth type="login" />} />
-        <Route path="/register" element={<Auth type="register" />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/planos" element={<Planos />} />
-        <Route path="/subscription" element={<Subscription />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Toaster position="top-right" richColors closeButton />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<UserProfilePage />} />
+          <Route path="/create-story" element={<CreateStoryPage />} />
+          <Route path="/view-story/:id?" element={<StoryViewerPage />} />
+          <Route path="/story-creator" element={<StoryCreatorPage />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/my-stories" element={<MyStories />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/login" element={<Auth type="login" />} />
+          <Route path="/register" element={<Auth type="register" />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/planos" element={<Planos />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
