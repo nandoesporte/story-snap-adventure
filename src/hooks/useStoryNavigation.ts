@@ -11,6 +11,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   const [totalPages, setTotalPages] = useState(0);
   const [lastFullscreenState, setLastFullscreenState] = useState(false);
   const [pageReset, setPageReset] = useState(false);
+  const [lastMobileState, setLastMobileState] = useState(isMobile);
 
   // Calculate current page text
   const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
@@ -27,6 +28,19 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     isMobile ? 400 : undefined
   );
 
+  // Detect responsive view changes
+  useEffect(() => {
+    if (lastMobileState !== isMobile) {
+      console.log("Responsive view changed:", isMobile ? "mobile" : "desktop");
+      setLastMobileState(isMobile);
+      
+      // Force page refresh when switching between mobile/desktop
+      if (storyData && currentPage > 0) {
+        forcePageReset();
+      }
+    }
+  }, [isMobile, storyData]);
+
   useEffect(() => {
     if (storyData) {
       setTotalPages(storyData.pages.length + 1);
@@ -37,7 +51,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     }
   }, [storyData]);
 
-  // Reset page effect - cuando há problemas com página branca
+  // Reset page effect - when there are problems with white page
   useEffect(() => {
     if (pageReset) {
       const timer = setTimeout(() => {
@@ -82,19 +96,9 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     // Se estiver saindo da tela cheia, forçar uma atualização da página atual
     if (!isNowFullscreen && lastFullscreenState) {
       console.log("Saindo da tela cheia, forçando atualização da página");
-      setIsFlipping(true);
-      setPageReset(true);
-      
-      // Garantir que a página atual seja reinicializada corretamente
-      setTimeout(() => {
-        const currentPageCopy = currentPage;
-        setCurrentPage(0);
-        setTimeout(() => {
-          setCurrentPage(currentPageCopy);
-        }, 50);
-      }, 100);
+      forcePageReset();
     }
-  }, [lastFullscreenState, currentPage]);
+  }, [lastFullscreenState]);
 
   // Função para forçar atualização em caso de tela branca
   const forcePageReset = useCallback(() => {
