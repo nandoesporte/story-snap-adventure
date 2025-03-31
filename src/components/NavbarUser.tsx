@@ -32,7 +32,7 @@ export const NavbarUser = () => {
             <Link to="/planos">
               <Button variant="outline" className="gap-2">
                 <CreditCard className="h-4 w-4" />
-                <span>Planos</span>
+                <span>Assinatura</span>
               </Button>
             </Link>
             <AdminLink />
@@ -58,7 +58,7 @@ export const NavbarUser = () => {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/planos')}>
                 <CreditCard className="mr-2 h-4 w-4" />
-                <span>Planos</span>
+                <span>Assinatura</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="md:hidden">
                 <AdminLink />

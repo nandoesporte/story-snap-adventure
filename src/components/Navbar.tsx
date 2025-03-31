@@ -44,7 +44,7 @@ const Navbar = () => {
 
   const navItems: NavItem[] = [
     { name: 'Início', path: '/' },
-    { name: 'Planos', path: '/planos' },
+    { name: 'Assinatura', path: '/planos' },
     { name: 'Criar História', path: '/create-story' },
     { name: 'Minhas Histórias', path: '/my-stories' },
     { name: 'Biblioteca', path: '/library' },
