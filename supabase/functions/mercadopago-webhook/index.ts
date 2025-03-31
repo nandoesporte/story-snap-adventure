@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 
@@ -231,9 +230,10 @@ async function processApprovedPayment(supabase, userId, planId, payment) {
     }
     
     // 4. Create or update subscription
+    let subscriptionId;
     if (existingSubscription) {
       // Update existing subscription
-      const { error: updateError } = await supabase
+      const { data: updatedSubscription, error: updateError } = await supabase
         .from("user_subscriptions")
         .update({
           plan_id: planId,
@@ -242,11 +242,14 @@ async function processApprovedPayment(supabase, userId, planId, payment) {
           status: "active",
           mercadopago_payment_id: payment.id.toString()
         })
-        .eq("id", existingSubscription.id);
+        .eq("id", existingSubscription.id)
+        .select();
         
       if (updateError) {
         throw new Error(`Failed to update subscription: ${updateError.message}`);
       }
+      
+      subscriptionId = existingSubscription.id;
       
       // Log subscription update to history
       await supabase
@@ -259,7 +262,8 @@ async function processApprovedPayment(supabase, userId, planId, payment) {
             payment_provider: "mercadopago",
             payment_id: payment.id,
             amount: payment.transaction_amount,
-            currency: payment.currency_id
+            currency: payment.currency_id,
+            stories_limit: plan.stories_limit
           }
         });
     } else {
@@ -281,6 +285,8 @@ async function processApprovedPayment(supabase, userId, planId, payment) {
         throw new Error(`Failed to create subscription: ${insertError.message}`);
       }
       
+      subscriptionId = newSubscription.id;
+      
       // Log subscription creation to history
       await supabase
         .from("subscription_history")
@@ -292,23 +298,27 @@ async function processApprovedPayment(supabase, userId, planId, payment) {
             payment_provider: "mercadopago",
             payment_id: payment.id,
             amount: payment.transaction_amount,
-            currency: payment.currency_id
+            currency: payment.currency_id,
+            stories_limit: plan.stories_limit
           }
         });
-        
-      // Update user profile with subscription id
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .update({ subscription_id: newSubscription.id })
-        .eq("id", userId);
-        
-      if (profileError) {
-        console.error(`Failed to update user profile: ${profileError.message}`);
-        // Continue anyway since the subscription was created successfully
-      }
     }
     
-    console.log(`Successfully processed payment ${payment.id} for user ${userId}`);
+    // 5. Update user profile with subscription id
+    const { error: profileError } = await supabase
+      .from("user_profiles")
+      .update({ 
+        subscription_id: subscriptionId,
+        stories_created_count: 0
+      })
+      .eq("id", userId);
+      
+    if (profileError) {
+      console.error(`Failed to update user profile: ${profileError.message}`);
+      // Continue anyway since the subscription was created successfully
+    }
+    
+    console.log(`Successfully processed payment ${payment.id} for user ${userId} with plan limit of ${plan.stories_limit} stories`);
     return true;
   } catch (error) {
     console.error("Error in processApprovedPayment:", error);

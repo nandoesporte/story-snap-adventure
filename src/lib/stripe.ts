@@ -161,7 +161,7 @@ export const canCreateStory = async (userId: string) => {
     if (countError) throw countError;
     
     const storiesCreated = count || 0;
-    const storiesLimit = subscription.subscription_plans.stories_limit;
+    const storiesLimit = subscription.subscription_plans?.stories_limit || 0;
     
     return {
       canCreate: storiesCreated < storiesLimit,
