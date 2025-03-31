@@ -66,55 +66,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     return true;
   };
 
-  // Function to ensure user profile is created
-  const ensureUserProfile = async (userId: string) => {
-    try {
-      console.log("Ensuring profile exists for user:", userId);
-      
-      // Check if profile exists
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error || !data) {
-        console.warn('Profile not found, creating manually');
-        
-        // Try to create profile with upsert
-        const { error: upsertError } = await supabase
-          .from('user_profiles')
-          .upsert({ 
-            id: userId,
-            display_name: email,
-            story_credits: 5,
-            is_admin: email === 'nandoesporte1@gmail.com'
-          });
-          
-        if (upsertError) {
-          console.error('Upsert failed:', upsertError);
-          
-          // Try RPC function as fallback
-          const { error: rpcError } = await supabase.rpc('create_user_profile', {
-            user_id: userId,
-            user_email: email,
-            user_name: email
-          });
-          
-          if (rpcError) {
-            console.error('All profile creation methods failed:', rpcError);
-            return false;
-          }
-        }
-      }
-      
-      return true;
-    } catch (e) {
-      console.error('Error in profile creation:', e);
-      return false;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -136,18 +87,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         }
 
         console.log("User registration successful:", data);
-        
-        // If we have a user ID, ensure profile exists
-        if (data.user) {
-          // Try creating profile immediately
-          const profileSuccess = await ensureUserProfile(data.user.id);
-          
-          // If immediate creation fails, try again after a delay
-          if (!profileSuccess) {
-            console.log("Retrying profile creation after delay");
-            setTimeout(() => ensureUserProfile(data.user!.id), 2000);
-          }
-        }
         
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
