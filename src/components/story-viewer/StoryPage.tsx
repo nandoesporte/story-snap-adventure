@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,7 +41,21 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onToggleTextVisibility
 }) => {
   const fallbackImage = getFallbackImage("");
+  
+  // Debug logging
+  useEffect(() => {
+    console.log("StoryPage rendering:", {
+      title,
+      imageUrl,
+      pageIndex,
+      isMobile,
+      isFullscreen,
+      hideText,
+      hasText: !!typedText
+    });
+  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText]);
 
+  // Mobile layout
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
@@ -80,7 +94,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                   pageText={typedText}
                   voiceType={voiceType}
                   className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
-                  autoPlay={true}
+                  autoPlay={!isMobile}
                 />
               </div>
             </div>
@@ -100,6 +114,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     );
   }
   
+  // Desktop layout
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
@@ -133,7 +148,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 pageIndex={pageIndex}
                 pageText={typedText}
                 voiceType={voiceType}
-                autoPlay={true}
+                autoPlay={false}
               />
             </div>
           </>

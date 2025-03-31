@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage } from "./helpers";
+import { toast } from "sonner";
 
 interface PageTransitionProps {
   storyId: string | undefined;
@@ -35,7 +36,25 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   
-  if (!storyData) return null;
+  // Debug logging
+  useEffect(() => {
+    console.log("PageTransition rendering with:", {
+      currentPage,
+      isMobile,
+      isFullscreen,
+      hasStoryData: !!storyData,
+      isRendered
+    });
+  }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
+  
+  // Check if we have story data
+  if (!storyData) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">Nenhum conteúdo de história disponível</p>
+      </div>
+    );
+  }
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
   
@@ -87,7 +106,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   const transitionClasses = `
     absolute inset-0 
     transition-all duration-300 ease-in-out 
-    ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""} 
+    ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : "translate-x-0"} 
     ${isRendered ? 'opacity-100' : 'opacity-0'}
   `;
   

@@ -28,12 +28,17 @@ export const CoverPage: React.FC<CoverPageProps> = ({
 }) => {
   const formattedImageUrl = getImageUrl(coverImageSrc, theme);
 
-  // Log to debug
+  // Log for debugging
   useEffect(() => {
-    console.log("CoverPage rendering with image:", formattedImageUrl);
-    console.log("Mobile mode:", isMobile);
-  }, [formattedImageUrl, isMobile]);
+    console.log("CoverPage rendering with:", {
+      title,
+      imageUrl: formattedImageUrl,
+      isMobile,
+      theme
+    });
+  }, [formattedImageUrl, isMobile, title, theme]);
 
+  // Mobile layout
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col" data-testid="cover-page-mobile">
@@ -74,6 +79,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
     );
   }
   
+  // Desktop layout
   return (
     <div className="w-full h-full flex flex-col" data-testid="cover-page-desktop">
       <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">

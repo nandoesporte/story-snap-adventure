@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import LoadingSpinner from "../LoadingSpinner";
@@ -22,7 +22,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const { 
     storyData, 
     loading, 
-    handleImageError 
+    handleImageError,
+    error
   } = useStoryData(storyId);
   
   const { id } = useParams<{ id?: string }>();
@@ -32,6 +33,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const storyContainerRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [isContentReady, setIsContentReady] = useState(false);
   
   // Custom hooks
   const {
@@ -70,6 +72,19 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handleZoomIn,
     handleZoomOut
   } = useImageViewer();
+
+  // Make sure content is ready after loading
+  useEffect(() => {
+    if (!loading && storyData) {
+      // Add a small delay to ensure all components are ready
+      const timer = setTimeout(() => {
+        setIsContentReady(true);
+        console.log("Story content is ready to display");
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, storyData]);
 
   // Efeito para manter o estado visual correto ao alternar tela cheia
   useEffect(() => {
@@ -127,6 +142,22 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     forcePageReset();
   };
 
+  // Handle error cases
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center flex-col gap-4 p-8">
+        <p className="text-red-500">Erro ao carregar a história</p>
+        <Button 
+          onClick={handleResetPage}
+          variant="outline"
+          size="sm"
+        >
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-full bg-gray-50 flex flex-col overflow-hidden">
       {loading ? (
@@ -154,20 +185,22 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           />
           
           <div className={`flex-1 relative overflow-hidden ${isTransitioning ? 'opacity-95' : ''}`}>
-            <PageTransition
-              storyId={effectiveStoryId}
-              storyData={storyDataWithTypedText}
-              currentPage={currentPage}
-              isFlipping={isFlipping}
-              flipDirection={flipDirection}
-              isRendered={isRendered}
-              isFullscreen={isFullscreen}
-              isMobile={isMobile}
-              hideText={hideText}
-              onImageClick={handleImageClick}
-              onImageError={handleImageError}
-              onToggleTextVisibility={toggleTextVisibility}
-            />
+            {isContentReady && storyData && (
+              <PageTransition
+                storyId={effectiveStoryId}
+                storyData={storyDataWithTypedText}
+                currentPage={currentPage}
+                isFlipping={isFlipping}
+                flipDirection={flipDirection}
+                isRendered={isRendered}
+                isFullscreen={isFullscreen}
+                isMobile={isMobile}
+                hideText={hideText}
+                onImageClick={handleImageClick}
+                onImageError={handleImageError}
+                onToggleTextVisibility={toggleTextVisibility}
+              />
+            )}
             
             <StoryNavigation
               currentPage={currentPage}
