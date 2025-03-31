@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -28,7 +27,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (user) {
       navigate("/");
@@ -88,7 +86,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
 
         console.log("Registration response:", data);
         
-        // Show success message after registration
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
       } else {
@@ -106,7 +103,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     } catch (error: any) {
       console.error("Authentication error:", error);
       
-      // Handle specific error messages
       if (error.message?.includes("Invalid login credentials")) {
         setFormError("Email ou senha incorretos");
       } else if (error.message?.includes("User already registered")) {
@@ -269,12 +265,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                   
                   <p className="text-center mt-6 text-slate-700">
                     {isRegister ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
-                    <a
-                      href={isRegister ? "/login" : "/register"}
+                    <Link
+                      to={isRegister ? "/login" : "/register"}
                       className="font-bold text-violet-500 hover:text-violet-800"
                     >
                       {isRegister ? "Entrar" : "Criar uma conta"}
-                    </a>
+                    </Link>
                   </p>
                 </>
               )}
