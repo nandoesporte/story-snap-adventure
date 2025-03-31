@@ -15,6 +15,8 @@ import Library from "./pages/Library";
 import MyStories from "./pages/MyStories";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
+import Planos from "./pages/Planos";
+import Subscription from "./pages/Subscription";
 
 function App() {
   return (
@@ -34,6 +36,8 @@ function App() {
         <Route path="/login" element={<Auth type="login" />} />
         <Route path="/register" element={<Auth type="register" />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/planos" element={<Planos />} />
+        <Route path="/subscription" element={<Subscription />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

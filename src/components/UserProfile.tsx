@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserRound, LogOut, BookOpen, Shield } from 'lucide-react';
+import { UserRound, LogOut, BookOpen, Shield, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
 
@@ -77,6 +78,12 @@ const UserProfile = () => {
           <Link to="/my-stories" className="flex items-center cursor-pointer">
             <BookOpen className="mr-2 h-4 w-4" />
             <span>Minhas Histórias</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/planos" className="flex items-center cursor-pointer">
+            <CreditCard className="mr-2 h-4 w-4" />
+            <span>Planos</span>
           </Link>
         </DropdownMenuItem>
         
