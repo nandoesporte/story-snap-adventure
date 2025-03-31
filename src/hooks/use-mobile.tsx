@@ -13,17 +13,43 @@ export function useIsMobile() {
     const checkIfMobile = () => {
       const isMobileView = window.innerWidth < MOBILE_BREAKPOINT
       setIsMobile(isMobileView)
-      console.log("Tamanho da tela alterado:", { width: window.innerWidth, isMobile: isMobileView })
+      console.log("Verificação de dispositivo móvel:", { 
+        width: window.innerWidth, 
+        isMobile: isMobileView, 
+        breakpoint: MOBILE_BREAKPOINT 
+      })
     }
     
     // Verificação inicial
     checkIfMobile()
     
+    // Usar um debounce para o resize para melhor performance
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    
+    const handleResize = () => {
+      if (resizeTimer) {
+        clearTimeout(resizeTimer)
+      }
+      
+      resizeTimer = setTimeout(() => {
+        checkIfMobile()
+      }, 250)
+    }
+    
     // Configurar listener para redimensionamento da tela
-    window.addEventListener('resize', checkIfMobile)
+    window.addEventListener('resize', handleResize)
+    
+    // Configurar listener para mudanças de orientação em dispositivos móveis
+    window.addEventListener('orientationchange', checkIfMobile)
     
     // Limpar
-    return () => window.removeEventListener('resize', checkIfMobile)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', checkIfMobile)
+      if (resizeTimer) {
+        clearTimeout(resizeTimer)
+      }
+    }
   }, [])
 
   return isMobile

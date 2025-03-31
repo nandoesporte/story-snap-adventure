@@ -44,7 +44,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       isFullscreen,
       hasStoryData: !!storyData,
       isRendered,
-      viewportWidth: window.innerWidth
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight
     });
   }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
   
@@ -116,15 +117,16 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       ref={bookRef}
       className={transitionClasses}
       data-testid="story-book-container"
+      style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}
     >
       {currentPage === 0 ? (
         <CoverPage
-          title={storyData.title}
+          title={storyData.title || "História sem título"}
           coverImageSrc={coverImageSrc}
-          childName={storyData.childName}
-          theme={storyData.theme}
-          setting={storyData.setting}
-          style={storyData.style}
+          childName={storyData.childName || "criança"}
+          theme={storyData.theme || ""}
+          setting={storyData.setting || ""}
+          style={storyData.style || ""}
           isMobile={isMobile}
           onImageClick={onImageClick}
           onImageError={onImageError}
@@ -132,16 +134,16 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       ) : (
         <StoryPage
           storyId={storyId}
-          title={storyData.title}
+          title={storyData.title || "História sem título"}
           imageUrl={getImageUrl(
             storyData.pages[currentPage - 1]?.imageUrl || 
             storyData.pages[currentPage - 1]?.image_url,
             storyData.theme
           )}
           pageIndex={currentPage - 1}
-          pageCount={storyData.pages.length}
-          childName={storyData.childName}
-          typedText={storyData.typedText}
+          pageCount={storyData.pages?.length || 0}
+          childName={storyData.childName || "criança"}
+          typedText={storyData.typedText || storyData.pages[currentPage - 1]?.text || ""}
           isFullscreen={isFullscreen}
           isMobile={isMobile}
           hideText={hideText}
@@ -153,4 +155,4 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       )}
     </div>
   );
-};
+}

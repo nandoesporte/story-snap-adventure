@@ -36,6 +36,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const isMobile = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [forceRender, setForceRender] = useState(0);
   
   // Custom hooks
   const {
@@ -80,10 +81,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     console.log("StoryViewer montado com estado inicial:", {
       isMobile,
       viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
       hasStoryData: !!storyData,
-      storyId: effectiveStoryId
+      storyId: effectiveStoryId,
+      isFullscreen,
+      currentPage
     });
-  }, []);
+  }, [isMobile, storyData, effectiveStoryId, isFullscreen, currentPage]);
 
   // Garantir que o conteúdo esteja pronto após o carregamento
   useEffect(() => {
@@ -92,8 +96,12 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       const timer = setTimeout(() => {
         setIsContentReady(true);
         setHasInitialized(true);
-        console.log("Conteúdo da história pronto para exibição");
-      }, 200);
+        console.log("Conteúdo da história pronto para exibição", {
+          storyDataExists: !!storyData,
+          pageCount: storyData?.pages?.length || 0,
+          coverImage: storyData?.cover_image_url || storyData?.coverImageUrl
+        });
+      }, 300);
       
       return () => clearTimeout(timer);
     }
@@ -107,6 +115,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       // Pequeno atraso para garantir que o DOM foi atualizado
       const timer = setTimeout(() => {
         forcePageReset();
+        setForceRender(prev => prev + 1);
         console.log("Forçando reset após mudança de tamanho de tela");
       }, 300);
       
@@ -127,6 +136,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
         console.log("Documento voltou a ficar visível, verificando necessidade de atualização");
         setTimeout(() => {
           forcePageReset();
+          setForceRender(prev => prev + 1);
         }, 300);
       }
     };
@@ -140,6 +150,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           event.message.includes('Failed to load resource')) {
         console.error("Erro de carregamento detectado:", event.message);
         forcePageReset();
+        setForceRender(prev => prev + 1);
       }
     };
     
@@ -147,7 +158,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     
     // Adicionar um listener de resize especial para atualizar após redimensionamento
     const handleResize = () => {
-      console.log("Resize detectado, atualizando visualização");
+      console.log("Resize detectado, atualizando visualização", {
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+      
       if (storyData && isContentReady) {
         // Usar um debounce para não resetar muitas vezes durante um redimensionamento
         if (window.resizeTimer) {
@@ -155,6 +170,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
         }
         window.resizeTimer = setTimeout(() => {
           forcePageReset();
+          setForceRender(prev => prev + 1);
         }, 250);
       }
     };
@@ -188,6 +204,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const handleResetPage = () => {
     toast.info("Recarregando página...");
     forcePageReset();
+    setForceRender(prev => prev + 1);
   };
 
   // Handle error cases
@@ -217,6 +234,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           ref={storyContainerRef} 
           className="flex-1 flex flex-col h-full overflow-hidden"
           data-testid="story-viewer-container"
+          key={`story-container-${forceRender}`}
         >
           <ViewerControls
             storyId={effectiveStoryId}
