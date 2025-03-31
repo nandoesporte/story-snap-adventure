@@ -2,9 +2,9 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GoogleTTSApiKeyManager } from "@/components/admin/GoogleTTSApiKeyManager";
-import { AsaasApiKeyManager } from "@/components/admin/AsaasApiKeyManager";
-import { MercadoPagoApiKeyManager } from "@/components/admin/MercadoPagoApiKeyManager";
+import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
+import AsaasApiKeyManager from "@/components/admin/AsaasApiKeyManager";
+import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
 
 const SystemConfigurationManager = () => {
   return (

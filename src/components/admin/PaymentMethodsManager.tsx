@@ -1,7 +1,15 @@
 
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PaymentMethodsManager as OriginalPaymentMethodsManager } from "@/components/admin/PaymentMethodManager";
+
+// Create an empty placeholder component since PaymentMethodManager doesn't exist yet
+const PaymentMethodsManagerContent = () => {
+  return (
+    <div className="p-4 text-center text-muted-foreground">
+      <p>Configuração de métodos de pagamento será implementada em breve.</p>
+    </div>
+  );
+};
 
 const PaymentMethodsManager = () => {
   return (
@@ -13,7 +21,7 @@ const PaymentMethodsManager = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <OriginalPaymentMethodsManager />
+        <PaymentMethodsManagerContent />
       </CardContent>
     </Card>
   );
