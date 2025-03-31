@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -66,78 +65,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     return true;
   };
 
-  const checkUserProfile = async (userId: string) => {
-    try {
-      console.log("Checking if profile exists for user:", userId);
-      
-      // First try: Check if profile exists
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error || !data) {
-        console.warn('Profile not found after registration, creating manually with upsert');
-        
-        // Second try: Create profile with upsert
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .upsert({ 
-            id: userId,
-            display_name: email,
-            story_credits: 5,
-            is_admin: email === 'nandoesporte1@gmail.com'
-          }, { onConflict: 'id' });
-          
-        if (insertError) {
-          console.error('Error creating user profile with upsert:', insertError);
-          
-          // Third try: Use direct insert
-          const { error: directInsertError } = await supabase
-            .from('user_profiles')
-            .insert({ 
-              id: userId,
-              display_name: email,
-              story_credits: 5,
-              is_admin: email === 'nandoesporte1@gmail.com'
-            });
-            
-          if (directInsertError) {
-            console.error('Error creating user profile with direct insert:', directInsertError);
-            
-            // Fourth try: Use the RPC function
-            const { error: rpcError } = await supabase.rpc('create_user_profile', {
-              user_id: userId,
-              user_email: email,
-              user_name: email
-            });
-            
-            if (rpcError) {
-              console.error('All profile creation methods failed. RPC error:', rpcError);
-              return false;
-            } else {
-              console.info('User profile created via RPC function');
-              return true;
-            }
-          } else {
-            console.info('User profile created with direct insert');
-            return true;
-          }
-        } else {
-          console.info('User profile created with upsert');
-          return true;
-        }
-      } else {
-        console.info('User profile already exists:', data);
-        return true;
-      }
-    } catch (e) {
-      console.error('Error checking/creating user profile:', e);
-      return false;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -150,42 +77,19 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     
     try {
       if (isRegister) {
-        console.log("Registering with:", email);
         const { error, data } = await signUp(email, password);
         
         if (error) {
-          console.error("Registration error:", error);
           throw error;
         }
 
-        console.log("Registration response:", data);
-        
-        if (data.user) {
-          console.log("User registration successful, ensuring profile exists:", data.user.id);
-          
-          // Try creating profile immediately
-          let profileSuccess = await checkUserProfile(data.user.id);
-          
-          if (!profileSuccess) {
-            // If immediate creation fails, try again after a delay
-            console.log("Immediate profile creation failed, retrying after delay");
-            setTimeout(async () => {
-              profileSuccess = await checkUserProfile(data.user.id);
-              console.log("Delayed profile creation result:", profileSuccess ? "success" : "failed");
-            }, 2000);
-          } else {
-            console.log("Immediate profile creation succeeded");
-          }
-        }
-        
+        console.log("User registration successful", data);
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
       } else {
-        console.log("Logging in with:", email);
         const { error } = await signIn(email, password);
         
         if (error) {
-          console.error("Login error:", error);
           throw error;
         }
         
