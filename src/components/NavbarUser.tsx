@@ -29,10 +29,10 @@ export const NavbarUser = () => {
       {user ? (
         <>
           <div className="hidden sm:flex items-center gap-4">
-            <Link to="/subscription">
+            <Link to="/planos">
               <Button variant="outline" className="gap-2">
                 <CreditCard className="h-4 w-4" />
-                <span>Assinatura</span>
+                <span>Planos</span>
               </Button>
             </Link>
             <AdminLink />
@@ -56,9 +56,9 @@ export const NavbarUser = () => {
                 <User className="mr-2 h-4 w-4" />
                 <span>Perfil</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/subscription')}>
+              <DropdownMenuItem onClick={() => navigate('/planos')}>
                 <CreditCard className="mr-2 h-4 w-4" />
-                <span>Assinatura</span>
+                <span>Planos</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="md:hidden">
                 <AdminLink />
