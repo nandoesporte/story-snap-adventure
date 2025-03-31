@@ -20,6 +20,7 @@ type AdminUser = {
   email?: string;
   created_at: string;
   last_sign_in_at: string | null;
+  is_admin?: boolean;
 };
 
 export const UserManager = () => {
@@ -88,34 +89,18 @@ export const UserManager = () => {
     try {
       setIsCreatingUser(true);
       
-      // Create the user using Supabase auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: values.email,
-        password: values.password,
-        email_confirm: true
+      // Instead of using the direct admin API, make a server-side call
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
+          email: values.email,
+          password: values.password
+        }
       });
       
       if (error) {
         console.error("Error creating user:", error);
         sonnerToast.error(`Erro ao criar usuário: ${error.message}`);
         return;
-      }
-
-      // Manually create the user profile if needed
-      if (data.user) {
-        // Attempt to create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user.id,
-            display_name: values.email,
-            story_credits: 5,
-            is_admin: false
-          });
-
-        if (profileError) {
-          console.error("Error creating user profile:", profileError);
-        }
       }
       
       sonnerToast.success("Usuário criado com sucesso");
@@ -137,11 +122,13 @@ export const UserManager = () => {
     try {
       setIsResettingPassword(true);
       
-      // Update user password using Supabase admin API
-      const { error } = await supabase.auth.admin.updateUserById(
-        selectedUserId,
-        { password: values.password }
-      );
+      // Use a server-side function for resetting password
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: {
+          userId: selectedUserId,
+          password: values.password
+        }
+      });
       
       if (error) {
         console.error("Error resetting password:", error);
@@ -166,8 +153,10 @@ export const UserManager = () => {
       try {
         setIsDeletingUser(true);
         
-        // Delete user using Supabase admin API
-        const { error } = await supabase.auth.admin.deleteUser(userId);
+        // Use a server-side function for deleting users
+        const { data, error } = await supabase.functions.invoke('delete-admin-user', {
+          body: { userId }
+        });
         
         if (error) {
           console.error("Error deleting user:", error);
