@@ -6,7 +6,7 @@ import AboutPage from "./pages/AboutPage";
 import SettingsPage from "./pages/SettingsPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import CreateStoryPage from "./pages/CreateStoryPage";
-import StoryViewerPage from "./pages/StoryViewerPage";
+import ViewStoryPage from "./pages/ViewStoryPage";
 import StoryCreatorPage from "./pages/StoryCreatorPage";
 import NotFound from "./pages/NotFound";
 import Library from "./pages/Library";
@@ -26,7 +26,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<UserProfilePage />} />
         <Route path="/create-story" element={<CreateStoryPage />} />
-        <Route path="/view-story/:id?" element={<StoryViewerPage />} />
+        <Route path="/view-story/:id?" element={<ViewStoryPage />} />
         <Route path="/story-creator" element={<StoryCreatorPage />} />
         <Route path="/library" element={<Library />} />
         <Route path="/my-stories" element={<MyStories />} />
