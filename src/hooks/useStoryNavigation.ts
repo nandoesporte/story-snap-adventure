@@ -10,6 +10,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   const [hideText, setHideText] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [lastFullscreenState, setLastFullscreenState] = useState(false);
+  const [pageReset, setPageReset] = useState(false);
 
   // Calculate current page text
   const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
@@ -35,6 +36,18 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
       }, 100);
     }
   }, [storyData]);
+
+  // Reset page effect - cuando há problemas com página branca
+  useEffect(() => {
+    if (pageReset) {
+      const timer = setTimeout(() => {
+        setPageReset(false);
+        setIsFlipping(false);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [pageReset]);
 
   const handlePreviousPage = useCallback(() => {
     if (currentPage > 0 && !isFlipping) {
@@ -65,14 +78,39 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   // Para preservar o estado ao alternar entre tela cheia
   const preserveFullscreenState = useCallback((isNowFullscreen: boolean) => {
     setLastFullscreenState(isNowFullscreen);
-    // Se estiver saindo da tela cheia, garanta que a página atual seja recarregada
+    
+    // Se estiver saindo da tela cheia, forçar uma atualização da página atual
     if (!isNowFullscreen && lastFullscreenState) {
+      console.log("Saindo da tela cheia, forçando atualização da página");
       setIsFlipping(true);
+      setPageReset(true);
+      
+      // Garantir que a página atual seja reinicializada corretamente
       setTimeout(() => {
-        setIsFlipping(false);
+        const currentPageCopy = currentPage;
+        setCurrentPage(0);
+        setTimeout(() => {
+          setCurrentPage(currentPageCopy);
+        }, 50);
       }, 100);
     }
-  }, [lastFullscreenState]);
+  }, [lastFullscreenState, currentPage]);
+
+  // Função para forçar atualização em caso de tela branca
+  const forcePageReset = useCallback(() => {
+    console.log("Forçando reset de página para resolver tela branca");
+    setIsFlipping(true);
+    setPageReset(true);
+    
+    const currentPageCopy = currentPage;
+    setCurrentPage(0);
+    setTimeout(() => {
+      setCurrentPage(currentPageCopy);
+      setTimeout(() => {
+        setIsFlipping(false);
+      }, 300);
+    }, 100);
+  }, [currentPage]);
 
   return {
     currentPage,
@@ -86,6 +124,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     handlePreviousPage,
     handleNextPage,
     toggleTextVisibility,
-    preserveFullscreenState
+    preserveFullscreenState,
+    forcePageReset
   };
 };

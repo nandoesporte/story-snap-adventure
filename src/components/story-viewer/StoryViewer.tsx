@@ -12,6 +12,7 @@ import { useStoryNavigation } from "@/hooks/useStoryNavigation";
 import { usePDFGenerator } from "@/hooks/usePDFGenerator";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useImageViewer } from "@/hooks/useImageViewer";
+import { toast } from "sonner";
 
 interface StoryViewerProps {
   storyId?: string;
@@ -45,7 +46,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handlePreviousPage,
     handleNextPage,
     toggleTextVisibility,
-    preserveFullscreenState
+    preserveFullscreenState,
+    forcePageReset
   } = useStoryNavigation(storyData, isMobile);
   
   const {
@@ -74,6 +76,21 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     preserveFullscreenState(isFullscreen);
   }, [isFullscreen, preserveFullscreenState]);
   
+  // Adicionar um manipulador para resolver problemas de tela branca
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && storyData) {
+        // Documento voltou a ficar visível, verificar se precisa atualizar
+        forcePageReset();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [storyData, forcePageReset]);
+  
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
     ...storyData,
@@ -86,6 +103,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   
   const handleToggleFullscreen = () => {
     toggleFullscreen(storyContainerRef);
+  };
+  
+  const handleResetPage = () => {
+    toast.info("Recarregando página...");
+    forcePageReset();
   };
 
   return (
@@ -136,6 +158,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
               isFlipping={isFlipping}
               onPrevious={handlePreviousPage}
               onNext={handleNextPage}
+              onReset={handleResetPage}
             />
           </div>
         </div>

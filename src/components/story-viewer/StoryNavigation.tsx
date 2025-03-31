@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 interface StoryNavigationProps {
   currentPage: number;
@@ -9,6 +9,7 @@ interface StoryNavigationProps {
   isFlipping: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  onReset?: () => void;
 }
 
 export const StoryNavigation: React.FC<StoryNavigationProps> = ({
@@ -16,7 +17,8 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
   totalPages,
   isFlipping,
   onPrevious,
-  onNext
+  onNext,
+  onReset
 }) => {
   return (
     <>
@@ -47,6 +49,18 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
           <span className="text-xs text-gray-800">
             {currentPage} / {totalPages - 1}
           </span>
+          
+          {onReset && (
+            <Button
+              onClick={onReset}
+              size="sm"
+              variant="ghost"
+              className="ml-2 h-6 w-6 p-0 rounded-full"
+              title="Recarregar página (em caso de tela branca)"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
     </>
