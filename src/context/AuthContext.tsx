@@ -135,6 +135,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Function to ensure user profile exists
+  const createUserProfile = async (userId: string, userEmail: string) => {
+    try {
+      // First method: Direct upsert
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert({ 
+          id: userId,
+          display_name: userEmail,
+          story_credits: 5,
+          is_admin: userEmail === 'nandoesporte1@gmail.com'
+        });
+        
+      if (error) {
+        console.error('Error creating profile via upsert:', error);
+        
+        // Second method: Try RPC function
+        const { error: rpcError } = await supabase.rpc('create_user_profile', {
+          user_id: userId,
+          user_email: userEmail,
+          user_name: userEmail.split('@')[0]
+        });
+        
+        if (rpcError) {
+          console.error('Error creating profile via RPC:', rpcError);
+          return false;
+        }
+      }
+      return true;
+    } catch (e) {
+      console.error('Profile creation error:', e);
+      return false;
+    }
+  };
+
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
@@ -161,61 +196,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign up response:', data);
       
-      // Note: We don't need to manually create the profile here anymore
-      // The database trigger will handle it automatically
-      // This is just a fallback in case the trigger fails
+      // If we have a user, ensure profile exists
       if (data.user) {
-        console.info('User created successfully:', data.user.id, data.user.email);
+        console.info('User created, creating profile for:', data.user.id);
         
-        // Wait a moment to ensure the trigger has time to execute
+        // Create profile immediately
+        const success = await createUserProfile(data.user.id, email);
+        
+        // If it fails, retry after delay
+        if (!success) {
+          setTimeout(async () => {
+            await createUserProfile(data.user!.id, email);
+          }, 1500);
+        }
+        
+        // Also check profile after 3 seconds as final fallback
         setTimeout(async () => {
           try {
-            // Check if the profile was created by the trigger
-            const { data: profileData, error: checkError } = await supabase
+            const { data: profileData } = await supabase
               .from('user_profiles')
-              .select('*')
-              .eq('id', data.user?.id)
+              .select('id')
+              .eq('id', data.user!.id)
               .single();
               
-            if (checkError || !profileData) {
-              console.warn('Profile might not have been created by trigger, attempting manual creation');
-              
-              // Fallback: Try to create the profile manually
-              const { error: profileError } = await supabase
-                .from('user_profiles')
-                .upsert({ 
-                  id: data.user.id,
-                  display_name: email,
-                  story_credits: 5,
-                  is_admin: email === 'nandoesporte1@gmail.com'
-                }, { onConflict: 'id' });
-                
-              if (profileError) {
-                console.error('Error creating user profile fallback:', profileError);
-                console.error('Profile error details:', JSON.stringify(profileError));
-                
-                // Try one more time with a more direct method
-                const { error: insertError } = await supabase.rpc('create_user_profile', {
-                  user_id: data.user.id,
-                  user_email: email,
-                  user_name: email.split('@')[0]
-                });
-                
-                if (insertError) {
-                  console.error('RPC fallback also failed:', insertError);
-                } else {
-                  console.info('User profile created via RPC function');
-                }
-              } else {
-                console.info('User profile created manually as fallback');
-              }
-            } else {
-              console.info('User profile was created by trigger successfully');
+            if (!profileData) {
+              console.warn('Profile still not created after delay, final attempt');
+              await createUserProfile(data.user!.id, email);
             }
           } catch (e) {
-            console.error('Error in profile creation check:', e);
+            console.error('Error in final profile check:', e);
           }
-        }, 1000);
+        }, 3000);
       }
       
       return { data, error: null };
