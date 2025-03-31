@@ -29,6 +29,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   } = useStoryData(storyId);
   
   const { id } = useParams<{ id?: string }>();
+  const effectiveStoryId = storyId || id;
   const navigate = useNavigate();
   
   const [currentPage, setCurrentPage] = useState(0);
@@ -242,7 +243,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
           data-testid="story-viewer-container"
         >
           <ViewerControls
-            storyId={storyId || id}
+            storyId={effectiveStoryId}
             title={storyData?.title || ""}
             currentPage={currentPage}
             totalPages={totalPages}
@@ -280,7 +281,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                     />
                   ) : (
                     <StoryPage
-                      storyId={storyId || id}
+                      storyId={effectiveStoryId}
                       title={storyData.title}
                       imageUrl={getImageUrl(
                         storyData.pages[currentPage - 1]?.imageUrl || 

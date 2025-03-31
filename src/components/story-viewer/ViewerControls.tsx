@@ -109,8 +109,28 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
       </div>
       
       <div className="flex-1 flex justify-center items-center">
-        <div className="text-sm text-gray-500 hidden sm:block">
-          {currentPage} / {totalPages - 1}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onPrevious}
+            disabled={currentPage <= 0}
+            className="text-gray-600"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="text-sm text-gray-500">
+            {currentPage} / {totalPages - 1}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onNext}
+            disabled={currentPage >= totalPages - 1}
+            className="text-gray-600"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
         </div>
       </div>
       

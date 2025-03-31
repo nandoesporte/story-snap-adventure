@@ -55,7 +55,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             imageUrl={imageUrl}
             fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageIndex + 1}`}
-            className="w-full h-full"
+            className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
             onError={() => onImageError(imageUrl)}
           />
@@ -119,7 +119,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         />
       </div>
       
-      <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col justify-between relative">
+      <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col relative">
         {!hideText ? (
           <>
             <ScrollArea className="h-full pr-2 p-8">
@@ -154,17 +154,15 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           </div>
         )}
         
-        {!isMobile && (
-          <Button 
-            className="absolute bottom-4 right-4 z-10"
-            size="sm"
-            variant="secondary"
-            onClick={onToggleTextVisibility}
-          >
-            {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
-            {hideText ? "Mostrar texto" : "Ocultar texto"}
-          </Button>
-        )}
+        <Button 
+          className="absolute bottom-4 right-4 z-10"
+          size="sm"
+          variant="secondary"
+          onClick={onToggleTextVisibility}
+        >
+          {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
+          {hideText ? "Mostrar texto" : "Ocultar texto"}
+        </Button>
       </div>
     </div>
   );
