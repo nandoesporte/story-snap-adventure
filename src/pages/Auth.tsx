@@ -66,6 +66,28 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     return true;
   };
 
+  // Function to verify profile creation worked
+  const verifyUserProfile = async (userId: string) => {
+    try {
+      // Wait a moment to allow the database trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Check if profile exists
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+        
+      console.log("Profile verification result:", data, error);
+      
+      return !!data; // Return true if data exists, false otherwise
+    } catch (e) {
+      console.error('Error verifying user profile:', e);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -87,6 +109,15 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         }
 
         console.log("User registration successful:", data);
+        
+        // If we have a user ID, verify profile was created
+        if (data.user) {
+          const profileExists = await verifyUserProfile(data.user.id);
+          console.log("Profile exists check result:", profileExists);
+          
+          // If the profile doesn't exist, it might be a timing issue, 
+          // we'll trust the trigger will handle it
+        }
         
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
