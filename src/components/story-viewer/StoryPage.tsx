@@ -80,6 +80,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                   pageText={typedText}
                   voiceType={voiceType}
                   className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
+                  autoPlay={true}
                 />
               </div>
             </div>
@@ -132,6 +133,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 pageIndex={pageIndex}
                 pageText={typedText}
                 voiceType={voiceType}
+                autoPlay={true}
               />
             </div>
           </>

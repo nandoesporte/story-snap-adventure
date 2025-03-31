@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ interface NarrationPlayerProps {
   pageText: string;
   className?: string;
   voiceType?: 'male' | 'female';
+  autoPlay?: boolean;
 }
 
 export const NarrationPlayer = ({ 
@@ -38,7 +40,8 @@ export const NarrationPlayer = ({
   pageIndex, 
   pageText, 
   className = '',
-  voiceType = 'female'
+  voiceType = 'female',
+  autoPlay = false
 }: NarrationPlayerProps) => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,11 +49,13 @@ export const NarrationPlayer = ({
   const [isMuted, setIsMuted] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<'male' | 'female'>(voiceType);
   const [voicePreset, setVoicePreset] = useState('childFriendly');
+  const [hasGeneratedAudio, setHasGeneratedAudio] = useState(false);
   
   const { 
     isPlaying, 
     isGenerating, 
-    playAudio, 
+    playAudio,
+    generateAudio,
     toggleMute,
     VOICE_PRESETS 
   } = useStoryNarration({
@@ -64,6 +69,7 @@ export const NarrationPlayer = ({
     const checkExistingAudio = async () => {
       setLoading(true);
       setError(null);
+      setHasGeneratedAudio(false);
       
       try {
         if (!storyId) {
@@ -85,6 +91,13 @@ export const NarrationPlayer = ({
         } else if (data?.audio_url) {
           if (data.audio_url.startsWith('http')) {
             setAudioUrl(data.audio_url);
+            
+            if (autoPlay) {
+              // Add a small delay to ensure audio plays consistently
+              setTimeout(() => {
+                handlePlayAudio();
+              }, 500);
+            }
           } else {
             try {
               const { data: publicUrlData } = supabase
@@ -99,11 +112,21 @@ export const NarrationPlayer = ({
                 .update({ audio_url: publicUrlData.publicUrl })
                 .eq('story_id', storyId)
                 .eq('page_index', pageIndex);
+                
+              if (autoPlay) {
+                // Add a small delay to ensure audio plays consistently
+                setTimeout(() => {
+                  handlePlayAudio();
+                }, 500);
+              }
             } catch (e) {
               console.error("Erro ao processar URL de áudio:", e);
               setAudioUrl(data.audio_url);
             }
           }
+        } else if (pageText && autoPlay) {
+          // Auto-generate and play narration if it doesn't exist yet
+          generateAndPlay();
         }
       } catch (e) {
         console.error("Erro ao verificar narração:", e);
@@ -114,7 +137,26 @@ export const NarrationPlayer = ({
     };
     
     checkExistingAudio();
-  }, [storyId, pageIndex]);
+  }, [storyId, pageIndex, pageText, autoPlay]);
+  
+  const generateAndPlay = async () => {
+    if (!pageText || isGenerating) return;
+    
+    try {
+      console.log("Gerando narração automaticamente...");
+      const generatedAudioUrl = await generateAudio(selectedVoice);
+      setHasGeneratedAudio(true);
+      
+      if (generatedAudioUrl) {
+        // Short delay to ensure audio is ready
+        setTimeout(() => {
+          playAudio(selectedVoice, generatedAudioUrl);
+        }, 300);
+      }
+    } catch (error) {
+      console.error("Erro ao gerar e reproduzir narração:", error);
+    }
+  };
   
   const handlePlayAudio = async () => {
     try {
@@ -128,7 +170,11 @@ export const NarrationPlayer = ({
         return;
       }
       
-      await playAudio(selectedVoice);
+      if (!hasGeneratedAudio && pageText) {
+        await generateAndPlay();
+      } else {
+        await playAudio(selectedVoice);
+      }
     } catch (e: any) {
       console.error("Erro ao reproduzir áudio:", e);
       
