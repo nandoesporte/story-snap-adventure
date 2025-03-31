@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button"; // Add Button import
 import LoadingSpinner from "../LoadingSpinner";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
