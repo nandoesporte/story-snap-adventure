@@ -1,5 +1,6 @@
 
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Get a formatted image URL with fallback handling
@@ -17,6 +18,7 @@ export const getImageUrl = (url?: string, theme?: string): string => {
     // Try to use a cached version if available
     const cachedUrl = localStorage.getItem(`image_cache_${hashSimple(url)}`);
     if (cachedUrl) {
+      console.log("Using cached URL for DALL-E image:", cachedUrl);
       return cachedUrl;
     }
     
@@ -56,6 +58,54 @@ export const getFallbackImage = (theme?: string): string => {
   }
   
   return `/images/placeholders/${defaultTheme}.jpg`;
+};
+
+/**
+ * Check if an URL points to permanent storage
+ */
+export const isPermanentStorage = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Check if URL is from Supabase storage
+  if (url.includes('supabase.co/storage/v1/object/public')) {
+    return true;
+  }
+  
+  // Check if URL is from our project's static assets
+  if (url.startsWith(window.location.origin) && url.includes('/images/')) {
+    return true;
+  }
+  
+  // Check if it's a relative path to static assets
+  if (url.startsWith('/images/') || url === '/placeholder.svg') {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Check if an URL is likely temporary
+ */
+export const isTemporaryUrl = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Check known temporary URL patterns
+  if (url.includes('oaidalleapiprodscus.blob.core.windows.net')) {
+    return true;
+  }
+  
+  // Check for URLs with expiry parameters
+  if (url.includes('se=') && (url.includes('sig=') || url.includes('token='))) {
+    return true;
+  }
+  
+  // Check for URLs with explicit expiry tokens
+  if (url.includes('expiry=') || url.includes('expires=')) {
+    return true;
+  }
+  
+  return false;
 };
 
 /**
@@ -125,49 +175,74 @@ const hashSimple = (str: string): string => {
 };
 
 /**
- * Check if an URL points to permanent storage
+ * Save an image to permanent storage
  */
-export const isPermanentStorage = (url: string): boolean => {
-  if (!url) return false;
-  
-  // Check if URL is from Supabase storage
-  if (url.includes('supabase.co/storage/v1/object/public')) {
-    return true;
+export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: string): Promise<string> => {
+  try {
+    // If already in permanent storage, return as is
+    if (isPermanentStorage(imageUrl)) {
+      return imageUrl;
+    }
+    
+    // Check cache first
+    const urlKey = imageUrl.split('/').pop()?.split('?')[0];
+    if (urlKey) {
+      const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
+      if (cachedUrl && isPermanentStorage(cachedUrl)) {
+        console.log("Using cached permanent URL:", cachedUrl);
+        return cachedUrl;
+      }
+    }
+    
+    // Generate a unique file name
+    const fileName = `${storyId || 'story'}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.png`;
+    
+    console.log("Attempting to fetch and save image:", imageUrl);
+    
+    // Fetch the image as a blob
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error("Failed to fetch image:", response.status);
+      toast.error("Falha ao baixar a imagem");
+      return imageUrl; // Return original URL if fetch fails
+    }
+    
+    const imageBlob = await response.blob();
+    
+    // Upload to Supabase storage
+    const { data, error } = await supabase
+      .storage
+      .from('story_images')
+      .upload(fileName, imageBlob, {
+        contentType: 'image/png',
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (error) {
+      console.error("Failed to upload image to storage:", error);
+      toast.error("Falha ao salvar imagem no armazenamento permanente");
+      return imageUrl; // Return original URL if upload fails
+    }
+    
+    // Get the public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('story_images')
+      .getPublicUrl(fileName);
+      
+    console.log("Image saved to permanent storage:", publicUrl);
+    toast.success("Imagem salva no armazenamento permanente");
+    
+    // Cache the permanent URL
+    if (urlKey) {
+      localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
+    }
+    
+    return publicUrl;
+  } catch (error) {
+    console.error("Error saving image to permanent storage:", error);
+    toast.error("Erro ao salvar imagem permanentemente");
+    return imageUrl; // Return original URL if any error occurs
   }
-  
-  // Check if URL is from our project's static assets
-  if (url.startsWith(window.location.origin) && url.includes('/images/')) {
-    return true;
-  }
-  
-  // Check if it's a relative path to static assets
-  if (url.startsWith('/images/') || url === '/placeholder.svg') {
-    return true;
-  }
-  
-  return false;
-};
-
-/**
- * Check if an URL is likely temporary
- */
-export const isTemporaryUrl = (url: string): boolean => {
-  if (!url) return false;
-  
-  // Check known temporary URL patterns
-  if (url.includes('oaidalleapiprodscus.blob.core.windows.net')) {
-    return true;
-  }
-  
-  // Check for URLs with expiry parameters
-  if (url.includes('se=') && (url.includes('sig=') || url.includes('token='))) {
-    return true;
-  }
-  
-  // Check for URLs with explicit expiry tokens
-  if (url.includes('expiry=') || url.includes('expires=')) {
-    return true;
-  }
-  
-  return false;
 };

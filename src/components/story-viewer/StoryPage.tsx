@@ -70,9 +70,10 @@ export const StoryPage: React.FC<StoryPageProps> = ({
       hideText,
       hasText: !!typedText,
       imageLoaded,
-      imageError
+      imageError,
+      storyId
     });
-  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText, imageLoaded, imageError]);
+  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText, imageLoaded, imageError, storyId]);
 
   // Mobile layout
   if (isMobile) {
@@ -87,6 +88,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             onClick={() => onImageClick(imageUrl)}
             onError={handleImageError}
             onLoad={handleImageLoad}
+            storyId={storyId}
           />
         </div>
         
@@ -146,6 +148,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           onClick={() => onImageClick(imageUrl)}
           onError={handleImageError}
           onLoad={handleImageLoad}
+          storyId={storyId}
         />
       </div>
       

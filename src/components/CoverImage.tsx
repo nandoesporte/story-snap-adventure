@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { isPermanentStorage, isTemporaryUrl } from './story-viewer/helpers';
+import { isPermanentStorage, isTemporaryUrl, saveImageToPermanentStorage } from './story-viewer/helpers';
+import { toast } from "sonner";
 
 interface CoverImageProps {
   imageUrl: string;
@@ -10,6 +11,7 @@ interface CoverImageProps {
   onClick?: () => void;
   onError?: () => void;
   onLoad?: () => void;
+  storyId?: string;
 }
 
 export const CoverImage: React.FC<CoverImageProps> = ({
@@ -19,12 +21,14 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   className = '',
   onClick,
   onError,
-  onLoad
+  onLoad,
+  storyId
 }) => {
   const [imgError, setImgError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [finalUrl, setFinalUrl] = useState<string>(imageUrl);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Reset state when image URL changes
   useEffect(() => {
@@ -32,6 +36,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     setLoaded(false);
     setRetryCount(0);
     setFinalUrl(imageUrl);
+    setIsSaving(false);
   }, [imageUrl]);
   
   // Check if URL is cached
@@ -50,6 +55,30 @@ export const CoverImage: React.FC<CoverImageProps> = ({
       }
     }
   }, [finalUrl]);
+  
+  // Save temporary URLs to permanent storage after loading
+  useEffect(() => {
+    if (loaded && !imgError && isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl) && !isSaving) {
+      const saveImage = async () => {
+        try {
+          setIsSaving(true);
+          console.log("Saving temporary image to permanent storage:", finalUrl);
+          const permanentUrl = await saveImageToPermanentStorage(finalUrl, storyId);
+          
+          if (permanentUrl !== finalUrl) {
+            console.log("Image saved to permanent storage:", permanentUrl);
+            setFinalUrl(permanentUrl);
+          }
+        } catch (error) {
+          console.error("Failed to save image to permanent storage:", error);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+      
+      saveImage();
+    }
+  }, [loaded, finalUrl, imgError, isSaving, storyId]);
   
   // Pre-load the image to verify if it's valid
   useEffect(() => {
@@ -172,6 +201,11 @@ export const CoverImage: React.FC<CoverImageProps> = ({
             loading="eager"
             onError={() => console.error("Even fallback image failed to load")}
           />
+        </div>
+      )}
+      {isSaving && (
+        <div className="absolute bottom-2 right-2 bg-white/80 text-xs px-2 py-1 rounded">
+          Salvando...
         </div>
       )}
     </div>

@@ -11,6 +11,7 @@ interface CoverPageProps {
   setting: string;
   style?: string;
   isMobile: boolean;
+  storyId?: string;
   onImageClick: (url: string) => void;
   onImageError: (url: string) => void;
 }
@@ -23,6 +24,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   setting,
   style,
   isMobile,
+  storyId,
   onImageClick,
   onImageError
 }) => {
@@ -39,9 +41,10 @@ export const CoverPage: React.FC<CoverPageProps> = ({
       isMobile,
       theme,
       imageLoaded,
-      imageError
+      imageError,
+      storyId
     });
-  }, [formattedImageUrl, isMobile, title, theme, imageLoaded, imageError]);
+  }, [formattedImageUrl, isMobile, title, theme, imageLoaded, imageError, storyId]);
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -68,6 +71,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
               onClick={() => onImageClick(formattedImageUrl)}
               onError={handleImageError}
               onLoad={handleImageLoad}
+              storyId={storyId}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-4 md:p-8">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4 text-white drop-shadow-md line-clamp-2">{title}</h2>
@@ -110,6 +114,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
               onClick={() => onImageClick(formattedImageUrl)}
               onError={handleImageError}
               onLoad={handleImageLoad}
+              storyId={storyId}
             />
           </div>
         </div>
