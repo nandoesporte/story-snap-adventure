@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoryNarration } from '@/hooks/useStoryNarration';
@@ -33,7 +33,6 @@ interface NarrationPlayerProps {
   className?: string;
   voiceType?: 'male' | 'female';
   autoPlay?: boolean;
-  preloadAudio?: boolean;
 }
 
 export const NarrationPlayer = ({ 
@@ -42,8 +41,7 @@ export const NarrationPlayer = ({
   pageText, 
   className = '',
   voiceType = 'female',
-  autoPlay = false,
-  preloadAudio = false
+  autoPlay = false
 }: NarrationPlayerProps) => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +50,6 @@ export const NarrationPlayer = ({
   const [selectedVoice, setSelectedVoice] = useState<'male' | 'female'>(voiceType);
   const [voicePreset, setVoicePreset] = useState('childFriendly');
   const [hasGeneratedAudio, setHasGeneratedAudio] = useState(false);
-  const [audioInitialized, setAudioInitialized] = useState(false);
   
   const { 
     isPlaying, 
@@ -60,8 +57,7 @@ export const NarrationPlayer = ({
     playAudio,
     generateAudio,
     toggleMute,
-    VOICE_PRESETS,
-    preloadAudioFile
+    VOICE_PRESETS 
   } = useStoryNarration({
     storyId,
     text: pageText,
@@ -71,8 +67,6 @@ export const NarrationPlayer = ({
   
   useEffect(() => {
     const checkExistingAudio = async () => {
-      if (audioInitialized && !preloadAudio) return;
-      
       setLoading(true);
       setError(null);
       setHasGeneratedAudio(false);
@@ -81,24 +75,6 @@ export const NarrationPlayer = ({
         if (!storyId) {
           setError("ID da história não disponível");
           setLoading(false);
-          return;
-        }
-        
-        // First check cache for faster loading
-        const cacheKey = `audio_${storyId}_page_${pageIndex}`;
-        const cachedAudio = localStorage.getItem(cacheKey);
-        
-        if (cachedAudio) {
-          console.log(`Using cached audio for page ${pageIndex}`);
-          setAudioUrl(cachedAudio);
-          setAudioInitialized(true);
-          setLoading(false);
-          
-          if (autoPlay) {
-            setTimeout(() => {
-              handlePlayAudio();
-            }, 300);
-          }
           return;
         }
         
@@ -112,25 +88,15 @@ export const NarrationPlayer = ({
         if (fetchError) {
           console.log("Narração não encontrada:", fetchError.message);
           setAudioUrl(null);
-          
-          if (pageText && autoPlay) {
-            // Auto-generate and play narration if it doesn't exist yet
-            generateAndPlay();
-          }
         } else if (data?.audio_url) {
           if (data.audio_url.startsWith('http')) {
             setAudioUrl(data.audio_url);
-            setAudioInitialized(true);
-            
-            if (preloadAudio) {
-              preloadAudioFile(data.audio_url);
-            }
             
             if (autoPlay) {
               // Add a small delay to ensure audio plays consistently
               setTimeout(() => {
                 handlePlayAudio();
-              }, 300);
+              }, 500);
             }
           } else {
             try {
@@ -140,11 +106,6 @@ export const NarrationPlayer = ({
                 .getPublicUrl(data.audio_url);
               
               setAudioUrl(publicUrlData.publicUrl);
-              setAudioInitialized(true);
-              
-              if (preloadAudio) {
-                preloadAudioFile(publicUrlData.publicUrl);
-              }
               
               await supabase
                 .from('story_narrations')
@@ -156,12 +117,11 @@ export const NarrationPlayer = ({
                 // Add a small delay to ensure audio plays consistently
                 setTimeout(() => {
                   handlePlayAudio();
-                }, 300);
+                }, 500);
               }
             } catch (e) {
               console.error("Erro ao processar URL de áudio:", e);
               setAudioUrl(data.audio_url);
-              setAudioInitialized(true);
             }
           }
         } else if (pageText && autoPlay) {
@@ -177,30 +137,24 @@ export const NarrationPlayer = ({
     };
     
     checkExistingAudio();
-  }, [storyId, pageIndex, pageText, autoPlay, preloadAudio]);
+  }, [storyId, pageIndex, pageText, autoPlay]);
   
   const generateAndPlay = async () => {
     if (!pageText || isGenerating) return;
     
     try {
-      setLoading(true);
       console.log("Gerando narração automaticamente...");
       const generatedAudioUrl = await generateAudio(selectedVoice);
       setHasGeneratedAudio(true);
-      setAudioInitialized(true);
       
       if (generatedAudioUrl) {
-        setAudioUrl(generatedAudioUrl);
         // Short delay to ensure audio is ready
         setTimeout(() => {
           playAudio(selectedVoice, generatedAudioUrl);
-        }, 200);
+        }, 300);
       }
     } catch (error) {
       console.error("Erro ao gerar e reproduzir narração:", error);
-      setError("Falha ao gerar narração");
-    } finally {
-      setLoading(false);
     }
   };
   
@@ -302,7 +256,7 @@ export const NarrationPlayer = ({
         </PopoverContent>
       </Popover>
       
-      {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio...</span>}
+      {isGenerating && <span className="ml-2 text-xs text-purple-500">Gerando áudio humanizado...</span>}
       {error && (
         <div className="flex items-center">
           <span className="ml-2 text-xs text-red-500">{error}</span>
