@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -28,21 +29,38 @@ export const UserManager = () => {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isPromotingAdmin, setIsPromotingAdmin] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const { data: users = [], isLoading, error, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
       try {
-        // Since admin API is not accessible, let's simulate it with a simple list
-        // In a real app, you would use proper admin access
-        return [
-          {
-            id: "1",
-            email: "nandoesporte1@gmail.com",
-            created_at: new Date().toISOString(),
-            last_sign_in_at: new Date().toISOString(),
-          }
-        ];
+        // Fetch users from auth schema through an admin function
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('id, display_name, created_at, is_admin')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error("Error fetching users:", error);
+          throw error;
+        }
+
+        // Fetch more user details from auth if available
+        if (data) {
+          // Transform the data to match the AdminUser type
+          return data.map((profile: any) => ({
+            id: profile.id,
+            email: profile.display_name,
+            created_at: profile.created_at,
+            last_sign_in_at: null,
+            is_admin: profile.is_admin
+          }));
+        }
+        
+        return [];
       } catch (err) {
         console.error("Error fetching users:", err);
         return [];
@@ -50,11 +68,7 @@ export const UserManager = () => {
     },
   });
 
-  // Simplified function to check admin status
-  const isUserAdmin = (email: string) => {
-    return email === 'nandoesporte1@gmail.com';
-  };
-
+  // Create user form
   const createUserForm = useForm({
     defaultValues: {
       email: "",
@@ -62,91 +76,204 @@ export const UserManager = () => {
     },
   });
 
+  // Reset password form
   const resetPasswordForm = useForm({
     defaultValues: {
       password: "",
     },
   });
 
+  // Function to create a new user
   const handleCreateUser = async (values: { email: string; password: string }) => {
     try {
-      sonnerToast.success("Esta função requer permissões de administrador no Supabase");
+      setIsCreatingUser(true);
       
+      // Create the user using Supabase auth
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: values.email,
+        password: values.password,
+        email_confirm: true
+      });
+      
+      if (error) {
+        console.error("Error creating user:", error);
+        sonnerToast.error(`Erro ao criar usuário: ${error.message}`);
+        return;
+      }
+
+      // Manually create the user profile if needed
+      if (data.user) {
+        // Attempt to create user profile
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: data.user.id,
+            display_name: values.email,
+            story_credits: 5,
+            is_admin: false
+          });
+
+        if (profileError) {
+          console.error("Error creating user profile:", profileError);
+        }
+      }
+      
+      sonnerToast.success("Usuário criado com sucesso");
       setIsCreateDialogOpen(false);
       createUserForm.reset();
+      refetch();
     } catch (error: any) {
-      sonnerToast.error("Erro ao criar usuário: " + error.message);
+      console.error("Error creating user:", error);
+      sonnerToast.error(`Erro ao criar usuário: ${error.message}`);
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
+  // Function to reset user password
   const handleResetPassword = async (values: { password: string }) => {
     if (!selectedUserId) return;
     
     try {
-      sonnerToast.success("Esta função requer permissões de administrador no Supabase");
+      setIsResettingPassword(true);
       
+      // Update user password using Supabase admin API
+      const { error } = await supabase.auth.admin.updateUserById(
+        selectedUserId,
+        { password: values.password }
+      );
+      
+      if (error) {
+        console.error("Error resetting password:", error);
+        sonnerToast.error(`Erro ao resetar senha: ${error.message}`);
+        return;
+      }
+      
+      sonnerToast.success("Senha alterada com sucesso");
       setIsResetPasswordDialogOpen(false);
       resetPasswordForm.reset();
     } catch (error: any) {
-      sonnerToast.error("Erro ao resetar senha: " + error.message);
+      console.error("Error resetting password:", error);
+      sonnerToast.error(`Erro ao resetar senha: ${error.message}`);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
+  // Function to delete a user
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm("Tem certeza que deseja excluir este usuário?")) {
       try {
-        sonnerToast.success("Esta função requer permissões de administrador no Supabase");
+        setIsDeletingUser(true);
         
+        // Delete user using Supabase admin API
+        const { error } = await supabase.auth.admin.deleteUser(userId);
+        
+        if (error) {
+          console.error("Error deleting user:", error);
+          sonnerToast.error(`Erro ao excluir usuário: ${error.message}`);
+          return;
+        }
+        
+        sonnerToast.success("Usuário excluído com sucesso");
+        refetch();
       } catch (error: any) {
-        sonnerToast.error("Erro ao excluir usuário: " + error.message);
+        console.error("Error deleting user:", error);
+        sonnerToast.error(`Erro ao excluir usuário: ${error.message}`);
+      } finally {
+        setIsDeletingUser(false);
       }
     }
   };
 
+  // Function to promote a user to admin
   const handlePromoteToAdmin = async (userId: string, email: string) => {
     if (window.confirm(`Promover "${email}" para administrador?`)) {
       setIsPromotingAdmin(true);
       try {
-        // For demonstration purposes, show success
-        sonnerToast.success(`${email} foi promovido a administrador`);
+        // Update user profile in the database
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ is_admin: true })
+          .eq('id', userId);
         
+        if (error) {
+          console.error("Error promoting user:", error);
+          sonnerToast.error(`Erro ao promover usuário: ${error.message}`);
+          return;
+        }
+        
+        sonnerToast.success(`${email} foi promovido a administrador`);
+        refetch();
       } catch (error: any) {
-        sonnerToast.error("Erro ao promover usuário: " + error.message);
+        sonnerToast.error(`Erro ao promover usuário: ${error.message}`);
       } finally {
         setIsPromotingAdmin(false);
       }
     }
   };
 
-  // Special function to make nandoesporte1@gmail.com an admin
-  React.useEffect(() => {
+  // Check for nandoesporte1@gmail.com admin access
+  useEffect(() => {
     const makeSpecificUserAdmin = async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
         
         if (userData?.user?.email === 'nandoesporte1@gmail.com') {
-          sonnerToast.success("Você tem acesso de administrador");
+          // Get or create user profile
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('is_admin')
+            .eq('id', userData.user.id)
+            .single();
+          
+          // If profile exists but not admin, update it
+          if (profileData && !profileData.is_admin) {
+            await supabase
+              .from('user_profiles')
+              .update({ is_admin: true })
+              .eq('id', userData.user.id);
+              
+            sonnerToast.success("Permissões de administrador atualizadas");
+          }
         }
       } catch (error) {
-        console.error("Error setting admin:", error);
+        console.error("Error checking admin:", error);
       }
     };
     
     makeSpecificUserAdmin();
   }, []);
 
+  // Function to open reset password dialog
   const openResetPasswordDialog = (userId: string) => {
     setSelectedUserId(userId);
     setIsResetPasswordDialogOpen(true);
   };
 
+  // Filter users based on search term
   const filteredUsers = users.filter(
     (user: any) =>
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
   );
 
+  // If no admin users found and we're not loading, show a message to the first superuser
+  const showAdminSetupHelp = !isLoading && users.length === 0;
+
   return (
     <div className="space-y-4">
+      {showAdminSetupHelp && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mb-4">
+          <h3 className="text-amber-800 font-medium mb-2">Configuração Inicial de Administrador</h3>
+          <p className="text-amber-700 text-sm mb-2">
+            Como este é o primeiro acesso, você precisará criar usuários manualmente no Supabase e configurá-los como administradores.
+          </p>
+          <p className="text-amber-700 text-sm">
+            Se você for o administrador principal (nandoesporte1@gmail.com), suas permissões serão atualizadas automaticamente.
+          </p>
+        </div>
+      )}
+      
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -200,7 +327,7 @@ export const UserManager = () => {
                       : "Nunca"}
                   </TableCell>
                   <TableCell>
-                    {isUserAdmin(user.email) ? (
+                    {user.is_admin ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         <ShieldCheck className="h-3 w-3 mr-1" />
                         Admin
@@ -231,6 +358,7 @@ export const UserManager = () => {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteUser(user.id)}
+                        disabled={isDeletingUser}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Excluir</span>
@@ -281,7 +409,9 @@ export const UserManager = () => {
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Criar Usuário</Button>
+                <Button type="submit" disabled={isCreatingUser}>
+                  {isCreatingUser ? "Criando..." : "Criar Usuário"}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
@@ -312,7 +442,9 @@ export const UserManager = () => {
                 <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Salvar Nova Senha</Button>
+                <Button type="submit" disabled={isResettingPassword}>
+                  {isResettingPassword ? "Salvando..." : "Salvar Nova Senha"}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
