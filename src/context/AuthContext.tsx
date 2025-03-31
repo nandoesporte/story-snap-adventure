@@ -135,10 +135,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to ensure user profile exists
+  // Function to ensure user profile exists - this is a critical addition
   const createUserProfile = async (userId: string, userEmail: string) => {
     try {
-      // First method: Direct upsert
+      console.log('Directly creating profile for user:', userId, userEmail);
+      
+      // Direct upsert approach
       const { error } = await supabase
         .from('user_profiles')
         .upsert({ 
@@ -149,20 +151,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
       if (error) {
-        console.error('Error creating profile via upsert:', error);
-        
-        // Second method: Try RPC function
-        const { error: rpcError } = await supabase.rpc('create_user_profile', {
-          user_id: userId,
-          user_email: userEmail,
-          user_name: userEmail.split('@')[0]
-        });
-        
-        if (rpcError) {
-          console.error('Error creating profile via RPC:', rpcError);
-          return false;
-        }
+        console.error('Error creating profile via direct upsert:', error);
+        return false;
       }
+      
+      console.log('Profile created successfully via direct upsert');
       return true;
     } catch (e) {
       console.error('Profile creation error:', e);
@@ -196,37 +189,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign up response:', data);
       
-      // If we have a user, ensure profile exists
+      // If we have a user, create profile immediately
       if (data.user) {
         console.info('User created, creating profile for:', data.user.id);
         
-        // Create profile immediately
-        const success = await createUserProfile(data.user.id, email);
+        // Multiple attempts to create profile for reliability
+        let profileCreated = await createUserProfile(data.user.id, email);
         
-        // If it fails, retry after delay
-        if (!success) {
-          setTimeout(async () => {
-            await createUserProfile(data.user!.id, email);
-          }, 1500);
+        // If first attempt fails, try again after a delay
+        if (!profileCreated) {
+          console.log('First profile creation attempt failed, retrying...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          profileCreated = await createUserProfile(data.user.id, email);
         }
         
-        // Also check profile after 3 seconds as final fallback
-        setTimeout(async () => {
-          try {
-            const { data: profileData } = await supabase
-              .from('user_profiles')
-              .select('id')
-              .eq('id', data.user!.id)
-              .single();
-              
-            if (!profileData) {
-              console.warn('Profile still not created after delay, final attempt');
-              await createUserProfile(data.user!.id, email);
-            }
-          } catch (e) {
-            console.error('Error in final profile check:', e);
-          }
-        }, 3000);
+        // Check if profile was created
+        const { data: profileCheck, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .single();
+          
+        console.log('Profile creation verification:', { profileExists: !!profileCheck, error: profileError });
       }
       
       return { data, error: null };
