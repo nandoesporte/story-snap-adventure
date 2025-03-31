@@ -121,7 +121,7 @@ export const useStoryData = (storyId?: string) => {
       setTotalPages(formattedStory.pages.length + 1);
       setLoading(false);
       
-      // Processar imagens para armazenamento permanente após carregar a história
+      // Process images for permanent storage after loading the story
       processStoryImages(formattedStory, data.id);
     };
     
@@ -159,7 +159,7 @@ export const useStoryData = (storyId?: string) => {
           setStoryData(formattedStory);
           setTotalPages(formattedStory.pages.length + 1);
           
-          // Processar imagens para armazenamento permanente após carregar a história
+          // Process images for permanent storage after loading the story
           processStoryImages(formattedStory);
         } else {
           console.error("No story data found in sessionStorage");
@@ -179,13 +179,13 @@ export const useStoryData = (storyId?: string) => {
       if (imagesProcessed) return;
       
       try {
-        // Processar imagens para armazenamento permanente
+        // Process images for permanent storage
         const updatedStory = await saveStoryImagesPermanently({
           ...story,
           id: storyId
         });
         
-        // Salvar versão atualizada da história se houver um ID
+        // Save updated version of the story if there's an ID
         if (storyId) {
           const { error: updateError } = await supabase
             .from("stories")
@@ -202,11 +202,11 @@ export const useStoryData = (storyId?: string) => {
           }
         }
         
-        // Atualizar estado com as novas URLs de imagem
+        // Update state with the new image URLs
         setStoryData(updatedStory);
         setImagesProcessed(true);
         
-        // Atualizar sessionStorage para garantir persistência mesmo após refresh
+        // Update sessionStorage to ensure persistence even after refresh
         sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
       } catch (error) {
         console.error("Error processing story images:", error);

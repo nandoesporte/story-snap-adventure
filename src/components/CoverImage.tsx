@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { useStoryImages } from '@/hooks/useStoryImages';
 
 interface CoverImageProps {
   imageUrl: string;
@@ -19,41 +18,43 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   onClick,
   onError
 }) => {
-  const { processedUrl, hasError, isLoading } = useStoryImages(imageUrl);
   const [imgError, setImgError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [finalUrl, setFinalUrl] = useState<string>(imageUrl);
   
-  // Use processed URL or fallback if there was an error
-  const displayUrl = hasError || imgError ? fallbackImage : processedUrl;
-  
-  // Reset the error and loaded state when the image URL changes
+  // Reset state when image URL changes
   useEffect(() => {
     setImgError(false);
     setLoaded(false);
     setRetryCount(0);
+    setFinalUrl(imageUrl);
   }, [imageUrl]);
   
   // Pre-load the image to verify if it's valid
   useEffect(() => {
-    if (displayUrl && !loaded && !imgError && retryCount < 2) {
+    if (finalUrl && !loaded && !imgError && retryCount < 2) {
       const img = new Image();
-      img.src = displayUrl;
+      img.src = finalUrl;
       
       const handleLoad = () => {
         setLoaded(true);
-        console.log("Image pre-loaded successfully:", displayUrl);
+        console.log("Image pre-loaded successfully:", finalUrl);
       };
       
       const handleError = () => {
-        console.error(`Failed to pre-load image: ${displayUrl}`);
+        console.error(`Failed to pre-load image: ${finalUrl}`);
         
-        if (retryCount < 1 && !displayUrl.includes('placeholder')) {
+        if (retryCount < 1 && !finalUrl.includes('placeholder')) {
           // Try once more with a small delay
           setRetryCount(prev => prev + 1);
-          setTimeout(() => {
-            img.src = displayUrl + '?retry=' + Date.now();
-          }, 1000);
+          
+          // Add cache-busting parameter
+          const retryUrl = finalUrl.includes('?') 
+            ? `${finalUrl}&retry=${Date.now()}` 
+            : `${finalUrl}?retry=${Date.now()}`;
+            
+          setFinalUrl(retryUrl);
         } else {
           setImgError(true);
           if (onError) onError();
@@ -68,13 +69,13 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         img.onerror = null;
       };
     }
-  }, [displayUrl, onError, loaded, imgError, retryCount]);
+  }, [finalUrl, onError, loaded, imgError, retryCount]);
   
   // Handle image loading error
   const handleError = () => {
-    console.error(`Failed to load image: ${processedUrl}`);
+    console.error(`Failed to load image: ${finalUrl}`);
     
-    if (retryCount < 1 && !processedUrl.includes('placeholder')) {
+    if (retryCount < 1 && !finalUrl.includes('placeholder')) {
       // Try once more
       setRetryCount(prev => prev + 1);
     } else {
@@ -91,8 +92,11 @@ export const CoverImage: React.FC<CoverImageProps> = ({
 
   const handleLoad = () => {
     setLoaded(true);
-    console.log("Image loaded successfully:", displayUrl);
+    console.log("Image loaded successfully:", finalUrl);
   };
+
+  // Use the fallback image if there was an error
+  const displayUrl = imgError ? fallbackImage : finalUrl;
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{width: '100%', height: '100%'}}>
@@ -102,9 +106,9 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         </div>
       )}
       <img
-        src={`${displayUrl}${retryCount > 0 ? `?retry=${Date.now()}` : ''}`}
+        src={displayUrl}
         alt={alt}
-        className={`transition-opacity duration-300 ${(isLoading || !loaded) && !imgError ? 'opacity-50' : 'opacity-100'} w-full h-full object-cover`}
+        className={`transition-opacity duration-300 ${!loaded && !imgError ? 'opacity-50' : 'opacity-100'} w-full h-full object-cover`}
         onClick={onClick}
         onError={handleError}
         onLoad={handleLoad}
