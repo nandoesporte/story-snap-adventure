@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
 
@@ -13,12 +12,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  // Handle CORS
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+// Process MercadoPago webhook events
+const handleWebhook = async (req: Request): Promise<Response> => {
   try {
     // First validate the webhook secret to ensure the request is legitimate
     const authHeader = req.headers.get("x-webhook-secret");
@@ -36,14 +31,14 @@ serve(async (req) => {
     console.log("Received MercadoPago webhook:", JSON.stringify(payload));
 
     // Process the webhook based on type
-    const notificationType = payload.type;
+    const topic = payload.type;
     const data = payload.data;
 
-    if (notificationType === "payment") {
+    if (topic === 'payment') {
       // Handle payment notification
-      const paymentId = data.id;
-      console.log(`Processing payment notification for payment ID: ${paymentId}`);
-      
+      const paymentData = data;
+      console.log("Received payment notification:", JSON.stringify(paymentData));
+
       // Get payment details from subscription record
       const { data: subscription, error: subscriptionError } = await supabase
         .from("user_subscriptions")
@@ -53,7 +48,7 @@ serve(async (req) => {
           plan_id,
           subscription_plans(*)
         `)
-        .eq("mercadopago_payment_id", paymentId)
+        .eq("mercadopago_payment_id", paymentData.id)
         .single();
       
       if (subscriptionError) {
@@ -65,7 +60,7 @@ serve(async (req) => {
       }
       
       if (!subscription) {
-        console.error("No subscription found for payment ID:", paymentId);
+        console.error("No subscription found for payment ID:", paymentData.id);
         return new Response(
           JSON.stringify({ error: "Subscription not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -75,7 +70,7 @@ serve(async (req) => {
       console.log("Found subscription:", subscription);
       
       // Based on the payment status, update the subscription status
-      const status = data.status;
+      const status = paymentData.status;
       
       if (status === "approved") {
         console.log("Payment approved, activating subscription");
@@ -118,7 +113,7 @@ serve(async (req) => {
             user_id: subscription.user_id,
             plan_id: subscription.plan_id,
             action: "created",
-            details: { payment_id: paymentId, status }
+            details: { payment_id: paymentData.id, status }
           });
         
         if (historyError) {
@@ -126,6 +121,11 @@ serve(async (req) => {
         }
         
         console.log("Subscription activated successfully");
+        
+        // Reset the stories_created_count for the user when subscription is activated
+        await supabase.rpc('reset_user_story_count', { user_uuid: subscription.user_id });
+        
+        console.log(`Reset stories count for user ${subscription.user_id}`);
       } else if (["rejected", "cancelled", "refunded"].includes(status)) {
         console.log(`Payment ${status}, setting subscription to inactive`);
         
@@ -152,7 +152,7 @@ serve(async (req) => {
             user_id: subscription.user_id,
             plan_id: subscription.plan_id,
             action: "failed",
-            details: { payment_id: paymentId, status }
+            details: { payment_id: paymentData.id, status }
           });
         
         if (historyError) {
@@ -174,4 +174,13 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+};
+
+serve(async (req) => {
+  // Handle CORS
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  return handleWebhook(req);
 });

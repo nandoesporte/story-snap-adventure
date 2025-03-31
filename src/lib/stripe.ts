@@ -132,18 +132,16 @@ export const canCreateStory = async (userId: string) => {
     
     // If user has an active subscription
     if (subscription) {
-      // Get stories created during the current billing period
-      const periodStart = new Date(subscription.current_period_start);
-      
-      const { count, error: countError } = await supabase
-        .from('stories')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('created_at', periodStart.toISOString());
+      // Get stories created count from user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('stories_created_count')
+        .eq('id', userId)
+        .single();
         
-      if (countError) throw countError;
+      if (profileError) throw profileError;
       
-      const storiesCreated = count || 0;
+      const storiesCreated = profileData?.stories_created_count || 0;
       const storiesLimit = subscription.subscription_plans?.stories_limit || 0;
       
       return {
@@ -212,25 +210,34 @@ export const consumeStoryCredit = async (userId: string) => {
     // First, check if user has an active subscription
     const subscription = await checkUserSubscription(userId);
     
-    // If user has an active subscription, we don't need to deduct credits
-    // Credits are tracked by counting stories created in the current billing period
     if (subscription) {
+      // Increment the stories_created_count in user_profiles
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ stories_created_count: supabase.rpc('increment', { row_id: userId, amount: 1 }) })
+        .eq('id', userId);
+      
+      if (error) {
+        console.error('Error incrementing stories count:', error);
+        return false;
+      }
+      
       return true;
+    } else {
+      // If no subscription, deduct from free credits
+      const { data, error } = await supabase.rpc('deduct_user_credits', {
+        user_uuid: userId,
+        amount: 1,
+        description: 'História criada'
+      });
+      
+      if (error) {
+        console.error('Error consuming story credit:', error);
+        return false;
+      }
+      
+      return data || false;
     }
-    
-    // If no subscription, deduct from free credits
-    const { data, error } = await supabase.rpc('deduct_user_credits', {
-      user_uuid: userId,
-      amount: 1,
-      description: 'História criada'
-    });
-    
-    if (error) {
-      console.error('Error consuming story credit:', error);
-      return false;
-    }
-    
-    return data || false;
   } catch (error) {
     console.error('Error in consumeStoryCredit:', error);
     return false;

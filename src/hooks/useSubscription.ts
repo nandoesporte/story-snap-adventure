@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 export type SubscriptionData = {
@@ -99,17 +99,18 @@ export const useSubscription = () => {
           if (subscription.current_period_start) {
             const periodStart = new Date(subscription.current_period_start);
             
-            const { count: createdCount, error: countError } = await supabase
-              .from('stories')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', user.id)
-              .gte('created_at', periodStart.toISOString());
+            // Get count from user_profiles instead of querying stories
+            const { data: profileData, error: profileCountError } = await supabase
+              .from('user_profiles')
+              .select('stories_created_count')
+              .eq('id', user.id)
+              .single();
             
-            if (countError) {
-              console.error('Error counting stories:', countError);
+            if (profileCountError) {
+              console.error('Error getting stories created count:', profileCountError);
             }
             
-            const storiesCount = createdCount || 0;
+            const storiesCount = profileData?.stories_created_count || 0;
             setStoriesCreated(storiesCount);
             
             // Calculate available credits based on plan limit and stories created
