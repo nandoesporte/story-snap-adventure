@@ -135,30 +135,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to ensure user profile exists - this is a critical addition
+  // Direct approach to create user profile that doesn't rely on triggers
   const createUserProfile = async (userId: string, userEmail: string) => {
     try {
-      console.log('Directly creating profile for user:', userId, userEmail);
+      console.log('Attempting direct profile creation for:', userId, userEmail);
       
-      // Direct upsert approach
-      const { error } = await supabase
+      // First try: direct insert
+      const { error: insertError } = await supabase
         .from('user_profiles')
-        .upsert({ 
+        .insert({ 
           id: userId,
           display_name: userEmail,
           story_credits: 5,
           is_admin: userEmail === 'nandoesporte1@gmail.com'
         });
         
-      if (error) {
-        console.error('Error creating profile via direct upsert:', error);
-        return false;
+      if (insertError) {
+        console.log('Insert failed, trying upsert:', insertError);
+        
+        // Second try: upsert approach
+        const { error: upsertError } = await supabase
+          .from('user_profiles')
+          .upsert({ 
+            id: userId,
+            display_name: userEmail,
+            story_credits: 5,
+            is_admin: userEmail === 'nandoesporte1@gmail.com'
+          });
+          
+        if (upsertError) {
+          console.error('Upsert also failed:', upsertError);
+          
+          // Third try: raw SQL insert via functions API
+          const { error: funcError } = await supabase.rpc('exec_sql', {
+            sql_query: `
+              INSERT INTO public.user_profiles (id, display_name, story_credits, is_admin)
+              VALUES ('${userId}', '${userEmail}', 5, ${userEmail === 'nandoesporte1@gmail.com'})
+              ON CONFLICT (id) DO UPDATE
+              SET display_name = EXCLUDED.display_name
+            `
+          });
+          
+          if (funcError) {
+            console.error('All profile creation methods failed:', funcError);
+            return false;
+          }
+        }
       }
       
-      console.log('Profile created successfully via direct upsert');
+      console.log('Successfully created profile for', userEmail);
       return true;
     } catch (e) {
-      console.error('Profile creation error:', e);
+      console.error('Unexpected error in profile creation:', e);
       return false;
     }
   };
@@ -189,28 +217,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign up response:', data);
       
-      // If we have a user, create profile immediately
+      // If we have a user, perform multiple profile creation attempts
       if (data.user) {
         console.info('User created, creating profile for:', data.user.id);
         
-        // Multiple attempts to create profile for reliability
+        // First attempt immediately
         let profileCreated = await createUserProfile(data.user.id, email);
         
-        // If first attempt fails, try again after a delay
+        // Second attempt after a short delay
         if (!profileCreated) {
-          console.log('First profile creation attempt failed, retrying...');
+          console.log('First attempt failed, retrying...');
           await new Promise(resolve => setTimeout(resolve, 1000));
           profileCreated = await createUserProfile(data.user.id, email);
         }
         
-        // Check if profile was created
-        const { data: profileCheck, error: profileError } = await supabase
+        // Final verification check
+        const { data: profileCheck } = await supabase
           .from('user_profiles')
           .select('id')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
           
-        console.log('Profile creation verification:', { profileExists: !!profileCheck, error: profileError });
+        if (!profileCheck) {
+          console.log('Final verification failed, trying one last time...');
+          await createUserProfile(data.user.id, email);
+        }
+        
+        console.log('Profile creation process complete, verification:', { 
+          profileExists: !!profileCheck,
+          user_id: data.user.id,
+          email: email
+        });
       }
       
       return { data, error: null };

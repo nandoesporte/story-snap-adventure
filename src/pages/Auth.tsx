@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -66,24 +65,47 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     return true;
   };
 
-  // Function to verify profile creation worked
   const verifyUserProfile = async (userId: string) => {
     try {
-      // Wait a moment to allow the database trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log("Verifying profile creation for user:", userId);
       
-      // Check if profile exists
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('id', userId)
-        .single();
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`Profile verification attempt ${attempt}`);
         
-      console.log("Profile verification result:", data, error);
+        await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('id, display_name')
+          .eq('id', userId)
+          .maybeSingle();
+          
+        console.log(`Attempt ${attempt} result:`, { data, error });
+        
+        if (data) {
+          console.log("Profile verified successfully!", data);
+          return true;
+        }
+        
+        if (attempt === 3 && !data) {
+          console.log("Final attempt: manual profile creation");
+          const { error: insertError } = await supabase
+            .from('user_profiles')
+            .insert({ 
+              id: userId,
+              display_name: email,
+              story_credits: 5,
+              is_admin: email === 'nandoesporte1@gmail.com'
+            });
+            
+          console.log("Final creation attempt result:", { error: insertError });
+          return !insertError;
+        }
+      }
       
-      return !!data; // Return true if data exists, false otherwise
+      return false;
     } catch (e) {
-      console.error('Error verifying user profile:', e);
+      console.error('Error in profile verification process:', e);
       return false;
     }
   };
@@ -110,13 +132,14 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
 
         console.log("User registration successful:", data);
         
-        // If we have a user ID, verify profile was created
-        if (data.user) {
+        if (data?.user?.id) {
+          console.log("Verifying profile creation for:", data.user.id);
           const profileExists = await verifyUserProfile(data.user.id);
-          console.log("Profile exists check result:", profileExists);
+          console.log("Profile verification complete:", profileExists);
           
-          // If the profile doesn't exist, it might be a timing issue, 
-          // we'll trust the trigger will handle it
+          if (!profileExists) {
+            console.warn("Profile creation may have failed but continuing");
+          }
         }
         
         toast.success("Conta criada com sucesso!");
