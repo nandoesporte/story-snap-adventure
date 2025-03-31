@@ -40,11 +40,6 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onImageError,
   onToggleTextVisibility
 }) => {
-  // Log de debugging para verificar props
-  console.log("StoryPage rendering with props:", { 
-    title, imageUrl, isMobile, hideText, typedText: typedText.substring(0, 20) + "..."
-  });
-
   const fallbackImage = getFallbackImage("");
 
   if (isMobile) {
@@ -71,12 +66,10 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 ))}
                 <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
               </div>
+              
               <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
                 {!isFullscreen && (
-                  <>
-                    <span>Página {pageIndex + 1} de {pageCount}</span>
-                    <span>{childName}</span>
-                  </>
+                  <span>{childName}</span>
                 )}
               </div>
               
@@ -135,10 +128,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             </ScrollArea>
             <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-between items-center">
               {!isFullscreen && (
-                <>
-                  <span>Página {pageIndex + 1} de {pageCount}</span>
-                  <span>{childName}</span>
-                </>
+                <span>{childName}</span>
               )}
               <NarrationPlayer
                 storyId={storyId || ''}
@@ -167,3 +157,4 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     </div>
   );
 };
+
