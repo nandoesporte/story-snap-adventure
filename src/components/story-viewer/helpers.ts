@@ -14,6 +14,19 @@ export const getImageUrl = (imageUrl?: string, theme: string = ""): string => {
     return getFallbackImage(theme);
   }
   
+  // Check if we have a cached version first
+  try {
+    const fileName = imageUrl.split('/').pop()?.split('?')[0];
+    if (fileName) {
+      const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
+      if (cachedUrl && isPermanentStorage(cachedUrl)) {
+        return cachedUrl;
+      }
+    }
+  } catch (error) {
+    console.error("Error checking image cache:", error);
+  }
+  
   // If it's already a fully-formed URL, return it
   if (imageUrl.startsWith('http')) {
     // Check if it includes query parameters that might indicate it's a temporary url
@@ -99,4 +112,45 @@ export const isTemporaryUrl = (imageUrl: string): boolean => {
     imageUrl.includes('?temp=') ||
     imageUrl.includes('&expires=')
   );
+};
+
+/**
+ * Preloads an image to ensure it's in the browser cache
+ * @param imageUrl URL of image to preload
+ * @returns Promise that resolves when the image is loaded
+ */
+export const preloadImage = (imageUrl: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!imageUrl) {
+      resolve();
+      return;
+    }
+    
+    const img = new Image();
+    img.src = imageUrl;
+    
+    img.onload = () => {
+      resolve();
+    };
+    
+    img.onerror = () => {
+      console.error(`Failed to preload image: ${imageUrl}`);
+      reject();
+    };
+  });
+};
+
+/**
+ * Preloads multiple images in parallel
+ * @param imageUrls Array of image URLs to preload
+ * @returns Promise that resolves when all images are loaded
+ */
+export const preloadImages = async (imageUrls: string[]): Promise<void> => {
+  try {
+    await Promise.allSettled(
+      imageUrls.map(url => preloadImage(url))
+    );
+  } catch (error) {
+    console.error("Error preloading images:", error);
+  }
 };

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
@@ -9,7 +9,7 @@ import { useStoryData } from '@/components/story-viewer/useStoryData';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { LogIn, CreditCard } from 'lucide-react';
+import { LogIn, CreditCard, RefreshCw } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { toast } from 'sonner';
 
@@ -19,6 +19,7 @@ const StoryViewerPage = () => {
   const { user } = useAuth();
   const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
   const [retryCount, setRetryCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Use a more robust error handling approach for the story data
   const { 
@@ -29,14 +30,26 @@ const StoryViewerPage = () => {
   } = useStoryData(id, retryCount);
   
   // Handle retry logic for loading errors
-  const handleRetryLoad = () => {
+  const handleRetryLoad = useCallback(() => {
     toast.info("Tentando carregar a história novamente...");
+    setIsRefreshing(true);
     setRetryCount(prev => prev + 1);
-  };
+    
+    // Add a slight delay to allow the UI to update
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1500);
+  }, []);
   
-  // Redirect to home if there's an error loading the story
+  // Force refresh page to fix issues with stuck loading
+  const handleForceRefresh = useCallback(() => {
+    toast.info("Recarregando a página...");
+    window.location.reload();
+  }, []);
+  
+  // Redirect to home if there's an error loading the story after multiple retries
   useEffect(() => {
-    if (error && retryCount > 2) {
+    if (error && retryCount > 3) {
       toast.error("Não foi possível carregar a história", {
         description: "Por favor, tente novamente mais tarde ou escolha outra história."
       });
@@ -138,9 +151,10 @@ const StoryViewerPage = () => {
       <Navbar />
       
       <main className="flex-1 pt-16">
-        {loading ? (
-          <div className="h-full flex items-center justify-center">
+        {loading || isRefreshing ? (
+          <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
             <LoadingSpinner size="lg" />
+            <p className="text-gray-500 animate-pulse">Carregando história...</p>
           </div>
         ) : storyData ? (
           <StoryViewer 
@@ -155,14 +169,28 @@ const StoryViewerPage = () => {
               {error ? "Ocorreu um erro ao carregar esta história." : "Esta história não existe ou foi removida."}
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button onClick={() => navigate('/')}>
+              <Button onClick={() => navigate('/')} variant="outline">
                 Voltar para Início
               </Button>
-              {error && retryCount < 3 && (
-                <Button variant="outline" onClick={handleRetryLoad}>
+              {error && retryCount < 4 && (
+                <Button 
+                  variant="default" 
+                  onClick={handleRetryLoad}
+                  disabled={isRefreshing}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   Tentar novamente
                 </Button>
               )}
+              <Button 
+                variant="secondary" 
+                onClick={handleForceRefresh}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Recarregar página
+              </Button>
             </div>
           </div>
         )}
