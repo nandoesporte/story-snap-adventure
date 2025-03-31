@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +10,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabase';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface StoryPage {
   text: string;
@@ -71,6 +71,7 @@ const ViewStoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
+  const isMobile = useIsMobile();
   
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,30 +82,25 @@ const ViewStoryPage: React.FC = () => {
   const [flipDirection, setFlipDirection] = useState<'left' | 'right'>('right');
   const [hideText, setHideText] = useState(false);
   
-  // Refs para o livro e container
   const bookRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Estado para controle de responsividade
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   
-  // Hook de narração para a página atual
   const currentText = story && currentPage > 0 
     ? story.pages[currentPage - 1]?.text || "" 
     : (story?.title || "");
   const { isPlaying, play } = useSpeechSynthesis(currentText);
 
-  // Efeito para verificar o tamanho da tela
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobileView(window.innerWidth < 768);
     };
     
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Efeito para carregar a história
   useEffect(() => {
     const fetchStory = async () => {
       if (!id) return;
@@ -125,7 +121,6 @@ const ViewStoryPage: React.FC = () => {
         }
 
         if (data) {
-          // Formatar os dados para o formato esperado
           const formattedStory: Story = {
             id: data.id,
             title: data.title,
@@ -149,24 +144,20 @@ const ViewStoryPage: React.FC = () => {
     fetchStory();
   }, [id]);
 
-  // Alternar visibilidade do texto (apenas no mobile)
   const toggleTextVisibility = () => {
     setHideText(!hideText);
   };
 
-  // Lidar com navegação entre páginas
   const handlePreviousPage = () => {
     if (currentPage > 0 && !isFlipping) {
       setFlipDirection('left');
       setIsFlipping(true);
       
-      // Criar efeito 3D de virar página
       if (bookRef.current) {
         bookRef.current.style.transform = 'rotateY(-15deg)';
         bookRef.current.style.opacity = '0.9';
       }
       
-      // Pequeno atraso para a animação
       setTimeout(() => {
         setCurrentPage(prevPage => prevPage - 1);
         
@@ -186,13 +177,11 @@ const ViewStoryPage: React.FC = () => {
       setFlipDirection('right');
       setIsFlipping(true);
       
-      // Criar efeito 3D de virar página
       if (bookRef.current) {
         bookRef.current.style.transform = 'rotateY(15deg)';
         bookRef.current.style.opacity = '0.9';
       }
       
-      // Pequeno atraso para a animação
       setTimeout(() => {
         setCurrentPage(prevPage => prevPage + 1);
         
@@ -207,7 +196,6 @@ const ViewStoryPage: React.FC = () => {
     }
   };
 
-  // Alternar modo noturno
   const toggleNightMode = () => {
     setIsNightMode(!isNightMode);
     
@@ -216,7 +204,6 @@ const ViewStoryPage: React.FC = () => {
     }
   };
 
-  // Se o usuário não estiver autenticado
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
@@ -248,12 +235,11 @@ const ViewStoryPage: React.FC = () => {
           </div>
         </main>
         
-        <Footer />
+        {!isMobile && <Footer />}
       </div>
     );
   }
 
-  // Se o usuário não tiver assinatura ativa
   if (!isLoadingSubscription && !hasActiveSubscription) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
@@ -288,7 +274,7 @@ const ViewStoryPage: React.FC = () => {
           </div>
         </main>
         
-        <Footer />
+        {!isMobile && <Footer />}
       </div>
     );
   }
@@ -316,7 +302,6 @@ const ViewStoryPage: React.FC = () => {
           </div>
         ) : story ? (
           <div className="flex-1 flex flex-col relative">
-            {/* Botões flutuantes para controles */}
             <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
               <Button
                 onClick={toggleNightMode}
@@ -349,7 +334,6 @@ const ViewStoryPage: React.FC = () => {
               )}
             </div>
             
-            {/* Navegação de página */}
             <div className="absolute inset-y-0 left-4 flex items-center z-30">
               {currentPage > 0 && !isFlipping && (
                 <Button
@@ -378,7 +362,6 @@ const ViewStoryPage: React.FC = () => {
               )}
             </div>
             
-            {/* Indicador de progresso */}
             <div 
               className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-30 py-2 px-6 rounded-full font-medium ${
                 isNightMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
@@ -387,7 +370,6 @@ const ViewStoryPage: React.FC = () => {
               Página {currentPage > 0 ? currentPage : 1} de {story.pages.length + 1}
             </div>
             
-            {/* Container do livro com perspectiva 3D */}
             <div className="flex-1 flex items-center justify-center perspective-1000 p-4 overflow-hidden">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -416,7 +398,6 @@ const ViewStoryPage: React.FC = () => {
                   } rounded-lg shadow-xl overflow-hidden`}
                 >
                   {currentPage === 0 ? (
-                    // Capa do livro
                     <div className="w-full h-full flex flex-col">
                       <div className="flex-1 relative">
                         <img 
@@ -435,11 +416,8 @@ const ViewStoryPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    // Páginas do livro
                     isMobile ? (
-                      // Layout para celular com imagem em tela cheia
                       <div className="w-full h-full relative">
-                        {/* Imagem em tela cheia */}
                         <div className="absolute inset-0 z-0">
                           <img 
                             src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
@@ -448,7 +426,6 @@ const ViewStoryPage: React.FC = () => {
                           />
                         </div>
                         
-                        {/* Texto sobreposto na parte inferior */}
                         {!hideText && (
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
                             <div className="p-5 pb-16">
@@ -464,9 +441,7 @@ const ViewStoryPage: React.FC = () => {
                         )}
                       </div>
                     ) : (
-                      // Layout original para desktop
                       <div className="w-full h-full flex flex-col md:flex-row">
-                        {/* Lado da ilustração */}
                         <div className="w-1/2 h-full relative flex items-center justify-center p-4">
                           <img 
                             src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
@@ -475,7 +450,6 @@ const ViewStoryPage: React.FC = () => {
                           />
                         </div>
                         
-                        {/* Lado do texto */}
                         <div className="w-1/2 h-full flex flex-col p-8 overflow-auto ${
                           isNightMode ? 'bg-gray-800' : 'bg-gray-50'
                         }">
@@ -501,9 +475,8 @@ const ViewStoryPage: React.FC = () => {
         )}
       </main>
       
-      <Footer />
+      {!isMobile && <Footer />}
       
-      {/* Estilos CSS para o modo noturno e outros efeitos */}
       <style>
         {`
         .night-mode {
