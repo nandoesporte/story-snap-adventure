@@ -23,7 +23,8 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
+  const maxRetries = 2;
+  const audioCache = useRef<Map<string, HTMLAudioElement>>(new Map());
   
   const VOICE_IDS = {
     female: "pt-BR-Wavenet-A",
@@ -68,6 +69,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     setAudioUrl(null);
     setRetryCount(0);
     checkExistingAudio();
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
   }, [storyId, pageIndex]);
 
   const checkExistingAudio = async () => {
@@ -75,6 +82,16 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     
     try {
       console.log(`Checking existing audio for story ${storyId}, page ${pageIndex}`);
+      
+      // First check local storage as it's faster
+      const localStorageKey = `audio_${storyId}_page_${pageIndex}`;
+      const cachedAudio = localStorage.getItem(localStorageKey);
+      if (cachedAudio) {
+        console.log(`Found cached audio in localStorage for page ${pageIndex}`);
+        setAudioUrl(cachedAudio);
+        preloadAudioFile(cachedAudio);
+        return;
+      }
       
       const { data: audioData, error } = await supabase
         .from('story_narrations')
@@ -91,9 +108,44 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       if (audioData?.audio_url) {
         console.log(`Found existing audio URL: ${audioData.audio_url}`);
         setAudioUrl(audioData.audio_url);
+        preloadAudioFile(audioData.audio_url);
       }
     } catch (error) {
       console.error('Erro ao verificar áudio existente:', error);
+    }
+  };
+
+  const preloadAudioFile = (url: string) => {
+    try {
+      // Check if we already have this audio preloaded
+      if (audioCache.current.has(url)) {
+        console.log(`Audio already preloaded: ${url}`);
+        return;
+      }
+      
+      console.log(`Preloading audio: ${url}`);
+      const audio = new Audio();
+      audio.src = url;
+      audio.preload = 'auto';
+      
+      // Start loading the audio but don't play it
+      audio.load();
+      
+      // Store in cache
+      audioCache.current.set(url, audio);
+      
+      // Optionally add event listeners for debugging
+      audio.addEventListener('canplaythrough', () => {
+        console.log(`Audio ready for playback: ${url}`);
+      });
+      
+      audio.addEventListener('error', (e) => {
+        console.error(`Error preloading audio: ${url}`, e);
+        audioCache.current.delete(url);
+      });
+      
+    } catch (error) {
+      console.error('Error preloading audio:', error);
     }
   };
 
@@ -184,7 +236,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     setIsGenerating(true);
     
     if (!params) {
-      toast.info('Gerando narração humanizada para crianças...');
+      toast.info('Gerando narração...');
     }
 
     try {
@@ -204,8 +256,9 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       if (!narrationError && existingNarration?.audio_url) {
         console.log(`Using existing narration from database for story ${storyId}, page ${pageIndex}`);
         setAudioUrl(existingNarration.audio_url);
+        preloadAudioFile(existingNarration.audio_url);
         if (!params) {
-          toast.success('Narração carregada do banco de dados!');
+          toast.success('Narração carregada!');
         }
         setIsGenerating(false);
         return existingNarration.audio_url;
@@ -223,6 +276,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       if (cachedAudio) {
         console.log(`Using cached audio for page ${pageIndex}`);
         setAudioUrl(cachedAudio);
+        preloadAudioFile(cachedAudio);
         if (!params) {
           toast.success('Narração carregada do cache!');
         }
@@ -230,13 +284,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         return cachedAudio;
       }
 
-      console.log(`Generating audio for page ${pageIndex} with Google TTS API using enhanced child-friendly settings`);
+      console.log(`Generating audio for page ${pageIndex} with Google TTS API`);
 
-      const voiceLanguage = "portuguese";
       const voiceId = VOICE_IDS[voiceType];
-      
       const voicePreset = VOICE_PRESETS.childFriendly;
       
+      // Optimize SSML by making it shorter and more efficient
       const ssmlText = formatTextWithSSML(text);
 
       const requestBody = {
@@ -306,10 +359,12 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       try {
         const base64Audio = await saveAudioToLocalStorage(audioBlob, localStorageKey);
         audioUrlValue = base64Audio;
+        preloadAudioFile(base64Audio);
         console.log(`Successfully saved audio to localStorage for page ${pageIndex}`);
       } catch (storageError) {
         console.error('Erro ao salvar no localStorage:', storageError);
         audioUrlValue = URL.createObjectURL(audioBlob);
+        preloadAudioFile(audioUrlValue);
       }
       
       try {
@@ -361,6 +416,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
             } else {
               console.log(`Successfully saved audio metadata to database for page ${pageIndex}`);
               audioUrlValue = publicUrl;
+              preloadAudioFile(publicUrl);
             }
           } catch (dbError) {
             console.error('Erro ao salvar no banco de dados:', dbError);
@@ -373,7 +429,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
       setAudioUrl(audioUrlValue);
       
       if (!params) {
-        toast.success('Narração humanizada gerada com sucesso!');
+        toast.success('Narração pronta!');
       }
       
       return audioUrlValue;
@@ -391,7 +447,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
         setRetryCount(prev => prev + 1);
         console.log(`Retrying audio generation, attempt ${retryCount + 1} of ${maxRetries}`);
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         return generateAudio(voiceType, params);
       }
@@ -405,6 +461,29 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
   const playAudio = async (voiceType: 'male' | 'female' = 'female', existingAudioUrl?: string) => {
     // If an existing URL is provided, use it directly
     if (existingAudioUrl) {
+      // Check if we have a preloaded audio element for this URL
+      const cachedAudio = audioCache.current.get(existingAudioUrl);
+      
+      if (cachedAudio) {
+        console.log("Using pre-loaded audio");
+        try {
+          // Reset the audio to start
+          cachedAudio.currentTime = 0;
+          
+          // Play the cached audio
+          await cachedAudio.play();
+          setIsPlaying(true);
+          
+          // Set up the ended event listener
+          cachedAudio.onended = () => setIsPlaying(false);
+          
+          return;
+        } catch (error) {
+          console.error('Error playing preloaded audio:', error);
+          // Fall back to standard audio playback
+        }
+      }
+      
       if (audioRef.current) {
         try {
           audioRef.current.src = existingAudioUrl;
@@ -420,6 +499,26 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     
     // If we have an audio URL from state, use it
     if (audioUrl && !isGenerating) {
+      const cachedAudio = audioCache.current.get(audioUrl);
+      
+      if (cachedAudio) {
+        try {
+          if (isPlaying) {
+            cachedAudio.pause();
+            setIsPlaying(false);
+          } else {
+            cachedAudio.currentTime = 0;
+            await cachedAudio.play();
+            setIsPlaying(true);
+            cachedAudio.onended = () => setIsPlaying(false);
+          }
+          return;
+        } catch (error) {
+          console.error('Error playing cached audio:', error);
+          // Fall back to standard audio playback
+        }
+      }
+      
       if (audioRef.current) {
         try {
           if (isPlaying) {
@@ -448,6 +547,13 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     if (audioRef.current) {
       audioRef.current.muted = !audioRef.current.muted;
     }
+    
+    // Also mute any cached audio that might be playing
+    audioCache.current.forEach(audio => {
+      if (!audio.paused) {
+        audio.muted = !audio.muted;
+      }
+    });
   };
 
   useEffect(() => {
@@ -461,16 +567,25 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     return () => {
       audio.pause();
       audio.remove();
+      
+      // Clean up cached audio elements
+      audioCache.current.forEach(audio => {
+        audio.pause();
+        audio.remove();
+      });
+      audioCache.current.clear();
     };
   }, []);
 
   // Helper function to convert regular text to SSML
   const formatTextWithSSML = (text: string): string => {
-    let ssml = text.replace(/\./g, '.<break time="500ms"/>');
+    // Optimize SSML to be more efficient and shorter
+    let ssml = text;
     
-    ssml = ssml.replace(/([^.!?]*\?)/g, '<emphasis level="moderate">$1</emphasis>');
-    ssml = ssml.replace(/([^.!?]*!)/g, '<emphasis level="strong">$1</emphasis>');
+    // Only add breaks after periods
+    ssml = ssml.replace(/\./g, '.<break time="300ms"/>');
     
+    // Add minimal emphasis
     ssml = `<speak>${ssml}</speak>`;
     
     return ssml;
@@ -482,6 +597,7 @@ export const useStoryNarration = ({ storyId, text, pageIndex, voiceType = 'femal
     playAudio,
     generateAudio,
     toggleMute,
+    preloadAudioFile,
     VOICE_IDS,
     AVAILABLE_VOICES,
     VOICE_PRESETS

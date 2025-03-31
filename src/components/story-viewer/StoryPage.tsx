@@ -81,6 +81,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                   voiceType={voiceType}
                   className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
                   autoPlay={true}
+                  preloadAudio={true}
                 />
               </div>
             </div>
@@ -134,6 +135,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 pageText={typedText}
                 voiceType={voiceType}
                 autoPlay={true}
+                preloadAudio={true}
               />
             </div>
           </>
