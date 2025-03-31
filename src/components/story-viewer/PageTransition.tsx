@@ -83,12 +83,18 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     preloadAdjacentPages();
   }, [currentPage, storyData, coverImageSrc]);
   
+  // Calculate transition classes based on state
+  const transitionClasses = `
+    absolute inset-0 
+    transition-all duration-300 ease-in-out 
+    ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""} 
+    ${isRendered ? 'opacity-100' : 'opacity-0'}
+  `;
+  
   return (
     <div
       ref={bookRef}
-      className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
-        isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : ""
-      } ${isRendered ? 'opacity-100' : 'opacity-0'}`}
+      className={transitionClasses}
       data-testid="story-book-container"
       style={{ width: '100%', height: '100%' }}
     >

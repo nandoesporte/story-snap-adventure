@@ -1,4 +1,3 @@
-
 /**
  * Formats an image URL from various sources into a standardized format
  * @param imageUrl Original image URL
@@ -69,7 +68,13 @@ export const getFallbackImage = (theme: string = ""): string => {
     space: "/images/covers/space.jpg",
     ocean: "/images/covers/ocean.jpg",
     dinosaurs: "/images/covers/dinosaurs.jpg",
-    forest: "/images/placeholders/adventure.jpg"
+    forest: "/images/placeholders/adventure.jpg",
+    pirate: "/images/covers/adventure.jpg",
+    princess: "/images/covers/fantasy.jpg",
+    superhero: "/images/covers/fantasy.jpg",
+    wizard: "/images/covers/fantasy.jpg",
+    robot: "/images/covers/space.jpg",
+    alien: "/images/covers/space.jpg"
   };
   
   // Try to match the theme to an appropriate image
@@ -153,4 +158,39 @@ export const preloadImages = async (imageUrls: string[]): Promise<void> => {
   } catch (error) {
     console.error("Error preloading images:", error);
   }
+};
+
+/**
+ * Attempts to fix common URL issues
+ * @param url URL to fix
+ * @returns Fixed URL
+ */
+export const fixBrokenImageUrl = (url: string): string => {
+  if (!url) return "";
+  
+  // Remove any trailing URL parameters that might cause CORS issues
+  if (url.includes('?')) {
+    // Keep only essential parameters for temporary URLs
+    if (isTemporaryUrl(url)) {
+      const urlBase = url.split('?')[0];
+      const essentialParams = [];
+      
+      if (url.includes('st=')) {
+        const stMatch = url.match(/st=([^&]+)/);
+        if (stMatch) essentialParams.push(`st=${stMatch[1]}`);
+      }
+      
+      if (url.includes('se=')) {
+        const seMatch = url.match(/se=([^&]+)/);
+        if (seMatch) essentialParams.push(`se=${seMatch[1]}`);
+      }
+      
+      return `${urlBase}?${essentialParams.join('&')}`;
+    } else {
+      // For non-temporary URLs, just return the base
+      return url.split('?')[0];
+    }
+  }
+  
+  return url;
 };

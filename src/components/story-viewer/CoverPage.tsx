@@ -32,8 +32,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   useEffect(() => {
     console.log("CoverPage rendering with image:", formattedImageUrl);
     console.log("Mobile mode:", isMobile);
-    console.log("Original cover image src:", coverImageSrc);
-  }, [formattedImageUrl, isMobile, coverImageSrc]);
+  }, [formattedImageUrl, isMobile]);
 
   if (isMobile) {
     return (
@@ -48,9 +47,9 @@ export const CoverPage: React.FC<CoverPageProps> = ({
               onClick={() => onImageClick(formattedImageUrl)}
               onError={() => onImageError(coverImageSrc)}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-8">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white drop-shadow-md">{title}</h2>
-              <p className="text-xl text-white/90 mb-3 drop-shadow-md">Uma história para {childName}</p>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-4 md:p-8">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4 text-white drop-shadow-md line-clamp-2">{title}</h2>
+              <p className="text-lg md:text-xl text-white/90 mb-2 md:mb-3 drop-shadow-md">Uma história para {childName}</p>
               <div className="flex flex-wrap gap-2 mb-4">
                 {theme && (
                   <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-sm">
@@ -91,7 +90,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
           </div>
         </div>
         <div className="p-6 bg-white border-t border-gray-100 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-gray-800">{title}</h2>
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-gray-800 line-clamp-2">{title}</h2>
           <p className="text-lg text-gray-600 mb-3">Uma história para {childName}</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {theme && (

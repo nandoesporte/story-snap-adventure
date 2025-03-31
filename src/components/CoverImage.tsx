@@ -161,7 +161,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         style={{objectFit: 'cover', width: '100%', height: '100%'}}
       />
       {imgError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 border border-gray-200 rounded">
           <img 
             src={fallbackImage} 
             alt={`Fallback for ${alt}`}
