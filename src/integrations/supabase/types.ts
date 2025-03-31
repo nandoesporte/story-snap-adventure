@@ -845,11 +845,16 @@ export type Database = {
           user_name: string
         }
         Returns: {
-          created_at: string
-          email: string
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
           id: string
           is_admin: boolean | null
-          name: string
+          preferred_language: string | null
+          stories_created_count: number | null
+          story_credits: number | null
+          subscription_id: string | null
+          updated_at: string | null
         }
       }
       create_user_profiles_if_not_exists: {

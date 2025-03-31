@@ -3,17 +3,22 @@
 CREATE OR REPLACE FUNCTION public.create_user_profile_on_signup()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, display_name, story_credits, is_admin)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    5,
-    CASE WHEN NEW.email = 'nandoesporte1@gmail.com' THEN TRUE ELSE FALSE END
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET display_name = EXCLUDED.display_name,
-      story_credits = EXCLUDED.story_credits,
-      is_admin = EXCLUDED.is_admin;
+  BEGIN
+    INSERT INTO public.user_profiles (id, display_name, story_credits, is_admin)
+    VALUES (
+      NEW.id,
+      NEW.email,
+      5,
+      CASE WHEN NEW.email = 'nandoesporte1@gmail.com' THEN TRUE ELSE FALSE END
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET display_name = EXCLUDED.display_name,
+        story_credits = EXCLUDED.story_credits,
+        is_admin = EXCLUDED.is_admin;
+  EXCEPTION WHEN OTHERS THEN
+    -- Log error but don't prevent user creation
+    RAISE LOG 'Error creating user profile for %: %', NEW.email, SQLERRM;
+  END;
   
   RETURN NEW;
 END;
