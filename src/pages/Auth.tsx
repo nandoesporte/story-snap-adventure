@@ -82,13 +82,11 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         const { error, data } = await signUp(email, password);
         
         if (error) {
+          console.error("Registration error:", error);
           throw error;
         }
 
         console.log("Registration response:", data);
-        
-        // Check if email confirmation is required based on the response
-        const emailConfirmationRequired = !data?.user?.identities?.[0]?.identity_data?.email_confirmed_at;
         
         // Show success message after registration
         toast.success("Conta criada com sucesso!");
@@ -98,6 +96,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         const { error } = await signIn(email, password);
         
         if (error) {
+          console.error("Login error:", error);
           throw error;
         }
         
@@ -115,7 +114,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       } else if (error.message?.includes("Password should be at least 6 characters")) {
         setFormError("A senha deve ter pelo menos 6 caracteres");
       } else {
-        setFormError(`Erro: ${error.message}`);
+        setFormError(`Erro: ${error.message || "Erro desconhecido"}`);
       }
       
       toast.error(formError || "Erro no processamento da solicitação");

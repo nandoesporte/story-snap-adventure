@@ -151,7 +151,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Add more detailed logging
       console.info('AuthContext: Signing up with:', email);
       
       // Use site URL for redirect
@@ -175,14 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
       
-      // Check if the user was created but needs email verification
-      if (data?.user && !data.user.confirmed_at) {
-        console.info('User created but needs email verification:', email);
-      }
-      
-      // Log whether confirmation email is required
-      const confirmationRequired = !data?.user?.identities?.[0]?.identity_data?.email_confirmed_at;
-      console.info('Sign up successful for:', email, 'Confirmation email required:', confirmationRequired ? 'Yes' : 'No');
+      // Log response details for debugging
+      console.info('Sign up response:', data);
       
       return { data, error: null };
     } catch (error: any) {
