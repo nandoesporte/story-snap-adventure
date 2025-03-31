@@ -46,26 +46,20 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
         )}
       </div>
       
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
-        <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
-          <span className="text-xs text-gray-800 font-medium">
-            {currentPage + 1} / {totalPages}
-          </span>
-          
-          {onReset && (
-            <Button
-              onClick={onReset}
-              size="sm"
-              variant="ghost"
-              className="ml-2 h-6 w-6 p-0 rounded-full"
-              title="Recarregar página (em caso de tela branca)"
-              aria-label="Recarregar página"
-            >
-              <RefreshCw className="h-3 w-3" />
-            </Button>
-          )}
+      {onReset && (
+        <div className="absolute top-6 right-6 z-50 pointer-events-auto">
+          <Button
+            onClick={onReset}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 rounded-full bg-white/80 backdrop-blur-sm"
+            title="Recarregar página (em caso de tela branca)"
+            aria-label="Recarregar página"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
         </div>
-      </div>
+      )}
     </>
   );
 };

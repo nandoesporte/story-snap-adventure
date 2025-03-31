@@ -57,12 +57,12 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         </div>
         
         {!hideText && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end z-10">
-            <div className="relative p-4 pb-6 bg-black/30 backdrop-blur-sm rounded-t-xl">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
+            <div className="relative p-5 pb-6 bg-black/40 backdrop-blur-md rounded-t-xl">
               <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
               <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
-                  <p key={idx} className="mb-2 leading-relaxed text-shadow">{paragraph}</p>
+                  <p key={idx} className="mb-2 leading-relaxed text-shadow font-medium">{paragraph}</p>
                 ))}
                 <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
               </div>
@@ -115,21 +115,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
       <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col relative">
         {!hideText ? (
           <>
-            <ScrollArea className="h-full pr-2 p-8 bg-white/90">
-              <div className="mb-6 bg-white/80 p-4 rounded-lg backdrop-blur-sm shadow-sm">
+            <ScrollArea className="h-full pr-2 p-8 bg-white/95">
+              <div className="mb-6 bg-white/90 p-5 rounded-lg backdrop-blur-sm shadow-sm">
                 <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{title}</h2>
                 <div className="prose prose-lg">
                   {typedText.split('\n').map((paragraph, idx) => (
-                    <p key={idx} className="mb-3 text-lg">{paragraph}</p>
+                    <p key={idx} className="mb-3 text-lg leading-relaxed font-medium text-gray-700">{paragraph}</p>
                   ))}
                   <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
                 </div>
               </div>
             </ScrollArea>
-            <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-between items-center bg-white/90 backdrop-blur-sm">
-              {!isFullscreen && (
-                <span>{childName}</span>
-              )}
+            <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-center items-center bg-white/95 backdrop-blur-sm">
               <NarrationPlayer
                 storyId={storyId || ''}
                 pageIndex={pageIndex}
