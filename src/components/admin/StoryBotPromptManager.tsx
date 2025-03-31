@@ -70,6 +70,7 @@ const StoryBotPromptManager = () => {
         return;
       }
       
+      console.log("Fetched prompts:", data);
       setPrompts(data || []);
     } catch (err) {
       console.error("Failed to fetch prompts:", err);

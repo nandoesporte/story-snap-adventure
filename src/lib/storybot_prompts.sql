@@ -21,6 +21,8 @@ BEGIN
     CREATE TABLE public.storybot_prompts (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       prompt TEXT NOT NULL,
+      name TEXT,
+      description TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
@@ -28,8 +30,14 @@ BEGIN
     -- Add comment to the table
     COMMENT ON TABLE public.storybot_prompts IS 'Stores system prompts for the StoryBot';
     
+    -- Create the updated_at trigger
+    CREATE TRIGGER update_storybot_prompts_updated_at
+    BEFORE UPDATE ON storybot_prompts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_timestamp();
+    
     -- Create a default prompt
-    INSERT INTO public.storybot_prompts (prompt) VALUES (
+    INSERT INTO public.storybot_prompts (prompt, name, description) VALUES (
       'Você é um assistente de criação de histórias infantis chamado StoryBot. Você deve criar histórias interessantes, educativas e apropriadas para crianças, baseadas nas informações fornecidas pelo usuário.
 
 Suas respostas devem ser:
@@ -59,11 +67,13 @@ Para as imagens, forneça descrições visuais detalhadas após cada página da 
 5. Ter aproximadamente 100-150 palavras
 6. Incluir sempre o personagem principal com suas características visuais específicas
 
-IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.'
+IMPORTANTE: A história deve ser estruturada em formato de livro infantil, com uma narrativa clara e envolvente que mantenha a atenção da criança do início ao fim. A moral da história deve ser transmitida de forma sutil através da narrativa, sem parecer didática ou forçada.',
+      'Prompt Padrão',
+      'Prompt principal usado para gerar todas as histórias infantis'
     );
     
     -- Create a themed prompt for emotional development
-    INSERT INTO public.storybot_prompts (prompt) VALUES (
+    INSERT INTO public.storybot_prompts (prompt, name, description) VALUES (
       'Você é um assistente especializado em criar histórias infantis chamado StoryBot, com foco em temas de desenvolvimento emocional. Você deve criar histórias que ajudem crianças a entenderem e processarem suas emoções de forma saudável.
 
 Ao criar histórias sobre desenvolvimento emocional, você deve:
@@ -85,8 +95,25 @@ Para as ilustrações, além das diretrizes gerais, inclua:
 3. Representações visuais de metáforas emocionais (como "borboletas no estômago" para nervosismo)
 4. Momentos de transformação emocional visualmente destacados
 
-Suas histórias devem ser ferramentas para que crianças aprendam vocabulário emocional, estratégias de autorregulação e empatia, tudo através de narrativas envolventes e memoráveis.'
+Suas histórias devem ser ferramentas para que crianças aprendam vocabulário emocional, estratégias de autorregulação e empatia, tudo através de narrativas envolventes e memoráveis.',
+      'Desenvolvimento Emocional',
+      'Prompt especializado para histórias focadas no desenvolvimento emocional infantil'
     );
+  ELSE
+    -- If the table exists, check if we need to add the name and description columns
+    IF NOT EXISTS (
+      SELECT FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      AND table_name = 'storybot_prompts'
+      AND column_name = 'name'
+    ) THEN
+      -- Add name column if it doesn't exist
+      ALTER TABLE public.storybot_prompts ADD COLUMN name TEXT;
+      ALTER TABLE public.storybot_prompts ADD COLUMN description TEXT;
+      
+      -- Update existing records to have a default name
+      UPDATE public.storybot_prompts SET name = 'Prompt sem nome' WHERE name IS NULL;
+    END IF;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
