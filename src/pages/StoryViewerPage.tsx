@@ -17,14 +17,14 @@ const StoryViewerPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
-  const { story, isLoading, error } = useStoryData(id);
+  const { storyData, loading, handleImageError } = useStoryData(id);
   
   // Redirect to home if there's an error loading the story
   useEffect(() => {
-    if (error) {
+    if (!storyData && !loading) {
       navigate('/');
     }
-  }, [error, navigate]);
+  }, [storyData, loading, navigate]);
 
   // If user is not authenticated, show login notice
   if (!user) {
@@ -114,13 +114,13 @@ const StoryViewerPage = () => {
       <Navbar />
       
       <main className="flex-1 pt-16">
-        {isLoading ? (
+        {loading ? (
           <div className="h-full flex items-center justify-center">
             <LoadingSpinner size="lg" />
           </div>
-        ) : story ? (
+        ) : storyData ? (
           <StoryViewer 
-            story={story} 
+            storyId={id} 
             initialPage={0} 
           />
         ) : (
