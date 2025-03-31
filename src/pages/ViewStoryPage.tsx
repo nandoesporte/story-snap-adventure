@@ -21,7 +21,7 @@ interface Story {
   id: string;
   title: string;
   coverImageUrl: string;
-  childName: string;
+  characterName: string;
   pages: StoryPage[];
 }
 
@@ -112,7 +112,7 @@ const ViewStoryPage: React.FC = () => {
         setLoading(true);
         const { data, error } = await supabase
           .from('stories')
-          .select('id, title, cover_image_url, child_name, pages')
+          .select('id, title, cover_image_url, character_name, pages')
           .eq('id', id)
           .single();
 
@@ -129,7 +129,7 @@ const ViewStoryPage: React.FC = () => {
             id: data.id,
             title: data.title,
             coverImageUrl: data.cover_image_url,
-            childName: data.child_name,
+            characterName: data.character_name,
             pages: data.pages || []
           };
           
@@ -413,7 +413,7 @@ const ViewStoryPage: React.FC = () => {
                             {story.title}
                           </h1>
                           <p className="text-lg md:text-xl text-white/90 text-shadow-md">
-                            Uma história para {story.childName}
+                            Uma história para {story.characterName}
                           </p>
                         </div>
                       </div>
