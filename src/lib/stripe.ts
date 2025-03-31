@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -63,7 +62,7 @@ export const checkUserSubscription = async (userId: string) => {
       .from('user_subscriptions')
       .select(`
         *,
-        subscription_plans:plan_id (*)
+        subscription_plans(*)
       `)
       .eq('user_id', userId)
       .eq('status', 'active')
@@ -128,11 +127,33 @@ export const createMercadoPagoCheckout = async (userId: string, planId: string, 
 // Function to check if a user can create more stories based on their subscription
 export const canCreateStory = async (userId: string) => {
   try {
-    // Get user subscription
+    // Get user subscription first
     const subscription = await checkUserSubscription(userId);
     
-    // If no subscription, check if they have free stories left
-    if (!subscription) {
+    // If user has an active subscription
+    if (subscription) {
+      // Get stories created during the current billing period
+      const periodStart = new Date(subscription.current_period_start);
+      
+      const { count, error: countError } = await supabase
+        .from('stories')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', periodStart.toISOString());
+        
+      if (countError) throw countError;
+      
+      const storiesCreated = count || 0;
+      const storiesLimit = subscription.subscription_plans?.stories_limit || 0;
+      
+      return {
+        canCreate: storiesCreated < storiesLimit,
+        remaining: Math.max(0, storiesLimit - storiesCreated),
+        subscription: subscription,
+        reason: storiesCreated >= storiesLimit ? 'Você atingiu o limite de histórias do seu plano para este período.' : null
+      };
+    } else {
+      // If no subscription, check free credits
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
         .select('story_credits')
@@ -141,37 +162,24 @@ export const canCreateStory = async (userId: string) => {
         
       if (profileError) throw profileError;
       
-      // If they have story credits, they can create a story
+      const freeCredits = userProfile?.story_credits || 0;
+      
       return {
-        canCreate: (userProfile?.story_credits || 0) > 0,
-        remaining: userProfile?.story_credits || 0,
-        subscription: null
+        canCreate: freeCredits > 0,
+        remaining: freeCredits,
+        subscription: null,
+        reason: freeCredits <= 0 ? 'Você não possui créditos gratuitos disponíveis. Adquira um plano para continuar criando histórias.' : null
       };
     }
-    
-    // Get stories created this billing period
-    const periodStart = new Date(subscription.current_period_start);
-    
-    const { count, error: countError } = await supabase
-      .from('stories')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', periodStart.toISOString());
-      
-    if (countError) throw countError;
-    
-    const storiesCreated = count || 0;
-    const storiesLimit = subscription.subscription_plans?.stories_limit || 0;
-    
-    return {
-      canCreate: storiesCreated < storiesLimit,
-      remaining: Math.max(0, storiesLimit - storiesCreated),
-      subscription: subscription
-    };
   } catch (error) {
     console.error('Error checking if user can create story:', error);
-    // Default to allowing creation to avoid blocking users
-    return { canCreate: true, remaining: 1, subscription: null };
+    // Default to allowing creation to avoid blocking users unexpectedly
+    return { 
+      canCreate: true, 
+      remaining: 1, 
+      subscription: null,
+      reason: null
+    };
   }
 };
 
@@ -194,6 +202,37 @@ export const cancelSubscription = async (subscriptionId: string) => {
   } catch (error) {
     console.error('Error cancelling subscription:', error);
     toast.error('Ocorreu um erro ao cancelar a assinatura');
+    return false;
+  }
+};
+
+// Consume a story credit when a user creates a story
+export const consumeStoryCredit = async (userId: string) => {
+  try {
+    // First, check if user has an active subscription
+    const subscription = await checkUserSubscription(userId);
+    
+    // If user has an active subscription, we don't need to deduct credits
+    // Credits are tracked by counting stories created in the current billing period
+    if (subscription) {
+      return true;
+    }
+    
+    // If no subscription, deduct from free credits
+    const { data, error } = await supabase.rpc('deduct_user_credits', {
+      user_uuid: userId,
+      amount: 1,
+      description: 'História criada'
+    });
+    
+    if (error) {
+      console.error('Error consuming story credit:', error);
+      return false;
+    }
+    
+    return data || false;
+  } catch (error) {
+    console.error('Error in consumeStoryCredit:', error);
     return false;
   }
 };

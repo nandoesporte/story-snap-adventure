@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase, UserSession, getUser, initializeDatabaseStructure } from '../lib/supabase';
+import { supabase, UserSession, getUser } from '../lib/supabase';
 import { toast } from 'sonner';
 
 type AuthContextType = {
@@ -9,7 +9,7 @@ type AuthContextType = {
   session: UserSession['session'];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<any>;
   signOut: () => Promise<void>;
 };
 
@@ -29,18 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
 
-  const initializeDBIfAdmin = async (user: User | null) => {
-    if (!user) return;
-    
-    if (user.email === 'nandoesporte1@gmail.com') {
-      try {
-        await initializeDatabaseStructure();
-      } catch (error) {
-        console.error('Error initializing database:', error);
-      }
-    }
-  };
-
   useEffect(() => {
     isMounted.current = true;
     
@@ -53,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserSession({ user: session.user, session: session.session });
           if (session.user) {
             console.info('User loaded successfully:', session.user.email);
-            initializeDBIfAdmin(session.user);
           } else {
             console.info('No authenticated user found');
           }
@@ -77,19 +64,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (isMounted.current) {
         if (session) {
-          supabase.auth.getUser().then(({ data: { user } }) => {
+          // Use setTimeout to avoid potential recursive auth state changes
+          setTimeout(() => {
             if (isMounted.current) {
-              setUserSession({ user, session });
-              console.info('User authenticated:', user?.email);
-              initializeDBIfAdmin(user);
+              supabase.auth.getUser().then(({ data: { user } }) => {
+                if (isMounted.current) {
+                  setUserSession({ user, session });
+                  console.info('User authenticated:', user?.email);
+                  
+                  // Verify user profile exists
+                  if (user) {
+                    verifyUserProfile(user.id, user.email || '');
+                  }
+                }
+              }).catch(error => {
+                console.error('Error getting user after auth state change:', error);
+              }).finally(() => {
+                if (isMounted.current) {
+                  setLoading(false);
+                }
+              });
             }
-          }).catch(error => {
-            console.error('Error getting user after auth state change:', error);
-          }).finally(() => {
-            if (isMounted.current) {
-              setLoading(false);
-            }
-          });
+          }, 0);
         } else {
           if (isMounted.current) {
             setUserSession({ user: null, session: null });
@@ -106,6 +102,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Verify and create user profile if needed
+  const verifyUserProfile = async (userId: string, userEmail: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+        
+      if (error || !profile) {
+        console.log('User profile not found, creating...');
+        await createUserProfile(userId, userEmail);
+      }
+    } catch (error) {
+      console.error('Error verifying user profile:', error);
+    }
+  };
+
+  // Create user profile
+  const createUserProfile = async (userId: string, userEmail: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .insert({ 
+          id: userId,
+          display_name: userEmail,
+          story_credits: 5,
+          is_admin: userEmail === 'nandoesporte1@gmail.com'
+        });
+        
+      if (error) {
+        console.error('Error creating user profile:', error);
+        
+        // Try upsert approach if insert fails
+        const { error: upsertError } = await supabase
+          .from('user_profiles')
+          .upsert({ 
+            id: userId,
+            display_name: userEmail,
+            story_credits: 5,
+            is_admin: userEmail === 'nandoesporte1@gmail.com'
+          });
+          
+        if (upsertError) {
+          console.error('Upsert also failed:', upsertError);
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error creating profile:', error);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     console.info('AuthContext: Signing in with:', email);
     setLoading(true);
@@ -120,10 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign in successful for:', email);
       
-      if (data.user && data.user.email === 'nandoesporte1@gmail.com') {
-        await initializeDBIfAdmin(data.user);
-      }
-      
       return { data, error: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
@@ -135,63 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Direct approach to create user profile that doesn't rely on triggers
-  const createUserProfile = async (userId: string, userEmail: string) => {
-    try {
-      console.log('Attempting direct profile creation for:', userId, userEmail);
-      
-      // First try: direct insert
-      const { error: insertError } = await supabase
-        .from('user_profiles')
-        .insert({ 
-          id: userId,
-          display_name: userEmail,
-          story_credits: 5,
-          is_admin: userEmail === 'nandoesporte1@gmail.com'
-        });
-        
-      if (insertError) {
-        console.log('Insert failed, trying upsert:', insertError);
-        
-        // Second try: upsert approach
-        const { error: upsertError } = await supabase
-          .from('user_profiles')
-          .upsert({ 
-            id: userId,
-            display_name: userEmail,
-            story_credits: 5,
-            is_admin: userEmail === 'nandoesporte1@gmail.com'
-          });
-          
-        if (upsertError) {
-          console.error('Upsert also failed:', upsertError);
-          
-          // Third try: raw SQL insert via functions API
-          const { error: funcError } = await supabase.rpc('exec_sql', {
-            sql_query: `
-              INSERT INTO public.user_profiles (id, display_name, story_credits, is_admin)
-              VALUES ('${userId}', '${userEmail}', 5, ${userEmail === 'nandoesporte1@gmail.com'})
-              ON CONFLICT (id) DO UPDATE
-              SET display_name = EXCLUDED.display_name
-            `
-          });
-          
-          if (funcError) {
-            console.error('All profile creation methods failed:', funcError);
-            return false;
-          }
-        }
-      }
-      
-      console.log('Successfully created profile for', userEmail);
-      return true;
-    } catch (e) {
-      console.error('Unexpected error in profile creation:', e);
-      return false;
-    }
-  };
-
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, displayName?: string) => {
     setLoading(true);
     try {
       console.info('AuthContext: Signing up with:', email);
@@ -206,6 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailRedirectTo: `${siteUrl}/login`,
           data: {
             email: email,
+            name: displayName || email,
           }
         }
       });
@@ -217,37 +206,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign up response:', data);
       
-      // If we have a user, perform multiple profile creation attempts
+      // If we have a user, create profile
       if (data.user) {
         console.info('User created, creating profile for:', data.user.id);
+        await createUserProfile(data.user.id, email);
         
-        // First attempt immediately
-        let profileCreated = await createUserProfile(data.user.id, email);
-        
-        // Second attempt after a short delay
-        if (!profileCreated) {
-          console.log('First attempt failed, retrying...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          profileCreated = await createUserProfile(data.user.id, email);
-        }
-        
-        // Final verification check
-        const { data: profileCheck } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .maybeSingle();
-          
-        if (!profileCheck) {
-          console.log('Final verification failed, trying one last time...');
-          await createUserProfile(data.user.id, email);
-        }
-        
-        console.log('Profile creation process complete, verification:', { 
-          profileExists: !!profileCheck,
-          user_id: data.user.id,
-          email: email
-        });
+        // Verify profile creation
+        await verifyUserProfile(data.user.id, email);
       }
       
       return { data, error: null };

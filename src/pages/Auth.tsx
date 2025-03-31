@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -9,7 +10,7 @@ import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 interface AuthProps {
   type?: "login" | "register";
@@ -23,6 +24,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -62,52 +64,12 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
       return false;
     }
     
-    return true;
-  };
-
-  const verifyUserProfile = async (userId: string) => {
-    try {
-      console.log("Verifying profile creation for user:", userId);
-      
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        console.log(`Profile verification attempt ${attempt}`);
-        
-        await new Promise(resolve => setTimeout(resolve, attempt * 500));
-        
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('id, display_name')
-          .eq('id', userId)
-          .maybeSingle();
-          
-        console.log(`Attempt ${attempt} result:`, { data, error });
-        
-        if (data) {
-          console.log("Profile verified successfully!", data);
-          return true;
-        }
-        
-        if (attempt === 3 && !data) {
-          console.log("Final attempt: manual profile creation");
-          const { error: insertError } = await supabase
-            .from('user_profiles')
-            .insert({ 
-              id: userId,
-              display_name: email,
-              story_credits: 5,
-              is_admin: email === 'nandoesporte1@gmail.com'
-            });
-            
-          console.log("Final creation attempt result:", { error: insertError });
-          return !insertError;
-        }
-      }
-      
-      return false;
-    } catch (e) {
-      console.error('Error in profile verification process:', e);
+    if (isRegister && !displayName) {
+      setFormError("Por favor, informe seu nome");
       return false;
     }
+    
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,7 +85,7 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     try {
       if (isRegister) {
         console.log("Attempting to register with email:", email);
-        const { error, data } = await signUp(email, password);
+        const { error, data } = await signUp(email, password, displayName);
         
         if (error) {
           console.error("Registration error:", error);
@@ -131,16 +93,6 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         }
 
         console.log("User registration successful:", data);
-        
-        if (data?.user?.id) {
-          console.log("Verifying profile creation for:", data.user.id);
-          const profileExists = await verifyUserProfile(data.user.id);
-          console.log("Profile verification complete:", profileExists);
-          
-          if (!profileExists) {
-            console.warn("Profile creation may have failed but continuing");
-          }
-        }
         
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);
@@ -238,6 +190,21 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
                   )}
                   
                   <form className="space-y-6" onSubmit={handleSubmit}>
+                    {isRegister && (
+                      <div className="space-y-2">
+                        <Label htmlFor="displayName">Nome</Label>
+                        <Input
+                          type="text"
+                          id="displayName"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          placeholder="Seu nome completo"
+                          className="w-full"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <Input

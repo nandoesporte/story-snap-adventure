@@ -1,327 +1,177 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.3";
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const mpWebhookSecret = Deno.env.get("mercadopago-webhook") || "";
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Retry helper function with exponential backoff
-async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 300) {
-  let retries = 0;
-  
-  while (true) {
-    try {
-      return await fn();
-    } catch (error) {
-      retries++;
-      
-      if (retries >= maxRetries || 
-          !(error.status === 429 || error.status === 500 || error.status === 503)) {
-        throw error;
-      }
-      
-      const delay = initialDelay * Math.pow(2, retries - 1);
-      console.log(`Retry ${retries}/${maxRetries} after ${delay}ms`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-}
-
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders,
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    console.log("MercadoPago webhook received");
+    // First validate the webhook secret to ensure the request is legitimate
+    const authHeader = req.headers.get("x-webhook-secret");
     
-    // Parse the webhook payload
-    let payload;
-    const contentType = req.headers.get("content-type") || "";
-    
-    if (contentType.includes("application/json")) {
-      payload = await req.json();
-    } else {
-      const text = await req.text();
-      try {
-        payload = JSON.parse(text);
-      } catch (error) {
-        console.error("Failed to parse webhook payload as JSON:", text);
-        payload = { raw: text };
-      }
-    }
-    
-    console.log("Received Mercado Pago webhook:", JSON.stringify(payload));
-
-    // Handle test requests from MercadoPago
-    if (payload.type === "test" || 
-        (payload.data && payload.data.id === "123456") || 
-        payload.id === "123456" ||
-        payload.action === "payment.updated" ||
-        payload.type === "ping") {
-      console.log("Received test webhook from MercadoPago");
-      
+    if (!authHeader || authHeader !== mpWebhookSecret) {
+      console.error("Invalid webhook secret:", authHeader);
       return new Response(
-        JSON.stringify({ success: true, message: "Test webhook received successfully" }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Initialize Supabase client with service role key to bypass RLS
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
-    if (!supabaseUrl || !supabaseServiceRole) {
-      console.error("Missing Supabase environment variables");
-      throw new Error("Server configuration error: Missing environment variables");
-    }
+    // Parse the webhook payload
+    const payload = await req.json();
+    console.log("Received MercadoPago webhook:", JSON.stringify(payload));
 
-    // Create admin client with service role key - no authentication required
-    const supabase = createClient(supabaseUrl, supabaseServiceRole, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    });
+    // Process the webhook based on type
+    const notificationType = payload.type;
+    const data = payload.data;
 
-    // Process the webhook based on the event type
-    if (payload.type === "payment" || (payload.data && payload.data.id)) {
-      const paymentId = payload.data?.id;
+    if (notificationType === "payment") {
+      // Handle payment notification
+      const paymentId = data.id;
+      console.log(`Processing payment notification for payment ID: ${paymentId}`);
       
-      if (!paymentId) {
-        throw new Error("Missing payment ID in webhook payload");
-      }
-      
-      // Get Mercado Pago API key
-      const { data: configData, error: configError } = await supabase
-        .from("system_configurations")
-        .select("value")
-        .eq("key", "mercadopago_access_token")
+      // Get payment details from subscription record
+      const { data: subscription, error: subscriptionError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          id, 
+          user_id, 
+          plan_id,
+          subscription_plans(*)
+        `)
+        .eq("mercadopago_payment_id", paymentId)
         .single();
       
-      if (configError || !configData?.value) {
-        console.error("Error fetching Mercado Pago API key:", configError);
-        throw new Error("Mercado Pago API key not configured");
+      if (subscriptionError) {
+        console.error("Error finding subscription for payment:", subscriptionError);
+        return new Response(
+          JSON.stringify({ error: "Subscription not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
       
-      // Fetch payment details with retry logic
-      try {
-        const mpResponse = await retryWithBackoff(() => fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: {
-            "Authorization": `Bearer ${configData.value}`,
-            "Content-Type": "application/json"
-          }
-        }));
-        
-        if (!mpResponse.ok) {
-          console.error(`Failed to fetch payment details: ${mpResponse.status} ${mpResponse.statusText}`);
-          const responseText = await mpResponse.text();
-          console.error("Response:", responseText);
-          throw new Error(`Failed to fetch payment details: ${mpResponse.statusText}`);
-        }
-        
-        const payment = await mpResponse.json();
-        console.log("Payment details:", JSON.stringify(payment));
-        
-        // Extract metadata and other important information
-        const metadata = payment.metadata || {};
-        const userId = metadata.userId;
-        const planId = metadata.planId;
-        const status = payment.status;
-        
-        if (!userId || !planId) {
-          console.warn("Missing user ID or plan ID in payment metadata:", metadata);
-          throw new Error("Missing user ID or plan ID in payment metadata");
-        }
-        
-        // Process the payment based on status
-        if (status === "approved") {
-          // Process approved payment
-          await processApprovedPayment(supabase, userId, planId, payment);
-        } else if (status === "cancelled" || status === "rejected") {
-          // Handle failed payment
-          await supabase
-            .from("subscription_history")
-            .insert({
-              user_id: userId,
-              plan_id: planId,
-              action: "failed",
-              details: {
-                payment_provider: "mercadopago",
-                payment_id: payment.id,
-                status: status,
-                reason: payment.status_detail
-              }
-            });
-            
-          console.log(`Payment ${payment.id} failed with status ${status}`);
-        }
-      } catch (paymentError) {
-        console.error("Error processing payment:", paymentError);
-        // Log the error but don't throw, as we still want to return 200 to Mercado Pago
+      if (!subscription) {
+        console.error("No subscription found for payment ID:", paymentId);
+        return new Response(
+          JSON.stringify({ error: "Subscription not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    } else {
-      console.log("Unhandled webhook event type:", payload.type || "unknown");
+      
+      console.log("Found subscription:", subscription);
+      
+      // Based on the payment status, update the subscription status
+      const status = data.status;
+      
+      if (status === "approved") {
+        console.log("Payment approved, activating subscription");
+        
+        // Set the subscription to active
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "active",
+            current_period_start: new Date().toISOString(),
+            // Set end date based on the subscription plan interval
+            current_period_end: (() => {
+              const endDate = new Date();
+              if (subscription.subscription_plans?.interval === "month") {
+                endDate.setMonth(endDate.getMonth() + 1);
+              } else if (subscription.subscription_plans?.interval === "year") {
+                endDate.setFullYear(endDate.getFullYear() + 1);
+              }
+              return endDate.toISOString();
+            })(),
+          })
+          .eq("id", subscription.id);
+        
+        if (updateError) {
+          console.error("Error updating subscription status:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Failed to update subscription" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        // Reset the stories count for this billing period
+        // This ensures the user can start fresh with their subscription credits
+        // We could also update a user_profiles record to track this if needed
+        
+        // Log the transaction in subscription_history
+        const { error: historyError } = await supabase
+          .from("subscription_history")
+          .insert({
+            user_id: subscription.user_id,
+            plan_id: subscription.plan_id,
+            action: "created",
+            details: { payment_id: paymentId, status }
+          });
+        
+        if (historyError) {
+          console.error("Error logging subscription history:", historyError);
+        }
+        
+        console.log("Subscription activated successfully");
+      } else if (["rejected", "cancelled", "refunded"].includes(status)) {
+        console.log(`Payment ${status}, setting subscription to inactive`);
+        
+        // Set the subscription to inactive
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "canceled",
+          })
+          .eq("id", subscription.id);
+        
+        if (updateError) {
+          console.error("Error updating subscription status:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Failed to update subscription" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        // Log the transaction in subscription_history
+        const { error: historyError } = await supabase
+          .from("subscription_history")
+          .insert({
+            user_id: subscription.user_id,
+            plan_id: subscription.plan_id,
+            action: "failed",
+            details: { payment_id: paymentId, status }
+          });
+        
+        if (historyError) {
+          console.error("Error logging subscription history:", historyError);
+        }
+        
+        console.log("Subscription marked as canceled due to payment failure");
+      }
     }
-
-    // Return a success response
+    
     return new Response(
       JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error processing Mercado Pago webhook:", error);
-    
-    // Always return 200 status to prevent MercadoPago from retrying
+    console.error("Error processing webhook:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      {
-        status: 200, // Return 200 even for errors to prevent retries
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
-
-async function processApprovedPayment(supabase, userId, planId, payment) {
-  try {
-    // 1. Get plan details
-    const { data: plan, error: planError } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", planId)
-      .single();
-      
-    if (planError || !plan) {
-      throw new Error(`Failed to fetch plan details: ${planError?.message || "Plan not found"}`);
-    }
-    
-    // 2. Calculate subscription dates
-    const now = new Date();
-    const currentPeriodStart = now.toISOString();
-    
-    const currentPeriodEnd = new Date();
-    if (plan.interval === "month") {
-      currentPeriodEnd.setMonth(now.getMonth() + 1);
-    } else if (plan.interval === "year") {
-      currentPeriodEnd.setFullYear(now.getFullYear() + 1);
-    }
-    
-    // 3. Check if user already has a subscription
-    const { data: existingSubscription, error: subError } = await supabase
-      .from("user_subscriptions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-      
-    if (subError) {
-      throw new Error(`Failed to check existing subscriptions: ${subError.message}`);
-    }
-    
-    // 4. Create or update subscription
-    let subscriptionId;
-    if (existingSubscription) {
-      // Update existing subscription
-      const { data: updatedSubscription, error: updateError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          plan_id: planId,
-          current_period_start: currentPeriodStart,
-          current_period_end: currentPeriodEnd.toISOString(),
-          status: "active",
-          mercadopago_payment_id: payment.id.toString()
-        })
-        .eq("id", existingSubscription.id)
-        .select();
-        
-      if (updateError) {
-        throw new Error(`Failed to update subscription: ${updateError.message}`);
-      }
-      
-      subscriptionId = existingSubscription.id;
-      
-      // Log subscription update to history
-      await supabase
-        .from("subscription_history")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          action: "updated",
-          details: {
-            payment_provider: "mercadopago",
-            payment_id: payment.id,
-            amount: payment.transaction_amount,
-            currency: payment.currency_id,
-            stories_limit: plan.stories_limit
-          }
-        });
-    } else {
-      // Create new subscription
-      const { data: newSubscription, error: insertError } = await supabase
-        .from("user_subscriptions")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          status: "active",
-          current_period_start: currentPeriodStart,
-          current_period_end: currentPeriodEnd.toISOString(),
-          mercadopago_payment_id: payment.id.toString()
-        })
-        .select()
-        .single();
-        
-      if (insertError) {
-        throw new Error(`Failed to create subscription: ${insertError.message}`);
-      }
-      
-      subscriptionId = newSubscription.id;
-      
-      // Log subscription creation to history
-      await supabase
-        .from("subscription_history")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          action: "created",
-          details: {
-            payment_provider: "mercadopago",
-            payment_id: payment.id,
-            amount: payment.transaction_amount,
-            currency: payment.currency_id,
-            stories_limit: plan.stories_limit
-          }
-        });
-    }
-    
-    // 5. Update user profile with subscription id
-    const { error: profileError } = await supabase
-      .from("user_profiles")
-      .update({ 
-        subscription_id: subscriptionId,
-        stories_created_count: 0
-      })
-      .eq("id", userId);
-      
-    if (profileError) {
-      console.error(`Failed to update user profile: ${profileError.message}`);
-      // Continue anyway since the subscription was created successfully
-    }
-    
-    console.log(`Successfully processed payment ${payment.id} for user ${userId} with plan limit of ${plan.stories_limit} stories`);
-    return true;
-  } catch (error) {
-    console.error("Error in processApprovedPayment:", error);
-    throw error;
-  }
-}

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -21,6 +21,9 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionStatus } from '@/components/SubscriptionStatus';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const profileSchema = z.object({
@@ -34,7 +37,7 @@ const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
-  const [userCredits, setUserCredits] = useState(0);
+  const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -52,21 +55,10 @@ const Profile = () => {
 
     const fetchUserProfile = async () => {
       try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-        
-        if (data) {
-          setUserCredits(data.story_credits || 0);
-          form.reset({
-            name: user.user_metadata?.name || '',
-            bio: user.user_metadata?.bio || '',
-          });
-        }
+        form.reset({
+          name: user.user_metadata?.name || user.email || '',
+          bio: user.user_metadata?.bio || '',
+        });
       } catch (error: any) {
         toast.error('Erro ao carregar perfil: ' + error.message);
       }
@@ -157,11 +149,16 @@ const Profile = () => {
                       
                       <Button 
                         type="submit" 
-                        variant="storyPrimary"
+                        variant="default"
                         disabled={isUpdating}
                         className="w-full md:w-auto"
                       >
-                        {isUpdating ? 'Salvando...' : 'Salvar Alterações'}
+                        {isUpdating ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : 'Salvar Alterações'}
                       </Button>
                     </form>
                   </Form>
@@ -169,28 +166,10 @@ const Profile = () => {
               </Card>
             </div>
             
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Seus Créditos</CardTitle>
-                  <CardDescription>
-                    Créditos disponíveis para criar histórias
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <p className="text-4xl font-bold text-violet-700">{userCredits}</p>
-                    <p className="text-sm text-gray-500 mt-2">créditos disponíveis</p>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" className="w-full">
-                    Obter mais créditos
-                  </Button>
-                </CardFooter>
-              </Card>
+            <div className="space-y-6">
+              <SubscriptionStatus />
               
-              <Card className="mt-6">
+              <Card>
                 <CardHeader>
                   <CardTitle>Email</CardTitle>
                   <CardDescription>
@@ -199,6 +178,23 @@ const Profile = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-700">{user.email}</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Minhas Histórias</CardTitle>
+                </CardHeader>
+                <CardContent className="pb-2">
+                  <Button 
+                    asChild 
+                    variant="outline" 
+                    className="w-full"
+                  >
+                    <Link to="/my-stories">
+                      Ver minhas histórias
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             </div>

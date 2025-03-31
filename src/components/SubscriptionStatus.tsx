@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, BookOpen, Crown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 interface SubscriptionStatusProps {
   className?: string;
@@ -17,7 +19,8 @@ export const SubscriptionStatus = ({ className }: SubscriptionStatusProps) => {
     availableCredits,
     storiesCreated,
     storiesLimit,
-    subscriptionData 
+    subscriptionData,
+    planName
   } = useSubscription();
 
   if (isLoading) {
@@ -40,7 +43,7 @@ export const SubscriptionStatus = ({ className }: SubscriptionStatusProps) => {
               <div className="flex items-center">
                 <Crown className="h-5 w-5 text-yellow-500 mr-2" />
                 <h3 className="font-medium">
-                  Plano {subscriptionData?.subscription_plans?.name || 'Premium'}
+                  Plano {planName}
                 </h3>
               </div>
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -62,8 +65,16 @@ export const SubscriptionStatus = ({ className }: SubscriptionStatusProps) => {
               </div>
               
               <p className="text-xs text-muted-foreground">
-                Seu plano inclui a criação de até {storiesLimit} histórias mensais.
+                Seu plano inclui a criação de até {storiesLimit} histórias {subscriptionData?.subscription_plans?.interval === 'month' ? 'mensais' : 'anuais'}.
               </p>
+              
+              {subscriptionData?.cancel_at_period_end && (
+                <div className="mt-2 bg-amber-50 p-2 rounded-md border border-amber-200">
+                  <p className="text-xs text-amber-700">
+                    Sua assinatura será cancelada ao final do período atual.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -82,7 +93,7 @@ export const SubscriptionStatus = ({ className }: SubscriptionStatusProps) => {
                   <span className="text-sm font-medium">{availableCredits}</span>
                 </div>
                 <Progress 
-                  value={100 - ((availableCredits / 5) * 100)} 
+                  value={availableCredits === 0 ? 100 : Math.max(0, 100 - ((availableCredits / 5) * 100))}
                   max={100}
                   className="h-2"
                 />
@@ -90,10 +101,13 @@ export const SubscriptionStatus = ({ className }: SubscriptionStatusProps) => {
               
               <p className="text-xs text-muted-foreground">
                 Você possui {availableCredits} créditos gratuitos para criar histórias.
-                <a href="/subscription" className="text-primary ml-1 hover:underline">
-                  Assine para mais!
-                </a>
               </p>
+              
+              <Button asChild variant="outline" className="w-full mt-2 text-sm">
+                <Link to="/subscription">
+                  Assinar plano premium
+                </Link>
+              </Button>
             </div>
           </div>
         )}
