@@ -103,19 +103,32 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   }, [currentPage, storyData, coverImageSrc]);
   
   // Calculate transition classes based on state
-  const transitionClasses = `
-    absolute inset-0 
-    transition-all duration-300 ease-in-out 
-    ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : "translate-x-0"} 
-    ${isRendered ? 'opacity-100' : 'opacity-0'}
-  `;
+  const getTransitionClasses = () => {
+    let baseClasses = "absolute inset-0 transition-all duration-500 ease-in-out perspective";
+    
+    if (isFlipping) {
+      // Apply 3D rotation effect for page flipping
+      if (flipDirection === "left") {
+        return `${baseClasses} transform -translate-x-1/2 rotate-y-[-15deg] opacity-90`;
+      } else {
+        return `${baseClasses} transform translate-x-1/2 rotate-y-[15deg] opacity-90`;
+      }
+    }
+    
+    return `${baseClasses} ${isRendered ? 'opacity-100' : 'opacity-0'}`;
+  };
   
   return (
     <div
       ref={bookRef}
-      className={transitionClasses}
+      className={getTransitionClasses()}
       data-testid="story-book-container"
-      style={{ width: '100%', height: '100%' }}
+      style={{ 
+        width: '100%', 
+        height: '100%',
+        perspective: '1500px',
+        transformStyle: 'preserve-3d'
+      }}
     >
       {currentPage === 0 ? (
         <CoverPage

@@ -9,10 +9,10 @@ export const useFullscreen = () => {
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
-      // Pequeno atraso para permitir que a UI se ajuste
+      // Small delay to allow UI to adjust
       setTimeout(() => {
         setIsTransitioning(false);
-      }, 300);
+      }, 500); // Increased from 300ms to 500ms for smoother transitions
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);

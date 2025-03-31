@@ -1,8 +1,8 @@
 
 export const customScrollbarStyles = `
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -44,8 +44,17 @@ export const customScrollbarStyles = `
   transform-origin: left center;
 }
 
+/* 3D Page Turn Effect */
 .rotate-y-180 {
-  transform: rotateY(0deg);
+  transform: rotateY(180deg);
+}
+
+.rotate-y-neg15 {
+  transform: rotateY(-15deg);
+}
+
+.rotate-y-15 {
+  transform: rotateY(15deg);
 }
 
 @media (max-width: 768px) {
@@ -77,20 +86,26 @@ export const customScrollbarStyles = `
   font-family: 'Schoolbell', cursive;
 }
 
-/* Page turn effect */
-@keyframes page-turn {
+/* Enhanced Page Turn Effect with 3D */
+@keyframes page-turn-3d {
   0% {
     transform: rotateY(0deg);
-    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    transform: rotateY(-90deg);
+    box-shadow: 25px 5px 10px rgba(0, 0, 0, 0.05);
   }
   100% {
     transform: rotateY(-180deg);
-    box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
   }
 }
 
-.page-turning {
-  animation: page-turn 1s ease-in-out;
+.page-turning-3d {
+  animation: page-turn-3d 1s ease-in-out;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
 /* Floating animation */
@@ -107,6 +122,20 @@ export const customScrollbarStyles = `
   animation: float 6s ease-in-out infinite;
 }
 
+/* Character bounce animation */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(3deg);
+  }
+}
+
+.animate-bounce-character {
+  animation: bounce 2s ease-in-out infinite;
+}
+
 /* Book page corner curl effect */
 .corner-curl {
   position: relative;
@@ -117,17 +146,17 @@ export const customScrollbarStyles = `
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 25px;
-  height: 25px;
-  background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.05) 50%);
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.1) 50%);
   border-radius: 0 0 0 10px;
   box-shadow: -2px -2px 5px rgba(0,0,0,0.1);
   transition: all 0.3s ease;
 }
 
 .corner-curl:hover::after {
-  width: 35px;
-  height: 35px;
+  width: 40px;
+  height: 40px;
 }
 
 /* Book paper texture */
@@ -147,9 +176,9 @@ export const customScrollbarStyles = `
 /* Additional children's book styling */
 .book-page {
   position: relative;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
   background-color: #fff;
   overflow: hidden;
 }
@@ -160,15 +189,15 @@ export const customScrollbarStyles = `
   top: 0;
   right: 0;
   bottom: 0;
-  width: 15px;
-  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.03));
+  width: 20px;
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.05));
 }
 
 /* Fun page number styling */
 .fun-page-number {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -184,12 +213,12 @@ export const customScrollbarStyles = `
 /* Children's book cover styles */
 .childbook-cover {
   background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-  border-radius: 10px;
+  border-radius: 16px;
   overflow: hidden;
   position: relative;
   box-shadow: 
-    0 10px 20px rgba(0, 0, 0, 0.2),
-    0 6px 6px rgba(0, 0, 0, 0.1);
+    0 10px 30px rgba(0, 0, 0, 0.2),
+    0 8px 10px rgba(0, 0, 0, 0.1);
 }
 
 .childbook-cover::after {
@@ -206,8 +235,8 @@ export const customScrollbarStyles = `
 .childbook-title {
   font-family: 'Bubblegum Sans', cursive;
   color: white;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
-  font-size: 2.5rem;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.3);
+  font-size: 2.75rem;
   text-align: center;
   padding: 20px;
   position: relative;
@@ -218,7 +247,7 @@ export const customScrollbarStyles = `
   font-family: 'Comic Neue', cursive;
   color: white;
   text-align: center;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   padding: 10px;
   position: relative;
   z-index: 10;
@@ -232,51 +261,61 @@ export const customScrollbarStyles = `
 }
 
 .childbook-illustration img {
-  max-width: 80%;
-  border-radius: 10px;
-  border: 5px solid white;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  max-width: 85%;
+  border-radius: 12px;
+  border: 6px solid white;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.childbook-illustration img:hover {
+  transform: scale(1.02);
 }
 
 /* Book pages style */
 .book-page-content {
   font-family: 'Patrick Hand', cursive;
-  font-size: 1.25rem;
-  line-height: 1.6;
+  font-size: 1.4rem;
+  line-height: 1.7;
   color: #333;
-  padding: 20px;
+  padding: 25px;
   position: relative;
 }
 
 .book-illustration {
   text-align: center;
-  margin: 20px 0;
+  margin: 25px 0;
+  transition: transform 0.3s ease;
+}
+
+.book-illustration:hover {
+  transform: scale(1.02);
 }
 
 .book-illustration img {
-  max-width: 90%;
-  border-radius: 8px;
-  border: 5px solid white;
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+  max-width: 92%;
+  border-radius: 12px;
+  border: 6px solid white;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Book page number */
 .book-page-number {
   position: absolute;
-  bottom: 10px;
-  right: 20px;
+  bottom: 15px;
+  right: 25px;
   font-family: 'Schoolbell', cursive;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   color: #666;
 }
 
 /* Colorful decorative elements */
 .childbook-decoration {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  opacity: 0.5;
+  opacity: 0.6;
   z-index: 0;
 }
 
@@ -290,23 +329,42 @@ export const customScrollbarStyles = `
   background-color: #FFD8CB;
   bottom: 15%;
   right: 15%;
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
 }
 
 .decoration-3 {
   background-color: #A5FFD6;
   bottom: 20%;
   left: 20%;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
 }
 
 .decoration-4 {
   background-color: #FFC3A0;
   top: 20%;
   right: 10%;
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
+}
+
+/* Day/Night reading mode */
+.night-mode {
+  background-color: #252836 !important;
+  color: #e1e1e6 !important;
+}
+
+.night-mode .book-page {
+  background-color: #2e3142 !important;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3) !important;
+}
+
+.night-mode .book-page-content {
+  color: #e1e1e6 !important;
+}
+
+.night-mode .book-illustration img {
+  border-color: #404352 !important;
 }
 `;

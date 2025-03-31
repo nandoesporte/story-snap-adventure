@@ -67,7 +67,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
           });
           setLoadAttempts(0);
         }
-      }, 300);
+      }, 500); // Increased from 300ms to 500ms for better effect
       
       return () => clearTimeout(timer);
     }
@@ -77,9 +77,15 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     if (currentPage > 0 && !isFlipping) {
       setFlipDirection("left");
       setIsFlipping(true);
+      
+      // Create 3D page turn effect with animation timing
       setTimeout(() => {
         setCurrentPage(currentPage - 1);
-        setIsFlipping(false);
+        
+        // Add a small delay before completing the animation
+        setTimeout(() => {
+          setIsFlipping(false);
+        }, 300);
       }, 300);
     }
   }, [currentPage, isFlipping]);
@@ -88,9 +94,15 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     if (storyData && currentPage < totalPages - 1 && !isFlipping) {
       setFlipDirection("right");
       setIsFlipping(true);
+      
+      // Create 3D page turn effect with animation timing
       setTimeout(() => {
         setCurrentPage(currentPage + 1);
-        setIsFlipping(false);
+        
+        // Add a small delay before completing the animation
+        setTimeout(() => {
+          setIsFlipping(false);
+        }, 300);
       }, 300);
     }
   }, [currentPage, isFlipping, storyData, totalPages]);
@@ -99,37 +111,37 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     setHideText(!hideText);
   }, [hideText]);
 
-  // Para preservar o estado ao alternar entre tela cheia
+  // Preserve state when toggling fullscreen
   const preserveFullscreenState = useCallback((isNowFullscreen: boolean) => {
     setLastFullscreenState(isNowFullscreen);
     
-    // Se estiver saindo da tela cheia, forçar uma atualização da página atual
+    // Force a page update when exiting fullscreen
     if (!isNowFullscreen && lastFullscreenState) {
-      console.log("Saindo da tela cheia, forçando atualização da página");
+      console.log("Exiting fullscreen, forcing page update");
       forcePageReset();
     }
   }, [lastFullscreenState]);
 
-  // Função para forçar atualização em caso de tela branca
+  // Function to force page reset in case of white screen
   const forcePageReset = useCallback(() => {
-    console.log("Forçando reset de página para resolver tela branca");
+    console.log("Forcing page reset to fix white screen");
     setIsFlipping(true);
     setPageReset(true);
     setLoadAttempts(prev => prev + 1);
     
     const currentPageCopy = currentPage;
     
-    // Primeiro, voltamos para a página 0 (capa)
+    // First, go back to cover page (page 0)
     setCurrentPage(0);
     
-    // Depois de um pequeno atraso, voltamos para a página onde estávamos
+    // After a short delay, return to the previous page
     setTimeout(() => {
       setCurrentPage(currentPageCopy);
       
-      // Garantir que a animação de transição seja concluída
+      // Ensure the transition animation completes
       setTimeout(() => {
         setIsFlipping(false);
-      }, 300);
+      }, 500);
     }, 100);
   }, [currentPage]);
 
