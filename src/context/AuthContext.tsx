@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserSession, getUser, initializeDatabaseStructure } from '../lib/supabase';
@@ -13,7 +12,6 @@ type AuthContextType = {
   signOut: () => Promise<void>;
 };
 
-// Create a default context value to prevent "undefined" errors
 const defaultContextValue: AuthContextType = {
   user: null,
   session: null,
@@ -30,11 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
 
-  // Initialize database if user is admin
   const initializeDBIfAdmin = async (user: User | null) => {
     if (!user) return;
     
-    // Only init if admin user (for now, just using our hardcoded admin email)
     if (user.email === 'nandoesporte1@gmail.com') {
       try {
         await initializeDatabaseStructure();
@@ -45,21 +41,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Set mounted ref for cleanup
     isMounted.current = true;
     
-    // Check for active session on component mount
     const loadUser = async () => {
       try {
         console.info('Loading current session...');
         const session = await getUser();
         
-        // Only update state if component is still mounted
         if (isMounted.current) {
           setUserSession({ user: session.user, session: session.session });
           if (session.user) {
             console.info('User loaded successfully:', session.user.email);
-            // Initialize database if admin
             initializeDBIfAdmin(session.user);
           } else {
             console.info('No authenticated user found');
@@ -79,19 +71,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadUser();
 
-    // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.info('Auth state changed:', event, session ? 'session exists' : 'no session');
       
       if (isMounted.current) {
         if (session) {
-          // Get user data
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (isMounted.current) {
               setUserSession({ user, session });
               console.info('User authenticated:', user?.email);
-              
-              // Initialize database if admin
               initializeDBIfAdmin(user);
             }
           }).catch(error => {
@@ -111,7 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      // Clean up and prevent state updates after unmount
       console.info('Cleaning up auth listener subscription');
       isMounted.current = false;
       authListener?.subscription.unsubscribe();
@@ -132,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.info('Sign in successful for:', email);
       
-      // Initialize database if admin
       if (data.user && data.user.email === 'nandoesporte1@gmail.com') {
         await initializeDBIfAdmin(data.user);
       }
@@ -153,11 +139,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.info('AuthContext: Signing up with:', email);
       
-      // Use site URL for redirect
       const siteUrl = window.location.origin;
       console.info('Using site URL for redirect:', siteUrl);
       
-      // Explicitly pass emailRedirectTo to ensure confirmation emails work properly
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -174,32 +158,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
       
-      // Log response details for debugging
       console.info('Sign up response:', data);
       
-      // Check if user was created immediately or needs email confirmation
       if (data.user) {
         console.info('User created successfully:', data.user.email);
         
-        // Try to ensure user_profiles entry is created
         try {
-          // This will trigger the user profile creation if it doesn't exist
+          console.info('Creating user profile for:', data.user.id);
           const { error: profileError } = await supabase
             .from('user_profiles')
-            .upsert({ 
+            .insert({ 
               id: data.user.id,
               display_name: email,
               story_credits: 5,
               is_admin: email === 'nandoesporte1@gmail.com'
-            }, { onConflict: 'id' });
+            });
             
           if (profileError) {
             console.error('Error creating user profile:', profileError);
+            console.error('Profile error details:', JSON.stringify(profileError));
+            
+            console.info('Trying upsert as fallback...');
+            const { error: upsertError } = await supabase
+              .from('user_profiles')
+              .upsert({ 
+                id: data.user.id,
+                display_name: email,
+                story_credits: 5,
+                is_admin: email === 'nandoesporte1@gmail.com'
+              }, { onConflict: 'id' });
+              
+            if (upsertError) {
+              console.error('Upsert fallback also failed:', upsertError);
+              console.error('Upsert error details:', JSON.stringify(upsertError));
+            } else {
+              console.info('User profile created/updated successfully via upsert');
+            }
           } else {
-            console.info('User profile created/updated successfully');
+            console.info('User profile created successfully via insert');
           }
         } catch (profileError) {
-          console.error('Error in profile creation:', profileError);
+          console.error('Exception in profile creation:', profileError);
         }
       }
       
