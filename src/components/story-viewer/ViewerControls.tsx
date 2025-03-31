@@ -85,7 +85,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
   };
   
   return (
-    <div className="bg-white border-b border-gray-200 p-3 flex flex-wrap items-center justify-between gap-2">
+    <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-between gap-2 z-20">
       <div className="flex items-center gap-2">
         <Button 
           variant="ghost" 
@@ -108,7 +108,13 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
         </Button>
       </div>
       
-      <div className="flex items-center gap-2 flex-wrap justify-end">
+      <div className="flex-1 flex justify-center items-center">
+        <div className="text-sm text-gray-500 hidden sm:block">
+          {currentPage} / {totalPages - 1}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
         {!isMobile && (
           <Button
             variant="ghost"
@@ -118,7 +124,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             <span className="ml-1 hidden md:inline">
-              {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+              {isFullscreen ? "Sair" : "Tela Cheia"}
             </span>
           </Button>
         )}
@@ -142,7 +148,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
         >
           <Download className="w-4 h-4" />
           <span className="ml-1 hidden md:inline">
-            {isDownloading ? "Processando..." : "Download PDF"}
+            {isDownloading ? "Processando..." : "Download"}
           </span>
         </Button>
       </div>

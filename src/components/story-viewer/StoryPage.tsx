@@ -55,15 +55,15 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             imageUrl={imageUrl}
             fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageIndex + 1}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full"
             onClick={() => onImageClick(imageUrl)}
             onError={() => onImageError(imageUrl)}
           />
         </div>
         
         {!hideText && (
-          <div className="story-text-overlay">
-            <div className="relative z-10 p-4 pb-6">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end z-10">
+            <div className="relative p-4 pb-6">
               <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
               <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
@@ -154,15 +154,15 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           </div>
         )}
         
-        {!isMobile && !hideText && (
+        {!isMobile && (
           <Button 
             className="absolute bottom-4 right-4 z-10"
             size="sm"
             variant="secondary"
             onClick={onToggleTextVisibility}
           >
-            <EyeOff className="w-4 h-4" />
-            Ocultar texto
+            {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
+            {hideText ? "Mostrar texto" : "Ocultar texto"}
           </Button>
         )}
       </div>

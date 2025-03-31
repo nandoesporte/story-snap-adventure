@@ -13,6 +13,8 @@ import { ViewerControls } from "./ViewerControls";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { ImageViewer } from "./ImageViewer";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface StoryViewerProps {
   storyId?: string;
@@ -306,29 +308,25 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
             </div>
           </div>
           
-          <div className="absolute inset-y-0 left-2 flex items-center z-10">
+          <div className="absolute inset-y-0 left-2 flex items-center z-20">
             {currentPage > 0 && !isFlipping && (
-              <button
+              <Button
                 onClick={handlePreviousPage}
                 className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-              </button>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
             )}
           </div>
           
-          <div className="absolute inset-y-0 right-2 flex items-center z-10">
+          <div className="absolute inset-y-0 right-2 flex items-center z-20">
             {storyData && currentPage < totalPages - 1 && !isFlipping && (
-              <button
+              <Button
                 onClick={handleNextPage}
                 className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             )}
           </div>
         </div>
@@ -343,15 +341,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
         onZoomOut={handleZoomOut}
       />
       
-      {!isFullscreen && (
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20 pointer-events-none">
-          <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
-            <span className="text-xs text-gray-800">
-              {currentPage} / {totalPages - 1}
-            </span>
-          </div>
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20 pointer-events-none">
+        <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-md pointer-events-auto">
+          <span className="text-xs text-gray-800">
+            {currentPage} / {totalPages - 1}
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 };
