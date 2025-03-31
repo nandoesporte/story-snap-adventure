@@ -96,7 +96,7 @@ export const isTemporaryUrl = (url: string): boolean => {
   }
   
   // Check for URLs with expiry parameters
-  if (url.includes('se=') && (url.includes('sig=') || url.includes('token='))) {
+  if ((url.includes('se=') || url.includes('exp=')) && (url.includes('sig=') || url.includes('token='))) {
     return true;
   }
   
@@ -175,6 +175,22 @@ const hashSimple = (str: string): string => {
 };
 
 /**
+ * Get file extension from URL or fallback to default
+ */
+const getFileExtension = (url: string): string => {
+  if (!url) return 'png';
+  
+  const pathname = url.split('?')[0];
+  const extension = pathname.split('.').pop()?.toLowerCase();
+  
+  if (extension && ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+    return extension;
+  }
+  
+  return 'png'; // Default to PNG
+};
+
+/**
  * Save an image to permanent storage
  */
 export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: string): Promise<string> => {
@@ -185,13 +201,11 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
     }
     
     // Check cache first
-    const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-    if (urlKey) {
-      const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
-      if (cachedUrl && isPermanentStorage(cachedUrl)) {
-        console.log("Using cached permanent URL:", cachedUrl);
-        return cachedUrl;
-      }
+    const urlKey = imageUrl.split('/').pop()?.split('?')[0] || hashSimple(imageUrl);
+    const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
+    if (cachedUrl && isPermanentStorage(cachedUrl)) {
+      console.log("Using cached permanent URL:", cachedUrl);
+      return cachedUrl;
     }
     
     // Generate a unique file name
@@ -200,20 +214,22 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
     console.log("Attempting to fetch and save image:", imageUrl);
     
     // Fetch the image as a blob with timeout and retry logic
-    let imageBlob: Blob;
+    let imageBlob: Blob | null = null;
     let fetchAttempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 5; // Increased attempts
     
     while (fetchAttempts < maxAttempts) {
       try {
         // Create a fetch request with timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout to 15 seconds
         
         // Add cache-busting parameter
         const fetchUrl = imageUrl.includes('?') 
           ? `${imageUrl}&_cb=${Date.now()}` 
           : `${imageUrl}?_cb=${Date.now()}`;
+        
+        console.log(`Fetch attempt ${fetchAttempts + 1}/${maxAttempts} for: ${fetchUrl}`);
         
         const response = await fetch(fetchUrl, {
           signal: controller.signal,
@@ -221,7 +237,9 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
-          }
+          },
+          // Add credentials: 'omit' to avoid CORS issues with third-party services
+          credentials: 'omit'
         });
         
         clearTimeout(timeoutId);
@@ -232,6 +250,11 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
         
         imageBlob = await response.blob();
         
+        // Validate the blob
+        if (!imageBlob || imageBlob.size === 0) {
+          throw new Error("Downloaded blob is empty");
+        }
+        
         // If we got here, we have the blob and can break the retry loop
         break;
       } catch (fetchError) {
@@ -239,27 +262,49 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
         console.error(`Fetch attempt ${fetchAttempts} failed:`, fetchError);
         
         if (fetchAttempts >= maxAttempts) {
-          console.error("Max fetch attempts reached, giving up");
-          toast.error("Não foi possível baixar a imagem após várias tentativas");
-          return imageUrl; // Return original on failure
+          console.error("Max fetch attempts reached, falling back to placeholder");
+          
+          // Get theme-specific fallback if available (extract from URL if possible)
+          let theme = 'fantasy';
+          if (imageUrl.includes('theme=')) {
+            theme = imageUrl.split('theme=')[1].split('&')[0];
+          }
+          
+          // Use placeholder as fallback
+          const fallbackUrl = `/images/placeholders/${theme}.jpg`;
+          
+          toast.error("Não foi possível baixar a imagem após várias tentativas", {
+            description: "Usando imagem padrão como alternativa",
+            duration: 3000
+          });
+          
+          // Cache the fallback to avoid future failures
+          try {
+            localStorage.setItem(`image_cache_fallback_${urlKey}`, fallbackUrl);
+          } catch (e) {
+            console.error("Error saving fallback to cache:", e);
+          }
+          
+          return fallbackUrl;
         }
         
         // Wait before retrying (increasing delay for each attempt)
-        await new Promise(resolve => setTimeout(resolve, fetchAttempts * 1000));
+        await new Promise(resolve => setTimeout(resolve, fetchAttempts * 1500));
       }
     }
     
     // If we get here without imageBlob being defined, something went wrong
     if (!imageBlob) {
-      toast.error("Falha ao baixar a imagem");
-      return imageUrl;
-    }
-    
-    // Validate the blob
-    if (imageBlob.size === 0) {
-      console.error("Downloaded blob is empty");
-      toast.error("A imagem baixada está vazia");
-      return imageUrl;
+      console.error("Failed to fetch image after multiple attempts");
+      
+      // Get theme-specific fallback
+      let theme = 'fantasy';
+      if (imageUrl.includes('theme=')) {
+        theme = imageUrl.split('theme=')[1].split('&')[0];
+      }
+      
+      const fallbackUrl = `/images/placeholders/${theme}.jpg`;
+      return fallbackUrl;
     }
     
     // Upload to Supabase storage
@@ -267,7 +312,7 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
       .storage
       .from('story_images')
       .upload(fileName, imageBlob, {
-        contentType: 'image/png',
+        contentType: imageBlob.type || 'image/png',
         cacheControl: '3600',
         upsert: false
       });
@@ -275,16 +320,28 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
     if (error) {
       console.error("Failed to upload image to storage:", error);
       
-      // Handle different error types
-      if (error.message?.includes('auth')) {
-        toast.error("Erro de autenticação ao salvar imagem");
-      } else if (error.message?.includes('exceeded')) {
-        toast.error("Tamanho da imagem excede o limite permitido");
-      } else {
-        toast.error("Falha ao salvar imagem no armazenamento");
+      // Create a fallback URL based on theme (if available)
+      let theme = 'fantasy';
+      if (imageUrl.includes('theme=')) {
+        theme = imageUrl.split('theme=')[1].split('&')[0];
       }
       
-      return imageUrl; // Return original URL if upload fails
+      const fallbackUrl = `/images/placeholders/${theme}.jpg`;
+      
+      // Handle different error types with specific messages
+      let errorMessage = "Falha ao salvar imagem no armazenamento";
+      if (error.message?.includes('auth')) {
+        errorMessage = "Erro de autenticação ao salvar imagem";
+      } else if (error.message?.includes('exceeded')) {
+        errorMessage = "Tamanho da imagem excede o limite permitido";
+      }
+      
+      toast.error(errorMessage, {
+        description: "Usando imagem alternativa",
+        duration: 3000
+      });
+      
+      return fallbackUrl;
     }
     
     // Get the public URL
@@ -295,22 +352,30 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
       
     console.log("Image saved to permanent storage:", publicUrl);
     
-    // Don't show success toast every time to avoid spamming
-    // toast.success("Imagem salva no armazenamento permanente");
-    
     // Cache the permanent URL
-    if (urlKey) {
-      try {
-        localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
-      } catch (cacheError) {
-        console.error("Error saving URL to cache:", cacheError);
-      }
+    try {
+      localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
+    } catch (cacheError) {
+      console.error("Error saving URL to cache:", cacheError);
     }
     
     return publicUrl;
   } catch (error) {
     console.error("Error saving image to permanent storage:", error);
-    toast.error("Erro ao salvar imagem permanentemente");
-    return imageUrl; // Return original URL if any error occurs
+    
+    // Get theme-specific fallback
+    let theme = 'fantasy';
+    if (imageUrl.includes('theme=')) {
+      theme = imageUrl.split('theme=')[1].split('&')[0];
+    }
+    
+    const fallbackUrl = `/images/placeholders/${theme}.jpg`;
+    
+    toast.error("Erro ao salvar imagem permanentemente", {
+      description: "Usando imagem padrão como alternativa",
+      duration: 3000
+    });
+    
+    return fallbackUrl;
   }
 };

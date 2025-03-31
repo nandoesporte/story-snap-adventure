@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { isPermanentStorage, isTemporaryUrl, saveImageToPermanentStorage } from './story-viewer/helpers';
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const [finalUrl, setFinalUrl] = useState<string>(imageUrl);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [permanentSaveAttempted, setPermanentSaveAttempted] = useState(false);
   
   // Reset state when image URL changes
   useEffect(() => {
@@ -39,18 +40,26 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     setFinalUrl(imageUrl);
     setIsSaving(false);
     setSaveError(false);
+    setPermanentSaveAttempted(false);
   }, [imageUrl]);
   
   // Check if URL is cached
   useEffect(() => {
     if (finalUrl) {
       try {
-        const cachedUrlKey = `image_cache_${finalUrl.split('/').pop()?.split('?')[0]}`;
-        const cachedUrl = localStorage.getItem(cachedUrlKey);
+        const urlKey = finalUrl.split('/').pop()?.split('?')[0] || 
+                      finalUrl.includes('oaidalleapiprodscus') ? 
+                      finalUrl.match(/img-([a-zA-Z0-9]+)/)?.[1] : 
+                      null;
         
-        if (cachedUrl && cachedUrl !== finalUrl && isPermanentStorage(cachedUrl)) {
-          console.log("Using permanent cached image URL:", cachedUrl);
-          setFinalUrl(cachedUrl);
+        if (urlKey) {
+          const cachedUrlKey = `image_cache_${urlKey}`;
+          const cachedUrl = localStorage.getItem(cachedUrlKey);
+          
+          if (cachedUrl && cachedUrl !== finalUrl && isPermanentStorage(cachedUrl)) {
+            console.log("Using permanent cached image URL:", cachedUrl);
+            setFinalUrl(cachedUrl);
+          }
         }
       } catch (error) {
         console.error("Error checking image cache:", error);
@@ -58,54 +67,27 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     }
   }, [finalUrl]);
   
-  // Save temporary URLs to permanent storage after loading
-  useEffect(() => {
-    if (loaded && !imgError && isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl) && !isSaving) {
-      const saveImage = async () => {
-        try {
-          setIsSaving(true);
-          setSaveError(false);
-          console.log("Saving temporary image to permanent storage:", finalUrl);
-          
-          const permanentUrl = await saveImageToPermanentStorage(finalUrl, storyId);
-          
-          if (permanentUrl !== finalUrl) {
-            console.log("Image saved to permanent storage:", permanentUrl);
-            setFinalUrl(permanentUrl);
-          } else {
-            console.warn("Image storage returned same URL, may have failed");
-            setSaveError(true);
-          }
-        } catch (error) {
-          console.error("Failed to save image to permanent storage:", error);
-          setSaveError(true);
-          // Don't show toast here, it's handled in saveImageToPermanentStorage
-        } finally {
-          setIsSaving(false);
-        }
-      };
-      
-      saveImage();
-    }
-  }, [loaded, finalUrl, imgError, isSaving, storyId]);
-  
   // Pre-load the image to verify if it's valid
   useEffect(() => {
     if (finalUrl && !loaded && !imgError && retryCount < 3) {
-      const img = new Image();
+      const preloadImg = new Image();
       
       // Add cache-busting parameter for temporary URLs
       const urlWithCacheBusting = isTemporaryUrl(finalUrl)
         ? `${finalUrl}&_cb=${Date.now()}`
         : finalUrl;
         
-      img.src = urlWithCacheBusting;
+      preloadImg.src = urlWithCacheBusting;
       
       const handleLoad = () => {
         setLoaded(true);
         // Cache the successful URL for future reference
         try {
-          const urlKey = finalUrl.split('/').pop()?.split('?')[0];
+          const urlKey = finalUrl.split('/').pop()?.split('?')[0] || 
+                      finalUrl.includes('oaidalleapiprodscus') ? 
+                      finalUrl.match(/img-([a-zA-Z0-9]+)/)?.[1] : 
+                      Math.random().toString(36).substring(2, 8);
+                      
           if (urlKey) {
             localStorage.setItem(`image_cache_${urlKey}`, finalUrl);
           }
@@ -128,22 +110,75 @@ export const CoverImage: React.FC<CoverImageProps> = ({
               : `${finalUrl}?retry=${Date.now()}`;
               
             setFinalUrl(retryUrl);
-          }, 500); // Add a small delay before retry
+          }, 800); // Add a small delay before retry
         } else {
           setImgError(true);
           if (onError) onError();
+          
+          // Check if we have a cached fallback for this URL
+          try {
+            const urlKey = imageUrl.split('/').pop()?.split('?')[0] || '';
+            const fallbackCacheKey = `image_cache_fallback_${urlKey}`;
+            const cachedFallback = localStorage.getItem(fallbackCacheKey);
+            if (cachedFallback) {
+              setFinalUrl(cachedFallback);
+              setImgError(false);
+            }
+          } catch (error) {
+            console.error("Error checking fallback cache:", error);
+          }
         }
       };
       
-      img.onload = handleLoad;
-      img.onerror = handleError;
+      preloadImg.onload = handleLoad;
+      preloadImg.onerror = handleError;
       
       return () => {
-        img.onload = null;
-        img.onerror = null;
+        preloadImg.onload = null;
+        preloadImg.onerror = null;
       };
     }
-  }, [finalUrl, onError, loaded, imgError, retryCount]);
+  }, [finalUrl, onError, loaded, imgError, retryCount, imageUrl]);
+  
+  // Save temporary URLs to permanent storage after loading
+  const saveToPermanentStorage = useCallback(async () => {
+    if (loaded && !imgError && isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl) && !isSaving && !permanentSaveAttempted) {
+      try {
+        setIsSaving(true);
+        setSaveError(false);
+        setPermanentSaveAttempted(true);
+        console.log("Saving temporary image to permanent storage:", finalUrl);
+        
+        const permanentUrl = await saveImageToPermanentStorage(finalUrl, storyId);
+        
+        if (permanentUrl !== finalUrl) {
+          console.log("Image saved to permanent storage:", permanentUrl);
+          
+          // Verify the permanent URL is valid
+          const checkImg = new Image();
+          checkImg.onload = () => {
+            setFinalUrl(permanentUrl);
+          };
+          checkImg.onerror = () => {
+            console.warn("Permanent URL validation failed, keeping original:", finalUrl);
+          };
+          checkImg.src = permanentUrl;
+        } else {
+          console.warn("Image storage returned same URL, may have failed");
+          setSaveError(true);
+        }
+      } catch (error) {
+        console.error("Failed to save image to permanent storage:", error);
+        setSaveError(true);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [loaded, finalUrl, imgError, isSaving, storyId, permanentSaveAttempted]);
+  
+  useEffect(() => {
+    saveToPermanentStorage();
+  }, [saveToPermanentStorage]);
   
   // Handle image loading error
   const handleError = () => {
@@ -161,15 +196,16 @@ export const CoverImage: React.FC<CoverImageProps> = ({
       setFinalUrl(retryUrl);
     } else {
       setImgError(true);
-      // Cache the fallback image for future reference
+      
+      // Check if we have a cached fallback for this URL
       try {
-        const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-        if (urlKey) {
-          localStorage.setItem(`image_cache_fallback_${urlKey}`, fallbackImage);
-        }
+        const urlKey = imageUrl.split('/').pop()?.split('?')[0] || '';
+        const fallbackCacheKey = `image_cache_fallback_${urlKey}`;
+        localStorage.setItem(fallbackCacheKey, fallbackImage);
       } catch (error) {
         console.error("Error saving fallback to cache:", error);
       }
+      
       if (onError) onError();
     }
   };
@@ -177,13 +213,19 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const handleLoad = () => {
     setLoaded(true);
     if (onLoad) onLoad();
+    
+    // If this is a temporary URL and we still need to save it permanently
+    if (isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl) && !permanentSaveAttempted) {
+      saveToPermanentStorage();
+    }
   };
 
   // Retry save manually if needed
   const handleRetrySave = () => {
     if (isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl)) {
       setSaveError(false);
-      setIsSaving(false); // Force re-trigger the save effect
+      setPermanentSaveAttempted(false);
+      saveToPermanentStorage();
     }
   };
 
