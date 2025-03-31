@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 export const useAdminCheck = () => {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export const useAdminCheck = () => {
       try {
         console.log("useAdminCheck: Checking admin status for", user.email);
         
-        // First check: direct email match
+        // First check: direct email match for the admin email
         if (user.email === 'nandoesporte1@gmail.com') {
           console.log("Admin check: Direct email match for", user.email);
           localStorage.setItem('user_role', 'admin');
@@ -30,87 +31,19 @@ export const useAdminCheck = () => {
           return;
         }
         
-        // Second check: database
+        // Second check: from the token claims (if available)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (!sessionError && session?.user?.app_metadata?.admin === true) {
+          console.log("Admin check: Metadata claims indicate admin status");
+          localStorage.setItem('user_role', 'admin');
+          setIsAdmin(true);
+          setLoading(false);
+          return;
+        }
+        
+        // Third check: database user_profiles table
         try {
-          // Check if user_profiles table exists first
-          const { data: tableExists, error: tableCheckError } = await supabase
-            .from('information_schema.tables')
-            .select('table_name')
-            .eq('table_schema', 'public')
-            .eq('table_name', 'user_profiles');
-            
-          // If table doesn't exist, create it
-          if (tableCheckError || !tableExists || tableExists.length === 0) {
-            console.log("Creating user_profiles table");
-            const createQuery = `
-              CREATE TABLE IF NOT EXISTS public.user_profiles (
-                id UUID PRIMARY KEY REFERENCES auth.users(id),
-                is_admin BOOLEAN DEFAULT false,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-              );
-              
-              ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-              
-              CREATE POLICY "Users can view their own profile"
-                ON public.user_profiles
-                FOR SELECT
-                USING (auth.uid() = id);
-                
-              CREATE POLICY "Users can update their own profile"
-                ON public.user_profiles
-                FOR UPDATE
-                USING (auth.uid() = id);
-                
-              CREATE POLICY "Admin users can view all profiles"
-                ON public.user_profiles
-                FOR SELECT
-                USING (
-                  EXISTS (
-                    SELECT 1 FROM public.user_profiles
-                    WHERE id = auth.uid() AND is_admin = true
-                  )
-                );
-                
-              CREATE POLICY "Admin users can update all profiles"
-                ON public.user_profiles
-                FOR ALL
-                USING (
-                  EXISTS (
-                    SELECT 1 FROM public.user_profiles
-                    WHERE id = auth.uid() AND is_admin = true
-                  )
-                );
-            `;
-            
-            try {
-              // Try using RPC function if available
-              await supabase.rpc('exec_sql', { sql_query: createQuery });
-            } catch (rpcError) {
-              console.error("Couldn't use RPC for table creation:", rpcError);
-              // Don't error out, just continue to check if the user has a profile
-            }
-          }
-          
-          // Check if user has a profile
-          const { data: profileExists, error: profileCheckError } = await supabase
-            .from('user_profiles')
-            .select('id')
-            .eq('id', user.id);
-            
-          // Create profile if it doesn't exist
-          if (profileCheckError || !profileExists || profileExists.length === 0) {
-            console.log("Creating user profile for", user.id);
-            const { error: insertError } = await supabase
-              .from('user_profiles')
-              .insert({ id: user.id, is_admin: false });
-              
-            if (insertError) {
-              console.error("Error creating user profile:", insertError);
-            }
-          }
-          
-          // Now check admin status
+          // Check the user's profile record
           const { data, error } = await supabase
             .from('user_profiles')
             .select('is_admin')
@@ -121,18 +54,69 @@ export const useAdminCheck = () => {
             
           if (error) {
             console.error('Error checking admin status:', error);
-            setIsAdmin(false);
+            
+            // Fall back to manual creation if query fails
+            const { error: insertError } = await supabase
+              .from('user_profiles')
+              .insert({ 
+                id: user.id, 
+                display_name: user.email,
+                story_credits: 5,
+                is_admin: user.email === 'nandoesporte1@gmail.com'
+              });
+              
+            if (insertError) {
+              console.error("Error creating profile:", insertError);
+              
+              // One more try with raw SQL via functions API
+              if (user.email === 'nandoesporte1@gmail.com') {
+                try {
+                  await supabase.rpc('exec_sql', {
+                    sql_query: `
+                      UPDATE public.user_profiles 
+                      SET is_admin = true 
+                      WHERE id = '${user.id}'
+                    `
+                  });
+                  setIsAdmin(true);
+                  localStorage.setItem('user_role', 'admin');
+                } catch (sqlError) {
+                  console.error("Final admin setting attempt failed:", sqlError);
+                }
+              }
+            }
           } else if (data?.is_admin) {
-            console.log("Admin check: Database check successful");
+            console.log("Admin check: Database confirms admin status");
             localStorage.setItem('user_role', 'admin');
             setIsAdmin(true);
+          } else if (user.email === 'nandoesporte1@gmail.com') {
+            // Special case: if the email is the admin email but the flag isn't set
+            console.log("Admin check: Special case - updating admin status for known admin email");
+            const { error: updateError } = await supabase
+              .from('user_profiles')
+              .update({ is_admin: true })
+              .eq('id', user.id);
+              
+            if (!updateError) {
+              localStorage.setItem('user_role', 'admin');
+              setIsAdmin(true);
+            }
           } else {
+            console.log("Admin check: User is not an admin");
             localStorage.setItem('user_role', 'user');
             setIsAdmin(false);
           }
         } catch (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
+          console.error('Error in database admin check:', error);
+          
+          // Final fallback for known admin email
+          if (user.email === 'nandoesporte1@gmail.com') {
+            console.log("Admin check: Fallback to email-based admin status");
+            localStorage.setItem('user_role', 'admin');
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
         }
       } finally {
         setLoading(false);
