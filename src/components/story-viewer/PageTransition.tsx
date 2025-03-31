@@ -1,8 +1,9 @@
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage } from "./helpers";
+import { toast } from "sonner";
 
 interface PageTransitionProps {
   storyId: string | undefined;
@@ -34,8 +35,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   onToggleTextVisibility
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
-  const [preloadComplete, setPreloadComplete] = useState(false);
-  const [imageLoadError, setImageLoadError] = useState(false);
   
   // Debug logging
   useEffect(() => {
@@ -44,11 +43,9 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       isMobile,
       isFullscreen,
       hasStoryData: !!storyData,
-      isRendered,
-      preloadComplete,
-      imageLoadError
+      isRendered
     });
-  }, [currentPage, isMobile, isFullscreen, storyData, isRendered, preloadComplete, imageLoadError]);
+  }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
   
   // Check if we have story data
   if (!storyData) {
@@ -61,32 +58,19 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
   
-  // Handle image errors
-  const handleImageLoadError = (url: string) => {
-    console.error("Image failed to load:", url);
-    setImageLoadError(true);
-    onImageError(url);
-  };
-  
   // Preload next and previous page images to improve transitions
   useEffect(() => {
     if (!storyData || !storyData.pages || storyData.pages.length === 0) return;
     
     const preloadAdjacentPages = async () => {
       try {
-        setPreloadComplete(false);
-        
         // Preload current page image
         const currentImageUrl = currentPage === 0 
           ? coverImageSrc 
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
           
         if (currentImageUrl) {
-          try {
-            await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
-          } catch (error) {
-            console.warn("Failed to preload current page image:", error);
-          }
+          await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
         }
         
         // Preload next page image if available
@@ -96,11 +80,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage]?.imageUrl || storyData.pages[currentPage]?.image_url);
             
           if (nextImageUrl) {
-            try {
-              await preloadImage(getImageUrl(nextImageUrl, storyData.theme));
-            } catch (error) {
-              console.warn("Failed to preload next page image:", error);
-            }
+            await preloadImage(getImageUrl(nextImageUrl, storyData.theme));
           }
         }
         
@@ -111,18 +91,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage - 2]?.imageUrl || storyData.pages[currentPage - 2]?.image_url);
             
           if (prevImageUrl) {
-            try {
-              await preloadImage(getImageUrl(prevImageUrl, storyData.theme));
-            } catch (error) {
-              console.warn("Failed to preload previous page image:", error);
-            }
+            await preloadImage(getImageUrl(prevImageUrl, storyData.theme));
           }
         }
-        
-        setPreloadComplete(true);
       } catch (error) {
         console.error("Error preloading adjacent pages:", error);
-        setPreloadComplete(true); // Continue anyway
       }
     };
     
@@ -132,7 +105,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   // Calculate transition classes based on state
   const transitionClasses = `
     absolute inset-0 
-    transition-transform duration-300 ease-in-out 
+    transition-all duration-300 ease-in-out 
     ${isFlipping ? (flipDirection === "left" ? "translate-x-full opacity-0" : "-translate-x-full opacity-0") : "translate-x-0"} 
     ${isRendered ? 'opacity-100' : 'opacity-0'}
   `;
@@ -153,9 +126,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           setting={storyData.setting}
           style={storyData.style}
           isMobile={isMobile}
-          storyId={storyId}
           onImageClick={onImageClick}
-          onImageError={handleImageLoadError}
+          onImageError={onImageError}
         />
       ) : (
         <StoryPage
@@ -175,7 +147,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           hideText={hideText}
           voiceType={storyData.voiceType || 'female'}
           onImageClick={onImageClick}
-          onImageError={handleImageLoadError}
+          onImageError={onImageError}
           onToggleTextVisibility={onToggleTextVisibility}
         />
       )}

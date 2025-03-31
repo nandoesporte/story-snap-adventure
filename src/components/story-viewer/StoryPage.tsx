@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,73 +40,69 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onImageError,
   onToggleTextVisibility
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const fallbackImage = getFallbackImage("");
-  const themeFromUrl = imageUrl.includes('theme=') ? 
-    imageUrl.split('theme=')[1].split('&')[0] : 
-    'fantasy';
-  const themeFallback = `/images/placeholders/${themeFromUrl}.jpg`;
   
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-    setImageError(false);
-  };
+  // Debug logging
+  useEffect(() => {
+    console.log("StoryPage rendering:", {
+      title,
+      imageUrl,
+      pageIndex,
+      isMobile,
+      isFullscreen,
+      hideText,
+      hasText: !!typedText
+    });
+  }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText]);
 
-  const handleImageError = () => {
-    console.error("Failed to load story image:", imageUrl);
-    setImageError(true);
-    onImageError(imageUrl);
-  };
-  
   // Mobile layout
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
         <div className="story-image-fullscreen h-full w-full relative">
           <CoverImage 
-            imageUrl={imageError ? themeFallback : imageUrl}
-            fallbackImage={themeFallback}
+            imageUrl={imageUrl}
+            fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageIndex + 1}`}
             className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
-            onError={handleImageError}
-            onLoad={handleImageLoad}
-            storyId={storyId}
+            onError={() => onImageError(imageUrl)}
           />
         </div>
         
         {!hideText && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end z-10">
-            <div className="relative p-6 pb-10 bg-black/30 backdrop-blur-sm rounded-t-2xl">
-              <h2 className="text-xl font-bold mb-4 text-white drop-shadow-md">{title}</h2>
-              <div className="prose prose-sm text-white">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end z-10">
+            <div className="relative p-5 pb-6 bg-black/40 backdrop-blur-md rounded-t-xl">
+              <h2 className="text-xl font-bold mb-3 text-white text-shadow">{title}</h2>
+              <div className="prose prose-sm story-text text-white">
                 {typedText.split('\n').map((paragraph, idx) => (
-                  <p key={idx} className="mb-3 leading-relaxed text-white/90 font-medium">{paragraph}</p>
+                  <p key={idx} className="mb-2 leading-relaxed text-shadow font-medium">{paragraph}</p>
                 ))}
                 <div className="typing-cursor animate-blink inline-block h-5 w-1 ml-1 bg-white"></div>
               </div>
               
-              <div className="mt-4 flex justify-between items-center">
+              <div className="pt-3 mt-3 border-t border-white/30 text-xs text-white/80 flex justify-between">
+                {!isFullscreen && (
+                  <span>{childName}</span>
+                )}
+              </div>
+              
+              <div className="mt-4 flex justify-center gap-2">
                 <NarrationPlayer
                   storyId={storyId || ''}
                   pageIndex={pageIndex}
                   pageText={typedText}
                   voiceType={voiceType}
                   className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1"
-                  autoPlay={false}
+                  autoPlay={!isMobile}
                 />
-                
-                <span className="text-xs text-white/70">
-                  Página {pageIndex + 1} de {pageCount}
-                </span>
               </div>
             </div>
           </div>
         )}
         
         <Button 
-          className="fixed bottom-28 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 flex items-center gap-1 shadow-lg"
+          className="fixed bottom-24 right-4 z-50 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 flex items-center gap-1 shadow-lg"
           size="sm"
           variant="ghost"
           onClick={onToggleTextVisibility}
@@ -120,37 +116,33 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   
   // Desktop layout
   return (
-    <div className="w-full h-full flex">
-      <div className="w-3/5 h-full bg-gradient-to-br from-violet-50 to-indigo-50 flex items-center justify-center p-8 relative">
-        <div className="w-full h-full max-h-[80vh] max-w-3xl rounded-xl overflow-hidden shadow-lg">
-          <CoverImage 
-            imageUrl={imageError ? themeFallback : imageUrl}
-            fallbackImage={themeFallback}
-            alt={`Ilustração da página ${pageIndex + 1}`}
-            className="w-full h-full object-contain"
-            onClick={() => onImageClick(imageUrl)}
-            onError={handleImageError}
-            onLoad={handleImageLoad}
-            storyId={storyId}
-          />
-        </div>
+    <div className="w-full h-full flex flex-row">
+      <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
+        <CoverImage 
+          imageUrl={imageUrl}
+          fallbackImage={fallbackImage}
+          alt={`Ilustração da página ${pageIndex + 1}`}
+          className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+          onClick={() => onImageClick(imageUrl)}
+          onError={() => onImageError(imageUrl)}
+        />
       </div>
       
-      <div className="w-2/5 h-full overflow-hidden flex flex-col relative border-l border-violet-100">
+      <div className="w-1/2 h-full bg-white overflow-hidden flex flex-col relative">
         {!hideText ? (
           <>
-            <ScrollArea className="flex-1 p-8">
-              <div className="max-w-xl mx-auto">
-                <h2 className="text-2xl md:text-3xl font-bold mb-6 text-violet-900 border-b border-violet-100 pb-4">{title}</h2>
-                <div className="prose prose-violet max-w-none">
+            <ScrollArea className="h-full pr-2 p-8 bg-white/95">
+              <div className="mb-6 bg-white/90 p-5 rounded-lg backdrop-blur-sm shadow-sm">
+                <h2 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800">{title}</h2>
+                <div className="prose prose-lg">
                   {typedText.split('\n').map((paragraph, idx) => (
-                    <p key={idx} className="mb-5 text-lg leading-relaxed text-gray-700">{paragraph}</p>
+                    <p key={idx} className="mb-3 text-lg leading-relaxed font-medium text-gray-700">{paragraph}</p>
                   ))}
-                  <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-violet-400"></div>
+                  <div className="typing-cursor animate-blink inline-block h-6 w-1 ml-1 bg-gray-500"></div>
                 </div>
               </div>
             </ScrollArea>
-            <div className="p-4 border-t border-violet-100 bg-white flex justify-between items-center">
+            <div className="p-4 pt-3 border-t text-sm text-gray-500 flex justify-center items-center bg-white/95 backdrop-blur-sm">
               <NarrationPlayer
                 storyId={storyId || ''}
                 pageIndex={pageIndex}
@@ -158,22 +150,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
                 voiceType={voiceType}
                 autoPlay={false}
               />
-              
-              <div className="text-sm text-violet-500">
-                Página {pageIndex + 1} de {pageCount}
-              </div>
             </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-violet-400 italic">Texto oculto</p>
+            <p className="text-gray-400 italic">Texto oculto</p>
           </div>
         )}
         
         <Button 
-          className="absolute bottom-16 right-6 z-10"
+          className="absolute bottom-4 right-4 z-10"
           size="sm"
-          variant="outline"
+          variant="secondary"
           onClick={onToggleTextVisibility}
         >
           {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}

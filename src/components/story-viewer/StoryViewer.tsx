@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; // Add Button import
 import LoadingSpinner from "../LoadingSpinner";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
@@ -13,6 +13,7 @@ import { useStoryNavigation } from "@/hooks/useStoryNavigation";
 import { usePDFGenerator } from "@/hooks/usePDFGenerator";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useImageViewer } from "@/hooks/useImageViewer";
+import { toast } from "sonner";
 
 interface StoryViewerProps {
   storyId?: string;
@@ -34,8 +35,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [isContentReady, setIsContentReady] = useState(false);
-  const [hasErrors, setHasErrors] = useState(false);
-  const [errorCount, setErrorCount] = useState(0);
   
   // Custom hooks
   const {
@@ -82,23 +81,23 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       const timer = setTimeout(() => {
         setIsContentReady(true);
         console.log("Story content is ready to display");
-      }, 500); // Increased delay to ensure images have time to load
+      }, 200);
       
       return () => clearTimeout(timer);
     }
   }, [loading, storyData]);
 
-  // Effect to maintain correct visual state when toggling fullscreen
+  // Efeito para manter o estado visual correto ao alternar tela cheia
   useEffect(() => {
     preserveFullscreenState(isFullscreen);
   }, [isFullscreen, preserveFullscreenState]);
   
-  // Add a handler to fix white screen issues
+  // Adicionar um manipulador para resolver problemas de tela branca
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && storyData) {
-        // Document became visible again, check if update is needed
-        console.log("Document became visible again, checking if update is needed");
+        // Documento voltou a ficar visível, verificar se precisa atualizar
+        console.log("Documento voltou a ficar visível, verificando necessidade de atualização");
         setTimeout(() => {
           forcePageReset();
         }, 300);
@@ -107,14 +106,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Add a listener for unhandled loading errors
+    // Adiciona um ouvinte para erros de carregamento de imagem
     const handleUnhandledErrors = (event: ErrorEvent) => {
       if (event.message.includes('loading chunk') || 
           event.message.includes('loading CSS chunk') ||
           event.message.includes('Failed to load resource')) {
-        console.error("Loading error detected:", event.message);
-        setHasErrors(true);
-        setErrorCount(prev => prev + 1);
+        console.error("Erro de carregamento detectado:", event.message);
+        forcePageReset();
       }
     };
     
@@ -124,14 +122,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleUnhandledErrors);
     };
-  }, [storyData, forcePageReset, errorCount]);
-  
-  // Enhanced image error handling
-  const handleStoryImageError = (url: string) => {
-    console.error("Image failed to load:", url);
-    setErrorCount(prev => prev + 1);
-    handleImageError(url);
-  };
+  }, [storyData, forcePageReset]);
   
   // Prepare data for child components
   const storyDataWithTypedText = storyData ? {
@@ -148,7 +139,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   };
   
   const handleResetPage = () => {
-    console.log("Recarregando página...");
+    toast.info("Recarregando página...");
     forcePageReset();
   };
 
@@ -207,7 +198,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
                 isMobile={isMobile}
                 hideText={hideText}
                 onImageClick={handleImageClick}
-                onImageError={handleStoryImageError}
+                onImageError={handleImageError}
                 onToggleTextVisibility={toggleTextVisibility}
               />
             )}

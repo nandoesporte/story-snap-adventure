@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
 export const useFullscreen = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -28,13 +29,13 @@ export const useFullscreen = () => {
       if (containerRef.current) {
         containerRef.current.requestFullscreen().catch(err => {
           setIsTransitioning(false);
-          console.error(`Erro ao entrar em tela cheia: ${err.message}`);
+          toast.error(`Erro ao entrar em tela cheia: ${err.message}`);
         });
       }
     } else {
       document.exitFullscreen().catch(err => {
         setIsTransitioning(false);
-        console.error(`Erro ao sair da tela cheia: ${err.message}`);
+        toast.error(`Erro ao sair da tela cheia: ${err.message}`);
       });
     }
   }, []);

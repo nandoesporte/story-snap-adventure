@@ -18,11 +18,7 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
     
     // Verifica o cache local primeiro
     try {
-      const urlKey = imageUrl.split('/').pop()?.split('?')[0] || 
-                   imageUrl.includes('oaidalleapiprodscus') ? 
-                   imageUrl.match(/img-([a-zA-Z0-9]+)/)?.[1] : 
-                   null;
-                   
+      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
       if (urlKey) {
         const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
         if (cachedUrl && isPermanentStorage(cachedUrl)) {
@@ -45,72 +41,34 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       const response = await fetch(imageUrl);
       imageBlob = await response.blob();
     } else {
-      // Busca imagem da URL externa com tempo limite e várias tentativas
-      let fetchAttempts = 0;
-      const maxAttempts = 5;
-      
-      while (fetchAttempts < maxAttempts) {
-        try {
-          // Cria requisição com timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
-          
-          // Adiciona parâmetro de cache-busting para URLs temporárias
-          const fetchUrl = isTemporaryUrl(imageUrl) 
-            ? `${imageUrl}&_cb=${Date.now()}`
-            : imageUrl;
-          
-          console.log(`Tentativa ${fetchAttempts + 1}/${maxAttempts} para: ${fetchUrl}`);
-          
-          const response = await fetch(fetchUrl, { 
-            signal: controller.signal,
-            method: 'GET',
-            headers: {
-              'Cache-Control': 'no-cache',
-            },
-            credentials: 'omit'
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            throw new Error(`Falha ao buscar imagem: ${response.status}`);
+      // Busca imagem da URL externa com tempo limite
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
+        
+        // Adiciona parâmetro de cache-busting para URLs temporárias
+        const fetchUrl = isTemporaryUrl(imageUrl) 
+          ? `${imageUrl}&_cb=${Date.now()}`
+          : imageUrl;
+        
+        const response = await fetch(fetchUrl, { 
+          signal: controller.signal,
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
           }
-          
-          imageBlob = await response.blob();
-          
-          // Verifica se o blob é válido
-          if (imageBlob.size === 0) {
-            throw new Error("Blob de imagem vazio");
-          }
-          
-          // Se chegou até aqui, temos o blob e podemos sair do loop
-          break;
-        } catch (fetchError) {
-          fetchAttempts++;
-          console.error(`Tentativa ${fetchAttempts} falhou:`, fetchError);
-          
-          if (fetchAttempts >= maxAttempts) {
-            console.error("Número máximo de tentativas atingido");
-            
-            // Extrair tema da URL se possível
-            let theme = 'fantasy';
-            if (imageUrl.includes('theme=')) {
-              theme = imageUrl.split('theme=')[1].split('&')[0];
-            }
-            
-            // Usar imagem padrão como fallback
-            return `/images/placeholders/${theme}.jpg`;
-          }
-          
-          // Esperar antes de tentar novamente (aumento do delay)
-          await new Promise(resolve => setTimeout(resolve, fetchAttempts * 1500));
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`Falha ao buscar imagem: ${response.status}`);
         }
-      }
-      
-      // Se não conseguiu obter o blob após todas as tentativas
-      if (!imageBlob) {
-        console.error("Falha ao obter a imagem após múltiplas tentativas");
+        
+        imageBlob = await response.blob();
+      } catch (fetchError) {
+        console.error("Erro ao buscar imagem da URL:", fetchError);
+        // Retorna URL original em caso de erro
         return imageUrl;
       }
     }
@@ -122,7 +80,7 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       .upload(fileName, imageBlob, {
         cacheControl: '3600',
         upsert: true,
-        contentType: imageBlob.type || 'image/png'
+        contentType: 'image/png'
       });
       
     if (error) {
@@ -140,10 +98,7 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
     
     // Armazena a URL permanente em cache
     try {
-      const urlKey = imageUrl.includes('oaidalleapiprodscus') ? 
-                   imageUrl.match(/img-([a-zA-Z0-9]+)/)?.[1] : 
-                   imageUrl.split('/').pop()?.split('?')[0];
-                   
+      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
       if (urlKey) {
         localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
       }
