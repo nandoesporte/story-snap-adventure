@@ -1,5 +1,5 @@
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl } from "./helpers";
@@ -34,6 +34,60 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   onToggleTextVisibility
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
+  const [imagesPreloaded, setImagesPreloaded] = useState<{[key: string]: boolean}>({});
+
+  // Preload the next and previous page images for smoother transitions
+  useEffect(() => {
+    if (!storyData || !storyData.pages) return;
+    
+    const pagesToPreload = [];
+    
+    // Always preload current page
+    if (currentPage > 0 && currentPage <= storyData.pages.length) {
+      pagesToPreload.push(currentPage - 1);
+    }
+    
+    // Preload next page
+    if (currentPage < storyData.pages.length) {
+      pagesToPreload.push(currentPage);
+    }
+    
+    // Preload previous page
+    if (currentPage > 1) {
+      pagesToPreload.push(currentPage - 2);
+    }
+    
+    // Preload cover
+    if (currentPage <= 1) {
+      const coverUrl = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
+      if (!imagesPreloaded[coverUrl]) {
+        const img = new Image();
+        img.src = coverUrl;
+        img.onload = () => {
+          setImagesPreloaded(prev => ({...prev, [coverUrl]: true}));
+        };
+      }
+    }
+    
+    // Preload identified pages
+    pagesToPreload.forEach(pageIndex => {
+      if (pageIndex >= 0 && pageIndex < storyData.pages.length) {
+        const imageUrl = getImageUrl(
+          storyData.pages[pageIndex]?.imageUrl || 
+          storyData.pages[pageIndex]?.image_url,
+          storyData.theme
+        );
+        
+        if (!imagesPreloaded[imageUrl]) {
+          const img = new Image();
+          img.src = imageUrl;
+          img.onload = () => {
+            setImagesPreloaded(prev => ({...prev, [imageUrl]: true}));
+          };
+        }
+      }
+    });
+  }, [storyData, currentPage, imagesPreloaded]);
   
   if (!storyData) return null;
   

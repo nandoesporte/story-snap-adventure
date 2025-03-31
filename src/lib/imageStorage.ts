@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Saves an image to the permanent storage bucket
+ * Saves an image to the permanent storage bucket with parallelization support
  * @param imageUrl URL or Base64 of the image
  * @param storyId ID of the story (optional)
  * @returns Promise with the permanent URL
@@ -77,6 +77,14 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       .getPublicUrl(fileName);
       
     console.log("Image saved permanently:", publicUrl);
+    
+    // Cache the URL for faster loading
+    try {
+      localStorage.setItem(`image_cache_${fileName}`, publicUrl);
+    } catch (e) {
+      // Silently fail if localStorage is not available
+    }
+    
     return publicUrl;
   } catch (error) {
     console.error("Error saving image permanently:", error);
@@ -85,7 +93,7 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
 };
 
 /**
- * Converts all images in a story to permanent storage
+ * Converts all images in a story to permanent storage with optimized parallel processing
  * @param storyData Story data
  * @returns Promise with updated story data
  */
@@ -94,35 +102,68 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
   
   try {
     const updatedStoryData = { ...storyData };
+    const uploadTasks = [];
     
     // Save cover image
     if (updatedStoryData.coverImageUrl || updatedStoryData.cover_image_url) {
       const coverImageUrl = updatedStoryData.coverImageUrl || updatedStoryData.cover_image_url;
-      const permanentCoverUrl = await saveImagePermanently(coverImageUrl, updatedStoryData.id);
       
-      updatedStoryData.coverImageUrl = permanentCoverUrl;
-      updatedStoryData.cover_image_url = permanentCoverUrl;
+      // Add cover image upload task
+      uploadTasks.push(
+        saveImagePermanently(coverImageUrl, updatedStoryData.id)
+          .then(permanentUrl => {
+            updatedStoryData.coverImageUrl = permanentUrl;
+            updatedStoryData.cover_image_url = permanentUrl;
+          })
+          .catch(error => {
+            console.error("Error saving cover image:", error);
+          })
+      );
     }
     
-    // Save page images
+    // Save page images - process in parallel groups of 3 for better performance
     if (Array.isArray(updatedStoryData.pages)) {
-      updatedStoryData.pages = await Promise.all(updatedStoryData.pages.map(async (page: any, index: number) => {
-        const imageUrl = page.imageUrl || page.image_url;
-        if (imageUrl) {
-          const permanentImageUrl = await saveImagePermanently(
-            imageUrl, 
-            `${updatedStoryData.id}_page${index}`
-          );
+      const pageGroups = [];
+      const groupSize = 3;
+      
+      // Create groups of page indices
+      for (let i = 0; i < updatedStoryData.pages.length; i += groupSize) {
+        pageGroups.push(updatedStoryData.pages.slice(i, i + groupSize).map((_, idx) => i + idx));
+      }
+      
+      // Process each group sequentially, but process pages within groups in parallel
+      for (const group of pageGroups) {
+        const groupTasks = group.map(index => {
+          const page = updatedStoryData.pages[index];
+          const imageUrl = page?.imageUrl || page?.image_url;
           
-          return {
-            ...page,
-            imageUrl: permanentImageUrl,
-            image_url: permanentImageUrl
-          };
-        }
-        return page;
-      }));
+          if (imageUrl) {
+            return saveImagePermanently(
+              imageUrl, 
+              `${updatedStoryData.id}_page${index}`
+            )
+            .then(permanentImageUrl => {
+              updatedStoryData.pages[index] = {
+                ...page,
+                imageUrl: permanentImageUrl,
+                image_url: permanentImageUrl
+              };
+            })
+            .catch(error => {
+              console.error(`Error saving page ${index} image:`, error);
+            });
+          }
+          return Promise.resolve();
+        });
+        
+        // Wait for current group to complete before moving to next group
+        // This prevents too many parallel requests
+        await Promise.all(groupTasks);
+      }
     }
+    
+    // Wait for cover image upload to complete
+    await Promise.all(uploadTasks);
     
     return updatedStoryData;
   } catch (error) {

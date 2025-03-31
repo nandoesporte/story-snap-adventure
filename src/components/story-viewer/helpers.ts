@@ -6,6 +6,20 @@
  * @returns Formatted image URL
  */
 export const getImageUrl = (imageUrl?: string, theme: string = ""): string => {
+  // Check cache first for faster loading
+  if (imageUrl) {
+    try {
+      const cachedUrlKey = `image_cache_${imageUrl.split('/').pop()}`;
+      const cachedUrl = localStorage.getItem(cachedUrlKey);
+      if (cachedUrl) {
+        console.log("Using cached image URL:", cachedUrl);
+        return cachedUrl;
+      }
+    } catch (e) {
+      // Silently fail if localStorage is not available
+    }
+  }
+  
   // If no URL provided, return a theme-based fallback
   if (!imageUrl) return getFallbackImage(theme);
   
@@ -46,4 +60,46 @@ export const getFallbackImage = (theme: string = ""): string => {
   
   // Default fallback
   return "/placeholder.svg";
+};
+
+/**
+ * Calculates optimal image dimensions based on container size
+ * @param containerWidth Width of container
+ * @param containerHeight Height of container
+ * @param aspectRatio Desired aspect ratio (width/height)
+ * @returns Optimal dimensions
+ */
+export const getOptimalImageDimensions = (
+  containerWidth: number, 
+  containerHeight: number, 
+  aspectRatio: number = 1.5
+): { width: number, height: number } => {
+  
+  // Default dimensions
+  let width = containerWidth;
+  let height = containerHeight;
+  
+  // Calculate based on aspect ratio
+  const containerRatio = containerWidth / containerHeight;
+  
+  if (containerRatio > aspectRatio) {
+    // Container is wider than image aspect ratio
+    width = containerHeight * aspectRatio;
+    height = containerHeight;
+  } else {
+    // Container is taller than image aspect ratio
+    width = containerWidth;
+    height = containerWidth / aspectRatio;
+  }
+  
+  return { width, height };
+};
+
+/**
+ * Determines if an image is from a permanent storage source
+ * @param imageUrl Image URL to check
+ * @returns boolean indicating if the image is permanent
+ */
+export const isImagePermanent = (imageUrl: string): boolean => {
+  return imageUrl.includes('supabase.co/storage/v1/object/public/story_images');
 };
