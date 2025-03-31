@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { isPermanentStorage, isTemporaryUrl, saveImageToPermanentStorage } from './story-viewer/helpers';
-import { toast } from "sonner";
 
 interface CoverImageProps {
   imageUrl: string;

@@ -13,7 +13,6 @@ import { useStoryNavigation } from "@/hooks/useStoryNavigation";
 import { usePDFGenerator } from "@/hooks/usePDFGenerator";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useImageViewer } from "@/hooks/useImageViewer";
-import { toast } from "sonner";
 
 interface StoryViewerProps {
   storyId?: string;
@@ -116,14 +115,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
         console.error("Loading error detected:", event.message);
         setHasErrors(true);
         setErrorCount(prev => prev + 1);
-        
-        if (errorCount < 3) {
-          forcePageReset();
-        } else if (errorCount === 3) {
-          toast.error("Problemas ao carregar recursos. Tente recarregar a página.", {
-            duration: 5000
-          });
-        }
       }
     };
     
@@ -140,15 +131,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     console.error("Image failed to load:", url);
     setErrorCount(prev => prev + 1);
     handleImageError(url);
-    
-    // Only show a toast for the first few errors to avoid spamming
-    if (errorCount < 2) {
-      toast.error("Algumas imagens não puderam ser carregadas", { 
-        description: "Estamos usando imagens alternativas para garantir a leitura da história.",
-        duration: 3000,
-        id: "image-load-error" // Avoid duplicate toasts
-      });
-    }
   };
   
   // Prepare data for child components
@@ -166,7 +148,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   };
   
   const handleResetPage = () => {
-    toast.info("Recarregando página...");
+    console.log("Recarregando página...");
     forcePageReset();
   };
 

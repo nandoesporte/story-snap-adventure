@@ -11,7 +11,6 @@ import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { LogIn, CreditCard, RefreshCw } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
-import { toast } from 'sonner';
 
 const StoryViewerPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +30,7 @@ const StoryViewerPage = () => {
   
   // Handle retry logic for loading errors
   const handleRetryLoad = useCallback(() => {
-    toast.info("Tentando carregar a história novamente...");
+    console.log("Tentando carregar a história novamente...");
     setIsRefreshing(true);
     setRetryCount(prev => prev + 1);
     
@@ -43,16 +42,14 @@ const StoryViewerPage = () => {
   
   // Force refresh page to fix issues with stuck loading
   const handleForceRefresh = useCallback(() => {
-    toast.info("Recarregando a página...");
+    console.log("Recarregando a página...");
     window.location.reload();
   }, []);
   
   // Redirect to home if there's an error loading the story after multiple retries
   useEffect(() => {
     if (error && retryCount > 3) {
-      toast.error("Não foi possível carregar a história", {
-        description: "Por favor, tente novamente mais tarde ou escolha outra história."
-      });
+      console.error("Não foi possível carregar a história", "Por favor, tente novamente mais tarde ou escolha outra história.");
       
       // Give user a chance to see the error before redirecting
       const timer = setTimeout(() => {
