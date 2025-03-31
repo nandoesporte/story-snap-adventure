@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
@@ -10,6 +9,7 @@ import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "../lib/supabase";
 
 interface AuthProps {
   type?: "login" | "register";
@@ -65,6 +65,43 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
     return true;
   };
 
+  const checkUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error || !data) {
+        console.warn('Profile not found after registration, creating manually');
+        
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .upsert({ 
+            id: userId,
+            display_name: email,
+            story_credits: 5,
+            is_admin: email === 'nandoesporte1@gmail.com'
+          }, { onConflict: 'id' });
+          
+        if (insertError) {
+          console.error('Error creating user profile manually:', insertError);
+          return false;
+        } else {
+          console.info('User profile created manually successfully');
+          return true;
+        }
+      } else {
+        console.info('User profile already exists:', data);
+        return true;
+      }
+    } catch (e) {
+      console.error('Error checking/creating user profile:', e);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -86,6 +123,19 @@ const Auth: React.FC<AuthProps> = ({ type = "login" }) => {
         }
 
         console.log("Registration response:", data);
+        
+        if (data.user) {
+          console.log("User registration successful, ensuring profile exists:", data.user.id);
+          
+          setTimeout(async () => {
+            const profileCreated = await checkUserProfile(data.user!.id);
+            if (profileCreated) {
+              console.log("Profile confirmed for user:", data.user!.id);
+            } else {
+              console.warn("Could not confirm profile creation for user:", data.user!.id);
+            }
+          }, 1000);
+        }
         
         toast.success("Conta criada com sucesso!");
         setRegistrationSuccess(true);

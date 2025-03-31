@@ -192,6 +192,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
               if (profileError) {
                 console.error('Error creating user profile fallback:', profileError);
+                console.error('Profile error details:', JSON.stringify(profileError));
+                
+                // Try one more time with a more direct method
+                const { error: insertError } = await supabase.rpc('create_user_profile', {
+                  user_id: data.user.id,
+                  user_email: email,
+                  user_name: email.split('@')[0]
+                });
+                
+                if (insertError) {
+                  console.error('RPC fallback also failed:', insertError);
+                } else {
+                  console.info('User profile created via RPC function');
+                }
               } else {
                 console.info('User profile created manually as fallback');
               }
