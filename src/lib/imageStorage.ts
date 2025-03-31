@@ -1,57 +1,39 @@
 
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
-import { isPermanentStorage, isTemporaryUrl } from '@/components/story-viewer/helpers';
 
 /**
- * Salva uma imagem no armazenamento permanente
- * @param imageUrl URL ou Base64 da imagem
- * @param storyId ID da história (opcional)
- * @returns Promise com a URL permanente
+ * Saves an image to the permanent storage bucket
+ * @param imageUrl URL or Base64 of the image
+ * @param storyId ID of the story (optional)
+ * @returns Promise with the permanent URL
  */
 export const saveImagePermanently = async (imageUrl: string, storyId?: string): Promise<string> => {
   try {
-    // Se já for uma URL do armazenamento permanente, retorna
-    if (isPermanentStorage(imageUrl)) {
+    // If already a URL from the storage bucket, return it
+    if (imageUrl.includes('supabase.co/storage/v1/object/public/story_images')) {
+      console.log("Image is already in permanent storage:", imageUrl);
       return imageUrl;
     }
     
-    // Verifica o cache local primeiro
-    try {
-      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-      if (urlKey) {
-        const cachedUrl = localStorage.getItem(`image_cache_${urlKey}`);
-        if (cachedUrl && isPermanentStorage(cachedUrl)) {
-          return cachedUrl;
-        }
-      }
-    } catch (cacheError) {
-      console.error("Erro ao verificar cache:", cacheError);
-    }
-    
-    // Gera um nome de arquivo único
+    // Generate a unique filename
     const fileExtension = 'png';
     const fileName = `${storyId || 'story'}_${uuidv4()}.${fileExtension}`;
     
-    // Determina se é uma URL ou base64
+    // Determine if it's a URL or base64
     let imageBlob: Blob;
     
     if (imageUrl.startsWith('data:image')) {
-      // Converte base64 para Blob
+      // Convert base64 to Blob
       const response = await fetch(imageUrl);
       imageBlob = await response.blob();
     } else {
-      // Busca imagem da URL externa com tempo limite
+      // Fetch image from external URL
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        // Adiciona parâmetro de cache-busting para URLs temporárias
-        const fetchUrl = isTemporaryUrl(imageUrl) 
-          ? `${imageUrl}&_cb=${Date.now()}`
-          : imageUrl;
-        
-        const response = await fetch(fetchUrl, { 
+        const response = await fetch(imageUrl, { 
           signal: controller.signal,
           method: 'GET',
           headers: {
@@ -62,18 +44,18 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-          throw new Error(`Falha ao buscar imagem: ${response.status}`);
+          throw new Error(`Failed to fetch image: ${response.status}`);
         }
         
         imageBlob = await response.blob();
       } catch (fetchError) {
-        console.error("Erro ao buscar imagem da URL:", fetchError);
-        // Retorna URL original em caso de erro
+        console.error("Error fetching image from URL:", fetchError);
+        // Return original URL on error
         return imageUrl;
       }
     }
     
-    // Carrega para o armazenamento do Supabase
+    // Upload to Supabase storage bucket
     const { data, error } = await supabase
       .storage
       .from('story_images')
@@ -84,39 +66,28 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       });
       
     if (error) {
-      console.error("Erro ao carregar imagem para armazenamento:", error);
-      return imageUrl; // Retorna URL original em caso de erro
+      console.error("Error uploading image to storage:", error);
+      return imageUrl; // Return original URL on error
     }
     
-    // Obtém URL pública
+    // Get public URL
     const { data: { publicUrl } } = supabase
       .storage
       .from('story_images')
       .getPublicUrl(fileName);
       
-    console.log("Imagem salva permanentemente:", publicUrl);
-    
-    // Armazena a URL permanente em cache
-    try {
-      const urlKey = imageUrl.split('/').pop()?.split('?')[0];
-      if (urlKey) {
-        localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
-      }
-    } catch (cacheError) {
-      console.error("Erro ao armazenar URL em cache:", cacheError);
-    }
-    
+    console.log("Image saved permanently:", publicUrl);
     return publicUrl;
   } catch (error) {
-    console.error("Erro ao salvar imagem permanentemente:", error);
-    return imageUrl; // Retorna URL original em caso de erro
+    console.error("Error saving image permanently:", error);
+    return imageUrl; // Return original URL on error
   }
 };
 
 /**
- * Converte todas as imagens em uma história para armazenamento permanente
- * @param storyData Dados da história
- * @returns Promise com dados da história atualizados
+ * Converts all images in a story to permanent storage
+ * @param storyData Story data
+ * @returns Promise with updated story data
  */
 export const saveStoryImagesPermanently = async (storyData: any): Promise<any> => {
   if (!storyData) return storyData;
@@ -124,63 +95,38 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
   try {
     const updatedStoryData = { ...storyData };
     
-    // Salva imagem de capa
+    // Save cover image
     if (updatedStoryData.coverImageUrl || updatedStoryData.cover_image_url) {
       const coverImageUrl = updatedStoryData.coverImageUrl || updatedStoryData.cover_image_url;
-      try {
-        const permanentCoverUrl = await saveImagePermanently(coverImageUrl, updatedStoryData.id);
-        
-        updatedStoryData.coverImageUrl = permanentCoverUrl;
-        updatedStoryData.cover_image_url = permanentCoverUrl;
-      } catch (coverError) {
-        console.error("Erro ao salvar imagem de capa:", coverError);
-      }
+      const permanentCoverUrl = await saveImagePermanently(coverImageUrl, updatedStoryData.id);
+      
+      updatedStoryData.coverImageUrl = permanentCoverUrl;
+      updatedStoryData.cover_image_url = permanentCoverUrl;
     }
     
-    // Salva imagens das páginas com processamento paralelo para resultados mais rápidos
+    // Save page images
     if (Array.isArray(updatedStoryData.pages)) {
-      try {
-        const pagePromises = updatedStoryData.pages.map(async (page: any, index: number) => {
-          const imageUrl = page.imageUrl || page.image_url;
-          if (imageUrl) {
-            try {
-              const permanentImageUrl = await saveImagePermanently(
-                imageUrl, 
-                `${updatedStoryData.id || 'page'}_page${index}`
-              );
-              
-              return {
-                ...page,
-                imageUrl: permanentImageUrl,
-                image_url: permanentImageUrl
-              };
-            } catch (pageError) {
-              console.error(`Erro ao salvar imagem da página ${index}:`, pageError);
-              return page;
-            }
-          }
-          return page;
-        });
-        
-        // Processa todas as páginas em paralelo
-        const results = await Promise.allSettled(pagePromises);
-        
-        // Atualiza apenas as páginas que foram processadas com sucesso
-        updatedStoryData.pages = results.map((result, index) => {
-          if (result.status === 'fulfilled') {
-            return result.value;
-          }
-          // Mantém a página original se houve erro
-          return updatedStoryData.pages[index];
-        });
-      } catch (pagesError) {
-        console.error("Erro ao processar imagens das páginas:", pagesError);
-      }
+      updatedStoryData.pages = await Promise.all(updatedStoryData.pages.map(async (page: any, index: number) => {
+        const imageUrl = page.imageUrl || page.image_url;
+        if (imageUrl) {
+          const permanentImageUrl = await saveImagePermanently(
+            imageUrl, 
+            `${updatedStoryData.id}_page${index}`
+          );
+          
+          return {
+            ...page,
+            imageUrl: permanentImageUrl,
+            image_url: permanentImageUrl
+          };
+        }
+        return page;
+      }));
     }
     
     return updatedStoryData;
   } catch (error) {
-    console.error("Erro ao salvar imagens da história permanentemente:", error);
-    return storyData; // Retorna dados originais em caso de erro
+    console.error("Error saving story images permanently:", error);
+    return storyData; // Return original data on error
   }
 };

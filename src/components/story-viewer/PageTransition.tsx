@@ -1,8 +1,8 @@
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
-import { getImageUrl, preloadImage } from "./helpers";
+import { getImageUrl } from "./helpers";
 
 interface PageTransitionProps {
   storyId: string | undefined;
@@ -38,50 +38,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   if (!storyData) return null;
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
-  
-  // Preload next and previous page images to improve transitions
-  useEffect(() => {
-    if (!storyData || !storyData.pages || storyData.pages.length === 0) return;
-    
-    const preloadAdjacentPages = async () => {
-      try {
-        // Preload current page image
-        const currentImageUrl = currentPage === 0 
-          ? coverImageSrc 
-          : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
-          
-        if (currentImageUrl) {
-          await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
-        }
-        
-        // Preload next page image if available
-        if (currentPage < storyData.pages.length) {
-          const nextImageUrl = currentPage === 0 
-            ? (storyData.pages[0]?.imageUrl || storyData.pages[0]?.image_url)
-            : (storyData.pages[currentPage]?.imageUrl || storyData.pages[currentPage]?.image_url);
-            
-          if (nextImageUrl) {
-            await preloadImage(getImageUrl(nextImageUrl, storyData.theme));
-          }
-        }
-        
-        // Preload previous page image if available
-        if (currentPage > 0) {
-          const prevImageUrl = currentPage === 1 
-            ? coverImageSrc
-            : (storyData.pages[currentPage - 2]?.imageUrl || storyData.pages[currentPage - 2]?.image_url);
-            
-          if (prevImageUrl) {
-            await preloadImage(getImageUrl(prevImageUrl, storyData.theme));
-          }
-        }
-      } catch (error) {
-        console.error("Error preloading adjacent pages:", error);
-      }
-    };
-    
-    preloadAdjacentPages();
-  }, [currentPage, storyData, coverImageSrc]);
   
   return (
     <div
