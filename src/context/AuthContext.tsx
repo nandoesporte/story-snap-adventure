@@ -59,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadUser();
 
+    // Set up the auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.info('Auth state changed:', event, session ? 'session exists' : 'no session');
       

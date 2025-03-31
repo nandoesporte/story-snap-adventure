@@ -9,8 +9,6 @@ import CreateStoryPage from "./pages/CreateStoryPage";
 import StoryViewerPage from "./pages/StoryViewerPage";
 import StoryCreatorPage from "./pages/StoryCreatorPage";
 import NotFound from "./pages/NotFound";
-import { AuthProvider } from "./context/AuthContext";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Library from "./pages/Library";
 import MyStories from "./pages/MyStories";
 import Auth from "./pages/Auth";
