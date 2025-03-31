@@ -199,15 +199,68 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
     
     console.log("Attempting to fetch and save image:", imageUrl);
     
-    // Fetch the image as a blob
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      console.error("Failed to fetch image:", response.status);
-      toast.error("Falha ao baixar a imagem");
-      return imageUrl; // Return original URL if fetch fails
+    // Fetch the image as a blob with timeout and retry logic
+    let imageBlob: Blob;
+    let fetchAttempts = 0;
+    const maxAttempts = 3;
+    
+    while (fetchAttempts < maxAttempts) {
+      try {
+        // Create a fetch request with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        // Add cache-busting parameter
+        const fetchUrl = imageUrl.includes('?') 
+          ? `${imageUrl}&_cb=${Date.now()}` 
+          : `${imageUrl}?_cb=${Date.now()}`;
+        
+        const response = await fetch(fetchUrl, {
+          signal: controller.signal,
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+        
+        imageBlob = await response.blob();
+        
+        // If we got here, we have the blob and can break the retry loop
+        break;
+      } catch (fetchError) {
+        fetchAttempts++;
+        console.error(`Fetch attempt ${fetchAttempts} failed:`, fetchError);
+        
+        if (fetchAttempts >= maxAttempts) {
+          console.error("Max fetch attempts reached, giving up");
+          toast.error("Não foi possível baixar a imagem após várias tentativas");
+          return imageUrl; // Return original on failure
+        }
+        
+        // Wait before retrying (increasing delay for each attempt)
+        await new Promise(resolve => setTimeout(resolve, fetchAttempts * 1000));
+      }
     }
     
-    const imageBlob = await response.blob();
+    // If we get here without imageBlob being defined, something went wrong
+    if (!imageBlob) {
+      toast.error("Falha ao baixar a imagem");
+      return imageUrl;
+    }
+    
+    // Validate the blob
+    if (imageBlob.size === 0) {
+      console.error("Downloaded blob is empty");
+      toast.error("A imagem baixada está vazia");
+      return imageUrl;
+    }
     
     // Upload to Supabase storage
     const { data, error } = await supabase
@@ -221,7 +274,16 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
       
     if (error) {
       console.error("Failed to upload image to storage:", error);
-      toast.error("Falha ao salvar imagem no armazenamento permanente");
+      
+      // Handle different error types
+      if (error.message?.includes('auth')) {
+        toast.error("Erro de autenticação ao salvar imagem");
+      } else if (error.message?.includes('exceeded')) {
+        toast.error("Tamanho da imagem excede o limite permitido");
+      } else {
+        toast.error("Falha ao salvar imagem no armazenamento");
+      }
+      
       return imageUrl; // Return original URL if upload fails
     }
     
@@ -232,11 +294,17 @@ export const saveImageToPermanentStorage = async (imageUrl: string, storyId?: st
       .getPublicUrl(fileName);
       
     console.log("Image saved to permanent storage:", publicUrl);
-    toast.success("Imagem salva no armazenamento permanente");
+    
+    // Don't show success toast every time to avoid spamming
+    // toast.success("Imagem salva no armazenamento permanente");
     
     // Cache the permanent URL
     if (urlKey) {
-      localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
+      try {
+        localStorage.setItem(`image_cache_${urlKey}`, publicUrl);
+      } catch (cacheError) {
+        console.error("Error saving URL to cache:", cacheError);
+      }
     }
     
     return publicUrl;

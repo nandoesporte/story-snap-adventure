@@ -29,6 +29,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const [finalUrl, setFinalUrl] = useState<string>(imageUrl);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   
   // Reset state when image URL changes
   useEffect(() => {
@@ -37,6 +38,7 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     setRetryCount(0);
     setFinalUrl(imageUrl);
     setIsSaving(false);
+    setSaveError(false);
   }, [imageUrl]);
   
   // Check if URL is cached
@@ -62,15 +64,22 @@ export const CoverImage: React.FC<CoverImageProps> = ({
       const saveImage = async () => {
         try {
           setIsSaving(true);
+          setSaveError(false);
           console.log("Saving temporary image to permanent storage:", finalUrl);
+          
           const permanentUrl = await saveImageToPermanentStorage(finalUrl, storyId);
           
           if (permanentUrl !== finalUrl) {
             console.log("Image saved to permanent storage:", permanentUrl);
             setFinalUrl(permanentUrl);
+          } else {
+            console.warn("Image storage returned same URL, may have failed");
+            setSaveError(true);
           }
         } catch (error) {
           console.error("Failed to save image to permanent storage:", error);
+          setSaveError(true);
+          // Don't show toast here, it's handled in saveImageToPermanentStorage
         } finally {
           setIsSaving(false);
         }
@@ -170,6 +179,14 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     if (onLoad) onLoad();
   };
 
+  // Retry save manually if needed
+  const handleRetrySave = () => {
+    if (isTemporaryUrl(finalUrl) && !isPermanentStorage(finalUrl)) {
+      setSaveError(false);
+      setIsSaving(false); // Force re-trigger the save effect
+    }
+  };
+
   // Use the fallback image if there was an error
   const displayUrl = imgError ? fallbackImage : finalUrl;
 
@@ -204,8 +221,17 @@ export const CoverImage: React.FC<CoverImageProps> = ({
         </div>
       )}
       {isSaving && (
-        <div className="absolute bottom-2 right-2 bg-white/80 text-xs px-2 py-1 rounded">
-          Salvando...
+        <div className="absolute bottom-2 right-2 bg-white/80 text-xs px-2 py-1 rounded-md shadow flex items-center space-x-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
+          <span className="font-medium">Salvando...</span>
+        </div>
+      )}
+      {saveError && !isSaving && (
+        <div 
+          className="absolute bottom-2 right-2 bg-white/80 text-xs px-2 py-1 rounded-md shadow cursor-pointer hover:bg-red-50"
+          onClick={handleRetrySave}
+        >
+          <span className="text-red-500 font-medium">Erro ao salvar. Clique para tentar novamente.</span>
         </div>
       )}
     </div>
