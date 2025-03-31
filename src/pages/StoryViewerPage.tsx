@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -120,8 +119,7 @@ const StoryViewerPage = () => {
           </div>
         ) : storyData ? (
           <StoryViewer 
-            storyId={id} 
-            initialPage={0} 
+            storyId={id}
           />
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
