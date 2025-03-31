@@ -42,9 +42,9 @@ export const StoryPage: React.FC<StoryPageProps> = ({
 }) => {
   const fallbackImage = getFallbackImage("");
   
-  // Log de depuração
+  // Debug log
   useEffect(() => {
-    console.log("StoryPage renderizada:", {
+    console.log("StoryPage rendered:", {
       title,
       imageUrl,
       pageIndex,
@@ -59,7 +59,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     });
   }, [title, imageUrl, pageIndex, isMobile, isFullscreen, hideText, typedText]);
 
-  // Layout para dispositivos móveis
+  // Layout for mobile devices
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col relative overflow-hidden">
@@ -67,7 +67,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           <CoverImage 
             imageUrl={imageUrl}
             fallbackImage={fallbackImage}
-            alt={`Ilustração da página ${pageIndex + 1}`}
+            alt={`Illustration for page ${pageIndex + 1}`}
             className="w-full h-full object-cover"
             onClick={() => onImageClick(imageUrl)}
             onError={() => onImageError(imageUrl)}
@@ -112,20 +112,20 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           onClick={onToggleTextVisibility}
         >
           {hideText ? <Eye className="w-3 h-3 sm:w-4 sm:h-4" /> : <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" />}
-          {hideText ? "Mostrar texto" : "Ocultar texto"}
+          {hideText ? "Show text" : "Hide text"}
         </Button>
       </div>
     );
   }
   
-  // Layout para desktop
+  // Layout for desktop
   return (
     <div className="w-full h-full flex flex-row">
       <div className="w-1/2 h-full bg-gradient-to-br from-violet-50 to-indigo-50 border-r border-gray-100 flex items-center justify-center p-6 overflow-hidden">
         <CoverImage 
           imageUrl={imageUrl}
           fallbackImage={fallbackImage}
-          alt={`Ilustração da página ${pageIndex + 1}`}
+          alt={`Illustration for page ${pageIndex + 1}`}
           className="max-w-full max-h-full object-contain rounded-lg shadow-md"
           onClick={() => onImageClick(imageUrl)}
           onError={() => onImageError(imageUrl)}
@@ -158,7 +158,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-400 italic">Texto oculto</p>
+            <p className="text-gray-400 italic">Text hidden</p>
           </div>
         )}
         
@@ -169,7 +169,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           onClick={onToggleTextVisibility}
         >
           {hideText ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
-          {hideText ? "Mostrar texto" : "Ocultar texto"}
+          {hideText ? "Show text" : "Hide text"}
         </Button>
       </div>
     </div>

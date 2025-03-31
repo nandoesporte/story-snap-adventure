@@ -28,9 +28,9 @@ export const CoverPage: React.FC<CoverPageProps> = ({
 }) => {
   const formattedImageUrl = getImageUrl(coverImageSrc, theme);
 
-  // Log para depuração
+  // Debug log
   useEffect(() => {
-    console.log("CoverPage renderizada:", {
+    console.log("CoverPage rendered:", {
       title,
       imageUrl: formattedImageUrl,
       isMobile,
@@ -42,7 +42,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
     });
   }, [formattedImageUrl, isMobile, title, theme]);
 
-  // Layout para dispositivos móveis
+  // Layout for mobile devices
   if (isMobile) {
     return (
       <div className="w-full h-full flex flex-col" data-testid="cover-page-mobile">
@@ -58,7 +58,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-4">
               <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-white drop-shadow-md line-clamp-2">{title}</h2>
-              <p className="text-base sm:text-lg text-white/90 mb-2 drop-shadow-md">Uma história para {childName}</p>
+              <p className="text-base sm:text-lg text-white/90 mb-2 drop-shadow-md">A story for {childName}</p>
               <div className="flex flex-wrap gap-2 mb-4">
                 {theme && (
                   <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white rounded-full text-xs sm:text-sm">
@@ -83,7 +83,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
     );
   }
   
-  // Layout para desktop
+  // Layout for desktop
   return (
     <div className="w-full h-full flex flex-col" data-testid="cover-page-desktop">
       <div className="w-full h-full flex flex-col bg-gradient-to-br from-violet-50 to-indigo-50">
@@ -101,7 +101,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
         </div>
         <div className="p-6 bg-white border-t border-gray-100 text-center">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-gray-800 line-clamp-2">{title}</h2>
-          <p className="text-lg text-gray-600 mb-3">Uma história para {childName}</p>
+          <p className="text-lg text-gray-600 mb-3">A story for {childName}</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {theme && (
               <span className="px-3 py-1 bg-violet-100 text-violet-800 rounded-full text-sm">

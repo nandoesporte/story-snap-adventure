@@ -13,7 +13,7 @@ export function useIsMobile() {
   })
 
   React.useEffect(() => {
-    // Função para verificar se o dispositivo é móvel e atualizar dimensões
+    // Function to check if device is mobile and update dimensions
     const checkIfMobile = () => {
       const width = window.innerWidth
       const height = window.innerHeight
@@ -22,7 +22,7 @@ export function useIsMobile() {
       setIsMobile(isMobileView)
       setWindowDimensions({ width, height })
       
-      console.log("Verificação de dispositivo móvel:", { 
+      console.log("Mobile device check:", { 
         width, 
         height,
         isMobile: isMobileView, 
@@ -31,10 +31,10 @@ export function useIsMobile() {
       })
     }
     
-    // Verificação inicial
+    // Initial check
     checkIfMobile()
     
-    // Usar um debounce para o resize para melhor performance
+    // Use debounce for resize for better performance
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     
     const handleResize = () => {
@@ -47,20 +47,20 @@ export function useIsMobile() {
       }, 250)
     }
     
-    // Configurar listener para redimensionamento da tela
+    // Set up listeners for screen resize
     window.addEventListener('resize', handleResize, { passive: true })
     
-    // Configurar listener para mudanças de orientação em dispositivos móveis
+    // Set up listeners for orientation changes on mobile devices
     window.addEventListener('orientationchange', checkIfMobile)
     
-    // Configurar listener para quando a janela volta a ficar visível
+    // Set up listeners for when window becomes visible again
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         checkIfMobile()
       }
     })
     
-    // Limpar
+    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', checkIfMobile)

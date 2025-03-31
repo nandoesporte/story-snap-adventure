@@ -41,9 +41,9 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   const bookRef = useRef<HTMLDivElement>(null);
   const [contentKey, setContentKey] = useState<number>(0);
   
-  // Log de depuração
+  // Debug log
   useEffect(() => {
-    console.log("PageTransition renderizada:", {
+    console.log("PageTransition rendered:", {
       currentPage,
       isMobile,
       isFullscreen,
@@ -56,29 +56,29 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     });
   }, [currentPage, isMobile, isFullscreen, storyData, isRendered, windowWidth, windowHeight, contentKey]);
   
-  // Força a renderização quando as dimensões da janela mudam significativamente
+  // Force re-render when window dimensions change significantly
   useEffect(() => {
     setContentKey(prev => prev + 1);
   }, [isFullscreen, isMobile]);
   
-  // Verificar se temos dados da história
+  // Check if we have story data
   if (!storyData) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-500">Nenhum conteúdo de história disponível</p>
+        <p className="text-gray-500">No story content available</p>
       </div>
     );
   }
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
   
-  // Pré-carregar imagens das páginas adjacentes para melhorar as transições
+  // Preload images of adjacent pages to improve transitions
   useEffect(() => {
     if (!storyData || !storyData.pages || storyData.pages.length === 0) return;
     
     const preloadAdjacentPages = async () => {
       try {
-        // Pré-carregar imagem da página atual
+        // Preload current page image
         const currentImageUrl = currentPage === 0 
           ? coverImageSrc 
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
@@ -87,7 +87,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
         }
         
-        // Pré-carregar imagem da próxima página se disponível
+        // Preload next page image if available
         if (currentPage < storyData.pages.length) {
           const nextImageUrl = currentPage === 0 
             ? (storyData.pages[0]?.imageUrl || storyData.pages[0]?.image_url)
@@ -98,7 +98,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
         
-        // Pré-carregar imagem da página anterior se disponível
+        // Preload previous page image if available
         if (currentPage > 0) {
           const prevImageUrl = currentPage === 1 
             ? coverImageSrc
@@ -109,14 +109,14 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
       } catch (error) {
-        console.error("Erro ao pré-carregar páginas adjacentes:", error);
+        console.error("Error preloading adjacent pages:", error);
       }
     };
     
     preloadAdjacentPages();
   }, [currentPage, storyData, coverImageSrc]);
   
-  // Calcular classes de transição com base no estado
+  // Calculate transition classes based on state
   const transitionClasses = `
     absolute inset-0 w-full h-full
     transition-all duration-300 ease-in-out 
@@ -134,9 +134,9 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     >
       {currentPage === 0 ? (
         <CoverPage
-          title={storyData.title || "História sem título"}
+          title={storyData.title || "Untitled Story"}
           coverImageSrc={coverImageSrc}
-          childName={storyData.childName || "criança"}
+          childName={storyData.childName || "child"}
           theme={storyData.theme || ""}
           setting={storyData.setting || ""}
           style={storyData.style || ""}
@@ -147,7 +147,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       ) : (
         <StoryPage
           storyId={storyId}
-          title={storyData.title || "História sem título"}
+          title={storyData.title || "Untitled Story"}
           imageUrl={getImageUrl(
             storyData.pages[currentPage - 1]?.imageUrl || 
             storyData.pages[currentPage - 1]?.image_url,
@@ -155,7 +155,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           )}
           pageIndex={currentPage - 1}
           pageCount={storyData.pages?.length || 0}
-          childName={storyData.childName || "criança"}
+          childName={storyData.childName || "child"}
           typedText={storyData.typedText || storyData.pages[currentPage - 1]?.text || ""}
           isFullscreen={isFullscreen}
           isMobile={isMobile}

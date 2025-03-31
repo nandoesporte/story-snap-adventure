@@ -31,7 +31,7 @@ const StoryViewerPage = () => {
   
   // Handle retry logic for loading errors
   const handleRetryLoad = useCallback(() => {
-    toast.info("Tentando carregar a história novamente...");
+    toast.info("Trying to load the story again...");
     setIsRefreshing(true);
     setRetryCount(prev => prev + 1);
     
@@ -43,15 +43,15 @@ const StoryViewerPage = () => {
   
   // Force refresh page to fix issues with stuck loading
   const handleForceRefresh = useCallback(() => {
-    toast.info("Recarregando a página...");
+    toast.info("Reloading the page...");
     window.location.reload();
   }, []);
   
   // Redirect to home if there's an error loading the story after multiple retries
   useEffect(() => {
     if (error && retryCount > 3) {
-      toast.error("Não foi possível carregar a história", {
-        description: "Por favor, tente novamente mais tarde ou escolha outra história."
+      toast.error("Could not load the story", {
+        description: "Please try again later or choose another story."
       });
       
       // Give user a chance to see the error before redirecting
@@ -81,16 +81,16 @@ const StoryViewerPage = () => {
                 <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center">
                   <LogIn className="h-8 w-8 text-violet-600" />
                 </div>
-                <h1 className="text-3xl font-bold">Login Necessário</h1>
+                <h1 className="text-3xl font-bold">Login Required</h1>
                 <p className="text-gray-600 max-w-md mb-4">
-                  Para ler histórias, você precisa estar conectado à sua conta.
+                  To read stories, you need to be logged into your account.
                 </p>
                 <div className="flex gap-4 flex-wrap justify-center">
                   <Button variant="outline" onClick={() => navigate("/")}>
-                    Voltar para Início
+                    Back to Home
                   </Button>
                   <Button variant="storyPrimary" onClick={() => navigate("/auth")}>
-                    Entrar na Conta
+                    Log In
                   </Button>
                 </div>
               </div>
@@ -121,19 +121,19 @@ const StoryViewerPage = () => {
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
                   <CreditCard className="h-8 w-8 text-amber-600" />
                 </div>
-                <h1 className="text-3xl font-bold">Assinatura Necessária</h1>
+                <h1 className="text-3xl font-bold">Subscription Required</h1>
                 <p className="text-gray-600 max-w-md mb-4">
-                  Para ler histórias, você precisa ter uma assinatura ativa.
+                  To read stories, you need to have an active subscription.
                 </p>
                 <div className="flex gap-4 flex-wrap justify-center">
                   <Button variant="outline" onClick={() => navigate("/")}>
-                    Voltar para Início
+                    Back to Home
                   </Button>
                   <Button 
                     className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
                     onClick={() => navigate("/planos")}
                   >
-                    Ver Planos de Assinatura
+                    View Subscription Plans
                   </Button>
                 </div>
               </div>
@@ -154,7 +154,7 @@ const StoryViewerPage = () => {
         {loading || isRefreshing ? (
           <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
             <LoadingSpinner size="lg" />
-            <p className="text-gray-500 animate-pulse">Carregando história...</p>
+            <p className="text-gray-500 animate-pulse">Loading story...</p>
           </div>
         ) : storyData ? (
           <StoryViewer 
@@ -163,14 +163,14 @@ const StoryViewerPage = () => {
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
             <h2 className="text-2xl font-bold text-gray-700 mb-4">
-              {error ? "Erro ao carregar a história" : "História não encontrada"}
+              {error ? "Error loading story" : "Story not found"}
             </h2>
             <p className="text-gray-600 mb-8">
-              {error ? "Ocorreu um erro ao carregar esta história." : "Esta história não existe ou foi removida."}
+              {error ? "An error occurred while loading this story." : "This story doesn't exist or has been removed."}
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <Button onClick={() => navigate('/')} variant="outline">
-                Voltar para Início
+                Back to Home
               </Button>
               {error && retryCount < 4 && (
                 <Button 
@@ -180,7 +180,7 @@ const StoryViewerPage = () => {
                   className="gap-2"
                 >
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  Tentar novamente
+                  Try Again
                 </Button>
               )}
               <Button 
@@ -189,7 +189,7 @@ const StoryViewerPage = () => {
                 className="gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
-                Recarregar página
+                Reload Page
               </Button>
             </div>
           </div>
