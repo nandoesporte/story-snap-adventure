@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
@@ -10,20 +11,44 @@ import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { LogIn, CreditCard } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
+import { toast } from 'sonner';
 
 const StoryViewerPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
-  const { storyData, loading, handleImageError } = useStoryData(id);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // Use a more robust error handling approach for the story data
+  const { 
+    storyData, 
+    loading, 
+    handleImageError,
+    error
+  } = useStoryData(id, retryCount);
+  
+  // Handle retry logic for loading errors
+  const handleRetryLoad = () => {
+    toast.info("Tentando carregar a história novamente...");
+    setRetryCount(prev => prev + 1);
+  };
   
   // Redirect to home if there's an error loading the story
   useEffect(() => {
-    if (!storyData && !loading) {
-      navigate('/');
+    if (error && retryCount > 2) {
+      toast.error("Não foi possível carregar a história", {
+        description: "Por favor, tente novamente mais tarde ou escolha outra história."
+      });
+      
+      // Give user a chance to see the error before redirecting
+      const timer = setTimeout(() => {
+        navigate('/');
+      }, 3000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [storyData, loading, navigate]);
+  }, [error, retryCount, navigate]);
 
   // If user is not authenticated, show login notice
   if (!user) {
@@ -47,7 +72,7 @@ const StoryViewerPage = () => {
                 <p className="text-gray-600 max-w-md mb-4">
                   Para ler histórias, você precisa estar conectado à sua conta.
                 </p>
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap justify-center">
                   <Button variant="outline" onClick={() => navigate("/")}>
                     Voltar para Início
                   </Button>
@@ -87,7 +112,7 @@ const StoryViewerPage = () => {
                 <p className="text-gray-600 max-w-md mb-4">
                   Para ler histórias, você precisa ter uma assinatura ativa.
                 </p>
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap justify-center">
                   <Button variant="outline" onClick={() => navigate("/")}>
                     Voltar para Início
                   </Button>
@@ -123,9 +148,22 @@ const StoryViewerPage = () => {
           />
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
-            <h2 className="text-2xl font-bold text-gray-700 mb-4">História não encontrada</h2>
-            <p className="text-gray-600 mb-8">Esta história não existe ou foi removida.</p>
-            <Button onClick={() => navigate('/')}>Voltar para Início</Button>
+            <h2 className="text-2xl font-bold text-gray-700 mb-4">
+              {error ? "Erro ao carregar a história" : "História não encontrada"}
+            </h2>
+            <p className="text-gray-600 mb-8">
+              {error ? "Ocorreu um erro ao carregar esta história." : "Esta história não existe ou foi removida."}
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button onClick={() => navigate('/')}>
+                Voltar para Início
+              </Button>
+              {error && retryCount < 3 && (
+                <Button variant="outline" onClick={handleRetryLoad}>
+                  Tentar novamente
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </main>
