@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Sun, VolumeUp, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Moon, Sun, Volume, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -329,7 +329,7 @@ const ViewStoryPage: React.FC = () => {
                 } border-2 ${isPlaying ? 'border-white' : 'border-purple-600'}`}
                 aria-label={isPlaying ? "Parar narração" : "Ouvir narração"}
               >
-                {isPlaying ? <VolumeX /> : <VolumeUp />}
+                {isPlaying ? <VolumeX /> : <Volume />}
               </Button>
             </div>
             
@@ -458,7 +458,8 @@ const ViewStoryPage: React.FC = () => {
       <Footer />
       
       {/* Estilos CSS para o modo noturno e outros efeitos */}
-      <style jsx>{`
+      <style>
+        {`
         .night-mode {
           background-color: #121212;
           color: #e0e0e0;
@@ -475,7 +476,8 @@ const ViewStoryPage: React.FC = () => {
         .perspective-1000 {
           perspective: 1000px;
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };
