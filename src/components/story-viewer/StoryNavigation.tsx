@@ -22,26 +22,26 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
 }) => {
   return (
     <>
-      <div className="absolute inset-y-0 left-4 flex items-center z-50">
+      <div className="absolute inset-y-0 left-2 flex items-center z-50">
         {currentPage > 0 && !isFlipping && (
           <Button
             onClick={onPrevious}
-            className="bg-amber-400/90 hover:bg-amber-500 text-black shadow-lg rounded-full w-12 h-12 flex items-center justify-center"
+            className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
             aria-label="Página anterior"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
         )}
       </div>
       
-      <div className="absolute inset-y-0 right-4 flex items-center z-50">
+      <div className="absolute inset-y-0 right-2 flex items-center z-50">
         {currentPage < totalPages - 1 && !isFlipping && (
           <Button
             onClick={onNext}
-            className="bg-amber-400/90 hover:bg-amber-500 text-black shadow-lg rounded-full w-12 h-12 flex items-center justify-center"
+            className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
             aria-label="Próxima página"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
         )}
       </div>
@@ -52,11 +52,11 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
             onClick={onReset}
             size="sm"
             variant="ghost"
-            className="h-8 w-8 p-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800"
+            className="h-6 w-6 p-0 rounded-full bg-white/80 backdrop-blur-sm"
             title="Recarregar página (em caso de tela branca)"
             aria-label="Recarregar página"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3 w-3" />
           </Button>
         </div>
       )}
