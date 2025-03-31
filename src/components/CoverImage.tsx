@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from 'react';
+import { isPermanentStorage, isTemporaryUrl } from './story-viewer/helpers';
 
 interface CoverImageProps {
   imageUrl: string;
@@ -23,7 +23,6 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const [loaded, setLoaded] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [finalUrl, setFinalUrl] = useState<string>(imageUrl);
-  const timeoutRef = useRef<number | null>(null);
   
   // Reset state when image URL changes
   useEffect(() => {
@@ -31,78 +30,65 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     setLoaded(false);
     setRetryCount(0);
     setFinalUrl(imageUrl);
-    
-    // Clear any existing timeout
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
   }, [imageUrl]);
   
-  // Cache successful image URLs for better performance
+  // Check if URL is cached
   useEffect(() => {
-    if (loaded && finalUrl) {
+    if (finalUrl) {
       try {
-        const cacheKey = `image_cache_${finalUrl.split('/').pop()}`;
-        if (!localStorage.getItem(cacheKey)) {
-          localStorage.setItem(cacheKey, finalUrl);
+        const cachedUrlKey = `image_cache_${finalUrl.split('/').pop()?.split('?')[0]}`;
+        const cachedUrl = localStorage.getItem(cachedUrlKey);
+        
+        if (cachedUrl && cachedUrl !== finalUrl && isPermanentStorage(cachedUrl)) {
+          console.log("Using permanent cached image URL:", cachedUrl);
+          setFinalUrl(cachedUrl);
         }
       } catch (error) {
-        // Silent fail for localStorage errors
+        console.error("Error checking image cache:", error);
       }
     }
-  }, [loaded, finalUrl]);
+  }, [finalUrl]);
   
   // Pre-load the image to verify if it's valid
   useEffect(() => {
-    if (finalUrl && !loaded && !imgError && retryCount < 2) {
+    if (finalUrl && !loaded && !imgError && retryCount < 3) {
       const img = new Image();
-      img.src = finalUrl;
       
-      // Set a timeout to catch slow-loading images
-      timeoutRef.current = window.setTimeout(() => {
-        if (!loaded) {
-          console.warn(`Image load timeout: ${finalUrl}`);
-          if (retryCount < 1) {
-            // Try once more with cache busting
-            setRetryCount(prev => prev + 1);
-            const retryUrl = finalUrl.includes('?') 
-              ? `${finalUrl}&retry=${Date.now()}` 
-              : `${finalUrl}?retry=${Date.now()}`;
-            setFinalUrl(retryUrl);
-          } else {
-            setImgError(true);
-            if (onError) onError();
-          }
-        }
-      }, 8000); // 8 second timeout
+      // Add cache-busting parameter for temporary URLs
+      const urlWithCacheBusting = isTemporaryUrl(finalUrl)
+        ? `${finalUrl}&_cb=${Date.now()}`
+        : finalUrl;
+        
+      img.src = urlWithCacheBusting;
       
       const handleLoad = () => {
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
         setLoaded(true);
-        console.log("Image pre-loaded successfully:", finalUrl);
+        // Cache the successful URL for future reference
+        try {
+          const urlKey = finalUrl.split('/').pop()?.split('?')[0];
+          if (urlKey) {
+            localStorage.setItem(`image_cache_${urlKey}`, finalUrl);
+          }
+        } catch (error) {
+          console.error("Error saving to cache:", error);
+        }
       };
       
       const handleError = () => {
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
         console.error(`Failed to pre-load image: ${finalUrl}`);
         
-        if (retryCount < 1 && !finalUrl.includes('placeholder')) {
+        if (retryCount < 2 && !finalUrl.includes('placeholder')) {
           // Try once more with a small delay
-          setRetryCount(prev => prev + 1);
-          
-          // Add cache-busting parameter
-          const retryUrl = finalUrl.includes('?') 
-            ? `${finalUrl}&retry=${Date.now()}` 
-            : `${finalUrl}?retry=${Date.now()}`;
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
             
-          setFinalUrl(retryUrl);
+            // Add cache-busting parameter
+            const retryUrl = finalUrl.includes('?') 
+              ? `${finalUrl}&retry=${Date.now()}` 
+              : `${finalUrl}?retry=${Date.now()}`;
+              
+            setFinalUrl(retryUrl);
+          }, 500); // Add a small delay before retry
         } else {
           setImgError(true);
           if (onError) onError();
@@ -113,10 +99,6 @@ export const CoverImage: React.FC<CoverImageProps> = ({
       img.onerror = handleError;
       
       return () => {
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
         img.onload = null;
         img.onerror = null;
       };
@@ -127,21 +109,24 @@ export const CoverImage: React.FC<CoverImageProps> = ({
   const handleError = () => {
     console.error(`Failed to load image: ${finalUrl}`);
     
-    if (retryCount < 1 && !finalUrl.includes('placeholder')) {
+    if (retryCount < 2 && !finalUrl.includes('placeholder')) {
       // Try once more
       setRetryCount(prev => prev + 1);
       
-      // Add cache-busting parameter if not already present
+      // Add cache-busting parameter
       const retryUrl = finalUrl.includes('?') 
         ? `${finalUrl}&retry=${Date.now()}` 
         : `${finalUrl}?retry=${Date.now()}`;
-      
+        
       setFinalUrl(retryUrl);
     } else {
       setImgError(true);
       // Cache the fallback image for future reference
       try {
-        localStorage.setItem(`image_cache_fallback_${imageUrl.split('/').pop()}`, fallbackImage);
+        const urlKey = imageUrl.split('/').pop()?.split('?')[0];
+        if (urlKey) {
+          localStorage.setItem(`image_cache_fallback_${urlKey}`, fallbackImage);
+        }
       } catch (error) {
         console.error("Error saving fallback to cache:", error);
       }
@@ -151,7 +136,6 @@ export const CoverImage: React.FC<CoverImageProps> = ({
 
   const handleLoad = () => {
     setLoaded(true);
-    console.log("Image loaded successfully:", finalUrl);
   };
 
   // Use the fallback image if there was an error
@@ -161,34 +145,29 @@ export const CoverImage: React.FC<CoverImageProps> = ({
     <div className={`relative overflow-hidden ${className}`} style={{width: '100%', height: '100%'}}>
       {(!loaded && !imgError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 animate-pulse">
-          <div className="flex flex-col items-center">
-            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-            <span className="text-gray-600 text-sm">Carregando imagem...</span>
-          </div>
+          <span className="text-gray-400">Carregando imagem...</span>
         </div>
       )}
       <img
         src={displayUrl}
         alt={alt}
-        className={`transition-opacity duration-300 ${!loaded && !imgError ? 'opacity-0' : 'opacity-100'} w-full h-full object-cover`}
+        className={`transition-opacity duration-300 ${!loaded && !imgError ? 'opacity-50' : 'opacity-100'} w-full h-full object-cover`}
         onClick={onClick}
         onError={handleError}
         onLoad={handleLoad}
         loading="eager"
+        fetchPriority="high"
+        decoding="async"
         style={{objectFit: 'cover', width: '100%', height: '100%'}}
       />
       {imgError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
           <img 
             src={fallbackImage} 
             alt={`Fallback for ${alt}`}
             className="w-full h-full object-cover"
-            onError={() => {
-              console.error("Even fallback image failed to load");
-              toast.error("Falha ao carregar imagem", {
-                description: "Tente recarregar a página"
-              });
-            }}
+            loading="eager"
+            onError={() => console.error("Even fallback image failed to load")}
           />
         </div>
       )}

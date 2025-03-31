@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import CoverImage from "../CoverImage";
-import { getImageUrl, isImagePermanent } from "./helpers";
+import { getImageUrl } from "./helpers";
 
 interface CoverPageProps {
   title: string;
@@ -26,40 +26,9 @@ export const CoverPage: React.FC<CoverPageProps> = ({
   onImageClick,
   onImageError
 }) => {
-  const [formattedImageUrl, setFormattedImageUrl] = useState<string>(getImageUrl(coverImageSrc, theme));
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  // Format image URL with proper caching
-  useEffect(() => {
-    const processImageUrl = async () => {
-      setIsLoading(true);
-      
-      // Get formatted URL
-      let url = getImageUrl(coverImageSrc, theme);
-      
-      // Check if we have this in cache
-      try {
-        const cacheKey = `cover_image_${title}_${childName}`;
-        const cachedUrl = localStorage.getItem(cacheKey);
-        
-        if (cachedUrl && isImagePermanent(cachedUrl)) {
-          console.log("Using cached permanent cover image:", cachedUrl);
-          setFormattedImageUrl(cachedUrl);
-          setIsLoading(false);
-          return;
-        }
-      } catch (e) {
-        // Silently fail on localStorage errors
-      }
-      
-      setFormattedImageUrl(url);
-      setIsLoading(false);
-    };
-    
-    processImageUrl();
-  }, [coverImageSrc, theme, title, childName]);
+  const formattedImageUrl = getImageUrl(coverImageSrc, theme);
 
-  // Log for debugging
+  // Log to debug
   useEffect(() => {
     console.log("CoverPage rendering with image:", formattedImageUrl);
     console.log("Mobile mode:", isMobile);
