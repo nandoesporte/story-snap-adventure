@@ -27,6 +27,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
           <Button
             onClick={onPrevious}
             className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
+            aria-label="Página anterior"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -38,6 +39,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
           <Button
             onClick={onNext}
             className="bg-white/80 backdrop-blur-sm hover:bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-800"
+            aria-label="Próxima página"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
@@ -57,6 +59,7 @@ export const StoryNavigation: React.FC<StoryNavigationProps> = ({
               variant="ghost"
               className="ml-2 h-6 w-6 p-0 rounded-full"
               title="Recarregar página (em caso de tela branca)"
+              aria-label="Recarregar página"
             >
               <RefreshCw className="h-3 w-3" />
             </Button>

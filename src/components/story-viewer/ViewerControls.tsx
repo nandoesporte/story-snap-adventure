@@ -92,6 +92,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           size="sm" 
           onClick={handleGoHome} 
           className="text-gray-600"
+          aria-label="Ir para página inicial"
         >
           <Home className="w-4 h-4" />
           <span className="ml-1 hidden md:inline">Início</span>
@@ -102,6 +103,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           size="sm" 
           onClick={handleCreateNew} 
           className="text-gray-600"
+          aria-label="Criar nova história"
         >
           <BookText className="w-4 h-4" />
           <span className="ml-1 hidden md:inline">Nova História</span>
@@ -116,11 +118,12 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             onClick={onPrevious}
             disabled={currentPage <= 0}
             className="text-gray-600"
+            aria-label="Página anterior"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="text-sm text-gray-500">
-            {currentPage} / {totalPages - 1}
+          <div className="text-sm text-gray-500 font-medium">
+            {currentPage + 1} / {totalPages}
           </div>
           <Button
             variant="ghost"
@@ -128,6 +131,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             onClick={onNext}
             disabled={currentPage >= totalPages - 1}
             className="text-gray-600"
+            aria-label="Próxima página"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -141,6 +145,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
             size="sm"
             onClick={onToggleFullscreen}
             className="text-gray-600"
+            aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             <span className="ml-1 hidden md:inline">
@@ -154,6 +159,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           size="sm"
           onClick={handleShareStory}
           className="text-gray-600"
+          aria-label="Compartilhar história"
         >
           <Share className="w-4 h-4" />
           <span className="ml-1 hidden md:inline">Compartilhar</span>
@@ -165,6 +171,7 @@ export const ViewerControls: React.FC<ViewerControlsProps> = ({
           onClick={onDownloadPDF}
           disabled={isDownloading}
           className="text-gray-600"
+          aria-label="Baixar PDF"
         >
           <Download className="w-4 h-4" />
           <span className="ml-1 hidden md:inline">

@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTypingEffect } from "./useTypingEffect";
+import { toast } from "sonner";
 
 export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   const [currentPage, setCurrentPage] = useState(0);
@@ -12,6 +13,7 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
   const [lastFullscreenState, setLastFullscreenState] = useState(false);
   const [pageReset, setPageReset] = useState(false);
   const [lastMobileState, setLastMobileState] = useState(isMobile);
+  const [loadAttempts, setLoadAttempts] = useState(0);
 
   // Calculate current page text
   const currentPageIndex = currentPage > 0 ? currentPage - 1 : 0;
@@ -39,12 +41,13 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
         forcePageReset();
       }
     }
-  }, [isMobile, storyData]);
+  }, [isMobile, storyData, currentPage]);
 
   useEffect(() => {
     if (storyData) {
       setTotalPages(storyData.pages.length + 1);
       
+      // Add a small delay to ensure components are mounted properly
       setTimeout(() => {
         setIsRendered(true);
       }, 100);
@@ -57,11 +60,18 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
       const timer = setTimeout(() => {
         setPageReset(false);
         setIsFlipping(false);
+        
+        if (loadAttempts > 3) {
+          toast.info("Se a página continuar branca, tente recarregar a página inteira", {
+            duration: 4000
+          });
+          setLoadAttempts(0);
+        }
       }, 300);
       
       return () => clearTimeout(timer);
     }
-  }, [pageReset]);
+  }, [pageReset, loadAttempts]);
 
   const handlePreviousPage = useCallback(() => {
     if (currentPage > 0 && !isFlipping) {
@@ -105,11 +115,18 @@ export const useStoryNavigation = (storyData: any, isMobile: boolean) => {
     console.log("Forçando reset de página para resolver tela branca");
     setIsFlipping(true);
     setPageReset(true);
+    setLoadAttempts(prev => prev + 1);
     
     const currentPageCopy = currentPage;
+    
+    // Primeiro, voltamos para a página 0 (capa)
     setCurrentPage(0);
+    
+    // Depois de um pequeno atraso, voltamos para a página onde estávamos
     setTimeout(() => {
       setCurrentPage(currentPageCopy);
+      
+      // Garantir que a animação de transição seja concluída
       setTimeout(() => {
         setIsFlipping(false);
       }, 300);

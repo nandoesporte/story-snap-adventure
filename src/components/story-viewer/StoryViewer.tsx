@@ -81,13 +81,30 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     const handleVisibilityChange = () => {
       if (!document.hidden && storyData) {
         // Documento voltou a ficar visível, verificar se precisa atualizar
-        forcePageReset();
+        console.log("Documento voltou a ficar visível, verificando necessidade de atualização");
+        setTimeout(() => {
+          forcePageReset();
+        }, 300);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Adiciona um ouvinte para erros de carregamento de imagem
+    const handleUnhandledErrors = (event: ErrorEvent) => {
+      if (event.message.includes('loading chunk') || 
+          event.message.includes('loading CSS chunk') ||
+          event.message.includes('Failed to load resource')) {
+        console.error("Erro de carregamento detectado:", event.message);
+        forcePageReset();
+      }
+    };
+    
+    window.addEventListener('error', handleUnhandledErrors);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('error', handleUnhandledErrors);
     };
   }, [storyData, forcePageReset]);
   
