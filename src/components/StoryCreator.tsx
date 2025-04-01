@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +49,6 @@ const StoryCreator = () => {
     setPromptById
   } = useStoryGeneration();
   
-  // Define saveStoryToSupabase before it's used
   const saveStoryToSupabase = useCallback(async (storyData: any) => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -129,14 +127,12 @@ const StoryCreator = () => {
     }
   }, [selectedCharacter]);
   
-  // Fix 1: Modified generateStory to prevent re-entry and maintain step state
   const generateStory = useCallback(async (data: StoryFormData) => {
     if (!data) {
       toast.error("Informações incompletas para gerar a história.");
       return;
     }
     
-    // Prevent re-entry if already generating
     if (isGenerating || step === "generating" || step === "finalizing") {
       console.log("Story generation already in progress, preventing duplicate start");
       return;
@@ -159,7 +155,6 @@ const StoryCreator = () => {
       });
     }
     
-    // Fix 2: Set formSubmitted to prevent re-running the form submission
     setFormSubmitted(true);
     setStep("generating");
     
@@ -268,7 +263,6 @@ const StoryCreator = () => {
       
       sessionStorage.removeItem("create_story_data");
       
-      // Fix 3: Corrigindo navegação após finalização com timeout
       setTimeout(() => {
         if (storyId) {
           navigate(`/story/${storyId}`);
@@ -306,7 +300,6 @@ const StoryCreator = () => {
     hasElevenLabsKey
   ]);
   
-  // Load data from session storage 
   useEffect(() => {
     const loadSessionData = () => {
       try {
@@ -315,7 +308,6 @@ const StoryCreator = () => {
           const parsedData = JSON.parse(savedData);
           
           if (parsedData) {
-            // Set form data from session storage
             setFormData({
               childName: parsedData.childName || "",
               childAge: parsedData.childAge || "",
@@ -337,7 +329,6 @@ const StoryCreator = () => {
               setPromptById(parsedData.selectedPromptId);
             }
             
-            // Flag that data is loaded
             setDataLoaded(true);
           }
         }
@@ -348,19 +339,15 @@ const StoryCreator = () => {
     
     loadSessionData();
     
-    // Check for ElevenLabs key
     const elevenLabsKey = localStorage.getItem('elevenlabs_api_key');
     setHasElevenLabsKey(!!elevenLabsKey && elevenLabsKey !== 'undefined' && elevenLabsKey !== 'null');
     
   }, [setPromptById]);
   
-  // Start generation automatically when form data is loaded
   useEffect(() => {
     if (dataLoaded && formData && !storyGenerationStarted && !formSubmitted) {
-      console.log("Iniciando geração automática com dados carregados da sessão");
       setStoryGenerationStarted(true);
       
-      // Fix 4: Adicionando delay para garantir que a interface carregue adequadamente
       setTimeout(() => {
         generateStory(formData);
       }, 500);
@@ -368,21 +355,19 @@ const StoryCreator = () => {
   }, [dataLoaded, formData, generateStory, storyGenerationStarted, formSubmitted]);
   
   const setStoryPrompt = (prompt: string) => {
-    // This function is intentionally empty to satisfy the interface
-    // The actual prompt is saved to session storage
+    sessionStorage.setItem("create_story_data", JSON.stringify({
+      storyPrompt: prompt
+    }));
   };
 
-  // Return to form
   const handleReturnToForm = () => {
     setStep("details");
     setFormSubmitted(false);
     setStoryGenerationStarted(false);
     
-    // Fix 5: Limpeza adequada ao retornar ao formulário
     sessionStorage.removeItem("create_story_data");
   };
 
-  // Handle form submission directly
   const handleFormSubmit = (data: StoryFormData) => {
     if (!formSubmitted) {
       generateStory(data);
@@ -470,10 +455,9 @@ const StoryCreator = () => {
                 <div className="flex justify-center mt-6">
                   <div className="relative">
                     <div className="w-24 h-24 flex items-center justify-center">
-                      <LoadingSpinner size={80} />
+                      <LoadingSpinner size="lg" />
                     </div>
                     
-                    {/* Fallback button for errors */}
                     {connectionErrorCount >= 2 && (
                       <Button 
                         variant="destructive" 
@@ -502,7 +486,6 @@ const StoryCreator = () => {
                     </p>
                   </div>
                   
-                  {/* Fix 6: Adicionando link para configurações */}
                   {connectionErrorCount > 0 && (
                     <div className="flex items-center pt-4">
                       <Button 
