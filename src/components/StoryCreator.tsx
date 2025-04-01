@@ -47,7 +47,7 @@ const StoryCreator = () => {
     setPromptById
   } = useStoryGeneration();
   
-  // Move saveStoryToSupabase before it's used
+  // Define saveStoryToSupabase before it's used
   const saveStoryToSupabase = useCallback(async (storyData: any) => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -384,84 +384,6 @@ const StoryCreator = () => {
     setFormData(updatedData);
     generateStory(updatedData);
   };
-  
-  const saveStoryToSupabase = useCallback(async (storyData: any) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData?.user) {
-        console.log("Usuário não autenticado, salvando apenas em sessão.");
-        return null;
-      }
-      
-      const { saveStoryImagesPermanently } = await import('@/lib/imageStorage');
-      
-      console.log("Saving story images permanently before database storage");
-      const processedStoryData = await saveStoryImagesPermanently({
-        ...storyData,
-        id: uuidv4()
-      });
-      
-      const storyToSave = {
-        title: processedStoryData.title,
-        cover_image_url: processedStoryData.coverImageUrl,
-        character_name: processedStoryData.childName,
-        character_age: processedStoryData.childAge,
-        theme: processedStoryData.theme,
-        setting: processedStoryData.setting,
-        style: processedStoryData.style,
-        user_id: userData.user.id,
-        character_prompt: selectedCharacter?.generation_prompt || "",
-        pages: processedStoryData.pages.map((page: any) => ({
-          text: page.text,
-          image_url: page.imageUrl || page.image_url
-        }))
-      };
-      
-      console.log("Salvando história no banco de dados:", storyToSave);
-      
-      let columnExists = false;
-      try {
-        const { data: columnData, error: columnError } = await supabase.rpc(
-          'check_column_exists',
-          { p_table_name: 'stories', p_column_name: 'character_prompt' }
-        );
-        
-        columnExists = columnData === true;
-        
-        if (columnError) {
-          console.warn("Erro ao verificar coluna character_prompt:", columnError);
-        }
-      } catch (checkError) {
-        console.warn("Erro ao verificar existência da coluna:", checkError);
-      }
-      
-      if (!columnExists) {
-        console.warn("Coluna character_prompt não existe, removendo do objeto a salvar.");
-        delete storyToSave.character_prompt;
-      }
-      
-      const { data, error } = await supabase
-        .from("stories")
-        .insert(storyToSave)
-        .select();
-        
-      if (error) {
-        console.error("Erro ao salvar história no Supabase:", error);
-        toast.error("Erro ao salvar história no banco de dados: " + error.message);
-        return null;
-      }
-      
-      console.log("História salva com sucesso no Supabase:", data);
-      toast.success("História salva com sucesso!");
-      
-      return data[0]?.id;
-    } catch (error: any) {
-      console.error("Erro ao salvar história:", error);
-      toast.error("Erro ao salvar: " + (error.message || "Erro desconhecido"));
-      return null;
-    }
-  }, [selectedCharacter]);
   
   if (apiError) {
     return (
