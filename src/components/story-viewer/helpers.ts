@@ -23,7 +23,7 @@ export const isTemporaryUrl = (url: string | undefined): boolean => {
            url.includes('openai.com') ||
            url.includes('replicate.delivery') ||
            url.includes('temp-') ||
-           url.includes('leonard.ai') ||
+           url.includes('leonardo.ai') ||
            url.includes('pb.ai/api');
   } catch (e) {
     return false;
@@ -47,6 +47,13 @@ export const getImageUrl = (imageUrl: string | undefined, theme?: string): strin
     if (imageUrl.includes('placeholder') || imageUrl.includes('default')) {
       return getDefaultImagePath(theme);
     }
+    
+    // Check if it's a temporary URL that might be expired
+    if (isTemporaryUrl(imageUrl)) {
+      console.log('Potentially expired temporary URL detected:', imageUrl);
+      // We'll try to use it, but have fallbacks ready
+    }
+    
     return imageUrl;
   }
   
@@ -149,13 +156,21 @@ export const fixImageUrl = (url: string | undefined): string => {
   
   // Handle relative paths
   if (url.startsWith('/')) {
-    // For local development
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // For local development or preview
+    if (window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.includes('lovable')) {
       return url;
     }
     
     // For production, ensure full path
     return `${window.location.origin}${url}`;
+  }
+  
+  // Handle OpenAI/DALL-E temporary URLs that might expire
+  if (isTemporaryUrl(url)) {
+    console.log('Using temporary URL, may need fallback:', url);
+    // We'll try to use the URL but prepare for errors
   }
   
   return url;

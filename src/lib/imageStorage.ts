@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { isPermanentStorage, isTemporaryUrl } from '@/components/story-viewer/helpers';
+import { toast } from 'sonner';
 
 /**
  * Salva uma imagem no armazenamento permanente
@@ -58,33 +59,66 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
         
         console.log("Fetching image from URL:", fetchUrl.substring(0, 50) + "...");
         
+        // Try to fetch with credentials
         const response = await fetch(fetchUrl, { 
           signal: controller.signal,
           method: 'GET',
           headers: {
             'Cache-Control': 'no-cache',
-          }
+            'Pragma': 'no-cache',
+          },
+          credentials: 'same-origin'
         });
         
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-          throw new Error(`Falha ao buscar imagem: ${response.status}`);
+          throw new Error(`Failed to fetch image: ${response.status}`);
         }
         
         imageBlob = await response.blob();
         console.log("Fetched image as Blob, size:", imageBlob.size);
       } catch (fetchError) {
-        console.error("Erro ao buscar imagem da URL:", fetchError);
-        // Retorna URL original em caso de erro
-        return imageUrl;
+        console.error("Error fetching image from URL:", fetchError);
+        
+        // If this is a potentially expired URL and we failed to fetch it,
+        // use a default theme image
+        if (isTemporaryUrl(imageUrl)) {
+          console.log("Using default theme image instead of expired temporary URL");
+          const theme = storyId?.includes('space') ? 'space' : 
+                       storyId?.includes('ocean') ? 'ocean' :
+                       storyId?.includes('fantasy') ? 'fantasy' :
+                       storyId?.includes('adventure') ? 'adventure' :
+                       storyId?.includes('dinosaurs') ? 'dinosaurs' : 'default';
+                       
+          const defaultImagePath = `/images/defaults/${theme}.jpg`;
+          
+          // Try to fetch the default image
+          try {
+            const defaultResponse = await fetch(defaultImagePath);
+            if (!defaultResponse.ok) throw new Error("Default image not available");
+            
+            imageBlob = await defaultResponse.blob();
+            console.log("Using default image instead, size:", imageBlob.size);
+          } catch (defaultError) {
+            console.error("Error fetching default image:", defaultError);
+            return `/images/defaults/${theme}.jpg`; // Return path directly if we can't fetch it
+          }
+        } else {
+          // Return original URL if it's not a temporary URL
+          return imageUrl;
+        }
       }
     }
     
     // Verificar se o blob tem conteúdo válido
     if (!imageBlob || imageBlob.size < 100) {
-      console.error("Blob inválido ou muito pequeno:", imageBlob?.size);
-      return imageUrl;
+      console.error("Invalid or too small blob:", imageBlob?.size);
+      
+      // Use default image if blob is invalid
+      const theme = 'default';
+      const defaultImagePath = `/images/defaults/${theme}.jpg`;
+      return defaultImagePath;
     }
     
     console.log("Uploading image to Supabase storage:", fileName);
@@ -100,8 +134,12 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
       });
       
     if (error) {
-      console.error("Erro ao carregar imagem para armazenamento:", error);
-      return imageUrl; // Retorna URL original em caso de erro
+      console.error("Error uploading image to storage:", error);
+      
+      // Return a default image path if upload fails
+      const theme = 'default';
+      const defaultImagePath = `/images/defaults/${theme}.jpg`;
+      return defaultImagePath;
     }
     
     // Obtém URL pública
@@ -120,13 +158,17 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
         console.log("URL cached for future reference");
       }
     } catch (cacheError) {
-      console.error("Erro ao armazenar URL em cache:", cacheError);
+      console.error("Error storing URL in cache:", cacheError);
     }
     
     return publicUrl;
   } catch (error) {
-    console.error("Erro ao salvar imagem permanentemente:", error);
-    return imageUrl; // Retorna URL original em caso de erro
+    console.error("Error saving image permanently:", error);
+    
+    // Use default theme image as fallback
+    const theme = 'default';
+    const defaultImagePath = `/images/defaults/${theme}.jpg`;
+    return defaultImagePath;
   }
 };
 
@@ -154,79 +196,85 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
         updatedStoryData.cover_image_url = permanentCoverUrl;
         console.log("Cover image processed successfully");
       } catch (coverError) {
-        console.error("Erro ao salvar imagem de capa:", coverError);
+        console.error("Error saving cover image:", coverError);
       }
     }
     
-    // Salva imagens das páginas com processamento paralelo para resultados mais rápidos
+    // Process pages in sequence rather than parallel for better reliability
     if (Array.isArray(updatedStoryData.pages)) {
       try {
-        console.log(`Processing ${updatedStoryData.pages.length} page images...`);
+        console.log(`Processing ${updatedStoryData.pages.length} page images sequentially...`);
         
-        const pagePromises = updatedStoryData.pages.map(async (page: any, index: number) => {
+        for (let index = 0; index < updatedStoryData.pages.length; index++) {
+          const page = updatedStoryData.pages[index];
           const imageUrl = page.imageUrl || page.image_url;
+          
           if (imageUrl) {
             try {
               console.log(`Processing page ${index + 1} image...`);
+              
+              // Add a small delay between each image to avoid rate limiting
+              if (index > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+              
               const permanentImageUrl = await saveImagePermanently(
                 imageUrl, 
                 `${updatedStoryData.id || 'page'}_page${index}`
               );
               
-              return {
+              // Update the page with permanent image URL
+              updatedStoryData.pages[index] = {
                 ...page,
                 imageUrl: permanentImageUrl,
                 image_url: permanentImageUrl
               };
+              
+              console.log(`Page ${index + 1} image processed successfully`);
             } catch (pageError) {
-              console.error(`Erro ao salvar imagem da página ${index}:`, pageError);
-              return page;
+              console.error(`Error saving image for page ${index}:`, pageError);
             }
           }
-          return page;
-        });
-        
-        // Processa todas as páginas em paralelo
-        const results = await Promise.allSettled(pagePromises);
-        
-        // Atualiza apenas as páginas que foram processadas com sucesso
-        updatedStoryData.pages = results.map((result, index) => {
-          if (result.status === 'fulfilled') {
-            return result.value;
-          }
-          // Mantém a página original se houve erro
-          return updatedStoryData.pages[index];
-        });
+        }
         
         console.log("All page images processed");
       } catch (pagesError) {
-        console.error("Erro ao processar imagens das páginas:", pagesError);
+        console.error("Error processing page images:", pagesError);
       }
     }
     
     return updatedStoryData;
   } catch (error) {
-    console.error("Erro ao salvar imagens da história permanentemente:", error);
-    return storyData; // Retorna dados originais em caso de erro
+    console.error("Error saving story images permanently:", error);
+    return storyData; // Return original data on error
   }
 };
 
 /**
- * Verifica se uma URL de imagem é de uma fonte de geração temporária
- * @param url URL da imagem
- * @returns boolean indicando se é uma URL temporária
+ * Verifies if an image URL exists
+ * @param url The URL to check
+ * @returns Promise that resolves to boolean
  */
-export const isTemporaryImageUrl = (url: string | undefined): boolean => {
-  if (!url) return false;
+export const verifyImageUrl = async (url: string): Promise<boolean> => {
+  if (!url || url.startsWith('data:')) return true;
   
   try {
-    return url.includes('oaiusercontent.com') || 
-           url.includes('openai.com') ||
-           url.includes('replicate.delivery') ||
-           url.includes('temp-') ||
-           url.includes('leonardo.ai') ||
-           url.includes('pb.ai/api');
-  } catch (e) {
+    // Add cache-busting for potentially cached expired URLs
+    const fetchUrl = isTemporaryUrl(url) ? `${url}&_cb=${Date.now()}` : url;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(fetchUrl, {
+      method: 'HEAD',
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.error("Error verifying image URL:", error);
     return false;
   }
 };

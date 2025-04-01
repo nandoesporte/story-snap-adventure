@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -29,7 +30,8 @@ interface StoryData {
 
 const defaultStory: StoryData = {
   title: "História não encontrada",
-  coverImageUrl: "/placeholder.svg",
+  coverImageUrl: "/images/defaults/default_cover.jpg",
+  cover_image_url: "/images/defaults/default_cover.jpg",
   childName: "",
   childAge: "",
   theme: "",
@@ -37,7 +39,8 @@ const defaultStory: StoryData = {
   pages: [
     {
       text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
-      imageUrl: "/placeholder.svg"
+      imageUrl: "/images/defaults/default.jpg",
+      image_url: "/images/defaults/default.jpg"
     }
   ],
   voiceType: 'female'
@@ -51,6 +54,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Reset state when storyId or retryCount changes
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -106,11 +110,30 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Story data loaded:", data);
       
+      // Make sure we have a valid cover image
       const coverImage = data.cover_image_url || 
                       (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
-                      "/images/defaults/default.jpg";
+                      "/images/defaults/default_cover.jpg";
                       
       console.log("Selected cover image:", coverImage);
+      
+      // Process page images to ensure they have URLs
+      const processedPages = Array.isArray(data.pages) 
+        ? data.pages.map((page: any, index: number) => {
+            // Make sure each page has an image URL
+            const pageImageUrl = page.image_url || page.imageUrl || `/images/defaults/${data.theme || 'default'}.jpg`;
+            
+            return {
+              text: page.text || "",
+              imageUrl: pageImageUrl,
+              image_url: pageImageUrl
+            };
+          })
+        : [{ 
+            text: "No content available.", 
+            imageUrl: "/images/defaults/default.jpg",
+            image_url: "/images/defaults/default.jpg" 
+          }];
       
       const formattedStory: StoryData = {
         title: data.title || "Untitled Story",
@@ -122,13 +145,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         setting: data.setting || "",
         style: data.style || "",
         voiceType: data.voice_type || 'female',
-        pages: Array.isArray(data.pages) 
-          ? data.pages.map((page: any) => ({
-              text: page.text || "",
-              imageUrl: page.image_url || "/images/defaults/default.jpg",
-              image_url: page.image_url || "/images/defaults/default.jpg"
-            }))
-          : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
+        pages: processedPages
       };
       
       setStoryData(formattedStory);
@@ -157,10 +174,29 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         const parsedData = JSON.parse(savedData);
         console.log("Data loaded from sessionStorage:", parsedData);
         
+        // Make sure we have a valid cover image
         const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
                          (parsedData.pages && parsedData.pages.length > 0 ? 
                            (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
-                           "/images/defaults/default.jpg");
+                           "/images/defaults/default_cover.jpg");
+        
+        // Process pages to ensure they have image URLs
+        const processedPages = Array.isArray(parsedData.pages) 
+          ? parsedData.pages.map((page: any, index: number) => {
+              // Make sure each page has an image URL
+              const pageImageUrl = page.imageUrl || page.image_url || `/images/defaults/${parsedData.theme || 'default'}.jpg`;
+              
+              return {
+                text: page.text || "",
+                imageUrl: pageImageUrl,
+                image_url: pageImageUrl
+              };
+            })
+          : [{ 
+              text: "No content available.", 
+              imageUrl: "/images/defaults/default.jpg",
+              image_url: "/images/defaults/default.jpg" 
+            }];
         
         const formattedStory: StoryData = {
           title: parsedData.title || "Untitled Story",
@@ -172,13 +208,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
           setting: parsedData.setting || "",
           style: parsedData.style || "",
           voiceType: parsedData.voiceType || 'female',
-          pages: Array.isArray(parsedData.pages) 
-            ? parsedData.pages.map((page: any) => ({
-                text: page.text || "",
-                imageUrl: page.imageUrl || page.image_url || "/images/defaults/default.jpg",
-                image_url: page.imageUrl || page.image_url || "/images/defaults/default.jpg"
-              }))
-            : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
+          pages: processedPages
         };
         
         setStoryData(formattedStory);

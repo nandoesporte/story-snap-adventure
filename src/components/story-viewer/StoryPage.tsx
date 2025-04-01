@@ -34,10 +34,11 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const displayText = typedText || text || "";
   
-  // Process image URL
+  // Process image URL with better error handling
   let processedImageUrl = "";
   try {
     processedImageUrl = fixImageUrl(getImageUrl(imageUrl, theme));
+    console.log(`Page ${pageNumber} using image URL:`, processedImageUrl);
   } catch (error) {
     console.error("Error processing image URL:", error);
     processedImageUrl = `/images/defaults/${theme || 'default'}.jpg`;
@@ -59,6 +60,9 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
     setImageLoadFailed(true);
     onImageError(processedImageUrl);
+    
+    // Try again with a default image
+    setImageLoadFailed(true);
   };
 
   // Handle double tap/click for mobile fullscreen
