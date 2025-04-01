@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -308,11 +309,13 @@ const StoryCreator = () => {
           const parsedData = JSON.parse(savedData);
           
           if (parsedData) {
+            const suggestedSetting = getSuggestedSetting(parsedData.theme || "");
+            
             setFormData({
               childName: parsedData.childName || "",
               childAge: parsedData.childAge || "",
               theme: parsedData.theme || "adventure",
-              setting: parsedData.setting || "forest",
+              setting: parsedData.setting || suggestedSetting || "forest",
               style: parsedData.style || "papercraft",
               length: parsedData.length || "medium",
               readingLevel: parsedData.readingLevel || "intermediate",
@@ -371,6 +374,24 @@ const StoryCreator = () => {
   const handleFormSubmit = (data: StoryFormData) => {
     if (!formSubmitted) {
       generateStory(data);
+    }
+  };
+  
+  // Helper function to suggest appropriate setting based on theme
+  const getSuggestedSetting = (theme: string): string => {
+    switch(theme) {
+      case "adventure": 
+        return "forest";
+      case "space": 
+        return "space";
+      case "fantasy": 
+        return "castle";
+      case "ocean": 
+        return "underwater";
+      case "dinosaurs": 
+        return "dinosaurland";
+      default: 
+        return "forest";
     }
   };
 

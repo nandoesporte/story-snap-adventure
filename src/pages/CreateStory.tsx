@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -98,6 +99,14 @@ const CreateStory = () => {
       moral: "friendship",
       voiceType: "female"
     });
+    
+    // Store theme in session for the second form
+    sessionStorage.setItem("create_story_data", JSON.stringify({
+      storyPrompt: prompt,
+      theme: suggestedTheme,
+      setting: suggestedSetting,
+      selectedPromptId
+    }));
   };
 
   const getSuggestedTheme = (prompt: string): string => {
@@ -151,6 +160,7 @@ const CreateStory = () => {
       return;
     }
     
+    // Save all form data to session storage
     sessionStorage.setItem("create_story_data", JSON.stringify({
       ...data,
       storyPrompt,

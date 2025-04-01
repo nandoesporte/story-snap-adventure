@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -89,6 +88,13 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
   const [characters, setCharacters] = useState<any[]>([]);
   const [loadingCharacters, setLoadingCharacters] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [suggestedSettings, setSuggestedSettings] = useState<Record<string, string>>({
+    adventure: "forest",
+    fantasy: "castle",
+    space: "space",
+    ocean: "underwater",
+    dinosaurs: "dinosaurland"
+  });
 
   const form = useForm<StoryFormData>({
     resolver: zodResolver(formSchema),
@@ -115,6 +121,17 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
       });
     }
   }, [initialData, form]);
+
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'theme' && value.theme) {
+        const suggestedSetting = suggestedSettings[value.theme as string] || "forest";
+        form.setValue('setting', suggestedSetting);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, suggestedSettings]);
 
   const handleFormSubmit = (data: StoryFormData) => {
     if (disabled || formSubmitted) {
@@ -166,9 +183,27 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tema da História</FormLabel>
-              <FormControl>
-                <Input placeholder="Digite o tema da história" {...field} />
-              </FormControl>
+              <Select 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  const suggestedSetting = suggestedSettings[value] || "forest";
+                  form.setValue('setting', suggestedSetting);
+                }} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tema" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="adventure">Aventura</SelectItem>
+                  <SelectItem value="fantasy">Fantasia</SelectItem>
+                  <SelectItem value="space">Espaço</SelectItem>
+                  <SelectItem value="ocean">Oceano</SelectItem>
+                  <SelectItem value="dinosaurs">Dinossauros</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -179,9 +214,20 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Cenário da História</FormLabel>
-              <FormControl>
-                <Input placeholder="Digite o cenário da história" {...field} />
-              </FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o cenário" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="forest">Floresta Encantada</SelectItem>
+                  <SelectItem value="castle">Castelo Mágico</SelectItem>
+                  <SelectItem value="space">Espaço Sideral</SelectItem>
+                  <SelectItem value="underwater">Mundo Submarino</SelectItem>
+                  <SelectItem value="dinosaurland">Terra dos Dinossauros</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
