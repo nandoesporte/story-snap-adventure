@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
@@ -93,7 +92,6 @@ export const useStoryBot = () => {
     return await storyBot.getPromptReferenceImages(promptId);
   };
   
-  // Add the missing methods needed by components
   const resetLeonardoApiStatus = () => {
     localStorage.removeItem('leonardo_webhook_url');
     localStorage.removeItem('leonardo_api_key');
@@ -217,3 +215,6 @@ export const useStoryBot = () => {
     setLeonardoApiKey
   };
 };
+
+// Export a function to access the StoryBot instance for non-React contexts
+export const getStoryBotInstance = () => storyBot;
