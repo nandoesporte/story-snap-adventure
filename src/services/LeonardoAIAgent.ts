@@ -130,27 +130,36 @@ export class LeonardoAIAgent {
       const modelsData = await modelsResponse.json();
       console.log("Available Leonardo AI models:", modelsData);
       
-      // Find a suitable model for illustration
+      // Look for the Flux 1.1pro model first
       let modelId = "";
+      const fluxModel = modelsData.models.find((m: any) => 
+        m.name.toLowerCase().includes("flux 1.1pro") && m.status === "ACTIVE"
+      );
       
-      // Prefer these models in order of preference
-      const preferredModelNames = [
-        "Leonardo Creative",
-        "Leonardo Diffusion XL",
-        "Dream Shaper XL",
-        "Leonardo Diffusion"
-      ];
-      
-      // Find first available preferred model
-      for (const preferredName of preferredModelNames) {
-        const model = modelsData.models.find((m: any) => 
-          m.name.toLowerCase().includes(preferredName.toLowerCase()) && m.status === "ACTIVE"
-        );
+      if (fluxModel) {
+        modelId = fluxModel.id;
+        console.log(`Using Leonardo AI model: Flux 1.1pro (${modelId})`);
+      } else {
+        // Fallback to other preferred models if Flux 1.1pro is not available
+        const preferredModelNames = [
+          "Flux 1.1",
+          "Leonardo Creative",
+          "Leonardo Diffusion XL",
+          "Dream Shaper XL",
+          "Leonardo Diffusion"
+        ];
         
-        if (model) {
-          modelId = model.id;
-          console.log(`Using Leonardo AI model: ${model.name} (${modelId})`);
-          break;
+        // Find first available preferred model as fallback
+        for (const preferredName of preferredModelNames) {
+          const model = modelsData.models.find((m: any) => 
+            m.name.toLowerCase().includes(preferredName.toLowerCase()) && m.status === "ACTIVE"
+          );
+          
+          if (model) {
+            modelId = model.id;
+            console.log(`Using fallback Leonardo AI model: ${model.name} (${modelId})`);
+            break;
+          }
         }
       }
       

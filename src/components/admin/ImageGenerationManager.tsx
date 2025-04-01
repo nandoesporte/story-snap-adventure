@@ -68,7 +68,7 @@ const ImageGenerationManager = () => {
       
       if (useLeonardo && leonardoApiKey) {
         try {
-          toast.info("Gerando imagem de teste com Leonardo AI...");
+          toast.info("Gerando imagem de teste com Leonardo AI (Flux 1.1pro)...");
           console.log("Starting test image generation with Leonardo AI");
           
           // Verificar se o agente está realmente disponível

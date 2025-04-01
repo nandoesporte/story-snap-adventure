@@ -104,7 +104,7 @@ const LeonardoAIStatusCheck = () => {
           {isAvailable === null ? (
             "Verificando status..."
           ) : isAvailable ? (
-            "Leonardo AI Configurado"
+            "Leonardo AI Configurado (Flux 1.1pro)"
           ) : (
             "Leonardo AI Não Configurado"
           )}
@@ -113,7 +113,7 @@ const LeonardoAIStatusCheck = () => {
           {isAvailable === null ? (
             <Skeleton className="h-4 w-full" />
           ) : isAvailable ? (
-            "A API da Leonardo AI está configurada corretamente e pronta para uso."
+            "A API da Leonardo AI está configurada corretamente e pronta para uso com o modelo Flux 1.1pro."
           ) : (
             "A API da Leonardo AI não está configurada ou está com problemas. Configure a chave API abaixo."
           )}
@@ -172,8 +172,10 @@ const LeonardoAIStatusCheck = () => {
       </div>
 
       <div className="rounded-lg border p-4 mt-4">
-        <h3 className="text-sm font-medium mb-2">Dicas para usar a Leonardo AI</h3>
+        <h3 className="text-sm font-medium mb-2">Dicas para usar a Leonardo AI com Flux 1.1pro</h3>
         <ul className="list-disc pl-5 text-sm space-y-1">
+          <li>O modelo Flux 1.1pro oferece resultados de alta qualidade para ilustrações</li>
+          <li>Ideal para ilustrações de livros infantis com estilo consistente</li>
           <li>Certifique-se de ter uma conta válida na Leonardo AI</li>
           <li>A API tem limites diários de requisições</li>
           <li>As imagens geradas são armazenadas temporariamente</li>
