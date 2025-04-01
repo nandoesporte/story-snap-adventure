@@ -26,7 +26,7 @@ interface Character {
 
 const StoryCreator = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<CreationStep>("generating");
+  const [step, setStep] = useState<CreationStep>("details");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
@@ -34,6 +34,7 @@ const StoryCreator = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [storyGenerationStarted, setStoryGenerationStarted] = useState(false);
   
   const { 
     generateCompleteStory,
@@ -360,21 +361,27 @@ const StoryCreator = () => {
     }
   }, [formData]);
   
+  // Fixed effect to prevent infinite loop
   useEffect(() => {
-    if (dataLoaded && formData && step === "generating" && !apiError) {
-      if (selectedPromptId) {
-        setPromptById(selectedPromptId).then(() => {
-          console.log("Applied selected prompt:", selectedPromptId);
-          generateStory(formData);
-        }).catch(error => {
-          console.error("Failed to set selected prompt:", error);
-          generateStory(formData);
-        });
-      } else {
+    if (dataLoaded && formData && step === "generating" && !apiError && !storyGenerationStarted) {
+      setStoryGenerationStarted(true);
+      
+      const startStoryGeneration = async () => {
+        if (selectedPromptId) {
+          try {
+            await setPromptById(selectedPromptId);
+            console.log("Applied selected prompt:", selectedPromptId);
+          } catch (error) {
+            console.error("Failed to set selected prompt:", error);
+          }
+        }
+        
         generateStory(formData);
-      }
+      };
+      
+      startStoryGeneration();
     }
-  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory]);
+  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory, storyGenerationStarted]);
   
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
@@ -382,7 +389,8 @@ const StoryCreator = () => {
       style: "papercraft" as StoryStyle
     };
     setFormData(updatedData);
-    generateStory(updatedData);
+    setStoryGenerationStarted(false); // Reset flag before starting generation
+    setStep("generating"); // This will trigger the useEffect to generate the story
   };
   
   if (apiError) {
