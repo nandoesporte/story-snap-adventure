@@ -14,7 +14,8 @@ import {
   Beaker,
   Menu,
   X,
-  Hammer
+  Hammer,
+  Image
 } from "lucide-react";
 import {
   Tabs,
@@ -35,6 +36,7 @@ import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
 import StoryImageRepairTool from "@/components/admin/StoryImageRepairTool";
+import OpenAIImageMigrationTool from "@/components/admin/OpenAIImageMigrationTool";
 
 // Import the UserSubscriptionManager
 import UserSubscriptionManager from '@/components/admin/UserSubscriptionManager';
@@ -58,6 +60,7 @@ const Admin = () => {
     { id: 'payment-methods', label: 'Métodos de Pagamento', icon: <WalletCards className="h-5 w-5" /> },
     { id: 'test-mode', label: 'Modo de Teste', icon: <Beaker className="h-5 w-5" /> },
     { id: 'image-repair', label: 'Reparo de Imagens', icon: <Hammer className="h-5 w-5" /> },
+    { id: 'image-migration', label: 'Migração de Imagens', icon: <Image className="h-5 w-5" /> },
     { id: 'config', label: 'Configurações', icon: <Settings className="h-5 w-5" /> },
   ];
 
@@ -146,6 +149,7 @@ const Admin = () => {
               {activeTab === 'payment-methods' && <PaymentMethodsManager />}
               {activeTab === 'test-mode' && <TestModeManager />}
               {activeTab === 'image-repair' && <StoryImageRepairTool />}
+              {activeTab === 'image-migration' && <OpenAIImageMigrationTool />}
               {activeTab === 'config' && <SystemConfigurationManager />}
             </div>
           </div>

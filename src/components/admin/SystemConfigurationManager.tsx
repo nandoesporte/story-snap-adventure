@@ -6,6 +6,8 @@ import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import AsaasApiKeyManager from "@/components/admin/AsaasApiKeyManager";
 import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
 import OpenAIApiKeyManager from "@/components/admin/OpenAIApiKeyManager";
+import StoryImageRepairTool from "@/components/admin/StoryImageRepairTool";
+import OpenAIImageMigrationTool from "@/components/admin/OpenAIImageMigrationTool";
 
 const SystemConfigurationManager = () => {
   return (
@@ -13,7 +15,7 @@ const SystemConfigurationManager = () => {
       <CardHeader>
         <CardTitle>Configurações do Sistema</CardTitle>
         <CardDescription>
-          Configure as APIs e serviços externos utilizados pelo sistema
+          Configure as APIs, serviços externos e ferramentas de manutenção do sistema
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -23,6 +25,7 @@ const SystemConfigurationManager = () => {
             <TabsTrigger value="mercadopago">MercadoPago</TabsTrigger>
             <TabsTrigger value="asaas">Asaas</TabsTrigger>
             <TabsTrigger value="google-tts">Google TTS</TabsTrigger>
+            <TabsTrigger value="image-tools">Ferramentas de Imagem</TabsTrigger>
           </TabsList>
           
           <TabsContent value="openai">
@@ -39,6 +42,13 @@ const SystemConfigurationManager = () => {
           
           <TabsContent value="google-tts">
             <GoogleTTSApiKeyManager />
+          </TabsContent>
+          
+          <TabsContent value="image-tools" className="space-y-6">
+            <OpenAIImageMigrationTool />
+            <div className="mt-6">
+              <StoryImageRepairTool />
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

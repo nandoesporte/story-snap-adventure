@@ -30,10 +30,14 @@ export const fixImageUrl = (imageUrl: string): string => {
 export const isTemporaryUrl = (url: string): boolean => {
   if (!url) return false;
   
+  // List of domains/patterns that indicate temporary URLs
   const temporaryDomains = [
     'oaidalleapiprodscus.blob.core.windows.net',
     'production-files.openai',
-    'openai-api-files'
+    'openai-api-files',
+    'openai.com',
+    'cdn.openai.com',
+    'labs.openai.com'
   ];
   
   try {
