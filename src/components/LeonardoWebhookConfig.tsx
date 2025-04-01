@@ -77,7 +77,7 @@ const LeonardoWebhookConfig = () => {
     setIsLeonardoTesting(true);
     
     try {
-      // Use the user information endpoint instead of models list
+      // Teste de conexão simples antes de salvar a chave
       const testResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
         method: "GET",
         headers: {
