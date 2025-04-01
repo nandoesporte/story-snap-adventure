@@ -31,32 +31,9 @@ export const setupStorageBuckets = async () => {
       }
       
       console.log("story_images bucket created successfully");
-      
-      // No need to set bucket policy to public as we already set public: true when creating
-      // The setPublic() method is not available in the current Supabase JS client version
-      
       return true;
     } else {
       console.log("story_images bucket already exists");
-      
-      // Check if bucket is public, if not update it
-      if (!storyImagesBucket.public) {
-        try {
-          // Update the bucket to be public
-          const { error: updateError } = await supabase.storage.updateBucket('story_images', {
-            public: true
-          });
-          
-          if (updateError) {
-            console.error("Error updating bucket to public:", updateError);
-          } else {
-            console.log("Updated story_images bucket to be public");
-          }
-        } catch (updateErr) {
-          console.error("Failed to update bucket visibility:", updateErr);
-        }
-      }
-      
       return true;
     }
   } catch (error) {
@@ -64,6 +41,3 @@ export const setupStorageBuckets = async () => {
     return false;
   }
 };
-
-// Call this function when the app starts to ensure the bucket exists
-setupStorageBuckets().catch(console.error);
