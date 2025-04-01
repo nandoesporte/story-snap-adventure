@@ -73,6 +73,34 @@ export class LeonardoAIAgent {
     localStorage.setItem("use_leonardo_refiner", useRefiner.toString());
   }
 
+  async testConnection(): Promise<boolean> {
+    if (!this.apiKey) {
+      return false;
+    }
+    
+    try {
+      // Use user information endpoint
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${this.apiKey}`
+        }
+      });
+      
+      if (!response.ok) {
+        console.error("Leonardo API error:", await response.text());
+        return false;
+      }
+      
+      const data = await response.json();
+      return !!(data && data.user_details);
+    } catch (error) {
+      console.error("Error testing Leonardo connection:", error);
+      return false;
+    }
+  }
+
   async generateImage({
     prompt,
     characterName,
@@ -226,7 +254,6 @@ export class LeonardoAIAgent {
     }
   }
 
-  // Update to include referenceImageUrl in generateCoverImage
   async generateCoverImage(
     title: string,
     characterName: string,
@@ -265,7 +292,6 @@ export class LeonardoAIAgent {
     }
   }
 
-  // Update to include referenceImageUrl in generateStoryImages
   async generateStoryImages(
     storyPages: string[],
     imagePrompts: string[],

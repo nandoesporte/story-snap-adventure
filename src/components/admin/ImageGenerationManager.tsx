@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,8 +115,8 @@ const ImageGenerationManager = () => {
         return;
       }
       
-      // Test the connection with a simple models list call
-      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/models", {
+      // Changed to use POST for user information endpoint which accepts POST
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
         method: "GET",
         headers: {
           "Accept": "application/json",
@@ -135,19 +134,16 @@ const ImageGenerationManager = () => {
       }
       
       const data = await response.json();
-      if (data && Array.isArray(data.models)) {
+      if (data && data.user_details) {
         toast.success("Conexão com Leonardo AI estabelecida com sucesso");
         setConnectionStatus("success");
         localStorage.removeItem("leonardo_api_issue");
         
         // Update the model ID if not already set
         if (!modelId) {
-          // Try to find the FLUX model in the available models
-          const fluxModel = data.models.find(m => m.name.includes("FLUX"));
-          if (fluxModel) {
-            setModelId(fluxModel.id);
-            localStorage.setItem("leonardo_model_id", fluxModel.id);
-          }
+          // Try to find the FLUX model or use default
+          setModelId("e316348f-7773-490e-adcd-46757c738eb7");
+          localStorage.setItem("leonardo_model_id", "e316348f-7773-490e-adcd-46757c738eb7");
         }
       } else {
         toast.error("Resposta inesperada da API Leonardo");

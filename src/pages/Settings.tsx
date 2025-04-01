@@ -141,8 +141,8 @@ const Settings = () => {
         return;
       }
       
-      // Test the connection with a simple models list call
-      const response = await fetch('https://cloud.leonardo.ai/api/rest/v1/models', {
+      // Use the user information endpoint instead of models list
+      const response = await fetch('https://cloud.leonardo.ai/api/rest/v1/me', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -159,7 +159,7 @@ const Settings = () => {
       }
       
       const data = await response.json();
-      if (data && Array.isArray(data.models)) {
+      if (data && data.user_details) {
         toast.success('Conexão com Leonardo AI estabelecida com sucesso');
         localStorage.removeItem('leonardo_api_issue');
       } else {
