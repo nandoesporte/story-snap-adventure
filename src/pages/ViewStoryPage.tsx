@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +12,7 @@ import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { validateAndFixStoryImages } from '@/lib/imageHelper';
+import { validateAndFixStoryImages } from '@/lib/imageHelper'; // Direct import
 import CoverImage from '@/components/CoverImage';
 
 interface StoryPage {
@@ -133,7 +134,21 @@ const ViewStoryPage: React.FC = () => {
           setStory(formattedStory);
           
           if (data.id) {
-            validateAndFixStoryImages(data.id)
+            // Direct call to validateAndFixStoryImages
+            validateAndFixStoryImages(data)
+              .then(fixedData => {
+                console.log("Images validated and fixed:", fixedData);
+                // Update the story with fixed images if needed
+                if (fixedData !== data) {
+                  setStory({
+                    id: fixedData.id,
+                    title: fixedData.title,
+                    coverImageUrl: fixedData.cover_image_url,
+                    characterName: fixedData.character_name,
+                    pages: fixedData.pages || []
+                  });
+                }
+              })
               .catch(err => console.error("Error validating images:", err));
           }
         } else {

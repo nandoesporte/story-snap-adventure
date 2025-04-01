@@ -3,6 +3,7 @@ import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage, fixImageUrl, ensureImagesDirectory } from "./helpers";
 import { toast } from "sonner";
+import { saveImagePermanently } from "@/lib/imageStorage";
 
 interface PageTransitionProps {
   storyId: string | undefined;
@@ -35,7 +36,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
 }) => {
   const bookRef = useRef<HTMLDivElement>(null);
   
-  // Debug logging
   useEffect(() => {
     console.log("PageTransition rendering with:", {
       currentPage,
@@ -46,7 +46,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     });
   }, [currentPage, isMobile, isFullscreen, storyData, isRendered]);
   
-  // Check if we have story data
   if (!storyData) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -55,20 +54,17 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     );
   }
   
-  // Ensure we have default images
   useEffect(() => {
     ensureImagesDirectory();
   }, []);
   
   const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/images/defaults/default.jpg";
   
-  // Preload next and previous page images to improve transitions
   useEffect(() => {
     if (!storyData || !storyData.pages || storyData.pages.length === 0) return;
     
     const preloadAdjacentPages = async () => {
       try {
-        // Preload current page image
         const currentImageUrl = currentPage === 0 
           ? coverImageSrc 
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
@@ -82,7 +78,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
         
-        // Preload next page image if available
         if (currentPage < storyData.pages.length) {
           const nextImageUrl = currentPage === 0 
             ? (storyData.pages[0]?.imageUrl || storyData.pages[0]?.image_url)
@@ -98,7 +93,6 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           }
         }
         
-        // Preload previous page image if available
         if (currentPage > 0) {
           const prevImageUrl = currentPage === 1 
             ? coverImageSrc
@@ -121,12 +115,10 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     preloadAdjacentPages();
   }, [currentPage, storyData, coverImageSrc]);
   
-  // Calculate transition classes based on state
   const getTransitionClasses = () => {
     let baseClasses = "absolute inset-0 transition-all duration-500 ease-in-out perspective";
     
     if (isFlipping) {
-      // Apply 3D rotation effect for page flipping
       if (flipDirection === "left") {
         return `${baseClasses} transform -translate-x-1/2 rotate-y-[-15deg] opacity-90`;
       } else {

@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { saveStoryImagesPermanently } from "@/lib/imageStorage";
+import { validateAndFixStoryImages } from "@/lib/imageHelper";
 
 interface StoryPage {
   text: string;
@@ -51,7 +51,6 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Reset state when storyId or retryCount changes
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -107,24 +106,26 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Story data loaded:", data);
       
-      const coverImage = data.cover_image_url || 
-                      (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+      const fixedData = await validateAndFixStoryImages(data);
+      
+      const coverImage = fixedData.cover_image_url || 
+                      (fixedData.pages && fixedData.pages.length > 0 ? fixedData.pages[0].image_url : null) ||
                       "/images/defaults/default_cover.jpg";
                       
       console.log("Selected cover image:", coverImage);
       
       const formattedStory: StoryData = {
-        title: data.title || "Untitled Story",
+        title: fixedData.title || "Untitled Story",
         coverImageUrl: coverImage,
         cover_image_url: coverImage,
-        childName: data.character_name || "Reader",
-        childAge: data.character_age || "",
-        theme: data.theme || "",
-        setting: data.setting || "",
-        style: data.style || "",
-        voiceType: data.voice_type || 'female',
-        pages: Array.isArray(data.pages) 
-          ? data.pages.map((page: any) => ({
+        childName: fixedData.character_name || "Reader",
+        childAge: fixedData.character_age || "",
+        theme: fixedData.theme || "",
+        setting: fixedData.setting || "",
+        style: fixedData.style || "",
+        voiceType: fixedData.voice_type || 'female',
+        pages: Array.isArray(fixedData.pages) 
+          ? fixedData.pages.map((page: any) => ({
               text: page.text || "",
               imageUrl: page.image_url || "/images/defaults/default.jpg",
               image_url: page.image_url || "/images/defaults/default.jpg"
@@ -136,7 +137,6 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       setTotalPages(formattedStory.pages.length + 1);
       setLoading(false);
       
-      // Process images for permanent storage after loading the story
       processStoryImages(formattedStory, data.id);
     } catch (processError) {
       console.error("Error processing story data:", processError);
@@ -179,7 +179,6 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         setStoryData(formattedStory);
         setTotalPages(formattedStory.pages.length + 1);
         
-        // Process images for permanent storage after loading the story
         processStoryImages(formattedStory);
       } else {
         console.error("No story data found in sessionStorage");
@@ -200,13 +199,11 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     if (imagesProcessed) return;
     
     try {
-      // Process images for permanent storage
       const updatedStory = await saveStoryImagesPermanently({
         ...story,
         id: storyId
       });
       
-      // Save updated version of the story if there's an ID
       if (storyId) {
         const { error: updateError } = await supabase
           .from("stories")
@@ -223,11 +220,9 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         }
       }
       
-      // Update state with the new image URLs
       setStoryData(updatedStory);
       setImagesProcessed(true);
       
-      // Update sessionStorage to ensure persistence even after refresh
       sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
     } catch (error) {
       console.error("Error processing story images:", error);
