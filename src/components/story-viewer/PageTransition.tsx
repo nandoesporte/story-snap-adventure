@@ -2,7 +2,7 @@
 import React, { useRef, useEffect } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
-import { getImageUrl, preloadImage } from "./helpers";
+import { getImageUrl, preloadImage, fixImageUrl, ensureImagesDirectory } from "./helpers";
 import { toast } from "sonner";
 
 interface PageTransitionProps {
@@ -56,7 +56,12 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     );
   }
   
-  const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/placeholder.svg";
+  // Ensure we have default images
+  useEffect(() => {
+    ensureImagesDirectory();
+  }, []);
+  
+  const coverImageSrc = storyData?.coverImageUrl || storyData?.cover_image_url || "/images/defaults/default.jpg";
   
   // Preload next and previous page images to improve transitions
   useEffect(() => {
@@ -70,7 +75,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
           
         if (currentImageUrl) {
-          await preloadImage(getImageUrl(currentImageUrl, storyData.theme));
+          const fixedUrl = fixImageUrl(getImageUrl(currentImageUrl, storyData.theme));
+          await preloadImage(fixedUrl);
         }
         
         // Preload next page image if available
@@ -80,7 +86,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage]?.imageUrl || storyData.pages[currentPage]?.image_url);
             
           if (nextImageUrl) {
-            await preloadImage(getImageUrl(nextImageUrl, storyData.theme));
+            const fixedUrl = fixImageUrl(getImageUrl(nextImageUrl, storyData.theme));
+            await preloadImage(fixedUrl);
           }
         }
         
@@ -91,7 +98,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage - 2]?.imageUrl || storyData.pages[currentPage - 2]?.image_url);
             
           if (prevImageUrl) {
-            await preloadImage(getImageUrl(prevImageUrl, storyData.theme));
+            const fixedUrl = fixImageUrl(getImageUrl(prevImageUrl, storyData.theme));
+            await preloadImage(fixedUrl);
           }
         }
       } catch (error) {
@@ -133,35 +141,24 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       {currentPage === 0 ? (
         <CoverPage
           title={storyData.title}
-          coverImageSrc={coverImageSrc}
-          childName={storyData.childName}
-          theme={storyData.theme}
-          setting={storyData.setting}
-          style={storyData.style}
+          coverImageSrc={fixImageUrl(coverImageSrc)}
+          childName={storyData.childName || storyData.characterName}
+          onImageClick={() => onImageClick(fixImageUrl(coverImageSrc))}
+          onImageError={() => onImageError(coverImageSrc)}
           isMobile={isMobile}
-          onImageClick={onImageClick}
-          onImageError={onImageError}
         />
       ) : (
         <StoryPage
-          storyId={storyId}
-          title={storyData.title}
-          imageUrl={getImageUrl(
-            storyData.pages[currentPage - 1]?.imageUrl || 
-            storyData.pages[currentPage - 1]?.image_url,
-            storyData.theme
-          )}
-          pageIndex={currentPage - 1}
-          pageCount={storyData.pages.length}
-          childName={storyData.childName}
+          pageNumber={currentPage}
+          totalPages={storyData.pages.length}
+          text={storyData.pages[currentPage - 1]?.text}
           typedText={storyData.typedText}
-          isFullscreen={isFullscreen}
-          isMobile={isMobile}
-          hideText={hideText}
-          voiceType={storyData.voiceType || 'female'}
+          imageUrl={storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url}
+          theme={storyData.theme}
           onImageClick={onImageClick}
           onImageError={onImageError}
-          onToggleTextVisibility={onToggleTextVisibility}
+          isMobile={isMobile}
+          hideText={hideText}
         />
       )}
     </div>
