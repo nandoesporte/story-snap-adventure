@@ -268,341 +268,295 @@ const StoryCreator = () => {
       
       sessionStorage.removeItem("create_story_data");
       
+      // Fix 3: Corrigindo navegação após finalização com timeout
       setTimeout(() => {
         if (storyId) {
-          navigate(`/view-story/${storyId}`);
+          navigate(`/story/${storyId}`);
         } else {
-          navigate("/view-story");
+          navigate("/my-stories");
         }
       }, 1000);
+      
     } catch (error: any) {
-      console.error("Erro ao gerar história final:", error);
-      setStoryGenerationStarted(false);
+      console.error("Erro ao gerar história:", error);
       
-      // Verificar se o erro é de conexão
-      if (error.message && error.message.includes("Connection error")) {
-        setConnectionErrorCount(prev => prev + 1);
-        
-        if (connectionErrorCount < 3) {
-          toast.error("Erro de conexão ao gerar ilustrações. Tentando novamente...");
-          setTimeout(() => {
-            setStoryGenerationStarted(false);
-            generateStory(data);
-          }, 3000);
-          return;
-        } else {
-          toast.error("Falha persistente na conexão. Continuando com imagens padrão.");
-          // Prosseguir com a história, mas com imagens de placeholder
-          // Este código deve ser implementado na função generateCompleteStory no hook useStoryGeneration
-        }
-      }
-      
-      if (error.message && error.message.includes("API key")) {
-        setApiError("A chave da API está incorreta ou inválida. Configure-a nas configurações.");
-        toast.error("Erro na chave da API. Por favor, verifique suas configurações.");
-      } else if (error.message && (error.message.includes("429") || error.message.includes("quota") || error.message.includes("limite"))) {
-        setApiError("Limite de requisições ou quota excedida. Tente novamente mais tarde.");
-        toast.error("Limite de requisições excedido. Por favor, tente novamente mais tarde.");
+      const errorMessage = error.message || "Erro desconhecido";
+      if (errorMessage.includes("API key") || errorMessage.includes("401")) {
+        toast.error("Erro na chave da API OpenAI. Verifique suas configurações.");
+      } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
+        toast.error("Limite da API OpenAI excedido. Tente novamente mais tarde.");
+      } else if (errorMessage.includes("Connection error") || errorMessage.includes("network")) {
+        toast.error("Erro de conexão. Verifique sua internet e tente novamente.");
       } else {
-        setApiError("Ocorreu um erro ao gerar a história. Tente novamente.");
-        toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
+        toast.error("Erro ao gerar história: " + errorMessage);
       }
       
-      // Fix: Return to details step on error to allow resubmission
-      setFormSubmitted(false);
       setStep("details");
+      setFormSubmitted(false);
     }
-  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase, connectionErrorCount, isGenerating, step]);
-
-  useEffect(() => {
-    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
-    setHasElevenLabsKey(!!elevenlabsApiKey);
-    
-    const savedData = sessionStorage.getItem("create_story_data");
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        const formattedData: StoryFormData = {
-          childName: parsedData.childName,
-          childAge: parsedData.childAge,
-          theme: parsedData.theme,
-          setting: parsedData.setting,
-          characterId: parsedData.characterId,
-          characterName: parsedData.characterName,
-          style: (parsedData.style as StoryStyle) || "papercraft",
-          length: parsedData.length || "medium",
-          readingLevel: parsedData.readingLevel || "intermediate",
-          language: parsedData.language || "portuguese",
-          moral: parsedData.moral || "friendship",
-          voiceType: parsedData.voiceType || "female"
-        };
-        
-        setFormData(formattedData);
-        
-        if (parsedData.imagePreview) {
-          setImagePreview(parsedData.imagePreview);
-        }
-        
-        if (parsedData.selectedPromptId) {
-          setSelectedPromptId(parsedData.selectedPromptId);
-        }
-        
-        setDataLoaded(true);
-      } catch (error) {
-        console.error("Erro ao carregar dados salvos:", error);
-        navigate("/create-story");
-        toast.error("Dados da história inválidos. Por favor, comece novamente.");
-      }
-    } else {
-      navigate("/create-story");
-      toast.error("Dados da história não encontrados. Por favor, comece novamente.");
-    }
-
-    const openAiApiKey = localStorage.getItem('openai_api_key');
-    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
-      setApiError("A chave da API OpenAI não está configurada. Por favor, configure-a nas configurações.");
-    }
-  }, [navigate]);
+  }, [
+    navigate, 
+    isGenerating, 
+    step, 
+    selectedPromptId, 
+    selectedCharacter, 
+    imagePreview, 
+    generateCompleteStory, 
+    saveStoryToSupabase,
+    hasElevenLabsKey
+  ]);
   
+  // Load data from session storage 
   useEffect(() => {
-    const fetchCharacter = async () => {
-      if (formData?.characterId) {
-        try {
-          const { data, error } = await supabase
-            .from("characters")
-            .select("*")
-            .eq("id", formData.characterId)
-            .single();
-            
-          if (error) {
-            console.error("Erro ao buscar personagem:", error);
-            toast.error("Não foi possível carregar o personagem selecionado.");
-            return;
-          }
+    const loadSessionData = () => {
+      try {
+        const savedData = sessionStorage.getItem("create_story_data");
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
           
-          setSelectedCharacter(data as Character);
-        } catch (error) {
-          console.error("Erro ao buscar personagem:", error);
-          toast.error("Erro ao buscar informações do personagem.");
+          if (parsedData) {
+            // Set form data from session storage
+            setFormData({
+              childName: parsedData.childName || "",
+              childAge: parsedData.childAge || "",
+              theme: parsedData.theme || "adventure",
+              setting: parsedData.setting || "forest",
+              style: parsedData.style || "papercraft",
+              length: parsedData.length || "medium",
+              readingLevel: parsedData.readingLevel || "intermediate",
+              language: parsedData.language || "portuguese",
+              moral: parsedData.moral || "friendship",
+              voiceType: parsedData.voiceType || "female",
+              characterId: parsedData.characterId || undefined
+            });
+            
+            setStoryPrompt(parsedData.storyPrompt || "");
+            
+            if (parsedData.selectedPromptId) {
+              setSelectedPromptId(parsedData.selectedPromptId);
+              setPromptById(parsedData.selectedPromptId);
+            }
+            
+            // Flag that data is loaded
+            setDataLoaded(true);
+          }
         }
-      } else {
-        setSelectedCharacter(null);
+      } catch (error) {
+        console.error("Erro ao carregar dados da sessão:", error);
       }
     };
     
-    if (formData) {
-      fetchCharacter();
-    }
-  }, [formData]);
+    loadSessionData();
+    
+    // Check for ElevenLabs key
+    const elevenLabsKey = localStorage.getItem('elevenlabs_api_key');
+    setHasElevenLabsKey(!!elevenLabsKey && elevenLabsKey !== 'undefined' && elevenLabsKey !== 'null');
+    
+  }, [setPromptById]);
   
-  // Fix 3: Modified effect to prevent re-triggering story generation
+  // Start generation automatically when form data is loaded
   useEffect(() => {
-    // Only start generation if we have data, are in details step, no API error, not already generating, and form just submitted
-    if (dataLoaded && formData && step === "details" && !apiError && !storyGenerationStarted && !formSubmitted) {
-      console.log("Starting story generation from effect");
+    if (dataLoaded && formData && !storyGenerationStarted && !formSubmitted) {
+      console.log("Iniciando geração automática com dados carregados da sessão");
       setStoryGenerationStarted(true);
       
-      const startStoryGeneration = async () => {
-        if (selectedPromptId) {
-          try {
-            await setPromptById(selectedPromptId);
-            console.log("Applied selected prompt:", selectedPromptId);
-          } catch (error) {
-            console.error("Failed to set selected prompt:", error);
-          }
-        }
-        
+      // Fix 4: Adicionando delay para garantir que a interface carregue adequadamente
+      setTimeout(() => {
         generateStory(formData);
-      };
-      
-      startStoryGeneration();
+      }, 500);
     }
-  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory, storyGenerationStarted, formSubmitted]);
+  }, [dataLoaded, formData, generateStory, storyGenerationStarted, formSubmitted]);
   
-  // Fix 4: Modified form submission handler to better control the flow
-  const handleFormSubmit = (data: StoryFormData) => {
-    if (storyGenerationStarted || formSubmitted) {
-      console.log("Preventing duplicate form submission");
-      return;
-    }
-    
-    const updatedData: StoryFormData = {
-      ...data,
-      style: "papercraft" as StoryStyle
-    };
-    
-    setFormData(updatedData);
-    setConnectionErrorCount(0); // Resetar contador de erros de conexão
-    setStoryGenerationStarted(true); // Set flag before starting generation
-    
-    // Directly call generateStory instead of relying on the effect
-    generateStory(updatedData);
+  const setStoryPrompt = (prompt: string) => {
+    // This function is intentionally empty to satisfy the interface
+    // The actual prompt is saved to session storage
   };
-  
-  if (apiError) {
-    return (
-      <div className="container mx-auto max-w-4xl px-4 py-12">
-        <div className="glass rounded-2xl p-8 md:p-12 shadow-xl">
-          <div className="min-h-[300px] flex flex-col items-center justify-center">
-            <div className="mb-8 text-center">
-              <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Falha na geração da história</h2>
-              <p className="text-slate-600 max-w-md mx-auto mb-8">{apiError}</p>
-            </div>
-            
-            <Alert variant="destructive" className="mb-6 max-w-md">
-              <AlertCircle className="h-5 w-5" />
-              <AlertTitle>Problema com a API</AlertTitle>
-              <AlertDescription>
-                Para resolver este problema, você precisa configurar corretamente sua chave da API OpenAI nas configurações.
-              </AlertDescription>
-            </Alert>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                variant="outline" 
-                onClick={() => navigate("/create-story")}
-                className="flex items-center gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Voltar para criação
-              </Button>
-              
-              <Button 
-                variant="default"
-                onClick={() => navigate("/settings")}
-                className="flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Ir para configurações
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
+
+  // Return to form
+  const handleReturnToForm = () => {
+    setStep("details");
+    setFormSubmitted(false);
+    setStoryGenerationStarted(false);
+    
+    // Fix 5: Limpeza adequada ao retornar ao formulário
+    sessionStorage.removeItem("create_story_data");
+  };
+
+  // Handle form submission directly
+  const handleFormSubmit = (data: StoryFormData) => {
+    if (!formSubmitted) {
+      generateStory(data);
+    }
+  };
+
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-12">
-      <div className="glass rounded-2xl p-8 md:p-12 shadow-xl">
-        {step === "details" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              Personalize sua história
-            </h2>
-            
-            {!hasElevenLabsKey && (
-              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-amber-800 font-medium">Chave API ElevenLabs não configurada</p>
-                  <p className="text-amber-700 text-sm">
-                    Para ter narrações automáticas em suas histórias, configure a chave da API ElevenLabs nas configurações.
-                  </p>
-                </div>
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50">
+      <div className="flex-1 container mx-auto p-4 md:p-8">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-violet-100 p-4 md:p-8">
+          {step === "details" && (
+            <div>
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
+                  Detalhes da História
+                </h1>
+                <p className="text-slate-600">
+                  Personalize os detalhes para gerar sua história
+                </p>
               </div>
-            )}
-            
-            <StoryForm 
-              onSubmit={handleFormSubmit} 
-              initialData={formData} 
-              disabled={storyGenerationStarted || formSubmitted}
-            />
-          </motion.div>
-        )}
-        
-        {(step === "generating" || step === "finalizing") && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="min-h-[400px] flex flex-col items-center justify-center"
-          >
-            <LoadingSpinner size="lg" />
-            <p className="mt-6 text-lg font-medium">
-              {step === "finalizing" ? "História gerada com sucesso!" : "Gerando a história personalizada..."}
-            </p>
-            <p className="text-slate-500 mb-4">{currentStage}</p>
-            
-            {connectionErrorCount > 0 && (
-              <div className="mb-4 w-full max-w-md">
-                <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-md border border-amber-200">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm text-amber-700">
-                    Dificuldades de conexão detectadas. {connectionErrorCount >= 3 ? "Usando imagens padrão." : "Tentando novamente..."}
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            {totalImages > 0 && currentImageIndex > 0 && (
-              <div className="mb-4 w-full max-w-md">
-                <div className="flex justify-between text-sm text-slate-600 mb-1">
-                  <span>Gerando ilustrações</span>
-                  <span>{currentImageIndex} de {totalImages}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-md">
-                  <ImageIcon className="h-4 w-4 text-indigo-500" />
-                  <span className="text-sm text-indigo-700">Processando ilustração {currentImageIndex}...</span>
-                </div>
-              </div>
-            )}
-            
-            {generatingNarration && (
-              <div className="mb-4 w-full max-w-md">
-                <div className="flex justify-between text-sm text-slate-600 mb-1">
-                  <span>Gerando narrações</span>
-                  <span>{currentNarrationIndex} de {totalImages}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-violet-50 px-4 py-2 rounded-md">
-                  <Volume2 className="h-4 w-4 text-violet-500" />
-                  <span className="text-sm text-violet-700">
-                    Gerando narração para página {currentNarrationIndex}...
-                    {!hasElevenLabsKey && " (Atenção: API Key não configurada)"}
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            <div className="w-full max-w-md mb-8 bg-slate-200 rounded-full h-2.5">
-              <div 
-                className="bg-storysnap-blue h-2.5 rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              ></div>
+              
+              {apiError && (
+                <Alert variant="destructive" className="mb-6">
+                  <AlertTriangle className="h-5 w-5" />
+                  <AlertTitle>Atenção!</AlertTitle>
+                  <AlertDescription>
+                    {apiError}
+                    <div className="mt-2">
+                      <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                        Ir para Configurações
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
             </div>
-            
-            {currentImageIndex > 0 && currentImageIndex === totalImages && progress < 100 && (
-              <div className="w-full max-w-md mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-amber-700">
-                  Verificando qualidade das ilustrações. Isso pode levar alguns momentos adicionais para garantir que todas as imagens sejam geradas corretamente.
+          )}
+
+          {step === "generating" && (
+            <div className="py-10 px-4">
+              <div className="text-center mb-12">
+                <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-violet-700 to-indigo-600 text-transparent bg-clip-text">
+                  Gerando História Personalizada
+                </h1>
+                <p className="text-slate-600">
+                  Estamos criando uma história mágica e única para você
                 </p>
               </div>
-            )}
-            
-            {generatingNarration && (
-              <div className="w-full max-w-md mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-2">
-                <Volume2 className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-blue-700">
-                  A geração de narrações pode levar algum tempo. Estamos processando cada página para criar narrações de alta qualidade. Por favor, aguarde.
+              
+              <div className="flex flex-col items-center space-y-6 py-8">
+                <div className="relative w-full max-w-xl h-4 bg-gray-200 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-violet-600 to-indigo-600"
+                    initial={{ width: "5%" }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+                
+                <p className="text-lg text-center text-violet-700 font-medium">
+                  {currentStage}
+                </p>
+                
+                {totalImages > 0 && (
+                  <p className="text-sm text-gray-500">
+                    {currentImageIndex > 0 ? (
+                      <>Gerando ilustração {currentImageIndex} de {totalImages}</>
+                    ) : (
+                      <>Preparando geração de {totalImages} ilustrações</>
+                    )}
+                  </p>
+                )}
+                
+                {generatingNarration && (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Volume2 className="text-violet-600 h-5 w-5 animate-pulse" />
+                    <p className="text-sm text-gray-500">
+                      Gerando narração {currentNarrationIndex} de {totalImages}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex justify-center mt-6">
+                  <div className="relative">
+                    <div className="w-24 h-24 flex items-center justify-center">
+                      <LoadingSpinner size={80} />
+                    </div>
+                    
+                    {/* Fallback button for errors */}
+                    {connectionErrorCount >= 2 && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        className="mt-4 mx-auto" 
+                        onClick={handleReturnToForm}
+                      >
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        Cancelar e voltar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="flex items-center space-x-1">
+                    <ImageIcon className="h-4 w-4 text-violet-500" />
+                    <p className="text-sm text-gray-600">
+                      {progress >= 50 ? "Preparando imagens usando estilo papercraft" : "Gerando texto da história"}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <p className="text-sm text-gray-600">
+                      Este processo pode levar alguns minutos
+                    </p>
+                  </div>
+                  
+                  {/* Fix 6: Adicionando link para configurações */}
+                  {connectionErrorCount > 0 && (
+                    <div className="flex items-center pt-4">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-500 hover:text-gray-800" 
+                        onClick={() => navigate("/settings")}
+                      >
+                        <Settings className="h-4 w-4 mr-1" />
+                        Verificar configurações
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {step === "finalizing" && (
+            <div className="py-10 px-4">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-green-600 to-emerald-500 text-transparent bg-clip-text">
+                  História Criada com Sucesso!
+                </h1>
+                <p className="text-slate-600">
+                  Estamos finalizando os últimos detalhes...
                 </p>
               </div>
-            )}
-            
-            <p className="text-sm text-slate-500">
-              {step === "finalizing" 
-                ? "Redirecionando para visualização da história..." 
-                : generatingNarration 
-                  ? "Estamos gerando narrações para cada página da história. Isso proporcionará uma experiência de leitura mais completa!"
-                  : "Estamos criando algo especial com a OpenAI! As ilustrações serão geradas persistentemente, garantindo qualidade em cada página."}
-            </p>
-          </motion.div>
-        )}
+              
+              <div className="flex flex-col items-center space-y-6 py-8">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"
+                >
+                  <Sparkles className="h-8 w-8 text-green-600" />
+                </motion.div>
+                
+                <p className="text-lg text-center text-green-700 font-medium">
+                  Salvando sua história...
+                </p>
+                
+                <div className="flex justify-center">
+                  <LoadingSpinner size={40} />
+                </div>
+                
+                <p className="text-sm text-gray-500 max-w-md text-center">
+                  Sua história está sendo salva. Você será redirecionado automaticamente em alguns instantes.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
