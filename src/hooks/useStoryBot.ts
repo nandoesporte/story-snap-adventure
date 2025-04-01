@@ -12,6 +12,7 @@ export const useStoryBot = () => {
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState<boolean>(false);
   const [useOpenAIForStories, setUseOpenAIFlag] = useState<boolean>(true);
   const [openAIModel, setOpenAIModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
   useEffect(() => {
     const isApiAvailable = storyBot.isApiAvailable();
@@ -26,11 +27,15 @@ export const useStoryBot = () => {
       throw new Error('API indisponível');
     }
     
+    setIsGenerating(true);
+    
     try {
       return await storyBot.generateStoryBotResponse(messages, userPrompt);
     } catch (error) {
       console.error("Error generating StoryBot response:", error);
       throw error;
+    } finally {
+      setIsGenerating(false);
     }
   };
   
@@ -79,6 +84,30 @@ export const useStoryBot = () => {
   
   const getPromptReferenceImages = async (promptId: string) => {
     return await storyBot.getPromptReferenceImages(promptId);
+  };
+  
+  // Add the missing methods needed by components
+  const resetLeonardoApiStatus = () => {
+    localStorage.removeItem('leonardo_webhook_url');
+    localStorage.removeItem('leonardo_api_key');
+    setLeonardoApiAvailable(false);
+    toast.success("API status reset successfully");
+  };
+  
+  const setLeonardoApiKey = (apiKey: string) => {
+    if (!apiKey || apiKey.trim() === '') {
+      return false;
+    }
+    
+    try {
+      localStorage.setItem('leonardo_api_key', apiKey.trim());
+      localStorage.setItem('leonardo_webhook_url', 'https://cloud.leonardo.ai/api/rest/v1/generations');
+      setLeonardoApiAvailable(true);
+      return true;
+    } catch (error) {
+      console.error("Error setting Leonardo API key:", error);
+      return false;
+    }
   };
   
   const generateCompleteStory = async (
@@ -167,6 +196,7 @@ export const useStoryBot = () => {
     leonardoApiAvailable,
     useOpenAIForStories,
     openAIModel,
+    isGenerating,
     generateStoryBotResponse,
     checkOpenAIAvailability,
     setUseOpenAIForStories,
@@ -175,6 +205,8 @@ export const useStoryBot = () => {
     setPromptById,
     loadPromptByName,
     listAvailablePrompts,
-    getPromptReferenceImages
+    getPromptReferenceImages,
+    resetLeonardoApiStatus,
+    setLeonardoApiKey
   };
 };

@@ -42,7 +42,8 @@ const StoryCreator = () => {
     currentImageIndex,
     totalImages,
     generatingNarration,
-    currentNarrationIndex
+    currentNarrationIndex,
+    setPromptById
   } = useStoryGeneration();
   
   useEffect(() => {
@@ -128,20 +129,20 @@ const StoryCreator = () => {
   
   useEffect(() => {
     if (dataLoaded && formData && step === "generating" && !apiError) {
-      if (selectedPromptId) {
-        const { setPromptById } = useStoryGeneration;
-        setPromptById(selectedPromptId).then(() => {
-          console.log("Applied selected prompt:", selectedPromptId);
-          generateStory(formData);
-        }).catch(error => {
-          console.error("Failed to set selected prompt:", error);
-          generateStory(formData);
-        });
-      } else {
+    if (selectedPromptId) {
+      // Fix the reference to setPromptById
+      setPromptById(selectedPromptId).then(() => {
+        console.log("Applied selected prompt:", selectedPromptId);
         generateStory(formData);
-      }
+      }).catch(error => {
+        console.error("Failed to set selected prompt:", error);
+        generateStory(formData);
+      });
+    } else {
+      generateStory(formData);
     }
-  }, [dataLoaded, formData, step, apiError, selectedPromptId]);
+  }
+}, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory]);
   
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
