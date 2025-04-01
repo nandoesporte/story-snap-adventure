@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
 import { useStoryNarration } from "./useStoryNarration";
 import { v4 as uuidv4 } from "uuid";
+import { saveImagePermanently } from "@/lib/imageStorage";
 
 interface StoryResult {
   id: string;
@@ -187,7 +187,6 @@ export const useStoryGeneration = () => {
         
         setCurrentStage("Verificando a capa do livro...");
         
-        // Generate cover image with retry mechanism
         if (!storyResult.coverImageUrl || 
             storyResult.coverImageUrl.includes('placeholder') || 
             storyResult.coverImageUrl.startsWith('/placeholder') ||
@@ -201,7 +200,6 @@ export const useStoryGeneration = () => {
             toast.info(`Gerando capa do livro com OpenAI (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
             
             try {
-              // First check if we can use the first page image
               if (storyResult.pages && storyResult.pages.length > 0 && 
                   storyResult.pages[0].imageUrl && 
                   !storyResult.pages[0].imageUrl.includes('placeholder')) {
@@ -216,7 +214,6 @@ export const useStoryGeneration = () => {
                 Create a captivating, colorful illustration suitable for a book cover. 
                 Use papercraft visual style (layered colorful paper with depth).`;
                 
-                // Longer timeout for cover generation
                 const waitTime = 3000 * (attempt + 1);
                 await new Promise(resolve => setTimeout(resolve, waitTime));
                 
@@ -243,9 +240,7 @@ export const useStoryGeneration = () => {
             }
           }
           
-          // If all attempts failed, use default image
           if (!coverGenerated) {
-            // Usar imagem padrão para a capa baseada no tema
             const defaultCoverUrl = `/images/defaults/${theme || 'default'}_cover.jpg`;
             storyResult.coverImageUrl = defaultCoverUrl;
             toast.warning("Não foi possível gerar a capa. Usando imagem padrão.");
@@ -254,7 +249,6 @@ export const useStoryGeneration = () => {
         
         setTotalImages(storyResult.pages.length);
         
-        // Generate images for each page with improved error handling
         for (let i = 0; i < storyResult.pages.length; i++) {
           setCurrentImageIndex(i + 1);
           setCurrentStage(`Verificando ilustração ${i + 1} de ${storyResult.pages.length}...`);
@@ -274,7 +268,6 @@ export const useStoryGeneration = () => {
               toast.info(`Gerando ilustração ${i + 1} (tentativa ${attempt + 1} de ${maxAttempts})...`);
               
               try {
-                // Add delay between attempts
                 if (attempt > 0) {
                   await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
                 }
@@ -305,17 +298,13 @@ export const useStoryGeneration = () => {
               }
             }
             
-            // If all attempts failed, use default image
             if (!imageGenerated) {
-              // Usar imagem padrão baseada no tema
               storyResult.pages[i].imageUrl = `/images/defaults/${theme || 'default'}.jpg`;
               toast.warning(`Não foi possível gerar a ilustração ${i+1}. Usando imagem padrão.`);
             }
             
-            // Wait between pages to avoid overwhelming the API
             await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // If we've had too many connection errors, use default images for remaining pages
             if (connectionErrorCount >= 3) {
               toast.error("Problemas persistentes de conexão detectados. Usando imagens padrão para as páginas restantes.");
               for (let j = i + 1; j < storyResult.pages.length; j++) {
@@ -325,7 +314,6 @@ export const useStoryGeneration = () => {
             }
           }
           
-          // Update progress
           const baseProgress = 50;
           const progressPerImage = (100 - baseProgress) / storyResult.pages.length;
           setProgress(baseProgress + progressPerImage * (i + 1));
@@ -359,7 +347,6 @@ export const useStoryGeneration = () => {
                     attempts++;
                     console.log(`Tentativa ${attempts} de gerar narração humanizada para página ${i+1}`);
                     
-                    // Generate and save narration to database
                     const audioUrl = await generateAudio(voiceType, {
                       storyId: storyResult.id,
                       text: storyResult.pages[i].text,

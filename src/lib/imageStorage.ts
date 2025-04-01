@@ -136,6 +136,63 @@ export const saveImagePermanently = async (imageUrl: string, storyId?: string): 
     if (error) {
       console.error("Error uploading image to storage:", error);
       
+      // Check if the error is due to storage bucket not existing
+      if (error.message && error.message.includes("The resource was not found")) {
+        console.log("Attempting to create storage bucket 'story_images'");
+        
+        try {
+          // Try to create the bucket if it doesn't exist
+          const { data: bucketData, error: bucketError } = await supabase
+            .storage
+            .createBucket('story_images', {
+              public: true,
+              fileSizeLimit: 5242880 // 5MB
+            });
+          
+          if (bucketError) {
+            console.error("Error creating bucket:", bucketError);
+          } else {
+            console.log("Bucket created, retrying upload");
+            
+            // Retry the upload
+            const { data: retryData, error: retryError } = await supabase
+              .storage
+              .from('story_images')
+              .upload(fileName, imageBlob, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: 'image/png'
+              });
+              
+            if (retryError) {
+              console.error("Error in retry upload:", retryError);
+            } else {
+              // Obtain public URL after successful retry
+              const { data: publicUrlData } = supabase
+                .storage
+                .from('story_images')
+                .getPublicUrl(fileName);
+                
+              console.log("Image saved permanently on retry:", publicUrlData.publicUrl);
+              
+              // Store the URL in cache
+              try {
+                const urlKey = imageUrl.split('/').pop()?.split('?')[0];
+                if (urlKey) {
+                  localStorage.setItem(`image_cache_${urlKey}`, publicUrlData.publicUrl);
+                }
+              } catch (cacheError) {
+                console.error("Error storing URL in cache:", cacheError);
+              }
+              
+              return publicUrlData.publicUrl;
+            }
+          }
+        } catch (bucketCreationError) {
+          console.error("Error creating storage bucket:", bucketCreationError);
+        }
+      }
+      
       // Return a default image path if upload fails
       const theme = 'default';
       const defaultImagePath = `/images/defaults/${theme}.jpg`;

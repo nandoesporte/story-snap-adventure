@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -54,7 +53,6 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Reset state when storyId or retryCount changes
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -110,56 +108,38 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Story data loaded:", data);
       
-      // Make sure we have a valid cover image
-      const coverImage = data.cover_image_url || 
-                      (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
+      const fixedData = await validateAndFixStoryImages(data);
+      
+      const coverImage = fixedData.cover_image_url || 
+                      (fixedData.pages && fixedData.pages.length > 0 ? fixedData.pages[0].image_url : null) ||
                       "/images/defaults/default_cover.jpg";
                       
       console.log("Selected cover image:", coverImage);
       
-      // Process page images to ensure they have URLs
-      const processedPages = Array.isArray(data.pages) 
-        ? data.pages.map((page: any, index: number) => {
-            // Make sure each page has an image URL
-            const pageImageUrl = page.image_url || page.imageUrl || `/images/defaults/${data.theme || 'default'}.jpg`;
-            
-            return {
-              text: page.text || "",
-              imageUrl: pageImageUrl,
-              image_url: pageImageUrl
-            };
-          })
-        : [{ 
-            text: "No content available.", 
-            imageUrl: "/images/defaults/default.jpg",
-            image_url: "/images/defaults/default.jpg" 
-          }];
-      
       const formattedStory: StoryData = {
-        title: data.title || "Untitled Story",
+        title: fixedData.title || "Untitled Story",
         coverImageUrl: coverImage,
         cover_image_url: coverImage,
-        childName: data.character_name || "Reader",
-        childAge: data.character_age || "",
-        theme: data.theme || "",
-        setting: data.setting || "",
-        style: data.style || "",
-        voiceType: data.voice_type || 'female',
-        pages: processedPages
+        childName: fixedData.character_name || "Reader",
+        childAge: fixedData.character_age || "",
+        theme: fixedData.theme || "",
+        setting: fixedData.setting || "",
+        style: fixedData.style || "",
+        voiceType: fixedData.voice_type || 'female',
+        pages: Array.isArray(fixedData.pages) 
+          ? fixedData.pages.map((page: any) => ({
+              text: page.text || "",
+              imageUrl: page.image_url || "/images/defaults/default.jpg",
+              image_url: page.image_url || "/images/defaults/default.jpg"
+            }))
+          : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
       };
       
       setStoryData(formattedStory);
       setTotalPages(formattedStory.pages.length + 1);
       setLoading(false);
       
-      // Process images for permanent storage after loading the story
       processStoryImages(formattedStory, data.id);
-      
-      // Validate and fix any temporary image URLs
-      if (data.id) {
-        validateAndFixStoryImages(data.id)
-          .catch(err => console.error("Error validating images:", err));
-      }
     } catch (processError) {
       console.error("Error processing story data:", processError);
       setError(processError instanceof Error ? processError : new Error("Failed to process story data"));
@@ -174,16 +154,13 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         const parsedData = JSON.parse(savedData);
         console.log("Data loaded from sessionStorage:", parsedData);
         
-        // Make sure we have a valid cover image
         const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
                          (parsedData.pages && parsedData.pages.length > 0 ? 
                            (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
                            "/images/defaults/default_cover.jpg");
         
-        // Process pages to ensure they have image URLs
         const processedPages = Array.isArray(parsedData.pages) 
           ? parsedData.pages.map((page: any, index: number) => {
-              // Make sure each page has an image URL
               const pageImageUrl = page.imageUrl || page.image_url || `/images/defaults/${parsedData.theme || 'default'}.jpg`;
               
               return {
@@ -214,7 +191,6 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         setStoryData(formattedStory);
         setTotalPages(formattedStory.pages.length + 1);
         
-        // Process images for permanent storage after loading the story
         processStoryImages(formattedStory);
       } else {
         console.error("No story data found in sessionStorage");
@@ -237,18 +213,16 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Processing images to ensure they are permanently stored");
       
-      // Process images for permanent storage
       const updatedStory = await saveStoryImagesPermanently({
         ...story,
         id: storyId
       });
       
-      // Save updated version of the story if there's an ID
       if (storyId) {
         const { error: updateError } = await supabase
           .from("stories")
           .update({
-            cover_image_url: updatedStory.cover_image_url || updatedStory.coverImageUrl,
+            cover_image_url: updatedStory.cover_image_url,
             pages: updatedStory.pages
           })
           .eq("id", storyId);
@@ -260,11 +234,9 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         }
       }
       
-      // Update state with the new image URLs
       setStoryData(updatedStory);
       setImagesProcessed(true);
       
-      // Update sessionStorage to ensure persistence even after refresh
       sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
     } catch (error) {
       console.error("Error processing story images:", error);

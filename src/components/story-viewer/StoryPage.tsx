@@ -1,9 +1,10 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import CoverImage from "../CoverImage";
 import { fixImageUrl, getImageUrl } from "./helpers";
 import { toast } from "sonner";
+import { isPermanentStorage } from "./helpers";
 
 interface StoryPageProps {
   pageNumber: number;
@@ -32,6 +33,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
 }) => {
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [loadRetry, setLoadRetry] = useState(0);
   const displayText = typedText || text || "";
   
   // Process image URL with better error handling
@@ -44,11 +46,34 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     processedImageUrl = `/images/defaults/${theme || 'default'}.jpg`;
   }
   
+  // Check if this is a permanent URL
+  const isPermanent = isPermanentStorage(processedImageUrl);
+  
   // Fallback image logic
   const fallbackImage = `/images/defaults/${theme || 'default'}.jpg`;
   
   // Split text into paragraphs
   const paragraphs = displayText ? displayText.split("\n").filter(p => p.trim().length > 0) : [];
+  
+  // Attempt to retry loading if the image URL is not permanent
+  useEffect(() => {
+    if (!isPermanent && imageUrl && !imageUrl.startsWith('/images/defaults/') && loadRetry === 0) {
+      import('@/lib/imageStorage').then(({ saveImagePermanently }) => {
+        console.log(`Attempting to save non-permanent image for page ${pageNumber} to permanent storage`);
+        
+        saveImagePermanently(imageUrl, `story_page_${pageNumber}`)
+          .then(permanentUrl => {
+            if (permanentUrl && permanentUrl !== imageUrl) {
+              console.log(`Successfully saved page ${pageNumber} image to permanent storage:`, permanentUrl);
+              setLoadRetry(prev => prev + 1);
+            }
+          })
+          .catch(error => {
+            console.error("Failed to save image to permanent storage:", error);
+          });
+      });
+    }
+  }, [imageUrl, pageNumber, isPermanent, loadRetry]);
   
   const handleImageClick = () => {
     if (!imageLoadFailed) {
@@ -61,8 +86,23 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     setImageLoadFailed(true);
     onImageError(processedImageUrl);
     
-    // Try again with a default image
-    setImageLoadFailed(true);
+    // Try to save to permanent storage if it's the first error
+    if (!imageLoadFailed && !isPermanent) {
+      import('@/lib/imageStorage').then(({ saveImagePermanently }) => {
+        console.log(`Attempting to save failed image for page ${pageNumber} to permanent storage`);
+        
+        saveImagePermanently(imageUrl, `story_page_${pageNumber}_retry`)
+          .then(permanentUrl => {
+            if (permanentUrl && permanentUrl !== imageUrl && permanentUrl !== processedImageUrl) {
+              console.log(`Got permanent URL for failed image on page ${pageNumber}:`, permanentUrl);
+              setLoadRetry(prev => prev + 1);
+            }
+          })
+          .catch(error => {
+            console.error("Failed to save image to permanent storage:", error);
+          });
+      });
+    }
   };
 
   // Handle double tap/click for mobile fullscreen
