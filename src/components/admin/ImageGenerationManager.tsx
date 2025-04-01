@@ -1,295 +1,226 @@
+
 import React, { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
-import { Badge } from "@/components/ui/badge";
-import { Wand2, RefreshCw, Save, CheckCircle, XCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { generateImageWithOpenAI } from "@/lib/openai";
+import LeonardoAIStatusCheck from "./LeonardoAIStatusCheck";
 
 const ImageGenerationManager = () => {
-  const [leonardoApiKey, setLeonardoApiKey] = useState("");
-  const [useLeonardo, setUseLeonardo] = useState(false);
-  const [useOpenAI, setUseOpenAI] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [modelId, setModelId] = useState("e316348f-7773-490e-adcd-46757c738eb7"); // Default Leonardo model
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [leonardoApiKey, setLeonardoApiKey] = useState<string>("");
+  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(true);
+  const [useOpenAI, setUseOpenAI] = useState<boolean>(false);
+  const [isGeneratingTest, setIsGeneratingTest] = useState<boolean>(false);
+  const [testImageUrl, setTestImageUrl] = useState<string>("");
 
   useEffect(() => {
-    loadSettings();
+    // Load saved preferences
+    const savedKey = localStorage.getItem("leonardo_api_key") || "";
+    const savedUseLeonardo = localStorage.getItem("use_leonardo_ai") !== "false";
+    const savedUseOpenAI = localStorage.getItem("use_openai_for_images") === "true";
+
+    setLeonardoApiKey(savedKey);
+    setUseLeonardoAI(savedUseLeonardo);
+    setUseOpenAI(savedUseOpenAI);
   }, []);
 
-  const loadSettings = async () => {
-    setIsLoading(true);
+  const handleSaveLeonardoAPI = () => {
     try {
-      // Load Leonardo settings
-      const savedLeonardoKey = localStorage.getItem("leonardo_api_key") || "";
-      const savedUseLeonardo = localStorage.getItem("use_leonardo_ai") === "true";
-      const savedModelId = localStorage.getItem("leonardo_model_id") || "e316348f-7773-490e-adcd-46757c738eb7";
-      
-      // Load OpenAI settings for image generation
-      const savedUseOpenAI = localStorage.getItem("use_openai_for_images") !== "false";
-      
-      setLeonardoApiKey(savedLeonardoKey);
-      setUseLeonardo(savedUseLeonardo);
-      setUseOpenAI(savedUseOpenAI);
-      setModelId(savedModelId);
-      
-      // Check if the Leonardo API key is valid
-      if (savedLeonardoKey) {
-        setConnectionStatus(localStorage.getItem("leonardo_api_issue") === "true" ? "error" : "idle");
-      }
-    } catch (error) {
-      console.error("Error loading settings:", error);
-      toast.error("Erro ao carregar as configurações");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const saveSettings = async () => {
-    setIsLoading(true);
-    try {
-      // Save Leonardo settings
-      if (leonardoApiKey) {
-        localStorage.setItem("leonardo_api_key", leonardoApiKey);
+      if (leonardoApiKey && leonardoApiKey.trim().length > 10) {
+        localStorage.setItem("leonardo_api_key", leonardoApiKey.trim());
         localStorage.setItem("leonardo_webhook_url", "https://cloud.leonardo.ai/api/rest/v1/generations");
+        localStorage.removeItem("leonardo_api_issue");
+        toast.success("Chave API da Leonardo AI salva com sucesso!");
+      } else {
+        toast.error("A chave API é inválida. Por favor, insira uma chave válida.");
       }
-      
-      localStorage.setItem("use_leonardo_ai", String(useLeonardo));
-      localStorage.setItem("use_openai_for_images", String(useOpenAI));
-      localStorage.setItem("leonardo_model_id", modelId);
-      
-      // Also save settings to system_configurations table if available
-      try {
-        // Save to Supabase system_configurations table
-        const { data: leonardoKeyData, error: leonardoKeyError } = await supabase.functions.invoke(
-          "create-system-configurations", 
-          { body: { key: "leonardo_api_key", value: leonardoApiKey } }
-        );
-        
-        const { data: useLeonardoData, error: useLeonardoError } = await supabase.functions.invoke(
-          "create-system-configurations", 
-          { body: { key: "use_leonardo_ai", value: String(useLeonardo) } }
-        );
-        
-        const { data: useOpenAIData, error: useOpenAIError } = await supabase.functions.invoke(
-          "create-system-configurations", 
-          { body: { key: "use_openai_for_images", value: String(useOpenAI) } }
-        );
-        
-        const { data: modelIdData, error: modelIdError } = await supabase.functions.invoke(
-          "create-system-configurations", 
-          { body: { key: "leonardo_model_id", value: modelId } }
-        );
-        
-        if (leonardoKeyError || useLeonardoError || useOpenAIError || modelIdError) {
-          console.error("Error saving to system_configurations:", { leonardoKeyError, useLeonardoError, useOpenAIError, modelIdError });
-        }
-      } catch (dbError) {
-        console.error("Error saving to database:", dbError);
-        // Continue even if saving to database fails
-      }
-      
-      toast.success("Configurações salvas com sucesso");
     } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("Erro ao salvar as configurações");
-    } finally {
-      setIsLoading(false);
+      console.error("Error saving Leonardo API key:", error);
+      toast.error("Erro ao salvar a chave API da Leonardo AI.");
     }
   };
 
-  const testLeonardoConnection = async () => {
-    setTestingConnection(true);
-    setConnectionStatus("idle");
-    
-    try {
-      if (!leonardoApiKey) {
-        toast.error("Chave da API Leonardo não configurada");
-        setConnectionStatus("error");
-        return;
-      }
-      
-      // Changed to use POST for user information endpoint which accepts POST
-      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${leonardoApiKey}`
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Leonardo API error:", errorText);
-        toast.error("Falha ao conectar com a API Leonardo: " + response.statusText);
-        setConnectionStatus("error");
-        localStorage.setItem("leonardo_api_issue", "true");
-        return;
-      }
-      
-      const data = await response.json();
-      if (data && data.user_details) {
-        toast.success("Conexão com Leonardo AI estabelecida com sucesso");
-        setConnectionStatus("success");
-        localStorage.removeItem("leonardo_api_issue");
-        
-        // Update the model ID if not already set
-        if (!modelId) {
-          // Try to find the FLUX model or use default
-          setModelId("e316348f-7773-490e-adcd-46757c738eb7");
-          localStorage.setItem("leonardo_model_id", "e316348f-7773-490e-adcd-46757c738eb7");
-        }
-      } else {
-        toast.error("Resposta inesperada da API Leonardo");
-        setConnectionStatus("error");
-      }
-    } catch (error) {
-      console.error("Error testing Leonardo connection:", error);
-      toast.error("Erro ao testar conexão: " + (error.message || "Erro desconhecido"));
-      setConnectionStatus("error");
-      localStorage.setItem("leonardo_api_issue", "true");
-    } finally {
-      setTestingConnection(false);
-    }
+  const handleResetLeonardoAPI = () => {
+    localStorage.removeItem("leonardo_api_key");
+    localStorage.removeItem("leonardo_webhook_url");
+    localStorage.removeItem("leonardo_api_issue");
+    setLeonardoApiKey("");
+    toast.success("Configurações da Leonardo AI resetadas.");
+  };
+
+  const handleToggleLeonardoAI = (checked: boolean) => {
+    setUseLeonardoAI(checked);
+    localStorage.setItem("use_leonardo_ai", checked.toString());
+    toast.success(`Leonardo AI ${checked ? "ativado" : "desativado"} para geração de imagens.`);
   };
 
   const handleToggleOpenAI = (checked: boolean) => {
     setUseOpenAI(checked);
-    // If both are disabled, ensure at least one is enabled
-    if (!checked && !useLeonardo) {
-      setUseLeonardo(true);
-    }
+    localStorage.setItem("use_openai_for_images", checked.toString());
+    toast.success(`OpenAI ${checked ? "ativado" : "desativado"} para geração de imagens de fallback.`);
   };
 
-  const handleToggleLeonardo = (checked: boolean) => {
-    setUseLeonardo(checked);
-    // If both are disabled, ensure at least one is enabled
-    if (!checked && !useOpenAI) {
-      setUseOpenAI(true);
+  const generateTestImage = async () => {
+    try {
+      setIsGeneratingTest(true);
+      setTestImageUrl("");
+      
+      const prompt = "A children's book illustration of a cute bear in a forest, papercraft style";
+      
+      if (useLeonardoAI && leonardoApiKey) {
+        try {
+          // Import dynamically to avoid circular dependencies
+          const { LeonardoAIAgent } = await import('@/services/LeonardoAIAgent');
+          const agent = new LeonardoAIAgent();
+          
+          if (agent.isAgentAvailable()) {
+            toast.info("Gerando imagem de teste com Leonardo AI...");
+            
+            const imageUrl = await agent.generateImage({
+              prompt,
+              characterName: "Bear",
+              theme: "Forest",
+              setting: "Woods",
+              style: "papercraft"
+            });
+            
+            if (imageUrl) {
+              setTestImageUrl(imageUrl);
+              toast.success("Imagem de teste gerada com sucesso usando Leonardo AI!");
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Leonardo AI test image generation failed:", error);
+          toast.error("Falha ao gerar imagem com Leonardo AI. Tentando com OpenAI...");
+        }
+      }
+      
+      if (useOpenAI) {
+        toast.info("Gerando imagem de teste com OpenAI...");
+        const imageUrl = await generateImageWithOpenAI(prompt);
+        if (imageUrl) {
+          setTestImageUrl(imageUrl);
+          toast.success("Imagem de teste gerada com sucesso usando OpenAI!");
+          return;
+        }
+      }
+      
+      toast.error("Não foi possível gerar a imagem de teste. Verifique as configurações da API.");
+    } catch (error) {
+      console.error("Error generating test image:", error);
+      toast.error("Erro ao gerar imagem de teste.");
+    } finally {
+      setIsGeneratingTest(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
-        <h3 className="text-lg font-medium text-yellow-800 mb-2">Configuração do Motor de Geração de Imagens</h3>
-        <p className="text-sm text-yellow-700">
-          Configure quais APIs serão usadas para gerar as ilustrações das histórias infantis.
-          Você pode escolher entre OpenAI DALL-E e Leonardo AI.
-        </p>
-      </div>
-      
-      <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 border rounded-lg">
-          <div>
-            <h3 className="font-medium">OpenAI DALL-E</h3>
-            <p className="text-sm text-gray-500">Geração de imagens usando OpenAI DALL-E</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch id="use-openai" checked={useOpenAI} onCheckedChange={handleToggleOpenAI} />
-            <Badge variant={useOpenAI ? "success" : "outline"}>
-              {useOpenAI ? "Ativo" : "Inativo"}
-            </Badge>
-          </div>
-        </div>
-
-        <Card className="p-4">
-          <h3 className="font-medium mb-4">Leonardo AI</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Ativar geração de imagens usando Leonardo AI</p>
-                {connectionStatus === "success" && (
-                  <span className="inline-flex items-center text-xs text-green-600 mt-1">
-                    <CheckCircle className="h-3 w-3 mr-1" /> Conectado
-                  </span>
-                )}
-                {connectionStatus === "error" && (
-                  <span className="inline-flex items-center text-xs text-red-600 mt-1">
-                    <XCircle className="h-3 w-3 mr-1" /> Erro de conexão
-                  </span>
-                )}
+    <Card>
+      <CardHeader>
+        <CardTitle>Configuração de Geração de Imagens</CardTitle>
+        <CardDescription>
+          Configure as APIs para geração de imagens das histórias
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="leonardo" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="leonardo">Leonardo AI</TabsTrigger>
+            <TabsTrigger value="openai">OpenAI Fallback</TabsTrigger>
+            <TabsTrigger value="test">Testar Geração</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="leonardo">
+            <div className="space-y-4">
+              <LeonardoAIStatusCheck />
+              
+              <div className="space-y-2">
+                <Label htmlFor="leonardo-api-key">Leonardo AI API Key</Label>
+                <Input
+                  id="leonardo-api-key"
+                  type="password"
+                  value={leonardoApiKey}
+                  onChange={(e) => setLeonardoApiKey(e.target.value)}
+                  placeholder="Insira sua chave API da Leonardo AI"
+                />
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="use-leonardo" checked={useLeonardo} onCheckedChange={handleToggleLeonardo} />
-                <Badge variant={useLeonardo ? "success" : "outline"}>
-                  {useLeonardo ? "Ativo" : "Inativo"}
-                </Badge>
+              
+              <div className="flex items-center space-x-2 pt-4">
+                <Switch 
+                  id="use-leonardo" 
+                  checked={useLeonardoAI}
+                  onCheckedChange={handleToggleLeonardoAI}
+                />
+                <Label htmlFor="use-leonardo">Utilizar Leonardo AI para geração de imagens</Label>
+              </div>
+              
+              <div className="pt-4 space-x-4">
+                <Button onClick={handleSaveLeonardoAPI}>
+                  Salvar Chave API
+                </Button>
+                <Button variant="outline" onClick={handleResetLeonardoAPI}>
+                  Resetar
+                </Button>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="leonardo-api-key">Chave da API Leonardo</Label>
-              <Input
-                id="leonardo-api-key"
-                type="password"
-                placeholder="api-key"
-                value={leonardoApiKey}
-                onChange={(e) => setLeonardoApiKey(e.target.value)}
-                className="font-mono"
-              />
-              <p className="text-xs text-gray-500">
-                Obtenha sua chave em{" "}
-                <a 
-                  href="https://leonardo.ai/settings/api-keys" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-blue-600 hover:underline"
-                >
-                  leonardo.ai/settings/api-keys
-                </a>
-              </p>
+          </TabsContent>
+          
+          <TabsContent value="openai">
+            <div className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Configuração de Fallback</AlertTitle>
+                <AlertDescription>
+                  O OpenAI será utilizado como fallback caso a Leonardo AI falhe ou não esteja disponível.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex items-center space-x-2 pt-4">
+                <Switch 
+                  id="use-openai" 
+                  checked={useOpenAI}
+                  onCheckedChange={handleToggleOpenAI}
+                />
+                <Label htmlFor="use-openai">Utilizar OpenAI como fallback para geração de imagens</Label>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="model-id">ID do Modelo Leonardo</Label>
-              <Input
-                id="model-id"
-                placeholder="ID do modelo"
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className="font-mono"
-              />
-              <p className="text-xs text-gray-500">
-                O ID do modelo padrão é para o FLUX.1
-              </p>
-            </div>
-            
-            <div className="flex justify-end space-x-2 mt-4">
+          </TabsContent>
+          
+          <TabsContent value="test">
+            <div className="space-y-4">
               <Button 
-                variant="outline" 
-                onClick={testLeonardoConnection} 
-                disabled={!leonardoApiKey || testingConnection || isLoading}
-              >
-                {testingConnection ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="mr-2 h-4 w-4" />
-                )}
-                Testar Conexão
+                onClick={generateTestImage} 
+                disabled={isGeneratingTest || (!useLeonardoAI && !useOpenAI)}>
+                {isGeneratingTest ? "Gerando..." : "Gerar Imagem de Teste"}
               </Button>
+              
+              {testImageUrl && (
+                <div className="mt-4">
+                  <p className="mb-2 text-sm text-gray-500">Imagem gerada:</p>
+                  <img 
+                    src={testImageUrl} 
+                    alt="Test generated image" 
+                    className="rounded-md border border-gray-200 max-w-full h-auto max-h-[400px] object-contain" 
+                  />
+                </div>
+              )}
             </div>
-          </div>
-        </Card>
-        
-        <div className="flex justify-end">
-          <Button onClick={saveSettings} disabled={isLoading}>
-            {isLoading ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Salvar Configurações
-          </Button>
-        </div>
-      </div>
-    </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <p className="text-sm text-gray-500">
+          A prioridade de geração é: Leonardo AI → OpenAI (se configurado como fallback)
+        </p>
+      </CardFooter>
+    </Card>
   );
 };
 

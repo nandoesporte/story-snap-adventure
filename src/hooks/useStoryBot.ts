@@ -1,13 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
 import { toast } from 'sonner';
 import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
-// Import the imageStorage directly instead of dynamically
 import { saveImagePermanently, saveStoryImagesPermanently } from '@/lib/imageStorage';
 
-// Create singleton instances of the AI agents
 const storyBot = new StoryBot();
 const leonardoAgent = new LeonardoAIAgent();
 
@@ -27,13 +24,11 @@ export const useStoryBot = () => {
     const isLeonardoApiAvailable = leonardoAgent.isAgentAvailable();
     setLeonardoApiAvailable(isLeonardoApiAvailable);
     
-    // Load saved model
     const savedModel = localStorage.getItem('openai_model');
     if (savedModel) {
       setOpenAIModel(savedModel);
     }
     
-    // Load image generation preferences but enforce Leonardo as default if available
     const savedUseLeonardo = localStorage.getItem('use_leonardo_ai') !== 'false';
     const savedUseOpenAIForImages = localStorage.getItem('use_openai_for_images') === 'true';
     
@@ -134,36 +129,49 @@ export const useStoryBot = () => {
     try {
       console.log("Priority: Using Leonardo AI for image generation");
       
-      // Always try Leonardo first if available
-      if (leonardoApiAvailable) {
-        try {
-          console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
-          const result = await leonardoAgent.generateImage({
-            prompt,
-            characterName: "",
-            theme: "",
-            setting: "",
-            style: "papercraft"
-          });
-          console.log("Successfully generated image with Leonardo AI");
-          return result;
-        } catch (error) {
-          console.error("Leonardo AI image generation failed:", error);
-          toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
-          
-          // Fall back to OpenAI if Leonardo fails and OpenAI is enabled
-          if (useOpenAIForImages) {
-            console.log("Falling back to OpenAI for image generation");
-            return generateImageWithOpenAI(prompt, size);
-          }
-          throw new Error("Leonardo AI falhou e OpenAI não está habilitado para geração de imagens");
+      if (!leonardoApiAvailable) {
+        console.log("Leonardo AI not available");
+        
+        if (useOpenAIForImages) {
+          console.log("Falling back to OpenAI for image generation");
+          const openaiResult = await generateImageWithOpenAI(prompt, size);
+          console.log("OpenAI image generation result:", openaiResult?.substring(0, 50) + "...");
+          return openaiResult;
+        } else {
+          throw new Error("Nenhum serviço de geração de imagem está disponível");
         }
-      } else if (useOpenAIForImages) {
-        // Only use OpenAI if Leonardo is not available and OpenAI is enabled
-        console.log("Leonardo AI não disponível. Usando OpenAI para geração de imagens");
-        return generateImageWithOpenAI(prompt, size);
-      } else {
-        throw new Error("Nenhum serviço de geração de imagem está disponível");
+      }
+      
+      try {
+        console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
+        const result = await leonardoAgent.generateImage({
+          prompt,
+          characterName: "",
+          theme: "",
+          setting: "",
+          style: "papercraft"
+        });
+        
+        console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
+        
+        try {
+          const savedImage = await saveImagePermanently(result);
+          console.log("Saved Leonardo image to permanent storage:", savedImage.substring(0, 50) + "...");
+          return savedImage;
+        } catch (saveError) {
+          console.error("Failed to save Leonardo image to permanent storage:", saveError);
+          return result;
+        }
+      } catch (leonardoError) {
+        console.error("Leonardo AI image generation failed:", leonardoError);
+        toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
+        
+        if (useOpenAIForImages) {
+          console.log("Falling back to OpenAI for image generation after Leonardo failure");
+          const openaiResult = await generateImageWithOpenAI(prompt, size);
+          return openaiResult;
+        }
+        throw new Error("Leonardo AI falhou e OpenAI não está habilitado para geração de imagens");
       }
     } catch (error) {
       console.error("Image generation failed:", error);
@@ -186,14 +194,12 @@ export const useStoryBot = () => {
     style: string = "papercraft"
   ) => {
     try {
-      // Check API availability
       if (!apiAvailable) {
         throw new Error('API indisponível');
       }
       
       const length = pageCount <= 5 ? "short" : pageCount <= 8 ? "medium" : "long";
       
-      // Generate story content with OpenAI
       console.log("Generating story content with OpenAI");
       const result = await storyBot.generateStoryWithPrompts(
         characterName,
@@ -212,7 +218,6 @@ export const useStoryBot = () => {
         throw new Error('Falha ao gerar o conteúdo da história');
       }
       
-      // Generate a cover image with Leonardo AI
       let coverImageUrl = '/placeholder.svg';
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
@@ -225,7 +230,6 @@ export const useStoryBot = () => {
         toast.error("Erro ao gerar a capa. Usando imagem padrão.");
       }
       
-      // Generate illustrations for each page with Leonardo AI
       const pages = [];
       for (let i = 0; i < result.content.length; i++) {
         let imageUrl = '/placeholder.svg';
@@ -247,7 +251,6 @@ export const useStoryBot = () => {
         });
       }
 
-      // Save all images to permanent storage to avoid expiration issues
       const storyData = {
         id: `story_${Date.now()}`,
         title: result.title,
@@ -258,24 +261,15 @@ export const useStoryBot = () => {
         }))
       };
 
-      try {
-        // Use directly imported function instead of dynamic import
-        const processedStoryData = await saveStoryImagesPermanently(storyData);
-        
-        return {
-          title: processedStoryData.title,
-          coverImageUrl: processedStoryData.coverImageUrl || coverImageUrl,
-          pages: processedStoryData.pages || pages
-        };
-      } catch (storageError) {
-        console.error("Failed to save images to permanent storage:", storageError);
-        // Continue with original story data if storage fails
-        return {
-          title: result.title,
-          coverImageUrl: coverImageUrl,
-          pages: pages
-        };
-      }
+      console.log("Saving all story images to permanent storage");
+      const processedStoryData = await saveStoryImagesPermanently(storyData);
+      console.log("Successfully saved all images to permanent storage");
+      
+      return {
+        title: processedStoryData.title,
+        coverImageUrl: processedStoryData.coverImageUrl || coverImageUrl,
+        pages: processedStoryData.pages || pages
+      };
     } catch (error) {
       console.error("Error generating complete story:", error);
       throw error;
