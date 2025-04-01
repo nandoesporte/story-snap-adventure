@@ -312,7 +312,8 @@ export const useStoryBot = () => {
     characterPrompt: string | null = null,
     style: string = "cartoon",
     childImageBase64: string | null = null,
-    storyTitle: string | null = null
+    storyTitle: string | null = null,
+    referenceImageUrl: string | null = null
   ) => {
     toast.info("Gerando ilustrações consistentes para a história...");
     
@@ -327,7 +328,8 @@ export const useStoryBot = () => {
         style,
         hasChildImage: !!childImageBase64,
         storyTitle,
-        useOpenAIForStories
+        useOpenAIForStories,
+        hasReferenceImage: !!referenceImageUrl
       });
       
       if (useOpenAIForStories && isOpenAIApiKeyValid()) {
@@ -341,15 +343,20 @@ export const useStoryBot = () => {
         try {
           for (let i = 0; i < imagePrompts.length; i++) {
             const pagePrompt = imagePrompts[i];
-            const enhancedPrompt = `${style} style illustration for a children's book. ` +
+            let enhancedPrompt = `${style} style illustration for a children's book. ` +
               `Scene: ${pagePrompt} ` +
               `The main character ${characterName} should be consistent throughout the book. ` +
               `Setting: ${setting}. Theme: ${theme}. ` +
               (characterPrompt ? `Character details: ${characterPrompt}.` : '');
+              
+            // Add reference to style if available
+            if (referenceImageUrl) {
+              enhancedPrompt += ` Use the artistic style from the reference.`;
+            }
             
             toast.info(`Gerando ilustração ${i+1} de ${imagePrompts.length}...`);
             
-            const imageUrl = await generateImageWithOpenAI(enhancedPrompt);
+            const imageUrl = await generateImageWithOpenAI(enhancedPrompt, "1024x1024", referenceImageUrl);
             imageUrls.push(imageUrl);
           }
           
@@ -385,7 +392,8 @@ export const useStoryBot = () => {
         characterPrompt,
         style,
         childImageBase64,
-        storyTitle
+        storyTitle,
+        referenceImageUrl
       );
       
       console.log("Successfully generated story images:", imageUrls);
@@ -444,6 +452,22 @@ export const useStoryBot = () => {
       
       setIsGenerating(true);
       
+      // Fetch reference image from selected prompt if available
+      let referenceImageUrl = null;
+      try {
+        const { data: promptData, error: promptError } = await supabase
+          .from('storybot_prompts')
+          .select('reference_image_url')
+          .limit(1);
+          
+        if (!promptError && promptData && promptData.length > 0 && promptData[0].reference_image_url) {
+          console.log("Found reference image for story generation:", promptData[0].reference_image_url);
+          referenceImageUrl = promptData[0].reference_image_url;
+        }
+      } catch (refErr) {
+        console.error("Error fetching reference image:", refErr);
+      }
+      
       toast.info("Criando a narrativa da história...");
       const storyData = await storyBot.generateStoryWithPrompts(
         characterName,
@@ -470,12 +494,17 @@ export const useStoryBot = () => {
       
       if (useOpenAIForStories && isOpenAIApiKeyValid()) {
         try {
-          const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${storyData.title}". ` +
+          let coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${storyData.title}". ` +
             `The main character ${characterName} in a ${setting} setting with ${theme} theme. ` +
             (characterPrompt ? `Character details: ${characterPrompt}. ` : '') +
             "Create a captivating, colorful illustration suitable for a book cover.";
+            
+          // Add reference to style if available
+          if (referenceImageUrl) {
+            coverPrompt += ` Use the artistic style from the reference.`;
+          }
           
-          coverImageUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024");
+          coverImageUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024", referenceImageUrl);
         } catch (error) {
           console.error("Failed to generate cover with OpenAI, attempting with Leonardo:", error);
           
@@ -487,7 +516,8 @@ export const useStoryBot = () => {
               setting,
               style,
               characterPrompt,
-              childImageBase64
+              childImageBase64,
+              referenceImageUrl
             );
           } else {
             const themeCovers: {[key: string]: string} = {
@@ -509,7 +539,8 @@ export const useStoryBot = () => {
           setting,
           style,
           characterPrompt,
-          childImageBase64
+          childImageBase64,
+          referenceImageUrl
         );
       } else {
         const themeCovers: {[key: string]: string} = {
@@ -537,7 +568,8 @@ export const useStoryBot = () => {
             characterPrompt,
             style,
             childImageBase64,
-            storyData.title
+            storyData.title,
+            referenceImageUrl
           );
         } catch (error) {
           console.error("OpenAI image generation failed, using placeholders:", error);
@@ -553,7 +585,8 @@ export const useStoryBot = () => {
           characterPrompt,
           style,
           childImageBase64,
-          storyData.title
+          storyData.title,
+          referenceImageUrl
         );
       } else {
         toast.warning("Chave da API Leonardo não configurada. Usando imagens de placeholder.");
@@ -583,6 +616,52 @@ export const useStoryBot = () => {
       throw error;
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const generateImageWithOpenAI = async (
+    prompt: string, 
+    size: string = "1024x1024", 
+    referenceImageUrl: string | null = null
+  ): Promise<string> => {
+    let finalPrompt = prompt;
+    let requestBody: any = {
+      model: "dall-e-3",
+      prompt: finalPrompt,
+      n: 1,
+      size: size,
+      response_format: "url"
+    };
+    
+    if (referenceImageUrl) {
+      console.log("Using reference image for generation:", referenceImageUrl);
+      
+      // For OpenAI, we can currently just enhance the prompt with reference to the style
+      finalPrompt += ` Style reference: Create an image with a similar artistic style to the reference.`;
+      requestBody.prompt = finalPrompt;
+    }
+    
+    try {
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('openai_api_key')}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("OpenAI image generation error:", errorData);
+        throw new Error(errorData.error?.message || "Failed to generate image");
+      }
+      
+      const data = await response.json();
+      return data.data[0].url;
+    } catch (error) {
+      console.error("Error generating image with OpenAI:", error);
+      throw error;
     }
   };
 

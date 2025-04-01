@@ -30,9 +30,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { Pencil, Trash2, Plus, Check, AlertCircle } from "lucide-react";
+import { Pencil, Trash2, Plus, Check, AlertCircle, Upload, Image } from "lucide-react";
 import { toast } from "sonner";
 import { ensureStoryBotPromptsTable } from "@/lib/openai";
+import FileUpload from "../FileUpload";
+import { saveImagePermanently } from "@/lib/imageStorage";
 
 interface Prompt {
   id: string;
@@ -41,6 +43,7 @@ interface Prompt {
   updated_at: string;
   name?: string;
   description?: string;
+  reference_image_url?: string;
 }
 
 const StoryBotPromptManager = () => {
@@ -50,6 +53,9 @@ const StoryBotPromptManager = () => {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [promptName, setPromptName] = useState("");
   const [promptDescription, setPromptDescription] = useState("");
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [editingReferenceImage, setEditingReferenceImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Fetch prompts from the database
   const fetchPrompts = async () => {
@@ -88,13 +94,33 @@ const StoryBotPromptManager = () => {
     }
     
     try {
+      // Process and save the reference image if provided
+      let permanentImageUrl = null;
+      if (referenceImage) {
+        setUploadingImage(true);
+        toast.info("Salvando imagem de referência...");
+        try {
+          permanentImageUrl = await saveImagePermanently(
+            referenceImage,
+            `prompt_reference_${Date.now()}`
+          );
+          toast.success("Imagem de referência salva com sucesso!");
+        } catch (imageError) {
+          console.error("Error saving reference image:", imageError);
+          toast.error("Erro ao salvar imagem de referência");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+      
       const { data, error } = await supabase
         .from('storybot_prompts')
         .insert([
           { 
             prompt: newPrompt.trim(),
             name: promptName.trim() || 'Prompt sem nome',
-            description: promptDescription.trim() || 'Sem descrição'
+            description: promptDescription.trim() || 'Sem descrição',
+            reference_image_url: permanentImageUrl
           }
         ])
         .select();
@@ -109,6 +135,7 @@ const StoryBotPromptManager = () => {
       setNewPrompt("");
       setPromptName("");
       setPromptDescription("");
+      setReferenceImage(null);
       fetchPrompts();
     } catch (err) {
       console.error("Failed to add prompt:", err);
@@ -124,12 +151,33 @@ const StoryBotPromptManager = () => {
     }
     
     try {
+      // Process and save the reference image if it was changed
+      let permanentImageUrl = editingPrompt.reference_image_url;
+      
+      if (editingReferenceImage && editingReferenceImage !== editingPrompt.reference_image_url) {
+        setUploadingImage(true);
+        toast.info("Atualizando imagem de referência...");
+        try {
+          permanentImageUrl = await saveImagePermanently(
+            editingReferenceImage,
+            `prompt_reference_${editingPrompt.id}_${Date.now()}`
+          );
+          toast.success("Imagem de referência atualizada com sucesso!");
+        } catch (imageError) {
+          console.error("Error updating reference image:", imageError);
+          toast.error("Erro ao atualizar imagem de referência");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+      
       const { error } = await supabase
         .from('storybot_prompts')
         .update({ 
           prompt: editingPrompt.prompt.trim(),
           name: editingPrompt.name || 'Prompt sem nome',
           description: editingPrompt.description || 'Sem descrição',
+          reference_image_url: permanentImageUrl,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingPrompt.id);
@@ -142,6 +190,7 @@ const StoryBotPromptManager = () => {
       
       toast.success("Prompt atualizado com sucesso!");
       setEditingPrompt(null);
+      setEditingReferenceImage(null);
       fetchPrompts();
     } catch (err) {
       console.error("Failed to update prompt:", err);
@@ -173,6 +222,16 @@ const StoryBotPromptManager = () => {
       console.error("Failed to delete prompt:", err);
       toast.error("Falha ao excluir prompt");
     }
+  };
+
+  // Handle file upload for new prompt
+  const handleFileUpload = (base64: string) => {
+    setReferenceImage(base64);
+  };
+
+  // Handle file upload for editing prompt
+  const handleEditFileUpload = (base64: string) => {
+    setEditingReferenceImage(base64);
   };
 
   // Load prompts on component mount
@@ -214,6 +273,7 @@ const StoryBotPromptManager = () => {
                     <TableRow>
                       <TableHead className="w-[200px]">Nome</TableHead>
                       <TableHead>Descrição</TableHead>
+                      <TableHead className="w-[100px]">Imagem Ref</TableHead>
                       <TableHead className="w-[150px]">Data de Criação</TableHead>
                       <TableHead className="w-[100px] text-right">Ações</TableHead>
                     </TableRow>
@@ -223,6 +283,22 @@ const StoryBotPromptManager = () => {
                       <TableRow key={prompt.id}>
                         <TableCell className="font-medium">{prompt.name || 'Prompt sem nome'}</TableCell>
                         <TableCell>{prompt.description || 'Sem descrição'}</TableCell>
+                        <TableCell>
+                          {prompt.reference_image_url ? (
+                            <div className="relative w-12 h-12 rounded overflow-hidden">
+                              <img 
+                                src={prompt.reference_image_url} 
+                                alt="Referência" 
+                                className="object-cover w-full h-full"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Nenhuma</span>
+                          )}
+                        </TableCell>
                         <TableCell>{new Date(prompt.created_at).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -231,7 +307,10 @@ const StoryBotPromptManager = () => {
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => setEditingPrompt(prompt)}
+                                  onClick={() => {
+                                    setEditingPrompt(prompt);
+                                    setEditingReferenceImage(prompt.reference_image_url || null);
+                                  }}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
@@ -264,6 +343,18 @@ const StoryBotPromptManager = () => {
                                     />
                                   </div>
                                   <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="edit-reference-image" className="text-right">
+                                      Imagem de Referência
+                                    </Label>
+                                    <div className="col-span-3">
+                                      <FileUpload
+                                        onUploadComplete={handleEditFileUpload}
+                                        imagePreview={editingReferenceImage}
+                                        uploadType="image"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-4 items-start gap-4">
                                     <Label htmlFor="edit-prompt-text" className="text-right">
                                       Prompt
                                     </Label>
@@ -281,8 +372,16 @@ const StoryBotPromptManager = () => {
                                     <Button variant="outline">Cancelar</Button>
                                   </DialogClose>
                                   <DialogClose asChild>
-                                    <Button onClick={updatePrompt} className="ml-2">
-                                      <Check className="mr-2 h-4 w-4" />
+                                    <Button 
+                                      onClick={updatePrompt} 
+                                      className="ml-2"
+                                      disabled={uploadingImage}
+                                    >
+                                      {uploadingImage ? (
+                                        <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full"></div>
+                                      ) : (
+                                        <Check className="mr-2 h-4 w-4" />
+                                      )}
                                       Salvar Alterações
                                     </Button>
                                   </DialogClose>
@@ -330,6 +429,20 @@ const StoryBotPromptManager = () => {
               </div>
               
               <div className="space-y-2">
+                <Label htmlFor="reference-image">Imagem de Referência (opcional)</Label>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  <FileUpload
+                    onUploadComplete={handleFileUpload}
+                    imagePreview={referenceImage}
+                    uploadType="image"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Faça upload de uma imagem para servir como referência visual para geração de ilustrações
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
                 <Label htmlFor="new-prompt">Texto do Prompt</Label>
                 <Textarea
                   id="new-prompt"
@@ -340,8 +453,16 @@ const StoryBotPromptManager = () => {
                 />
               </div>
               
-              <Button onClick={addPrompt} className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button 
+                onClick={addPrompt} 
+                className="w-full"
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-white rounded-full"></div>
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
                 Adicionar Novo Prompt
               </Button>
             </div>

@@ -23,6 +23,7 @@ BEGIN
       prompt TEXT NOT NULL,
       name TEXT,
       description TEXT,
+      reference_image_url TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
@@ -100,19 +101,30 @@ Suas histórias devem ser ferramentas para que crianças aprendam vocabulário e
       'Prompt especializado para histórias focadas no desenvolvimento emocional infantil'
     );
   ELSE
-    -- If the table exists, check if we need to add the name and description columns
+    -- If the table exists, check if we need to add the name, description, and reference_image_url columns
     IF NOT EXISTS (
       SELECT FROM information_schema.columns 
       WHERE table_schema = 'public' 
       AND table_name = 'storybot_prompts'
       AND column_name = 'name'
     ) THEN
-      -- Add name column if it doesn't exist
+      -- Add name and description columns if they don't exist
       ALTER TABLE public.storybot_prompts ADD COLUMN name TEXT;
       ALTER TABLE public.storybot_prompts ADD COLUMN description TEXT;
       
       -- Update existing records to have a default name
       UPDATE public.storybot_prompts SET name = 'Prompt sem nome' WHERE name IS NULL;
+    END IF;
+    
+    -- Check if reference_image_url column exists, if not add it
+    IF NOT EXISTS (
+      SELECT FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      AND table_name = 'storybot_prompts'
+      AND column_name = 'reference_image_url'
+    ) THEN
+      -- Add reference_image_url column if it doesn't exist
+      ALTER TABLE public.storybot_prompts ADD COLUMN reference_image_url TEXT;
     END IF;
   END IF;
 END;

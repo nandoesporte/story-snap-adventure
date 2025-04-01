@@ -111,6 +111,20 @@ export const validateImageUrl = async (
 };
 
 /**
+ * Verifica se uma URL de imagem é um modelo de referência
+ */
+export const isReferenceImage = (imageUrl: string | undefined): boolean => {
+  if (!imageUrl) return false;
+  
+  try {
+    return imageUrl.includes('reference_') && 
+           imageUrl.includes('object/public/story_images');
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
  * Carrega a versão em cache da imagem se disponível
  */
 export const getImageFromCache = (imageUrl: string | undefined): string | null => {
@@ -152,5 +166,28 @@ export const storeImageInCache = (imageUrl: string | undefined) => {
     }
   } catch (e) {
     console.error("Erro ao armazenar imagem no cache:", e);
+  }
+};
+
+/**
+ * Busca a imagem de referência mais recente
+ */
+export const getLatestReferenceImage = async (): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('storybot_prompts')
+      .select('reference_image_url')
+      .not('reference_image_url', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+      
+    if (error || !data || data.length === 0 || !data[0].reference_image_url) {
+      return null;
+    }
+    
+    return data[0].reference_image_url;
+  } catch (e) {
+    console.error("Erro ao buscar imagem de referência:", e);
+    return null;
   }
 };

@@ -210,3 +210,23 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
     return storyData; // Retorna dados originais em caso de erro
   }
 };
+
+/**
+ * Verifica se uma URL de imagem é de uma fonte de geração temporária
+ * @param url URL da imagem
+ * @returns boolean indicando se é uma URL temporária
+ */
+export const isTemporaryImageUrl = (url: string | undefined): boolean => {
+  if (!url) return false;
+  
+  try {
+    return url.includes('oaiusercontent.com') || 
+           url.includes('openai.com') ||
+           url.includes('replicate.delivery') ||
+           url.includes('temp-') ||
+           url.includes('leonardo.ai') ||
+           url.includes('pb.ai/api');
+  } catch (e) {
+    return false;
+  }
+};
