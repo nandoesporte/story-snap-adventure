@@ -468,6 +468,7 @@ export type Database = {
           name: string | null
           prompt: string
           reference_image_url: string | null
+          reference_image_urls: string[] | null
           updated_at: string | null
         }
         Insert: {
@@ -477,6 +478,7 @@ export type Database = {
           name?: string | null
           prompt: string
           reference_image_url?: string | null
+          reference_image_urls?: string[] | null
           updated_at?: string | null
         }
         Update: {
@@ -486,6 +488,7 @@ export type Database = {
           name?: string | null
           prompt?: string
           reference_image_url?: string | null
+          reference_image_urls?: string[] | null
           updated_at?: string | null
         }
         Relationships: []

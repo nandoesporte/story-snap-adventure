@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { Pencil, Trash2, Plus, Check, AlertCircle, Upload, Image } from "lucide-react";
+import { Pencil, Trash2, Plus, Check, AlertCircle, Upload, Image, X } from "lucide-react";
 import { toast } from "sonner";
 import { ensureStoryBotPromptsTable } from "@/lib/openai";
 import FileUpload from "../FileUpload";
@@ -43,6 +43,7 @@ interface Prompt {
   name?: string;
   description?: string;
   reference_image_url?: string | null;
+  reference_image_urls?: string[] | null;
 }
 
 const StoryBotPromptManager = () => {
@@ -55,6 +56,8 @@ const StoryBotPromptManager = () => {
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [editingReferenceImage, setEditingReferenceImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [editingReferenceImages, setEditingReferenceImages] = useState<string[]>([]);
 
   const fetchPrompts = async () => {
     try {
@@ -83,6 +86,36 @@ const StoryBotPromptManager = () => {
     }
   };
 
+  const addReferenceImage = () => {
+    if (referenceImage && !referenceImages.includes(referenceImage)) {
+      setReferenceImages([...referenceImages, referenceImage]);
+      setReferenceImage(null);
+      toast.success("Imagem de referência adicionada");
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    const newImages = [...referenceImages];
+    newImages.splice(index, 1);
+    setReferenceImages(newImages);
+    toast.success("Imagem de referência removida");
+  };
+
+  const addEditingReferenceImage = () => {
+    if (editingReferenceImage && !editingReferenceImages.includes(editingReferenceImage)) {
+      setEditingReferenceImages([...editingReferenceImages, editingReferenceImage]);
+      setEditingReferenceImage(null);
+      toast.success("Imagem de referência adicionada");
+    }
+  };
+
+  const removeEditingReferenceImage = (index: number) => {
+    const newImages = [...editingReferenceImages];
+    newImages.splice(index, 1);
+    setEditingReferenceImages(newImages);
+    toast.success("Imagem de referência removida");
+  };
+
   const addPrompt = async () => {
     if (!newPrompt.trim()) {
       toast.error("O prompt não pode estar vazio");
@@ -103,10 +136,24 @@ const StoryBotPromptManager = () => {
         } catch (imageError) {
           console.error("Error saving reference image:", imageError);
           toast.error("Erro ao salvar imagem de referência");
-        } finally {
-          setUploadingImage(false);
         }
       }
+      
+      const permanentImageUrls = await Promise.all(
+        referenceImages.map(async (img, index) => {
+          try {
+            return await saveImagePermanently(
+              img,
+              `prompt_reference_multiple_${Date.now()}_${index}`
+            );
+          } catch (error) {
+            console.error(`Error saving reference image ${index}:`, error);
+            return null;
+          }
+        })
+      ).then(urls => urls.filter(url => url !== null)) as string[];
+
+      setUploadingImage(true);
       
       const { data, error } = await supabase
         .from('storybot_prompts')
@@ -115,7 +162,8 @@ const StoryBotPromptManager = () => {
             prompt: newPrompt.trim(),
             name: promptName.trim() || 'Prompt sem nome',
             description: promptDescription.trim() || 'Sem descrição',
-            reference_image_url: permanentImageUrl
+            reference_image_url: permanentImageUrl,
+            reference_image_urls: permanentImageUrls
           }
         ])
         .select();
@@ -131,10 +179,13 @@ const StoryBotPromptManager = () => {
       setPromptName("");
       setPromptDescription("");
       setReferenceImage(null);
+      setReferenceImages([]);
       fetchPrompts();
     } catch (err) {
       console.error("Failed to add prompt:", err);
       toast.error("Falha ao adicionar prompt");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -159,10 +210,24 @@ const StoryBotPromptManager = () => {
         } catch (imageError) {
           console.error("Error updating reference image:", imageError);
           toast.error("Erro ao atualizar imagem de referência");
-        } finally {
-          setUploadingImage(false);
         }
       }
+      
+      const permanentImageUrls = await Promise.all(
+        editingReferenceImages.map(async (img, index) => {
+          try {
+            return await saveImagePermanently(
+              img,
+              `prompt_reference_multiple_${editingPrompt.id}_${Date.now()}_${index}`
+            );
+          } catch (error) {
+            console.error(`Error saving reference image ${index}:`, error);
+            return null;
+          }
+        })
+      ).then(urls => urls.filter(url => url !== null)) as string[];
+
+      setUploadingImage(true);
       
       const { error } = await supabase
         .from('storybot_prompts')
@@ -171,6 +236,7 @@ const StoryBotPromptManager = () => {
           name: editingPrompt.name || 'Prompt sem nome',
           description: editingPrompt.description || 'Sem descrição',
           reference_image_url: permanentImageUrl,
+          reference_image_urls: permanentImageUrls,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingPrompt.id);
@@ -184,10 +250,13 @@ const StoryBotPromptManager = () => {
       toast.success("Prompt atualizado com sucesso!");
       setEditingPrompt(null);
       setEditingReferenceImage(null);
+      setEditingReferenceImages([]);
       fetchPrompts();
     } catch (err) {
       console.error("Failed to update prompt:", err);
       toast.error("Falha ao atualizar prompt");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -228,6 +297,12 @@ const StoryBotPromptManager = () => {
     fetchPrompts();
   }, []);
 
+  useEffect(() => {
+    if (editingPrompt) {
+      setEditingReferenceImages(editingPrompt.reference_image_urls || []);
+    }
+  }, [editingPrompt]);
+
   return (
     <Card>
       <CardHeader>
@@ -262,7 +337,7 @@ const StoryBotPromptManager = () => {
                     <TableRow>
                       <TableHead className="w-[200px]">Nome</TableHead>
                       <TableHead>Descrição</TableHead>
-                      <TableHead className="w-[100px]">Imagem Ref</TableHead>
+                      <TableHead className="w-[100px]">Imagens Ref</TableHead>
                       <TableHead className="w-[150px]">Data de Criação</TableHead>
                       <TableHead className="w-[100px] text-right">Ações</TableHead>
                     </TableRow>
@@ -273,8 +348,28 @@ const StoryBotPromptManager = () => {
                         <TableCell className="font-medium">{prompt.name || 'Prompt sem nome'}</TableCell>
                         <TableCell>{prompt.description || 'Sem descrição'}</TableCell>
                         <TableCell>
-                          {prompt.reference_image_url ? (
-                            <div className="relative w-12 h-12 rounded overflow-hidden">
+                          {prompt.reference_image_urls && prompt.reference_image_urls.length > 0 ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {prompt.reference_image_urls.slice(0, 3).map((url, index) => (
+                                <div key={index} className="relative w-8 h-8 rounded overflow-hidden">
+                                  <img 
+                                    src={url} 
+                                    alt={`Ref ${index + 1}`} 
+                                    className="object-cover w-full h-full"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                              {prompt.reference_image_urls.length > 3 && (
+                                <div className="w-8 h-8 flex items-center justify-center bg-muted rounded text-xs">
+                                  +{prompt.reference_image_urls.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          ) : prompt.reference_image_url ? (
+                            <div className="relative w-8 h-8 rounded overflow-hidden">
                               <img 
                                 src={prompt.reference_image_url} 
                                 alt="Referência" 
@@ -299,6 +394,7 @@ const StoryBotPromptManager = () => {
                                   onClick={() => {
                                     setEditingPrompt(prompt);
                                     setEditingReferenceImage(prompt.reference_image_url || null);
+                                    setEditingReferenceImages(prompt.reference_image_urls || []);
                                   }}
                                 >
                                   <Pencil className="h-4 w-4" />
@@ -332,15 +428,56 @@ const StoryBotPromptManager = () => {
                                     />
                                   </div>
                                   <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label htmlFor="edit-reference-image" className="text-right">
-                                      Imagem de Referência
+                                    <Label className="text-right">
+                                      Imagens de Referência
                                     </Label>
-                                    <div className="col-span-3">
-                                      <FileUpload
-                                        onUploadComplete={handleEditFileUpload}
-                                        imagePreview={editingReferenceImage}
-                                        uploadType="image"
-                                      />
+                                    <div className="col-span-3 space-y-4">
+                                      <div>
+                                        <FileUpload
+                                          onUploadComplete={handleEditFileUpload}
+                                          imagePreview={editingReferenceImage}
+                                          uploadType="image"
+                                        />
+                                        <div className="mt-2 flex justify-end">
+                                          <Button 
+                                            onClick={addEditingReferenceImage} 
+                                            size="sm"
+                                            type="button"
+                                            disabled={!editingReferenceImage}
+                                          >
+                                            <Plus className="h-4 w-4 mr-1" /> 
+                                            Adicionar Imagem
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      
+                                      {editingReferenceImages.length > 0 && (
+                                        <div className="border rounded-md p-3">
+                                          <Label className="block mb-2">Imagens adicionadas ({editingReferenceImages.length})</Label>
+                                          <div className="grid grid-cols-4 gap-2">
+                                            {editingReferenceImages.map((img, index) => (
+                                              <div key={index} className="relative rounded border overflow-hidden">
+                                                <img 
+                                                  src={img} 
+                                                  alt={`Referência ${index + 1}`} 
+                                                  className="w-full h-24 object-cover"
+                                                  onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                                  }}
+                                                />
+                                                <Button
+                                                  variant="destructive"
+                                                  size="icon"
+                                                  className="absolute top-0 right-0 w-6 h-6 rounded-full"
+                                                  onClick={() => removeEditingReferenceImage(index)}
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="grid grid-cols-4 items-start gap-4">
@@ -418,15 +555,55 @@ const StoryBotPromptManager = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="reference-image">Imagem de Referência (opcional)</Label>
+                <Label>Imagens de Referência (opcional)</Label>
                 <div className="border-2 border-dashed rounded-lg p-4">
                   <FileUpload
                     onUploadComplete={handleFileUpload}
                     imagePreview={referenceImage}
                     uploadType="image"
                   />
+                  <div className="mt-2 flex justify-end">
+                    <Button 
+                      onClick={addReferenceImage} 
+                      size="sm"
+                      type="button"
+                      disabled={!referenceImage}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> 
+                      Adicionar Imagem
+                    </Button>
+                  </div>
+                  
+                  {referenceImages.length > 0 && (
+                    <div className="mt-4 border rounded-md p-3">
+                      <Label className="block mb-2">Imagens adicionadas ({referenceImages.length})</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {referenceImages.map((img, index) => (
+                          <div key={index} className="relative rounded border overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`Referência ${index + 1}`} 
+                              className="w-full h-24 object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg';
+                              }}
+                            />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-0 right-0 w-6 h-6 rounded-full"
+                              onClick={() => removeReferenceImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Faça upload de uma imagem para servir como referência visual para geração de ilustrações
+                    Faça upload de imagens para servir como referência visual para geração de ilustrações
                   </p>
                 </div>
               </div>
