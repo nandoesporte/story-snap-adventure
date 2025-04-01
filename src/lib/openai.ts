@@ -132,6 +132,7 @@ const getDefaultImagePath = (theme?: string) => {
 export const generateImageWithOpenAI = async (prompt: string, size: string = "1024x1024", theme?: string) => {
   let retryCount = 0;
   const maxRetries = 2;
+  const timeoutDuration = 30000; // 30 seconds timeout
   
   const generateImage = async (): Promise<string> => {
     try {
@@ -142,7 +143,13 @@ export const generateImageWithOpenAI = async (prompt: string, size: string = "10
       
       console.log(`Gerando imagem com OpenAI: "${prompt.substring(0, 50)}..." (tamanho: ${size})`);
       
-      const response = await client.images.generate({
+      // Create a promise that rejects after a timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout')), timeoutDuration);
+      });
+      
+      // Create the actual API call promise
+      const apiCallPromise = client.images.generate({
         model: "dall-e-3",
         prompt,
         n: 1,
@@ -151,28 +158,39 @@ export const generateImageWithOpenAI = async (prompt: string, size: string = "10
         response_format: "url",
       });
       
+      // Race the API call against the timeout
+      const response = await Promise.race([apiCallPromise, timeoutPromise]);
+      
       console.log('Imagem gerada com sucesso:', response);
       
       return response.data[0].url;
     } catch (error: any) {
       console.error('Erro ao gerar imagem com OpenAI:', error);
       
-      // Tentar novamente se for um erro de conexão
-      if (error.message && error.message.includes('Connection error') && retryCount < maxRetries) {
+      // Check for network errors and retry
+      if ((error.message && 
+          (error.message.includes('Connection error') || 
+           error.message.includes('Failed to fetch') || 
+           error.message.includes('Connection timeout'))) && 
+          retryCount < maxRetries) {
         retryCount++;
         console.log(`Tentando novamente após erro de conexão (tentativa ${retryCount} de ${maxRetries})...`);
         
-        // Aguardar 2 segundos antes de tentar novamente
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Aguardar 2 segundos antes de tentar novamente - aumentando o delay para dar tempo à rede
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
         return generateImage();
       }
       
-      // Se chegou aqui, é porque falhou todas as tentativas ou é um erro diferente
-      // Check for API errors
+      // API error handling with improved user feedback
       if (error.status === 429) {
         toast.error('Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.');
       } else if (error.status === 400) {
         toast.error('Erro na requisição: ' + (error.message || 'Verifique o prompt e tente novamente.'));
+      } else if (error.message && error.message.includes('Connection')) {
+        toast.error('Erro de conexão com a API OpenAI. Verifique sua conexão de internet.');
+        // Dispatch an event to inform components about API issues
+        window.dispatchEvent(new CustomEvent('storybot_api_issue'));
+        localStorage.setItem("storybot_api_issue", "true");
       } else {
         toast.error('Erro ao gerar imagem: ' + (error.message || 'Tente novamente.'));
       }
@@ -180,7 +198,11 @@ export const generateImageWithOpenAI = async (prompt: string, size: string = "10
       // Retornar uma imagem padrão baseada no tema
       const defaultImageUrl = getDefaultImagePath(theme);
       console.log(`Usando imagem padrão devido a erro: ${defaultImageUrl}`);
-      toast.error(`Erro ao gerar a ilustração. Usando imagem padrão.`);
+      
+      // Only show this toast if it's not a retry attempt to avoid multiple notifications
+      if (retryCount === 0 || retryCount === maxRetries) {
+        toast.error(`Erro ao gerar a ilustração. Usando imagem padrão.`);
+      }
       
       return defaultImageUrl;
     }

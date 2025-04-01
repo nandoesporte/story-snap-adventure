@@ -156,10 +156,10 @@ export const useStoryBot = () => {
       }
       
       // Generate a cover image
-      let coverImageUrl = '/placeholder.svg';
+      let coverImageUrl = '/images/defaults/default_cover.jpg';
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
-        coverImageUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024");
+        coverImageUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024", theme);
         console.log("Generated cover with OpenAI:", coverImageUrl);
       } catch (error) {
         console.error("Failed to generate cover with OpenAI:", error);
@@ -169,12 +169,12 @@ export const useStoryBot = () => {
       // Generate illustrations for each page
       const pages = [];
       for (let i = 0; i < result.content.length; i++) {
-        let imageUrl = '/placeholder.svg';
+        let imageUrl = '/images/defaults/default.jpg';
         try {
           const imagePrompt = result.imagePrompts[i] || 
             `Illustration in ${style} style for a children's book. Scene: ${result.content[i].substring(0, 200)}... Character ${characterName} in ${setting} with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}` : ''}`;
           
-          imageUrl = await generateImageWithOpenAI(imagePrompt);
+          imageUrl = await generateImageWithOpenAI(imagePrompt, "1024x1024", theme);
           console.log(`Generated image ${i+1} with OpenAI:`, imageUrl.substring(0, 50) + "...");
         } catch (error) {
           console.error(`Failed to generate image ${i+1} with OpenAI:`, error);
