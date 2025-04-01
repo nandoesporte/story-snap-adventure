@@ -12,17 +12,32 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
 
 const OpenAIApiKeyManager = () => {
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [selectedModel, setSelectedModel] = useState<string>('gpt-4o-mini');
 
   useEffect(() => {
     // Load the API key from localStorage when component initializes
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
       setApiKey(savedKey);
+    }
+    
+    // Load the saved model preference
+    const savedModel = localStorage.getItem('openai_model');
+    if (savedModel) {
+      setSelectedModel(savedModel);
     }
   }, []);
 
@@ -33,7 +48,8 @@ const OpenAIApiKeyManager = () => {
     }
 
     localStorage.setItem('openai_api_key', apiKey.trim());
-    toast.success('Chave da API OpenAI salva com sucesso');
+    localStorage.setItem('openai_model', selectedModel);
+    toast.success('Configurações da API OpenAI salvas com sucesso');
   };
 
   const testApiKey = async () => {
@@ -46,7 +62,7 @@ const OpenAIApiKeyManager = () => {
     setTestStatus('testing');
 
     try {
-      // Call OpenAI API to test the key
+      // Call OpenAI API to test the key using the selected model
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -54,7 +70,7 @@ const OpenAIApiKeyManager = () => {
           'Authorization': `Bearer ${apiKey.trim()}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: selectedModel,
           messages: [{ role: 'user', content: 'Hello, this is a test.' }],
           max_tokens: 10
         })
@@ -70,8 +86,9 @@ const OpenAIApiKeyManager = () => {
       setTestStatus('success');
       toast.success('Teste realizado com sucesso. A chave da API OpenAI está funcionando.');
       
-      // Automatically save the key if the test is successful
+      // Automatically save the key and model if the test is successful
       localStorage.setItem('openai_api_key', apiKey.trim());
+      localStorage.setItem('openai_model', selectedModel);
       
     } catch (error) {
       console.error('Erro ao testar a API OpenAI:', error);
@@ -87,6 +104,10 @@ const OpenAIApiKeyManager = () => {
     setApiKey('');
     setTestStatus('idle');
     toast.info('Chave da API OpenAI removida');
+  };
+
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
   };
 
   return (
@@ -122,11 +143,28 @@ const OpenAIApiKeyManager = () => {
             )}
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="openaiModel">Modelo OpenAI</Label>
+            <Select value={selectedModel} onValueChange={handleModelChange}>
+              <SelectTrigger id="openaiModel">
+                <SelectValue placeholder="Selecione um modelo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gpt-4o">GPT-4o (Mais poderoso)</SelectItem>
+                <SelectItem value="gpt-4o-mini">GPT-4o Mini (Mais rápido, mais barato)</SelectItem>
+                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Mais rápido e econômico)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              O modelo selecionado será usado para toda a geração de conteúdo no sistema.
+            </p>
+          </div>
+          
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-start">
             <InfoIcon className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">Modelos da OpenAI</p>
-              <p>O sistema utiliza os modelos GPT-4o e DALL-E 3 para gerar histórias e imagens de alta qualidade para as histórias infantis.</p>
+              <p>O sistema utiliza os modelos GPT-4o, GPT-4o Mini ou GPT-3.5 Turbo para gerar histórias, e DALL-E 3 para gerar imagens de alta qualidade para as histórias infantis.</p>
             </div>
           </div>
 
@@ -143,15 +181,13 @@ const OpenAIApiKeyManager = () => {
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger className="text-sm">Sobre o uso do modelo</AccordionTrigger>
+              <AccordionTrigger className="text-sm">Comparação entre modelos</AccordionTrigger>
               <AccordionContent>
                 <div className="text-sm text-muted-foreground space-y-2">
-                  <p>Nossa aplicação utiliza:</p>
-                  <ul className="list-disc list-inside pl-2 space-y-1">
-                    <li>GPT-4o para geração de texto criativo e narrativas</li>
-                    <li>DALL-E 3 para criação de ilustrações únicas</li>
-                    <li>Parâmetros otimizados para histórias infantis</li>
-                    <li>Cada história consome créditos da sua conta OpenAI</li>
+                  <ul className="list-disc list-inside pl-2 space-y-2">
+                    <li><span className="font-semibold">GPT-4o:</span> O modelo mais avançado, com excelente compreensão de contexto e criatividade. Ideal para histórias mais complexas e elaboradas. Mais caro por token.</li>
+                    <li><span className="font-semibold">GPT-4o Mini:</span> Versão mais leve do GPT-4o com bom equilíbrio entre qualidade e custo. Bom para a maioria das histórias infantis.</li>
+                    <li><span className="font-semibold">GPT-3.5 Turbo:</span> Modelo mais econômico e rápido. Adequado para histórias simples e quando o custo é uma preocupação.</li>
                   </ul>
                 </div>
               </AccordionContent>

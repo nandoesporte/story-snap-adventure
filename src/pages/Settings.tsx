@@ -35,7 +35,7 @@ const Settings = () => {
     const savedLeonardoKey = localStorage.getItem('leonardo_api_key') || '';
     const savedImagePromptTemplate = localStorage.getItem('image_prompt_template') || '';
     const savedPreferredModel = localStorage.getItem('preferred_ai_model') || 'openai';
-    const savedOpenAIModel = localStorage.getItem('openai_model_type') || 'gpt-4o-mini';
+    const savedOpenAIModel = localStorage.getItem('openai_model') || 'gpt-4o-mini';
     
     setOpenaiApiKey(savedOpenAIKey);
     setLeonardoApiKey(savedLeonardoKey);
@@ -65,7 +65,7 @@ const Settings = () => {
       
       // Save AI model preferences
       localStorage.setItem('preferred_ai_model', preferredModel);
-      localStorage.setItem('openai_model_type', openaiModelType);
+      localStorage.setItem('openai_model', openaiModelType);
       localStorage.setItem('use_openai', 'true');
       
       toast.success('Configurações salvas com sucesso');
@@ -87,6 +87,26 @@ const Settings = () => {
         toast.error('Falha ao conectar com OpenAI');
         setTestingConnection(false);
         return;
+      }
+      
+      // Test the connection with the selected model
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: openaiModelType,
+          messages: [{ role: 'user', content: 'Hello, this is a test.' }],
+          max_tokens: 10
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta da API OpenAI:', errorData);
+        throw new Error(`Erro na resposta da API: ${response.status} ${response.statusText}`);
       }
       
       toast.success('Conexão com OpenAI estabelecida com sucesso');
@@ -138,7 +158,7 @@ const Settings = () => {
                       Obtenha sua chave em <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">platform.openai.com/api-keys</a>
                     </p>
                     
-                    <div className="space-y-2 pt-2">
+                    <div className="space-y-2 pt-4">
                       <Label>Modelo OpenAI</Label>
                       <RadioGroup value={openaiModelType} onValueChange={setOpenaiModelType}>
                         <div className="flex items-center space-x-2">
@@ -153,7 +173,19 @@ const Settings = () => {
                             GPT-4o (mais poderoso)
                           </Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="gpt-3.5-turbo" id="gpt-3.5-turbo" />
+                          <Label htmlFor="gpt-3.5-turbo" className="cursor-pointer">
+                            GPT-3.5 Turbo (mais econômico)
+                          </Label>
+                        </div>
                       </RadioGroup>
+                      
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-sm text-blue-700">
+                          <span className="font-medium">Comparação:</span> O GPT-4o é mais poderoso para histórias complexas, o GPT-4o Mini oferece bom equilíbrio entre qualidade e custo, e o GPT-3.5 Turbo é o mais econômico para histórias simples.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

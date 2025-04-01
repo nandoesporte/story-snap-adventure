@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 import { toast } from 'sonner';
 
@@ -5,6 +6,12 @@ import { toast } from 'sonner';
 const getOpenAIApiKey = () => {
   const key = localStorage.getItem('openai_api_key') || '';
   return key !== 'undefined' && key !== 'null' && key.length > 0 ? key.trim() : '';
+};
+
+// Get the selected OpenAI model
+const getOpenAIModel = () => {
+  const model = localStorage.getItem('openai_model') || 'gpt-4o-mini';
+  return model;
 };
 
 // Initialize OpenAI with a new API key
@@ -198,8 +205,12 @@ export const openai = {
               throw new Error('Cliente OpenAI não inicializado');
             }
             
+            // Use model from parameters, or from localStorage, or default to gpt-4o-mini
+            const selectedModel = model || getOpenAIModel() || "gpt-4o-mini";
+            console.log(`Usando modelo OpenAI: ${selectedModel}`);
+            
             const response = await client.chat.completions.create({
-              model: model || "gpt-4o",
+              model: selectedModel,
               messages: messages,
               temperature: temperature || 0.7,
               max_tokens: max_tokens || 1000,

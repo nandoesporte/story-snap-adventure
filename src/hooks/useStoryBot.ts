@@ -11,7 +11,7 @@ export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState<boolean>(false);
   const [leonardoApiAvailable, setLeonardoApiAvailable] = useState<boolean>(false);
   const [useOpenAIForStories, setUseOpenAIFlag] = useState<boolean>(true);
-  const [openAIModel, setOpenAIModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini');
+  const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o-mini');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
   useEffect(() => {
@@ -20,6 +20,12 @@ export const useStoryBot = () => {
     
     const isLeonardoApiAvailable = localStorage.getItem('leonardo_webhook_url') !== null;
     setLeonardoApiAvailable(isLeonardoApiAvailable);
+    
+    // Load saved model
+    const savedModel = localStorage.getItem('openai_model');
+    if (savedModel) {
+      setOpenAIModel(savedModel);
+    }
   }, []);
 
   const generateStoryBotResponse = async (messages: any[], userPrompt: string) => {
@@ -64,10 +70,11 @@ export const useStoryBot = () => {
     }
   };
   
-  const setUseOpenAIForStories = (useOpenAI: boolean, model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini') => {
+  const setUseOpenAIForStories = (useOpenAI: boolean, model: string = 'gpt-4o-mini') => {
     storyBot.setUseOpenAI(useOpenAI, model);
     setUseOpenAIFlag(useOpenAI);
     setOpenAIModel(model);
+    localStorage.setItem('openai_model', model);
   };
   
   const setPromptById = async (promptId: string) => {

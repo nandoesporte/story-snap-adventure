@@ -15,7 +15,7 @@ export type StoryGenerationResult = {
 
 export class StoryBot {
   private useOpenAI: boolean = true;
-  private openAIModel: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini';
+  private openAIModel: string = 'gpt-4o-mini';
   private openAIClient: OpenAI | null = null;
   private systemPrompt: string | null = null;
 
@@ -27,10 +27,16 @@ export class StoryBot {
   private initializeClients() {
     try {
       const openAIApiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY;
+      const savedModel = localStorage.getItem('openai_model');
 
       if (openAIApiKey && openAIApiKey !== 'undefined' && openAIApiKey !== 'null' && openAIApiKey.trim() !== '') {
         this.openAIClient = new OpenAI({ apiKey: openAIApiKey, dangerouslyAllowBrowser: true });
         console.log("OpenAI client initialized");
+        
+        if (savedModel) {
+          this.openAIModel = savedModel;
+          console.log(`Using OpenAI model from preferences: ${this.openAIModel}`);
+        }
       } else {
         console.warn("OpenAI API key not found or invalid");
       }
@@ -39,7 +45,7 @@ export class StoryBot {
     }
   }
 
-  setUseOpenAI(use: boolean, model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini') {
+  setUseOpenAI(use: boolean, model: string = 'gpt-4o-mini') {
     this.useOpenAI = use;
     this.openAIModel = model;
     console.log(`Configurado para usar OpenAI ${model} para geração de histórias`);
@@ -127,7 +133,8 @@ export class StoryBot {
       throw new Error('Nenhum cliente de IA disponível. Verifique suas configurações de API.');
     }
 
-    // Add system prompt if available
+    const currentModel = localStorage.getItem('openai_model') || this.openAIModel;
+
     const messagesWithSystem = this.systemPrompt 
       ? [{ role: 'system' as const, content: this.systemPrompt }, ...messages.map(msg => ({
           role: msg.role,
@@ -139,7 +146,7 @@ export class StoryBot {
         }));
     
     const response = await this.openAIClient.chat.completions.create({
-      model: this.openAIModel,
+      model: currentModel,
       messages: [
         ...messagesWithSystem,
         { role: 'user', content: userPrompt }
@@ -187,7 +194,6 @@ export class StoryBot {
         return [];
       }
 
-      // Return the array of reference image URLs
       return data?.reference_image_urls || [];
     } catch (error) {
       console.error("Error getting prompt reference images:", error);
@@ -250,7 +256,6 @@ export class StoryBot {
     language: string,
     storyContext: string
   ): string {
-    // If we have a system prompt, use it as a base but still provide the specific parameters
     if (this.systemPrompt) {
       return `${this.systemPrompt}
 
@@ -267,7 +272,6 @@ Detalhes específicos para esta história:
 - ${storyContext ? `Contexto adicional: ${storyContext}` : ''}`;
     }
     
-    // If no system prompt is available, use the default prompt format
     return `Crie uma história infantil completa com as seguintes características:
     
     Personagem principal: ${characterName}
@@ -305,9 +309,12 @@ Detalhes específicos para esta história:
   private async generateOpenAIStory(prompt: string): Promise<string> {
     if (!this.openAIClient) throw new Error('Cliente OpenAI não inicializado. Verifique suas configurações.');
     
+    const currentModel = localStorage.getItem('openai_model') || this.openAIModel;
+    console.log(`Generating story with model: ${currentModel}`);
+    
     try {
       const completion = await this.openAIClient.chat.completions.create({
-        model: this.openAIModel,
+        model: currentModel,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000,
         temperature: 0.7,
@@ -427,8 +434,10 @@ Detalhes específicos para esta história:
   private async generateOpenAIImageDescription(prompt: string): Promise<string> {
     if (!this.openAIClient) throw new Error('OpenAI client not initialized');
     
+    const currentModel = localStorage.getItem('openai_model') || this.openAIModel;
+    
     const response = await this.openAIClient.chat.completions.create({
-      model: this.openAIModel,
+      model: currentModel,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200,
       temperature: 0.7,
