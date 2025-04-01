@@ -17,7 +17,7 @@ import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import StoryPromptInput from "@/components/StoryPromptInput";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useStoryBot, getStoryBotInstance } from "@/hooks/useStoryBot";
+import { useStoryBot } from "@/hooks/useStoryBot";
 
 type CreationStep = "prompt" | "details";
 
@@ -25,7 +25,6 @@ const CreateStory = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasActiveSubscription, isLoading: isLoadingSubscription } = useSubscription();
-  const storyBot = useStoryBot();
   const [step, setStep] = useState<CreationStep>("prompt");
   const [storyPrompt, setStoryPrompt] = useState<string>("");
   const [formData, setFormData] = useState<StoryFormData | null>(null);
@@ -39,7 +38,8 @@ const CreateStory = () => {
     const loadPrompts = async () => {
       setLoadingPrompts(true);
       try {
-        const promptsList = await storyBot.listAvailablePrompts();
+        const { listAvailablePrompts } = useStoryBot();
+        const promptsList = await listAvailablePrompts();
         setAvailablePrompts(promptsList);
         
         const defaultPrompt = promptsList.find((p: any) => p.name === "Prompt Padrão");
@@ -54,7 +54,7 @@ const CreateStory = () => {
     };
     
     loadPrompts();
-  }, [storyBot]);
+  }, []);
 
   useEffect(() => {
     const storedData = sessionStorage.getItem("create_story_data");
