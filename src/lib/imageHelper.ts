@@ -1,193 +1,167 @@
 
-import { supabase } from './supabase';
-import { saveImagePermanently } from './imageStorage';
+import { supabase } from "@/lib/supabase";
+import { saveImagePermanently } from "@/lib/imageStorage";
+import { toast } from "sonner";
 
 /**
- * Verifica e corrige URLs de imagens quebradas
- * @param storyId ID da história
+ * Validates and fixes image URLs in a story
+ * @param storyId The ID of the story to process
+ * @returns Promise that resolves when processing is complete
  */
-export const validateAndFixStoryImages = async (storyId: string) => {
+export const validateAndFixStoryImages = async (storyId: string): Promise<boolean> => {
   try {
-    console.log("Validating and fixing images for story:", storyId);
+    console.log(`Validating image URLs for story ${storyId}...`);
     
-    // Buscar a história
-    const { data: story, error: storyError } = await supabase
-      .from('stories')
-      .select('*')
-      .eq('id', storyId)
+    // Fetch the story from the database
+    const { data: story, error } = await supabase
+      .from("stories")
+      .select("*")
+      .eq("id", storyId)
       .single();
-    
-    if (storyError || !story) {
-      console.error("Erro ao buscar história para validação de imagens:", storyError);
-      return;
+      
+    if (error) {
+      console.error("Error fetching story for image validation:", error);
+      return false;
     }
     
-    let updates = false;
-    const updatedStory = { ...story };
+    if (!story) {
+      console.error("Story not found for image validation");
+      return false;
+    }
     
-    // Verificar a imagem de capa
+    let updateNeeded = false;
+    
+    // Check cover image
     if (story.cover_image_url) {
-      console.log("Checking cover image:", story.cover_image_url.substring(0, 50) + "...");
-      const permanentCoverUrl = await saveImagePermanently(
-        story.cover_image_url,
-        storyId
-      );
-      
-      if (permanentCoverUrl && permanentCoverUrl !== story.cover_image_url) {
-        console.log("Updated cover image to:", permanentCoverUrl.substring(0, 50) + "...");
-        updatedStory.cover_image_url = permanentCoverUrl;
-        updates = true;
+      console.log("Checking cover image:", story.cover_image_url);
+      try {
+        // Determine if the image needs to be processed
+        const isTempImage = 
+          story.cover_image_url.includes('oaiusercontent.com') || 
+          story.cover_image_url.includes('replicate.delivery') ||
+          !story.cover_image_url.includes('supabase.co/storage');
+          
+        if (isTempImage) {
+          console.log("Cover image appears to be temporary, attempting to save permanently");
+          const permanentUrl = await saveImagePermanently(story.cover_image_url, storyId);
+          
+          if (permanentUrl !== story.cover_image_url) {
+            story.cover_image_url = permanentUrl;
+            updateNeeded = true;
+            console.log("Cover image updated to permanent URL");
+          }
+        }
+      } catch (coverError) {
+        console.error("Error processing cover image:", coverError);
       }
     }
     
-    // Verificar imagens das páginas
+    // Process page images
     if (Array.isArray(story.pages)) {
       console.log(`Checking ${story.pages.length} page images...`);
       
-      const updatedPages = await Promise.all(story.pages.map(async (page, index) => {
-        if (page.image_url) {
-          console.log(`Checking page ${index + 1} image:`, page.image_url.substring(0, 50) + "...");
-          
-          const permanentPageUrl = await saveImagePermanently(
-            page.image_url,
-            `${storyId}_page${index}`
-          );
-          
-          if (permanentPageUrl && permanentPageUrl !== page.image_url) {
-            console.log(`Updated page ${index + 1} image to:`, permanentPageUrl.substring(0, 50) + "...");
-            updates = true;
-            return { ...page, image_url: permanentPageUrl };
-          }
+      const pagePromises = story.pages.map(async (page, index) => {
+        const pageImage = page.image_url || page.imageUrl;
+        
+        if (!pageImage) {
+          console.log(`Page ${index+1} has no image, skipping`);
+          return page;
         }
+        
+        console.log(`Checking page ${index+1} image: ${pageImage}...`);
+        
+        try {
+          // Determine if the image needs to be processed
+          const isTempImage = 
+            pageImage.includes('oaiusercontent.com') || 
+            pageImage.includes('replicate.delivery') ||
+            !pageImage.includes('supabase.co/storage');
+            
+          if (isTempImage) {
+            console.log(`Page ${index+1} image appears to be temporary, saving permanently`);
+            const permanentUrl = await saveImagePermanently(
+              pageImage, 
+              `${storyId}_page${index}`
+            );
+            
+            if (permanentUrl !== pageImage) {
+              page.image_url = permanentUrl;
+              if (page.imageUrl) page.imageUrl = permanentUrl;
+              updateNeeded = true;
+              console.log(`Page ${index+1} image updated to permanent URL`);
+            }
+          }
+        } catch (pageError) {
+          console.error(`Error processing page ${index+1} image:`, pageError);
+        }
+        
         return page;
-      }));
+      });
       
-      if (updates) {
-        updatedStory.pages = updatedPages;
-      }
+      // Wait for all page processing to complete
+      story.pages = await Promise.all(pagePromises);
     }
     
-    // Atualizar história se houver mudanças
-    if (updates) {
-      console.log("Updating story with permanent images...");
-      
+    // If any URLs were updated, save the changes to the database
+    if (updateNeeded) {
+      console.log("Saving updated image URLs to database");
       const { error: updateError } = await supabase
-        .from('stories')
-        .update(updatedStory)
-        .eq('id', storyId);
+        .from("stories")
+        .update({
+          cover_image_url: story.cover_image_url,
+          pages: story.pages
+        })
+        .eq("id", storyId);
         
       if (updateError) {
-        console.error("Erro ao atualizar URLs de imagem da história:", updateError);
-      } else {
-        console.log("URLs de imagem da história atualizadas com sucesso");
+        console.error("Error updating story with permanent image URLs:", updateError);
+        return false;
       }
+      
+      console.log("Story images successfully updated");
+      toast.success("Imagens da história foram otimizadas para melhor visualização");
+      return true;
     } else {
       console.log("No image updates needed");
+      return true;
     }
-  } catch (e) {
-    console.error("Erro ao validar e corrigir imagens da história:", e);
-  }
-};
-
-/**
- * Valida e corrige uma URL de imagem
- */
-export const validateImageUrl = async (
-  imageUrl: string, 
-  bucketName = 'story_images'
-): Promise<string | null> => {
-  try {
-    // Já está no formato correto
-    if (imageUrl.includes('object/public/story_images')) {
-      return imageUrl;
-    }
-    
-    // Tenta salvar permanentemente
-    return await saveImagePermanently(imageUrl);
-  } catch (e) {
-    console.error("Erro ao validar URL de imagem:", e);
-    return null;
-  }
-};
-
-/**
- * Verifica se uma URL de imagem é um modelo de referência
- */
-export const isReferenceImage = (imageUrl: string | undefined): boolean => {
-  if (!imageUrl) return false;
-  
-  try {
-    return imageUrl.includes('reference_') && 
-           imageUrl.includes('object/public/story_images');
-  } catch (e) {
+  } catch (error) {
+    console.error("Error validating and fixing story images:", error);
     return false;
   }
 };
 
 /**
- * Carrega a versão em cache da imagem se disponível
+ * Checks if an image URL exists and is accessible
+ * @param url The URL to check
+ * @returns Promise that resolves to a boolean indicating if the image is valid
  */
-export const getImageFromCache = (imageUrl: string | undefined): string | null => {
-  if (!imageUrl) return null;
-  
+export const isImageUrlValid = async (url: string): Promise<boolean> => {
   try {
-    // Extrair o nome do arquivo da URL
-    if (imageUrl.includes('/')) {
-      const parts = imageUrl.split('/');
-      const fileName = parts[parts.length - 1];
-      
-      // Verificar cache
-      const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
-      return cachedUrl;
+    // For relative URLs, prepend the base URL
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      url = `${window.location.origin}${url}`;
     }
     
-    return null;
-  } catch (e) {
-    console.error("Erro ao buscar imagem do cache:", e);
-    return null;
-  }
-};
-
-/**
- * Armazena uma imagem no cache
- */
-export const storeImageInCache = (imageUrl: string | undefined) => {
-  if (!imageUrl) return;
-  
-  try {
-    // Extrair o nome do arquivo da URL
-    if (imageUrl.includes('/')) {
-      const parts = imageUrl.split('/');
-      const fileName = parts[parts.length - 1];
-      
-      // Armazenar no cache
-      localStorage.setItem(`image_cache_${fileName}`, imageUrl);
-      console.log(`Imagem armazenada no cache: ${fileName}`);
-    }
-  } catch (e) {
-    console.error("Erro ao armazenar imagem no cache:", e);
-  }
-};
-
-/**
- * Busca a imagem de referência mais recente
- */
-export const getLatestReferenceImage = async (): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('storybot_prompts')
-      .select('reference_image_url')
-      .not('reference_image_url', 'is', null)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-      
-    if (error || !data || data.length === 0 || !data[0].reference_image_url) {
-      return null;
+    // Skip validation for data URLs
+    if (url.startsWith('data:image')) {
+      return true;
     }
     
-    return data[0].reference_image_url;
-  } catch (e) {
-    console.error("Erro ao buscar imagem de referência:", e);
-    return null;
+    // Use fetch with HEAD request to check if the image exists
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url, { 
+      method: 'HEAD',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.error("Error checking image URL validity:", error);
+    return false;
   }
 };

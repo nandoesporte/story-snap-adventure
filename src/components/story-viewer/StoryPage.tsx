@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import CoverImage from "../CoverImage";
@@ -30,6 +31,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   hideText
 }) => {
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const displayText = typedText || text || "";
   
   // Process image URL
@@ -38,21 +40,24 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     processedImageUrl = fixImageUrl(getImageUrl(imageUrl, theme));
   } catch (error) {
     console.error("Error processing image URL:", error);
-    processedImageUrl = `/images/placeholders/${theme || 'default'}.jpg`;
+    processedImageUrl = `/images/defaults/${theme || 'default'}.jpg`;
   }
   
   // Fallback image logic
-  const fallbackImage = `/images/placeholders/${theme || 'default'}.jpg`;
+  const fallbackImage = `/images/defaults/${theme || 'default'}.jpg`;
   
   // Split text into paragraphs
   const paragraphs = displayText ? displayText.split("\n").filter(p => p.trim().length > 0) : [];
   
   const handleImageClick = () => {
-    onImageClick(processedImageUrl);
+    if (!imageLoadFailed) {
+      onImageClick(processedImageUrl);
+    }
   };
   
   const handleImageError = () => {
     console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
+    setImageLoadFailed(true);
     onImageError(processedImageUrl);
   };
 
