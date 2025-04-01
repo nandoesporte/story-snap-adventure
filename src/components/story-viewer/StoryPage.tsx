@@ -33,17 +33,21 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [loadRetry, setLoadRetry] = useState(0);
+  const [processedImageUrl, setProcessedImageUrl] = useState("");
   const displayText = typedText || text || "";
   
   // Process image URL with better error handling
-  let processedImageUrl = "";
-  try {
-    processedImageUrl = fixImageUrl(getImageUrl(imageUrl, theme));
-    console.log(`Page ${pageNumber} using image URL:`, processedImageUrl);
-  } catch (error) {
-    console.error("Error processing image URL:", error);
-    processedImageUrl = `/images/defaults/${theme || 'default'}.jpg`;
-  }
+  useEffect(() => {
+    let fixedUrl = "";
+    try {
+      fixedUrl = fixImageUrl(getImageUrl(imageUrl, theme));
+      console.log(`Page ${pageNumber} using image URL:`, fixedUrl);
+      setProcessedImageUrl(fixedUrl);
+    } catch (error) {
+      console.error("Error processing image URL:", error);
+      setProcessedImageUrl(`/images/defaults/${theme || 'default'}.jpg`);
+    }
+  }, [imageUrl, theme, pageNumber]);
   
   // Check if this is a permanent URL
   const isPermanent = isPermanentStorage(processedImageUrl);
@@ -63,6 +67,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         .then(permanentUrl => {
           if (permanentUrl && permanentUrl !== imageUrl) {
             console.log(`Successfully saved page ${pageNumber} image to permanent storage:`, permanentUrl);
+            setProcessedImageUrl(permanentUrl);
             setLoadRetry(prev => prev + 1);
           }
         })
@@ -74,14 +79,14 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   
   const handleImageClick = () => {
     if (!imageLoadFailed) {
-      onImageClick(processedImageUrl);
+      onImageClick(processedImageUrl || imageUrl);
     }
   };
   
   const handleImageError = () => {
     console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
     setImageLoadFailed(true);
-    onImageError(processedImageUrl);
+    onImageError(processedImageUrl || imageUrl);
     
     if (!imageLoadFailed && !isPermanent) {
       console.log(`Attempting to save failed image for page ${pageNumber} to permanent storage`);
@@ -90,6 +95,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         .then(permanentUrl => {
           if (permanentUrl && permanentUrl !== imageUrl && permanentUrl !== processedImageUrl) {
             console.log(`Got permanent URL for failed image on page ${pageNumber}:`, permanentUrl);
+            setProcessedImageUrl(permanentUrl);
             setLoadRetry(prev => prev + 1);
           }
         })

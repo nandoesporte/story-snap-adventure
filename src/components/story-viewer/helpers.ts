@@ -2,6 +2,7 @@
 import { supabase } from "@/lib/supabase";
 import { getDefaultImageForTheme, isDefaultImage } from "@/lib/defaultImages";
 import { setupStorageBuckets } from "@/lib/storageBucketSetup";
+import { toast } from "sonner";
 
 export const getImageUrl = (imageUrl: string, theme: string = 'default'): string => {
   if (!imageUrl) {
@@ -33,6 +34,25 @@ export const fixImageUrl = (imageUrl: string): string => {
   // Handle already fixed URLs
   if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
     return imageUrl;
+  }
+  
+  // Try to fix broken URLs
+  try {
+    // If it's a Supabase URL but missing the protocol
+    if (imageUrl.includes('supabase.co') && !imageUrl.startsWith('http')) {
+      return `https://${imageUrl}`;
+    }
+    
+    // If it looks like a Supabase storage object ID, try to get public URL
+    if (imageUrl.match(/^[0-9a-f-]{36}\.[a-z]{3,4}$/i)) {
+      const { data } = supabase.storage
+        .from('story_images')
+        .getPublicUrl(imageUrl);
+      return data.publicUrl;
+    }
+  } catch (error) {
+    console.error("Error fixing image URL:", error);
+    // Continue to return original URL
   }
   
   return imageUrl;
@@ -87,5 +107,46 @@ export const preloadImage = (url: string): Promise<string> => {
 };
 
 export const ensureImagesDirectory = async () => {
-  await setupStorageBuckets();
+  try {
+    const result = await setupStorageBuckets();
+    
+    if (!result) {
+      console.error("Failed to ensure storage buckets exist");
+      toast.error("Falha ao configurar armazenamento para imagens", { 
+        id: "storage-setup-error",
+        duration: 3000
+      });
+    } else {
+      console.log("Successfully ensured storage buckets exist");
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("Error ensuring images directory:", error);
+    return false;
+  }
+};
+
+// Helper function to test image URL accessibility
+export const testImageAccess = async (url: string): Promise<boolean> => {
+  if (!url || url.startsWith('data:') || isDefaultImage(url)) {
+    return true;
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url, { 
+      method: 'HEAD',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.error(`Image access test failed for ${url}:`, error);
+    return false;
+  }
 };

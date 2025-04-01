@@ -104,6 +104,25 @@ const ViewStoryPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const initStorage = async () => {
+      try {
+        const result = await setupStorageBuckets();
+        if (!result) {
+          console.error("Failed to initialize storage buckets");
+          toast.error("Erro ao configurar armazenamento de imagens", { 
+            id: "storage-init-error",
+            duration: 3000 
+          });
+        }
+      } catch (err) {
+        console.error("Error initializing storage:", err);
+      }
+    };
+    
+    initStorage();
+  }, []);
+
+  useEffect(() => {
     const fetchStory = async () => {
       if (!id) return;
 
@@ -134,20 +153,23 @@ const ViewStoryPage: React.FC = () => {
           setStory(formattedStory);
           
           if (data.id) {
-            validateAndFixStoryImages(data)
-              .then(fixedData => {
-                console.log("Images validated and fixed:", fixedData);
-                if (fixedData !== data) {
-                  setStory({
-                    id: fixedData.id,
-                    title: fixedData.title,
-                    coverImageUrl: fixedData.cover_image_url,
-                    characterName: fixedData.character_name,
-                    pages: fixedData.pages || []
-                  });
-                }
-              })
-              .catch(err => console.error("Error validating images:", err));
+            try {
+              console.log("Validating and fixing story images");
+              const fixedData = await validateAndFixStoryImages(data);
+              
+              if (JSON.stringify(fixedData) !== JSON.stringify(data)) {
+                console.log("Story data updated with fixed images");
+                setStory({
+                  id: fixedData.id,
+                  title: fixedData.title,
+                  coverImageUrl: fixedData.cover_image_url,
+                  characterName: fixedData.character_name,
+                  pages: fixedData.pages || []
+                });
+              }
+            } catch (imageError) {
+              console.error("Error validating images:", imageError);
+            }
           }
         } else {
           setError("História não encontrada");
@@ -162,10 +184,6 @@ const ViewStoryPage: React.FC = () => {
 
     fetchStory();
   }, [id]);
-
-  useEffect(() => {
-    setupStorageBuckets().catch(console.error);
-  }, []);
 
   const toggleTextVisibility = () => {
     setHideText(!hideText);

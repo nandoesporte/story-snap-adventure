@@ -2,6 +2,8 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultImageForTheme } from './defaultImages';
+import { setupStorageBuckets } from './storageBucketSetup';
+import { toast } from 'sonner';
 
 /**
  * Saves an image to permanent storage in Supabase
@@ -25,7 +27,12 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     console.log("Saving image permanently:", imageUrl.substring(0, 50) + "...");
     
     // Set up the bucket if it doesn't exist
-    await setupStorageBucket();
+    const bucketSetup = await setupStorageBuckets();
+    if (!bucketSetup) {
+      console.error("Failed to set up storage bucket");
+      toast.error("Falha ao configurar armazenamento de imagens");
+      return getDefaultImageForTheme('default');
+    }
     
     let blob: Blob;
     
@@ -42,7 +49,12 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     // Handle remote URLs
     else {
       try {
-        const res = await fetch(imageUrl);
+        const res = await fetch(imageUrl, {
+          headers: {
+            'Accept': 'image/*, */*'
+          },
+          cache: 'no-cache'
+        });
         if (!res.ok) {
           console.error("Failed to fetch image:", res.status, res.statusText);
           return getDefaultImageForTheme('default');
@@ -77,6 +89,18 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     
     if (error) {
       console.error("Error uploading to Supabase:", error);
+      
+      // If the error is because file already exists, try to get the public URL anyway
+      if (error.message && error.message.includes('already exists')) {
+        const { data: existingData } = supabase
+          .storage
+          .from('story_images')
+          .getPublicUrl(uniqueFilename);
+          
+        console.log("Retrieved URL for existing file:", existingData.publicUrl);
+        return existingData.publicUrl;
+      }
+      
       return getDefaultImageForTheme('default');
     }
     
@@ -91,41 +115,6 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
   } catch (error) {
     console.error("Error in saveImagePermanently:", error);
     return getDefaultImageForTheme('default');
-  }
-};
-
-/**
- * Set up storage bucket if it doesn't exist
- */
-const setupStorageBucket = async () => {
-  try {
-    // Check if bucket exists
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    
-    if (error) {
-      console.error("Error checking buckets:", error);
-      return;
-    }
-    
-    const storyImagesBucket = buckets?.find(b => b.name === 'story_images');
-    
-    if (!storyImagesBucket) {
-      console.log("Creating story_images bucket...");
-      
-      // Create bucket
-      const { error: createError } = await supabase.storage.createBucket('story_images', {
-        public: true,
-        fileSizeLimit: 5242880 // 5MB
-      });
-      
-      if (createError) {
-        console.error("Error creating bucket:", createError);
-      } else {
-        console.log("Bucket created successfully");
-      }
-    }
-  } catch (error) {
-    console.error("Error setting up bucket:", error);
   }
 };
 
@@ -150,10 +139,14 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
     
     // Process page images
     if (Array.isArray(updatedStory.pages)) {
+      console.log(`Processing ${updatedStory.pages.length} story pages for permanent storage`);
+      
       for (let i = 0; i < updatedStory.pages.length; i++) {
         const page = updatedStory.pages[i];
         if (page.imageUrl || page.image_url) {
           const imageUrl = page.imageUrl || page.image_url;
+          console.log(`Processing page ${i+1} image: ${imageUrl?.substring(0, 30)}...`);
+          
           const permanentUrl = await saveImagePermanently(
             imageUrl, 
             `page_${i+1}_${storyData.id || 'new'}`
