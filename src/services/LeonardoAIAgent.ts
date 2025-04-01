@@ -1,3 +1,4 @@
+
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
@@ -64,10 +65,12 @@ export class LeonardoAIAgent {
 
   async testConnection(): Promise<boolean> {
     if (!this.apiKey) {
+      console.log("No Leonardo API key found");
       return false;
     }
     
     try {
+      console.log("Testing Leonardo API connection...");
       // Use user information endpoint
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
         method: "GET",
@@ -78,11 +81,13 @@ export class LeonardoAIAgent {
       });
       
       if (!response.ok) {
-        console.error("Leonardo API error:", await response.text());
+        const errorText = await response.text();
+        console.error("Leonardo API error:", errorText);
         return false;
       }
       
       const data = await response.json();
+      console.log("Leonardo API connection test successful:", data?.user_details ? "User details found" : "No user details");
       return !!(data && data.user_details);
     } catch (error) {
       console.error("Error testing Leonardo connection:", error);
@@ -165,19 +170,31 @@ export class LeonardoAIAgent {
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", requestOptions);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Erro na resposta da API Leonardo:", errorData);
+        const errorText = await response.text();
+        console.error("Erro na resposta da API Leonardo:", errorText);
         
-        if (errorData.error === "You have reached your API request limit for the day.") {
-          localStorage.setItem("leonardo_api_issue", "true");
-          window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-          toast.error("Limite diário da API Leonardo atingido. Tente novamente amanhã.");
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error === "You have reached your API request limit for the day.") {
+            localStorage.setItem("leonardo_api_issue", "true");
+            window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+            toast.error("Limite diário da API Leonardo atingido. Tente novamente amanhã.");
+          }
+        } catch (e) {
+          // In case parsing fails, continue with the regular error handling
+          console.log("Couldn't parse error response:", e);
         }
         
         throw new Error(`Falha ao gerar imagem: ${response.statusText}`);
       }
       
       const responseData = await response.json();
+      
+      if (!responseData.generations || !responseData.generations[0] || !responseData.generations[0].id) {
+        console.error("Resposta inesperada da API Leonardo:", responseData);
+        throw new Error("Resposta inesperada da API Leonardo");
+      }
+      
       const generationIdReceived = responseData.generations[0].id;
       
       console.log(`Geração iniciada com ID: ${generationIdReceived}`);
@@ -207,14 +224,19 @@ export class LeonardoAIAgent {
         const statusData = await statusResponse.json();
         
         if (statusData.generations_by_id?.status === "COMPLETE") {
-          imageUrl = statusData.generations_by_id.generated_images[0].url;
-          console.log("Imagem gerada com sucesso:", imageUrl);
-          break;
+          if (statusData.generations_by_id.generated_images && statusData.generations_by_id.generated_images.length > 0) {
+            imageUrl = statusData.generations_by_id.generated_images[0].url;
+            console.log("Imagem gerada com sucesso:", imageUrl);
+            break;
+          } else {
+            console.error("Geração marcada como completa, mas sem imagens geradas");
+            throw new Error("Nenhuma imagem foi gerada");
+          }
         } else if (statusData.generations_by_id?.status === "FAILED") {
-          console.error("Geração falhou:", statusData.generations_by_id.failure_reason);
-          throw new Error(`Geração falhou: ${statusData.generations_by_id.failure_reason}`);
+          console.error("Geração falhou:", statusData.generations_by_id.failure_reason || "Razão desconhecida");
+          throw new Error(`Geração falhou: ${statusData.generations_by_id.failure_reason || "Erro desconhecido"}`);
         } else {
-          console.log("Geração ainda em andamento...");
+          console.log(`Status atual: ${statusData.generations_by_id?.status || "Desconhecido"}. Aguardando...`);
           await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos
         }
       }
@@ -224,9 +246,7 @@ export class LeonardoAIAgent {
         throw new Error("Tempo limite atingido ao aguardar a geração da imagem.");
       }
       
-      const generatedImageUrl = imageUrl;
-
-      return generatedImageUrl;
+      return imageUrl;
     } catch (error) {
       console.error("Erro ao gerar imagem:", error);
       localStorage.setItem("leonardo_api_issue", "true");
