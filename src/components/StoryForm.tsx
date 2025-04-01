@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -81,9 +82,14 @@ interface StoryFormProps {
   onSubmit: (data: StoryFormData) => void;
   initialData?: StoryFormData | null;
   disabled?: boolean;
+  suggestions?: {
+    theme?: string;
+    setting?: string;
+    moral?: string;
+  } | null;
 }
 
-const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled = false }) => {
+const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled = false, suggestions = null }) => {
   const { user } = useAuth();
   const [characters, setCharacters] = useState<any[]>([]);
   const [loadingCharacters, setLoadingCharacters] = useState(false);
@@ -96,20 +102,23 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
     dinosaurs: "dinosaurland"
   });
 
+  // Use suggestions or initialData, with suggestions taking precedence
+  const defaultValues = {
+    childName: "",
+    childAge: "",
+    theme: suggestions?.theme || "adventure",
+    setting: suggestions?.setting || "forest",
+    style: "papercraft",
+    length: "medium",
+    readingLevel: "intermediate",
+    language: "portuguese",
+    moral: suggestions?.moral || "friendship",
+    voiceType: "female"
+  };
+
   const form = useForm<StoryFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      childName: "",
-      childAge: "",
-      theme: "adventure",
-      setting: "forest",
-      style: "papercraft",
-      length: "medium",
-      readingLevel: "intermediate",
-      language: "portuguese",
-      moral: "friendship",
-      voiceType: "female"
-    },
+    defaultValues: initialData || defaultValues,
   });
 
   useEffect(() => {
@@ -121,6 +130,21 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
       });
     }
   }, [initialData, form]);
+
+  // Apply AI suggestions when they arrive
+  useEffect(() => {
+    if (suggestions) {
+      if (suggestions.theme) {
+        form.setValue('theme', suggestions.theme);
+      }
+      if (suggestions.setting) {
+        form.setValue('setting', suggestions.setting);
+      }
+      if (suggestions.moral) {
+        form.setValue('moral', suggestions.moral);
+      }
+    }
+  }, [suggestions, form]);
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {

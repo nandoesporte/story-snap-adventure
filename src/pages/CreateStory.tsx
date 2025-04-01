@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -34,6 +33,13 @@ const CreateStory = () => {
   const [availablePrompts, setAvailablePrompts] = useState<{id: string, name: string, description: string | null}[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    theme?: string;
+    setting?: string;
+    moral?: string;
+  } | null>(null);
+  const { generateStoryBotResponse, apiAvailable } = useStoryBot();
 
   useEffect(() => {
     const loadPrompts = async () => {
@@ -73,7 +79,49 @@ const CreateStory = () => {
     }
   }, []);
 
-  const handlePromptSubmit = (prompt: string) => {
+  const getAISuggestions = async (prompt: string) => {
+    if (!apiAvailable) {
+      console.log("OpenAI API não está disponível");
+      return null;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const systemPrompt = "Analise o prompt do usuário para uma história infantil e extraia as informações para sugerir um tema, cenário e moral adequados. Responda apenas em formato JSON com os campos theme, setting e moral. Os valores válidos para theme são: adventure, fantasy, space, ocean, dinosaurs. Os valores válidos para setting são: forest, castle, space, underwater, dinosaurland. Os valores válidos para moral são: friendship, courage, honesty, kindness, perseverance.";
+      
+      const response = await generateStoryBotResponse([
+        { role: "system", content: systemPrompt }
+      ], prompt);
+      
+      console.log("AI response for suggestions:", response);
+      
+      try {
+        // Tentar extrair JSON da resposta
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : null;
+        
+        if (jsonStr) {
+          const suggestions = JSON.parse(jsonStr);
+          return {
+            theme: suggestions.theme || null,
+            setting: suggestions.setting || null,
+            moral: suggestions.moral || null
+          };
+        }
+      } catch (parseError) {
+        console.error("Erro ao analisar sugestões da IA:", parseError);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Erro ao obter sugestões da IA:", error);
+      return null;
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handlePromptSubmit = async (prompt: string) => {
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
       setApiKeyError(true);
@@ -82,10 +130,25 @@ const CreateStory = () => {
     }
     
     setStoryPrompt(prompt);
-    setStep("details");
     
-    const suggestedTheme = getSuggestedTheme(prompt);
-    const suggestedSetting = getSuggestedSetting(prompt);
+    // Obter sugestões da IA com base no prompt
+    let suggestions = null;
+    if (apiAvailable) {
+      toast.info("Analisando seu prompt com IA para sugerir configurações...");
+      suggestions = await getAISuggestions(prompt);
+      setAiSuggestions(suggestions);
+      
+      if (suggestions) {
+        toast.success("Sugestões de tema, cenário e moral geradas com base no seu prompt!");
+      }
+    }
+    
+    // Fallback para sugestões baseadas em palavras-chave se a IA falhar
+    const suggestedTheme = suggestions?.theme || getSuggestedTheme(prompt);
+    const suggestedSetting = suggestions?.setting || getSuggestedSetting(prompt);
+    const suggestedMoral = suggestions?.moral || "friendship";
+    
+    setStep("details");
     
     setFormData({
       childName: "",
@@ -96,15 +159,16 @@ const CreateStory = () => {
       length: "medium",
       readingLevel: "intermediate",
       language: "portuguese",
-      moral: "friendship",
+      moral: suggestedMoral,
       voiceType: "female"
     });
     
-    // Store theme in session for the second form
+    // Store data in session for the second form
     sessionStorage.setItem("create_story_data", JSON.stringify({
       storyPrompt: prompt,
       theme: suggestedTheme,
       setting: suggestedSetting,
+      moral: suggestedMoral,
       selectedPromptId
     }));
   };
@@ -170,6 +234,165 @@ const CreateStory = () => {
     setFormSubmitted(true);
     
     navigate("/story-creator");
+  };
+
+  const renderStep = () => {
+    switch (step) {
+      case "prompt":
+        return (
+          <>
+            {apiKeyError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertTriangle className="h-5 w-5" />
+                <AlertTitle>Atenção!</AlertTitle>
+                <AlertDescription>
+                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                      Ir para Configurações
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            <StoryPromptInput 
+              onSubmit={handlePromptSubmit}
+              availablePrompts={availablePrompts}
+              selectedPromptId={selectedPromptId}
+              onPromptSelect={setSelectedPromptId}
+              loadingPrompts={loadingPrompts}
+            />
+          </>
+        );
+        
+      case "details":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="text-2xl font-bold mb-6 text-center">
+              Personalize a história
+            </h2>
+            
+            {apiKeyError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertTriangle className="h-5 w-5" />
+                <AlertTitle>Atenção!</AlertTitle>
+                <AlertDescription>
+                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                      Ir para Configurações
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {loadingSuggestions ? (
+              <div className="flex justify-center items-center p-6">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-400 border-t-transparent"></div>
+                  <p className="text-violet-700">Analisando seu prompt e gerando sugestões...</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {storyPrompt && (
+                  <div className="mb-6 p-4 bg-violet-50 rounded-lg border border-violet-100">
+                    <div className="flex items-start gap-3">
+                      <MessageSquare className="h-5 w-5 text-violet-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-violet-800 mb-1">Sua descrição</p>
+                        <p className="text-sm text-violet-700">{storyPrompt}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {aiSuggestions && (
+                  <div className="mb-6 p-4 bg-teal-50 rounded-lg border border-teal-100">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="h-5 w-5 text-teal-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-teal-800 mb-1">Sugestões da IA</p>
+                        <p className="text-sm text-teal-700">
+                          Com base na sua descrição, sugerimos:
+                          {aiSuggestions.theme && (
+                            <span className="block mt-1">
+                              <strong>Tema:</strong> {aiSuggestions.theme === "adventure" ? "Aventura" : 
+                                                   aiSuggestions.theme === "fantasy" ? "Fantasia" : 
+                                                   aiSuggestions.theme === "space" ? "Espaço" : 
+                                                   aiSuggestions.theme === "ocean" ? "Oceano" : 
+                                                   aiSuggestions.theme === "dinosaurs" ? "Dinossauros" : aiSuggestions.theme}
+                            </span>
+                          )}
+                          {aiSuggestions.setting && (
+                            <span className="block">
+                              <strong>Cenário:</strong> {aiSuggestions.setting === "forest" ? "Floresta Encantada" : 
+                                                      aiSuggestions.setting === "castle" ? "Castelo Mágico" : 
+                                                      aiSuggestions.setting === "space" ? "Espaço Sideral" : 
+                                                      aiSuggestions.setting === "underwater" ? "Mundo Submarino" : 
+                                                      aiSuggestions.setting === "dinosaurland" ? "Terra dos Dinossauros" : aiSuggestions.setting}
+                            </span>
+                          )}
+                          {aiSuggestions.moral && (
+                            <span className="block">
+                              <strong>Moral:</strong> {aiSuggestions.moral === "friendship" ? "Amizade" : 
+                                                    aiSuggestions.moral === "courage" ? "Coragem" : 
+                                                    aiSuggestions.moral === "honesty" ? "Honestidade" : 
+                                                    aiSuggestions.moral === "kindness" ? "Gentileza" : 
+                                                    aiSuggestions.moral === "perseverance" ? "Perseverança" : aiSuggestions.moral}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedPromptId && (
+                  <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="h-5 w-5 text-indigo-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-indigo-800 mb-1">
+                          Prompt selecionado: {availablePrompts.find(p => p.id === selectedPromptId)?.name}
+                        </p>
+                        <p className="text-sm text-indigo-700">
+                          {availablePrompts.find(p => p.id === selectedPromptId)?.description || "Prompt personalizado para geração de histórias."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <StoryForm 
+                  onSubmit={handleFormSubmit} 
+                  initialData={formData} 
+                  suggestions={aiSuggestions}
+                />
+              </>
+            )}
+            
+            <div className="mt-8 flex justify-between">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setStep("prompt")}
+                className="px-6 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg shadow-sm hover:shadow hover:bg-slate-50 transition-all"
+              >
+                Voltar
+              </motion.button>
+            </div>
+          </motion.div>
+        );
+        
+      default:
+        return null;
+    }
   };
 
   if (!user) {
@@ -252,109 +475,6 @@ const CreateStory = () => {
       </div>
     );
   }
-
-  const renderStep = () => {
-    switch (step) {
-      case "prompt":
-        return (
-          <>
-            {apiKeyError && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertTriangle className="h-5 w-5" />
-                <AlertTitle>Atenção!</AlertTitle>
-                <AlertDescription>
-                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
-                  <div className="mt-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
-                      Ir para Configurações
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-            <StoryPromptInput 
-              onSubmit={handlePromptSubmit}
-              availablePrompts={availablePrompts}
-              selectedPromptId={selectedPromptId}
-              onPromptSelect={setSelectedPromptId}
-              loadingPrompts={loadingPrompts}
-            />
-          </>
-        );
-        
-      case "details":
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              Personalize a história
-            </h2>
-            
-            {apiKeyError && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertTriangle className="h-5 w-5" />
-                <AlertTitle>Atenção!</AlertTitle>
-                <AlertDescription>
-                  A chave da API OpenAI não está configurada ou é inválida. Configure-a nas configurações para poder gerar histórias.
-                  <div className="mt-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
-                      Ir para Configurações
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {storyPrompt && (
-              <div className="mb-6 p-4 bg-violet-50 rounded-lg border border-violet-100">
-                <div className="flex items-start gap-3">
-                  <MessageSquare className="h-5 w-5 text-violet-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-violet-800 mb-1">Sua descrição</p>
-                    <p className="text-sm text-violet-700">{storyPrompt}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {selectedPromptId && (
-              <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="h-5 w-5 text-indigo-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-indigo-800 mb-1">
-                      Prompt selecionado: {availablePrompts.find(p => p.id === selectedPromptId)?.name}
-                    </p>
-                    <p className="text-sm text-indigo-700">
-                      {availablePrompts.find(p => p.id === selectedPromptId)?.description || "Prompt personalizado para geração de histórias."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
-            
-            <div className="mt-8 flex justify-between">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setStep("prompt")}
-                className="px-6 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg shadow-sm hover:shadow hover:bg-slate-50 transition-all"
-              >
-                Voltar
-              </motion.button>
-            </div>
-          </motion.div>
-        );
-        
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
