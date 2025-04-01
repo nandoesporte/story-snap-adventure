@@ -37,7 +37,9 @@ export const useStoryGeneration = () => {
     openAIModel,
     checkOpenAIAvailability,
     setUseOpenAIForStories,
-    generateImageWithOpenAI
+    generateImageWithOpenAI,
+    setPromptById,
+    loadPromptByName
   } = useStoryBot();
   
   const { generateAudio, VOICE_IDS, VOICE_PRESETS } = useStoryNarration({
@@ -384,6 +386,8 @@ export const useStoryGeneration = () => {
     currentImageIndex,
     totalImages,
     generatingNarration,
-    currentNarrationIndex
+    currentNarrationIndex,
+    setPromptById,
+    loadPromptByName
   };
 };

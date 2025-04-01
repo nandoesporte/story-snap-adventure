@@ -17,9 +17,11 @@ export class StoryBot {
   private useOpenAI: boolean = true;
   private openAIModel: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o-mini';
   private openAIClient: OpenAI | null = null;
+  private systemPrompt: string | null = null;
 
   constructor() {
     this.initializeClients();
+    this.loadDefaultPrompt();
   }
 
   private initializeClients() {
@@ -43,18 +45,103 @@ export class StoryBot {
     console.log(`Configurado para usar OpenAI ${model} para geração de histórias`);
   }
 
+  async loadDefaultPrompt() {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('prompt')
+        .eq('name', 'Prompt Padrão')
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error("Error loading default prompt:", error);
+        return;
+      }
+
+      if (data && data.prompt) {
+        this.systemPrompt = data.prompt;
+        console.log("Default system prompt loaded");
+      }
+    } catch (error) {
+      console.error("Error loading system prompt:", error);
+    }
+  }
+
+  async setPromptById(promptId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('prompt')
+        .eq('id', promptId)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error("Error loading prompt by ID:", error);
+        return false;
+      }
+
+      if (data && data.prompt) {
+        this.systemPrompt = data.prompt;
+        console.log("System prompt set by ID:", promptId);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Error setting prompt by ID:", error);
+      return false;
+    }
+  }
+
+  async loadPromptByName(promptName: string) {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('prompt')
+        .eq('name', promptName)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error(`Error loading prompt "${promptName}":`, error);
+        return false;
+      }
+
+      if (data && data.prompt) {
+        this.systemPrompt = data.prompt;
+        console.log(`System prompt "${promptName}" loaded`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error loading prompt "${promptName}":`, error);
+      return false;
+    }
+  }
+
   async generateStoryBotResponse(messages: Message[], userPrompt: string): Promise<string> {
     if (!this.openAIClient) {
       throw new Error('Nenhum cliente de IA disponível. Verifique suas configurações de API.');
     }
 
+    // Add system prompt if available
+    const messagesWithSystem = this.systemPrompt 
+      ? [{ role: 'system' as const, content: this.systemPrompt }, ...messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))]
+      : messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+    
     const response = await this.openAIClient.chat.completions.create({
       model: this.openAIModel,
       messages: [
-        ...messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
+        ...messagesWithSystem,
         { role: 'user', content: userPrompt }
       ],
       max_tokens: 1000,
@@ -66,6 +153,46 @@ export class StoryBot {
 
   isApiAvailable(): boolean {
     return !!this.openAIClient;
+  }
+
+  async listAvailablePrompts() {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('id, name, description')
+        .order('name');
+
+      if (error) {
+        console.error("Error fetching prompts list:", error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error("Error listing prompts:", error);
+      return [];
+    }
+  }
+
+  async getPromptReferenceImages(promptId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('storybot_prompts')
+        .select('reference_image_urls')
+        .eq('id', promptId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching prompt reference images:", error);
+        return [];
+      }
+
+      // Return the array of reference image URLs
+      return data?.reference_image_urls || [];
+    } catch (error) {
+      console.error("Error getting prompt reference images:", error);
+      return [];
+    }
   }
 
   async generateStoryWithPrompts(
@@ -123,6 +250,24 @@ export class StoryBot {
     language: string,
     storyContext: string
   ): string {
+    // If we have a system prompt, use it as a base but still provide the specific parameters
+    if (this.systemPrompt) {
+      return `${this.systemPrompt}
+
+Detalhes específicos para esta história:
+- Personagem principal: ${characterName}
+- Idade da criança: ${childAge} anos
+- Tema: ${theme}
+- Cenário: ${setting}
+- Lição moral: ${moralTheme}
+- Tamanho: ${length} (curto: 5 páginas, médio: 8 páginas, longo: 12 páginas)
+- Nível de leitura: ${readingLevel}
+- Idioma: ${language}
+- ${characterPrompt ? `Detalhes do personagem: ${characterPrompt}` : ''}
+- ${storyContext ? `Contexto adicional: ${storyContext}` : ''}`;
+    }
+    
+    // If no system prompt is available, use the default prompt format
     return `Crie uma história infantil completa com as seguintes características:
     
     Personagem principal: ${characterName}

@@ -6,12 +6,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import LoadingSpinner from "./LoadingSpinner";
 import { useStoryBot } from "../hooks/useStoryBot";
-import { AlertCircle, Info, RefreshCw } from "lucide-react";
+import { AlertCircle, Info, RefreshCw, Sparkles, BookOpen } from "lucide-react";
 import { ensureStoryBotPromptsTable } from "@/lib/openai";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
+};
+
+type Prompt = {
+  id: string;
+  name: string;
+  description: string | null;
 };
 
 const StoryBotChat = () => {
@@ -21,15 +39,70 @@ const StoryBotChat = () => {
   const [characterPrompt, setCharacterPrompt] = useState<string>("");
   const [hasApiError, setHasApiError] = useState(false);
   const [localModeActive, setLocalModeActive] = useState(false);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { generateStoryBotResponse, apiAvailable } = useStoryBot();
+  const { generateStoryBotResponse, apiAvailable, setPromptById, listAvailablePrompts, getPromptReferenceImages } = useStoryBot();
   
   // Initialize the database table when component loads
   useEffect(() => {
     ensureStoryBotPromptsTable().catch(err => {
       console.warn("Failed to initialize StoryBot prompts table:", err);
     });
+    
+    // Load available prompts
+    loadPrompts();
   }, []);
+  
+  const loadPrompts = async () => {
+    setLoadingPrompts(true);
+    try {
+      const promptsList = await listAvailablePrompts();
+      setPrompts(promptsList);
+      // Select default prompt if available
+      const defaultPrompt = promptsList.find(p => p.name === "Prompt Padrão");
+      if (defaultPrompt) {
+        setSelectedPromptId(defaultPrompt.id);
+        await handlePromptChange(defaultPrompt.id);
+      }
+    } catch (error) {
+      console.error("Failed to load prompts:", error);
+      toast.error("Não foi possível carregar os prompts disponíveis");
+    } finally {
+      setLoadingPrompts(false);
+    }
+  };
+  
+  const handlePromptChange = async (promptId: string) => {
+    setSelectedPromptId(promptId);
+    try {
+      // Set the prompt in StoryBot service
+      await setPromptById(promptId);
+      
+      // Load reference images for this prompt
+      const imageUrls = await getPromptReferenceImages(promptId);
+      setReferenceImages(imageUrls);
+      
+      // Find the prompt name for toast message
+      const promptName = prompts.find(p => p.id === promptId)?.name || "Selecionado";
+      toast.success(`Prompt "${promptName}" selecionado com sucesso!`);
+      
+      // Add a message to the chat
+      const selectedPrompt = prompts.find(p => p.id === promptId);
+      if (selectedPrompt) {
+        const promptMessage: Message = {
+          role: "assistant",
+          content: `Prompt "${selectedPrompt.name}" aplicado! ${selectedPrompt.description ? `\n\n${selectedPrompt.description}` : ''}\n\nComo posso ajudar você a criar uma história incrível?`
+        };
+        setMessages([promptMessage]);
+      }
+    } catch (error) {
+      console.error("Error setting prompt:", error);
+      toast.error("Não foi possível configurar o prompt selecionado");
+    }
+  };
   
   useEffect(() => {
     // Initial welcome message changes based on API availability
@@ -37,12 +110,15 @@ const StoryBotChat = () => {
       ? "Olá! Eu sou o StoryBot, seu assistente virtual para criar histórias infantis! 😊 Estou funcionando com recursos limitados no momento, mas ainda posso criar histórias divertidas. Para começarmos, conte-me sobre a criança para quem vamos criar a história e o tema que você prefere!"
       : "Olá! Eu sou o StoryBot, seu assistente virtual para criar histórias infantis personalizadas! 😊 Para começarmos, poderia me dizer o nome da criança para quem vamos criar a história? E que tipo de tema você gostaria para a história? Posso sugerir alguns como: aventura na floresta, viagem ao espaço, reino mágico, fundo do mar ou terra dos dinossauros!";
     
-    const initialMessage: Message = {
-      role: "assistant",
-      content: welcomeMessage
-    };
-    
-    setMessages([initialMessage]);
+    // Don't set initial message if we already have messages
+    if (messages.length === 0) {
+      const initialMessage: Message = {
+        role: "assistant",
+        content: welcomeMessage
+      };
+      
+      setMessages([initialMessage]);
+    }
     
     // Check if we've already detected API issues
     const hasApiIssue = localStorage.getItem("storybot_api_issue") === "true";
@@ -259,6 +335,55 @@ const StoryBotChat = () => {
 
   return (
     <div className="glass rounded-2xl p-6 md:p-8 shadow-xl mb-12 flex flex-col h-[700px]">
+      <div className="flex justify-between mb-4">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-violet-600" /> StoryBot Chat
+        </h2>
+        
+        {!loadingPrompts && prompts.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedPromptId || undefined}
+              onValueChange={handlePromptChange}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Selecionar prompt" />
+              </SelectTrigger>
+              <SelectContent>
+                {prompts.map((prompt) => (
+                  <SelectItem key={prompt.id} value={prompt.id}>
+                    {prompt.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {referenceImages.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-10 w-10">
+                    <BookOpen className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-3">
+                  <h3 className="text-sm font-medium mb-2">Imagens de Referência</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {referenceImages.map((url, index) => (
+                      <img 
+                        key={index} 
+                        src={url} 
+                        alt={`Referência ${index + 1}`} 
+                        className="w-full h-auto object-cover rounded-md"
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        )}
+      </div>
+      
       {hasApiError && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700">
           <AlertCircle className="h-4 w-4" />
@@ -290,6 +415,23 @@ const StoryBotChat = () => {
               <li>Mencione claramente o tema desejado (aventura, fantasia, espaço, etc.)</li>
               <li>Descreva os personagens com detalhes simples</li>
             </ul>
+          </div>
+        </div>
+      )}
+      
+      {/* Reference Images Gallery */}
+      {referenceImages.length > 0 && (
+        <div className="mb-4 p-3 bg-violet-50 border border-violet-200 rounded-lg">
+          <h3 className="text-sm font-medium text-violet-800 mb-2">Imagens de Referência</h3>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {referenceImages.map((url, index) => (
+              <img 
+                key={index} 
+                src={url} 
+                alt={`Referência ${index + 1}`} 
+                className="h-16 w-auto object-cover rounded-md"
+              />
+            ))}
           </div>
         </div>
       )}

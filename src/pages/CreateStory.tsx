@@ -17,6 +17,7 @@ import StoryForm, { StoryFormData } from "@/components/StoryForm";
 import StoryPromptInput from "@/components/StoryPromptInput";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useStoryBot } from "@/hooks/useStoryBot";
 
 type CreationStep = "prompt" | "details";
 
@@ -29,17 +30,39 @@ const CreateStory = () => {
   const [formData, setFormData] = useState<StoryFormData | null>(null);
   const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
   const [apiKeyError, setApiKeyError] = useState<boolean>(false);
-  
-  // Verificar se o formulário já foi enviado anteriormente para evitar renderização duplicada
+  const [availablePrompts, setAvailablePrompts] = useState<{id: string, name: string, description: string | null}[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
+
+  useEffect(() => {
+    const loadPrompts = async () => {
+      setLoadingPrompts(true);
+      try {
+        const { listAvailablePrompts } = useStoryBot();
+        const promptsList = await listAvailablePrompts();
+        setAvailablePrompts(promptsList);
+        
+        const defaultPrompt = promptsList.find((p: any) => p.name === "Prompt Padrão");
+        if (defaultPrompt) {
+          setSelectedPromptId(defaultPrompt.id);
+        }
+      } catch (error) {
+        console.error("Failed to load prompts:", error);
+      } finally {
+        setLoadingPrompts(false);
+      }
+    };
+    
+    loadPrompts();
+  }, []);
+
   useEffect(() => {
     const storedData = sessionStorage.getItem("create_story_data");
-    // Se temos dados armazenados e o formulário já foi enviado, redirecionar diretamente
     if (storedData && formSubmitted) {
       navigate("/story-creator");
     }
   }, [formSubmitted, navigate]);
 
-  // Verificar se a chave da API OpenAI está configurada
   useEffect(() => {
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
@@ -48,9 +71,8 @@ const CreateStory = () => {
       setApiKeyError(false);
     }
   }, []);
-  
+
   const handlePromptSubmit = (prompt: string) => {
-    // Verificar novamente a chave da API antes de prosseguir
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
       setApiKeyError(true);
@@ -61,7 +83,6 @@ const CreateStory = () => {
     setStoryPrompt(prompt);
     setStep("details");
     
-    // Pré-preencher o formulário com sugestões baseadas no prompt
     const suggestedTheme = getSuggestedTheme(prompt);
     const suggestedSetting = getSuggestedSetting(prompt);
     
@@ -78,7 +99,7 @@ const CreateStory = () => {
       voiceType: "female"
     });
   };
-  
+
   const getSuggestedTheme = (prompt: string): string => {
     const lowercasePrompt = prompt.toLowerCase();
     
@@ -96,10 +117,9 @@ const CreateStory = () => {
       return "fantasy";
     }
     
-    // Default para aventura se nenhum tema específico for detectado
     return "adventure";
   };
-  
+
   const getSuggestedSetting = (prompt: string): string => {
     const lowercasePrompt = prompt.toLowerCase();
     
@@ -120,12 +140,10 @@ const CreateStory = () => {
       return "dinosaurland";
     }
     
-    // Default para floresta se nenhum cenário específico for detectado
     return "forest";
   };
-  
+
   const handleFormSubmit = (data: StoryFormData) => {
-    // Verificar novamente a chave da API antes de prosseguir
     const openAiApiKey = localStorage.getItem('openai_api_key');
     if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
       setApiKeyError(true);
@@ -133,20 +151,17 @@ const CreateStory = () => {
       return;
     }
     
-    // Salvar dados no sessionStorage
     sessionStorage.setItem("create_story_data", JSON.stringify({
       ...data,
-      storyPrompt
+      storyPrompt,
+      selectedPromptId
     }));
     
-    // Marcar que o formulário foi submetido
     setFormSubmitted(true);
     
-    // Redirecionar para o criador de histórias
     navigate("/story-creator");
   };
-  
-  // Not authenticated content
+
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
@@ -186,7 +201,6 @@ const CreateStory = () => {
     );
   }
 
-  // Check if user has an active subscription
   if (!isLoadingSubscription && !hasActiveSubscription) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
@@ -228,7 +242,7 @@ const CreateStory = () => {
       </div>
     );
   }
-  
+
   const renderStep = () => {
     switch (step) {
       case "prompt":
@@ -249,7 +263,11 @@ const CreateStory = () => {
               </Alert>
             )}
             <StoryPromptInput 
-              onSubmit={handlePromptSubmit} 
+              onSubmit={handlePromptSubmit}
+              availablePrompts={availablePrompts}
+              selectedPromptId={selectedPromptId}
+              onPromptSelect={setSelectedPromptId}
+              loadingPrompts={loadingPrompts}
             />
           </>
         );
@@ -292,6 +310,22 @@ const CreateStory = () => {
               </div>
             )}
             
+            {selectedPromptId && (
+              <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-indigo-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-indigo-800 mb-1">
+                      Prompt selecionado: {availablePrompts.find(p => p.id === selectedPromptId)?.name}
+                    </p>
+                    <p className="text-sm text-indigo-700">
+                      {availablePrompts.find(p => p.id === selectedPromptId)?.description || "Prompt personalizado para geração de histórias."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
             
             <div className="mt-8 flex justify-between">
@@ -311,7 +345,7 @@ const CreateStory = () => {
         return null;
     }
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-violet-50 via-white to-indigo-50">
       <Navbar />

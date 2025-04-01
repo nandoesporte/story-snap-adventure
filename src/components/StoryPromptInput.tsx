@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Bot, ChevronDown, ChevronRight } from 'lucide-react';
+import { Sparkles, Bot, ChevronDown, ChevronRight, Book } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,15 +10,31 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from "@/components/ui/accordion";
+import {
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface StoryPromptInputProps {
   onSubmit: (prompt: string) => void;
   initialPrompt?: string;
+  availablePrompts?: {id: string, name: string, description: string | null}[];
+  selectedPromptId?: string | null;
+  onPromptSelect?: (promptId: string) => void;
+  loadingPrompts?: boolean;
 }
 
 const StoryPromptInput: React.FC<StoryPromptInputProps> = ({ 
   onSubmit,
-  initialPrompt = ""
+  initialPrompt = "",
+  availablePrompts = [],
+  selectedPromptId = null,
+  onPromptSelect = () => {},
+  loadingPrompts = false
 }) => {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -179,6 +195,10 @@ const StoryPromptInput: React.FC<StoryPromptInputProps> = ({
     setPrompt(suggestion);
   };
 
+  const handlePromptChange = (promptId: string) => {
+    onPromptSelect(promptId);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -190,6 +210,38 @@ const StoryPromptInput: React.FC<StoryPromptInputProps> = ({
       </h2>
       
       <form onSubmit={handleSubmit} className="space-y-6">
+        {availablePrompts && availablePrompts.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selecione um prompt para melhor geração:
+            </label>
+            <Select
+              value={selectedPromptId || undefined}
+              onValueChange={handlePromptChange}
+              disabled={loadingPrompts}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={loadingPrompts ? "Carregando prompts..." : "Selecione um prompt"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePrompts.map((prompt) => (
+                  <SelectItem key={prompt.id} value={prompt.id}>
+                    <div className="flex items-center gap-2">
+                      <Book className="h-4 w-4 text-violet-600" />
+                      <span>{prompt.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedPromptId && (
+              <p className="mt-2 text-sm text-gray-500">
+                {availablePrompts.find(p => p.id === selectedPromptId)?.description || "Prompt personalizado para geração de histórias."}
+              </p>
+            )}
+          </div>
+        )}
+        
         <div className="bg-violet-50 p-4 rounded-lg text-sm text-violet-700 mb-6 flex items-start gap-2">
           <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
@@ -297,7 +349,10 @@ const StoryPromptInput: React.FC<StoryPromptInputProps> = ({
             className="w-full py-6 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
-              <>Processando...</>
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Processando...</span>
+              </>
             ) : (
               <>
                 <Sparkles className="h-5 w-5" />

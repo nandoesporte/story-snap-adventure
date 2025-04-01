@@ -32,6 +32,7 @@ const StoryCreator = () => {
   const [hasElevenLabsKey, setHasElevenLabsKey] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   
   const { 
     generateCompleteStory,
@@ -71,6 +72,10 @@ const StoryCreator = () => {
         
         if (parsedData.imagePreview) {
           setImagePreview(parsedData.imagePreview);
+        }
+        
+        if (parsedData.selectedPromptId) {
+          setSelectedPromptId(parsedData.selectedPromptId);
         }
         
         setDataLoaded(true);
@@ -123,9 +128,20 @@ const StoryCreator = () => {
   
   useEffect(() => {
     if (dataLoaded && formData && step === "generating" && !apiError) {
-      generateStory(formData);
+      if (selectedPromptId) {
+        const { setPromptById } = useStoryGeneration;
+        setPromptById(selectedPromptId).then(() => {
+          console.log("Applied selected prompt:", selectedPromptId);
+          generateStory(formData);
+        }).catch(error => {
+          console.error("Failed to set selected prompt:", error);
+          generateStory(formData);
+        });
+      } else {
+        generateStory(formData);
+      }
     }
-  }, [dataLoaded, formData, step, apiError]);
+  }, [dataLoaded, formData, step, apiError, selectedPromptId]);
   
   const handleFormSubmit = (data: StoryFormData) => {
     const updatedData: StoryFormData = {
@@ -240,6 +256,10 @@ const StoryCreator = () => {
     setStep("generating");
     
     try {
+      if (selectedPromptId) {
+        toast.info("Usando prompt personalizado para geração da história");
+      }
+      
       const characterPrompt = selectedCharacter?.generation_prompt || "";
       const characterName = selectedCharacter?.name || data.childName;
       
