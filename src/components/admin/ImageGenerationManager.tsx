@@ -11,23 +11,35 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { generateImageWithOpenAI } from "@/lib/openai";
 import LeonardoAIStatusCheck from "./LeonardoAIStatusCheck";
+import { LeonardoAIAgent } from "@/services/LeonardoAIAgent";
 
 const ImageGenerationManager = () => {
   const [useOpenAI, setUseOpenAI] = useState<boolean>(false);
   const [isGeneratingTest, setIsGeneratingTest] = useState<boolean>(false);
   const [testImageUrl, setTestImageUrl] = useState<string>("");
   const [testError, setTestError] = useState<string>("");
+  const [useLeonardo, setUseLeonardo] = useState<boolean>(true);
+  const leonardoAgent = new LeonardoAIAgent();
 
   useEffect(() => {
     // Load saved preferences
     const savedUseOpenAI = localStorage.getItem("use_openai_for_images") === "true";
+    const savedUseLeonardo = localStorage.getItem("use_leonardo_ai") !== "false";
+    
     setUseOpenAI(savedUseOpenAI);
+    setUseLeonardo(savedUseLeonardo);
   }, []);
 
   const handleToggleOpenAI = (checked: boolean) => {
     setUseOpenAI(checked);
     localStorage.setItem("use_openai_for_images", checked.toString());
     toast.success(`OpenAI ${checked ? "ativado" : "desativado"} para geração de imagens de fallback.`);
+  };
+
+  const handleToggleLeonardo = (checked: boolean) => {
+    setUseLeonardo(checked);
+    localStorage.setItem("use_leonardo_ai", checked.toString());
+    toast.success(`Leonardo AI ${checked ? "ativado" : "desativado"} para geração de imagens.`);
   };
 
   const generateTestImage = async () => {
@@ -39,48 +51,42 @@ const ImageGenerationManager = () => {
       const prompt = "A children's book illustration of a cute bear in a forest, papercraft style";
       
       // First check if Leonardo AI is available and configured
-      const useLeonardo = localStorage.getItem("use_leonardo_ai") !== "false";
       const leonardoApiKey = localStorage.getItem("leonardo_api_key");
       
       if (useLeonardo && leonardoApiKey) {
         try {
-          // Import dynamically to avoid circular dependencies
-          const { LeonardoAIAgent } = await import('@/services/LeonardoAIAgent');
-          const agent = new LeonardoAIAgent();
+          toast.info("Gerando imagem de teste com Leonardo AI...");
+          console.log("Starting test image generation with Leonardo AI");
           
-          if (agent.isAgentAvailable()) {
-            toast.info("Gerando imagem de teste com Leonardo AI...");
-            console.log("Starting test image generation with Leonardo AI");
-            
-            const imageUrl = await agent.generateImage({
-              prompt,
-              characterName: "Bear",
-              theme: "Forest",
-              setting: "Woods",
-              style: "papercraft"
-            });
-            
-            console.log("Leonardo AI test image result:", imageUrl ? "Success" : "Failed");
-            
-            if (imageUrl) {
-              setTestImageUrl(imageUrl);
-              toast.success("Imagem de teste gerada com sucesso usando Leonardo AI!");
-              return;
-            }
-          } else {
-            console.warn("Leonardo AI agent is not available");
-            toast.warning("O agente Leonardo AI não está disponível. Verificando alternativas...");
+          const imageUrl = await leonardoAgent.generateImage({
+            prompt,
+            characterName: "Bear",
+            theme: "Forest",
+            setting: "Woods",
+            style: "papercraft"
+          });
+          
+          console.log("Leonardo AI test image result:", imageUrl ? "Success" : "Failed");
+          
+          if (imageUrl) {
+            setTestImageUrl(imageUrl);
+            toast.success("Imagem de teste gerada com sucesso usando Leonardo AI!");
+            return;
           }
         } catch (error) {
           console.error("Leonardo AI test image generation failed:", error);
           toast.error("Falha ao gerar imagem com Leonardo AI. Tentando com OpenAI...");
         }
+      } else {
+        console.warn("Leonardo AI is not enabled or API key not available");
+        toast.warning("O serviço Leonardo AI não está disponível. Verificando alternativas...");
       }
       
       // Try with OpenAI if Leonardo failed or is not available
       if (useOpenAI) {
         toast.info("Gerando imagem de teste com OpenAI...");
         try {
+          console.log("Attempting to generate with OpenAI");
           const imageUrl = await generateImageWithOpenAI(prompt);
           if (imageUrl) {
             setTestImageUrl(imageUrl);
@@ -120,6 +126,7 @@ const ImageGenerationManager = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="leonardo">Leonardo AI</TabsTrigger>
             <TabsTrigger value="openai">OpenAI Fallback</TabsTrigger>
+            <TabsTrigger value="preferences">Preferências</TabsTrigger>
             <TabsTrigger value="test">Testar Geração</TabsTrigger>
           </TabsList>
           
@@ -150,6 +157,27 @@ const ImageGenerationManager = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="preferences">
+            <div className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Preferências de Geração</AlertTitle>
+                <AlertDescription>
+                  Configure as preferências de geração de imagens
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex items-center space-x-2 pt-4">
+                <Switch 
+                  id="use-leonardo" 
+                  checked={useLeonardo}
+                  onCheckedChange={handleToggleLeonardo}
+                />
+                <Label htmlFor="use-leonardo">Utilizar Leonardo AI para geração de imagens</Label>
+              </div>
+            </div>
+          </TabsContent>
+          
           <TabsContent value="test">
             <div className="space-y-4">
               <Button 
@@ -173,7 +201,7 @@ const ImageGenerationManager = () => {
               
               {testImageUrl && (
                 <div className="mt-4">
-                  <Alert variant="success" className="mb-2">
+                  <Alert className="mb-2">
                     <CheckCircle className="h-4 w-4" />
                     <AlertTitle>Sucesso!</AlertTitle>
                     <AlertDescription>Imagem gerada com sucesso</AlertDescription>

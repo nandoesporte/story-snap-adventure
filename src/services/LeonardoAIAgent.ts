@@ -113,11 +113,13 @@ export class LeonardoAIAgent {
 
     if (this.generationInProgress) {
       console.warn("Geração de imagem já em andamento, aguarde...");
+      toast.warning("Geração de imagem já em andamento, aguarde...");
       throw new Error("Geração de imagem já em andamento, aguarde...");
     }
 
     try {
       this.generationInProgress = true;
+      console.log("Starting image generation with Leonardo AI");
 
       // Gerar um ID único para esta geração
       const generationId = uuidv4();
@@ -166,22 +168,21 @@ export class LeonardoAIAgent {
       const body = JSON.stringify(generationConfig);
       requestOptions.body = body;
       
-      console.log("Enviando requisição para Leonardo.ai...");
+      console.log("Sending request to Leonardo.ai...");
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", requestOptions);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Erro na resposta da API Leonardo:", errorText);
+        console.error("Leonardo API error response:", errorText);
         
         try {
           const errorData = JSON.parse(errorText);
           if (errorData.error === "You have reached your API request limit for the day.") {
             localStorage.setItem("leonardo_api_issue", "true");
             window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-            toast.error("Limite diário da API Leonardo atingido. Tente novamente amanhã.");
+            toast.error("Limite diário da API Leonardo atingido.");
           }
         } catch (e) {
-          // In case parsing fails, continue with the regular error handling
           console.log("Couldn't parse error response:", e);
         }
         
@@ -204,11 +205,11 @@ export class LeonardoAIAgent {
         
         return await this.waitForGenerationCompletion(generationIdReceived);
       } else {
-        console.error("Resposta inesperada da API Leonardo:", responseData);
+        console.error("Unexpected Leonardo API response:", responseData);
         throw new Error("Resposta inesperada da API Leonardo");
       }
     } catch (error) {
-      console.error("Erro ao gerar imagem:", error);
+      console.error("Error generating image:", error);
       localStorage.setItem("leonardo_api_issue", "true");
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       throw error;
@@ -220,11 +221,11 @@ export class LeonardoAIAgent {
   private async waitForGenerationCompletion(generationId: string): Promise<string> {
     let imageUrl = null;
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 30; // Increased from 20 to 30 for more patience
     
     while (!imageUrl && attempts < maxAttempts) {
       attempts++;
-      console.log(`Tentativa ${attempts}: Verificando status da geração...`);
+      console.log(`Attempt ${attempts}: Checking generation status...`);
       
       try {
         const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
@@ -236,38 +237,39 @@ export class LeonardoAIAgent {
         });
         
         if (!statusResponse.ok) {
-          console.error("Erro ao verificar o status da geração:", statusResponse.statusText);
-          throw new Error(`Falha ao verificar o status da geração: ${statusResponse.statusText}`);
+          console.error("Error checking generation status:", statusResponse.statusText);
+          throw new Error(`Failed to check generation status: ${statusResponse.statusText}`);
         }
         
         const statusData = await statusResponse.json();
+        console.log("Generation status response:", statusData?.generations_by_id?.status || "Unknown");
         
         if (statusData.generations_by_id?.status === "COMPLETE") {
           if (statusData.generations_by_id.generated_images && statusData.generations_by_id.generated_images.length > 0) {
             imageUrl = statusData.generations_by_id.generated_images[0].url;
-            console.log("Imagem gerada com sucesso:", imageUrl);
+            console.log("Image generation successful:", imageUrl);
             return imageUrl;
           } else {
-            console.error("Geração marcada como completa, mas sem imagens geradas");
-            throw new Error("Nenhuma imagem foi gerada");
+            console.error("Generation marked as complete, but no images found");
+            throw new Error("No images were generated");
           }
         } else if (statusData.generations_by_id?.status === "FAILED") {
-          console.error("Geração falhou:", statusData.generations_by_id.failure_reason || "Razão desconhecida");
-          throw new Error(`Geração falhou: ${statusData.generations_by_id.failure_reason || "Erro desconhecido"}`);
+          console.error("Generation failed:", statusData.generations_by_id.failure_reason || "Unknown reason");
+          throw new Error(`Generation failed: ${statusData.generations_by_id.failure_reason || "Unknown error"}`);
         } else {
-          console.log(`Status atual: ${statusData.generations_by_id?.status || "Desconhecido"}. Aguardando...`);
-          await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos
+          console.log(`Current status: ${statusData.generations_by_id?.status || "Unknown"}. Waiting...`);
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
         }
       } catch (error) {
-        console.error("Erro ao verificar status da geração:", error);
+        console.error("Error checking generation status:", error);
         // Continue trying despite errors in status check
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
     
     if (!imageUrl) {
-      console.warn("Tempo limite atingido ao aguardar a geração da imagem.");
-      throw new Error("Tempo limite atingido ao aguardar a geração da imagem.");
+      console.warn("Timeout waiting for image generation.");
+      throw new Error("Timeout waiting for image generation.");
     }
     
     return imageUrl;

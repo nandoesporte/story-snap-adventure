@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
@@ -126,10 +127,10 @@ export const useStoryBot = () => {
   
   const generateImage = async (prompt: string, size: string = "1024x1024") => {
     try {
-      console.log("Using Leonardo AI for image generation");
+      console.log("Checking if Leonardo AI should be used for image generation");
       
       if (!leonardoApiAvailable) {
-        console.log("Leonardo AI not available");
+        console.log("Leonardo AI not available, checking fallback options");
         
         if (useOpenAIForImages) {
           console.log("Falling back to OpenAI for image generation");
@@ -151,8 +152,11 @@ export const useStoryBot = () => {
           style: "papercraft"
         });
         
-        console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
+        if (!result) {
+          throw new Error("Leonardo AI returned empty result");
+        }
         
+        console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
         return result;
       } catch (leonardoError) {
         console.error("Leonardo AI image generation failed:", leonardoError);
@@ -167,7 +171,7 @@ export const useStoryBot = () => {
       }
     } catch (error) {
       console.error("Image generation failed:", error);
-      toast.error(`Erro na geração de imagem: ${error.message || "Erro desconhecido"}`);
+      toast.error(`Erro na geração de imagem: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
       throw error;
     }
   };
@@ -210,13 +214,13 @@ export const useStoryBot = () => {
         throw new Error('Falha ao gerar o conteúdo da história');
       }
       
-      let coverImageUrl = '/placeholder.svg';
+      let coverImageUrl = '/images/defaults/default.jpg';
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
         
         console.log("Generating cover image with Leonardo AI");
         coverImageUrl = await generateImage(coverPrompt, "1792x1024");
-        console.log("Generated cover image with Leonardo AI:", coverImageUrl.substring(0, 50) + "...");
+        console.log("Generated cover image:", coverImageUrl.substring(0, 50) + "...");
       } catch (error) {
         console.error("Failed to generate cover:", error);
         toast.error("Erro ao gerar a capa. Usando imagem padrão.");
@@ -224,17 +228,22 @@ export const useStoryBot = () => {
       
       const pages = [];
       for (let i = 0; i < result.content.length; i++) {
-        let imageUrl = '/placeholder.svg';
+        let imageUrl = '/images/defaults/default.jpg';
         try {
           const imagePrompt = result.imagePrompts[i] || 
             `Illustration in ${style} style for a children's book. Scene: ${result.content[i].substring(0, 200)}... Character ${characterName} in ${setting} with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}` : ''}`;
           
           console.log(`Generating image ${i+1} with Leonardo AI`);
           imageUrl = await generateImage(imagePrompt);
-          console.log(`Generated image ${i+1} with Leonardo AI:`, imageUrl.substring(0, 50) + "...");
+          console.log(`Generated image ${i+1}:`, imageUrl?.substring(0, 50) + "...");
+          
+          if (!imageUrl || imageUrl === 'undefined' || imageUrl === 'null') {
+            throw new Error("Received invalid image URL");
+          }
         } catch (error) {
           console.error(`Failed to generate image ${i+1}:`, error);
           toast.error(`Erro ao gerar a ilustração ${i+1}. Usando imagem padrão.`);
+          imageUrl = `/images/defaults/${theme ? theme : 'default'}.jpg`;
         }
         
         pages.push({
@@ -245,7 +254,7 @@ export const useStoryBot = () => {
 
       return {
         title: result.title,
-        coverImageUrl: coverImageUrl,
+        coverImageUrl: coverImageUrl || '/images/defaults/default.jpg',
         childName: characterName,
         childAge: childAge,
         theme: theme,
