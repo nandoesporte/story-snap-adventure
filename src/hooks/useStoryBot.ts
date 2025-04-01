@@ -1,8 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
 import { toast } from 'sonner';
 import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
+// Import the imageStorage directly instead of dynamically
+import { saveImagePermanently, saveStoryImagesPermanently } from '@/lib/imageStorage';
 
 // Create singleton instances of the AI agents
 const storyBot = new StoryBot();
@@ -243,12 +246,36 @@ export const useStoryBot = () => {
           imageUrl: imageUrl
         });
       }
-      
-      return {
+
+      // Save all images to permanent storage to avoid expiration issues
+      const storyData = {
+        id: `story_${Date.now()}`,
         title: result.title,
-        coverImageUrl,
-        pages
+        coverImageUrl: coverImageUrl,
+        pages: pages.map(page => ({
+          text: page.text,
+          imageUrl: page.imageUrl
+        }))
       };
+
+      try {
+        // Use directly imported function instead of dynamic import
+        const processedStoryData = await saveStoryImagesPermanently(storyData);
+        
+        return {
+          title: processedStoryData.title,
+          coverImageUrl: processedStoryData.coverImageUrl || coverImageUrl,
+          pages: processedStoryData.pages || pages
+        };
+      } catch (storageError) {
+        console.error("Failed to save images to permanent storage:", storageError);
+        // Continue with original story data if storage fails
+        return {
+          title: result.title,
+          coverImageUrl: coverImageUrl,
+          pages: pages
+        };
+      }
     } catch (error) {
       console.error("Error generating complete story:", error);
       throw error;
