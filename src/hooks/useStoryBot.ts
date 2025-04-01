@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
 import { toast } from 'sonner';
+import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
 
-// Create a singleton instance of the StoryBot
+// Create singleton instances of the AI agents
 const storyBot = new StoryBot();
+const leonardoAgent = new LeonardoAIAgent();
 
 export const useStoryBot = () => {
   const [apiAvailable, setApiAvailable] = useState<boolean>(false);
@@ -13,12 +15,14 @@ export const useStoryBot = () => {
   const [useOpenAIForStories, setUseOpenAIFlag] = useState<boolean>(true);
   const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o-mini');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [useOpenAIForImages, setUseOpenAIForImages] = useState<boolean>(true);
+  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(false);
   
   useEffect(() => {
     const isApiAvailable = storyBot.isApiAvailable();
     setApiAvailable(isApiAvailable);
     
-    const isLeonardoApiAvailable = localStorage.getItem('leonardo_webhook_url') !== null;
+    const isLeonardoApiAvailable = leonardoAgent.isAgentAvailable();
     setLeonardoApiAvailable(isLeonardoApiAvailable);
     
     // Load saved model
@@ -26,6 +30,13 @@ export const useStoryBot = () => {
     if (savedModel) {
       setOpenAIModel(savedModel);
     }
+    
+    // Load image generation preferences
+    const savedUseOpenAIForImages = localStorage.getItem('use_openai_for_images') !== 'false';
+    const savedUseLeonardo = localStorage.getItem('use_leonardo_ai') === 'true';
+    
+    setUseOpenAIForImages(savedUseOpenAIForImages);
+    setUseLeonardoAI(savedUseLeonardo);
   }, []);
 
   const generateStoryBotResponse = async (messages: any[], userPrompt: string) => {
@@ -97,6 +108,7 @@ export const useStoryBot = () => {
   const resetLeonardoApiStatus = () => {
     localStorage.removeItem('leonardo_webhook_url');
     localStorage.removeItem('leonardo_api_key');
+    localStorage.removeItem('leonardo_api_issue');
     setLeonardoApiAvailable(false);
     toast.success("API status reset successfully");
   };
@@ -114,6 +126,41 @@ export const useStoryBot = () => {
     } catch (error) {
       console.error("Error setting Leonardo API key:", error);
       return false;
+    }
+  };
+  
+  // Enhanced generateImage function that can use either OpenAI or Leonardo based on settings
+  const generateImage = async (prompt: string, size: string = "1024x1024") => {
+    try {
+      // Check if Leonardo is available and enabled
+      if (useLeonardoAI && leonardoApiAvailable) {
+        try {
+          console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
+          const result = await leonardoAgent.generateImage({
+            prompt,
+            characterName: "",
+            theme: "",
+            setting: "",
+            style: "papercraft"
+          });
+          return result;
+        } catch (error) {
+          console.error("Leonardo AI image generation failed:", error);
+          if (useOpenAIForImages) {
+            console.log("Falling back to OpenAI for image generation");
+            return generateImageWithOpenAI(prompt, size);
+          }
+          throw error;
+        }
+      } else if (useOpenAIForImages) {
+        console.log("Generating image with OpenAI:", prompt.substring(0, 100));
+        return generateImageWithOpenAI(prompt, size);
+      } else {
+        throw new Error("Nenhum serviço de geração de imagem está disponível");
+      }
+    } catch (error) {
+      console.error("Image generation failed:", error);
+      throw error;
     }
   };
   
@@ -159,10 +206,10 @@ export const useStoryBot = () => {
       let coverImageUrl = '/placeholder.svg';
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
-        coverImageUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024");
-        console.log("Generated cover with OpenAI:", coverImageUrl);
+        coverImageUrl = await generateImage(coverPrompt, "1792x1024");
+        console.log("Generated cover image:", coverImageUrl.substring(0, 50) + "...");
       } catch (error) {
-        console.error("Failed to generate cover with OpenAI:", error);
+        console.error("Failed to generate cover:", error);
         toast.error("Erro ao gerar a capa. Usando imagem padrão.");
       }
       
@@ -174,10 +221,10 @@ export const useStoryBot = () => {
           const imagePrompt = result.imagePrompts[i] || 
             `Illustration in ${style} style for a children's book. Scene: ${result.content[i].substring(0, 200)}... Character ${characterName} in ${setting} with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}` : ''}`;
           
-          imageUrl = await generateImageWithOpenAI(imagePrompt);
-          console.log(`Generated image ${i+1} with OpenAI:`, imageUrl.substring(0, 50) + "...");
+          imageUrl = await generateImage(imagePrompt);
+          console.log(`Generated image ${i+1}:`, imageUrl.substring(0, 50) + "...");
         } catch (error) {
-          console.error(`Failed to generate image ${i+1} with OpenAI:`, error);
+          console.error(`Failed to generate image ${i+1}:`, error);
           toast.error(`Erro ao gerar a ilustração ${i+1}. Usando imagem padrão.`);
         }
         
@@ -204,10 +251,13 @@ export const useStoryBot = () => {
     useOpenAIForStories,
     openAIModel,
     isGenerating,
+    useOpenAIForImages,
+    useLeonardoAI,
     generateStoryBotResponse,
     checkOpenAIAvailability,
     setUseOpenAIForStories,
     generateCompleteStory,
+    generateImage,
     generateImageWithOpenAI,
     setPromptById,
     loadPromptByName,

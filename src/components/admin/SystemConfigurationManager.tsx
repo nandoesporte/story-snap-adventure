@@ -6,6 +6,7 @@ import GoogleTTSApiKeyManager from "@/components/admin/GoogleTTSApiKeyManager";
 import AsaasApiKeyManager from "@/components/admin/AsaasApiKeyManager";
 import MercadoPagoApiKeyManager from "@/components/admin/MercadoPagoApiKeyManager";
 import OpenAIApiKeyManager from "@/components/admin/OpenAIApiKeyManager";
+import ImageGenerationManager from "@/components/admin/ImageGenerationManager";
 
 const SystemConfigurationManager = () => {
   return (
@@ -20,6 +21,7 @@ const SystemConfigurationManager = () => {
         <Tabs defaultValue="openai" className="w-full">
           <TabsList className="mb-4 flex flex-wrap">
             <TabsTrigger value="openai">OpenAI</TabsTrigger>
+            <TabsTrigger value="image-generation">Geração de Imagens</TabsTrigger>
             <TabsTrigger value="mercadopago">MercadoPago</TabsTrigger>
             <TabsTrigger value="asaas">Asaas</TabsTrigger>
             <TabsTrigger value="google-tts">Google TTS</TabsTrigger>
@@ -27,6 +29,10 @@ const SystemConfigurationManager = () => {
           
           <TabsContent value="openai">
             <OpenAIApiKeyManager />
+          </TabsContent>
+          
+          <TabsContent value="image-generation">
+            <ImageGenerationManager />
           </TabsContent>
           
           <TabsContent value="mercadopago">

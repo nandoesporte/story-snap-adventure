@@ -14,7 +14,8 @@ import {
   Beaker,
   Menu,
   X,
-  Hammer
+  Hammer,
+  Image
 } from "lucide-react";
 import {
   Tabs,
