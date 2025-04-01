@@ -47,11 +47,11 @@ const formSchema = z.object({
   childAge: z.string().min(1, {
     message: "A idade deve ser preenchida.",
   }),
-  theme: z.string().min(4, {
-    message: "O tema deve ter pelo menos 4 caracteres.",
+  theme: z.string().min(1, {
+    message: "O tema deve ser preenchido.",
   }),
-  setting: z.string().min(4, {
-    message: "O cenário deve ter pelo menos 4 caracteres.",
+  setting: z.string().min(1, {
+    message: "O cenário deve ser preenchido.",
   }),
   characterId: z.string().optional(),
   characterName: z.string().optional(),
@@ -59,7 +59,9 @@ const formSchema = z.object({
   length: z.string(),
   readingLevel: z.string(),
   language: z.string(),
-  moral: z.string(),
+  moral: z.string().min(1, {
+    message: "A moral da história deve ser preenchida.",
+  }),
   voiceType: z.enum(['male', 'female'])
 })
 
@@ -101,6 +103,9 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
     ocean: "underwater",
     dinosaurs: "dinosaurland"
   });
+  const [customTheme, setCustomTheme] = useState<string>("");
+  const [customSetting, setCustomSetting] = useState<string>("");
+  const [customMoral, setCustomMoral] = useState<string>("");
 
   // Use suggestions or initialData, with suggestions taking precedence
   const defaultValues = {
@@ -136,12 +141,15 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
     if (suggestions) {
       if (suggestions.theme) {
         form.setValue('theme', suggestions.theme);
+        setCustomTheme(suggestions.theme);
       }
       if (suggestions.setting) {
         form.setValue('setting', suggestions.setting);
+        setCustomSetting(suggestions.setting);
       }
       if (suggestions.moral) {
         form.setValue('moral', suggestions.moral);
+        setCustomMoral(suggestions.moral);
       }
     }
   }, [suggestions, form]);
@@ -207,27 +215,22 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tema da História</FormLabel>
-              <Select 
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  const suggestedSetting = suggestedSettings[value] || "forest";
-                  form.setValue('setting', suggestedSetting);
-                }} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tema" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="adventure">Aventura</SelectItem>
-                  <SelectItem value="fantasy">Fantasia</SelectItem>
-                  <SelectItem value="space">Espaço</SelectItem>
-                  <SelectItem value="ocean">Oceano</SelectItem>
-                  <SelectItem value="dinosaurs">Dinossauros</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input 
+                  placeholder="Digite o tema da história"
+                  {...field}
+                  value={customTheme || field.value}
+                  onChange={(e) => {
+                    field.onChange(e.target.value);
+                    setCustomTheme(e.target.value);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>
+                {suggestions?.theme && (
+                  <span className="text-xs text-violet-600">Sugestão da IA: {suggestions.theme}</span>
+                )}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -238,20 +241,22 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Cenário da História</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cenário" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="forest">Floresta Encantada</SelectItem>
-                  <SelectItem value="castle">Castelo Mágico</SelectItem>
-                  <SelectItem value="space">Espaço Sideral</SelectItem>
-                  <SelectItem value="underwater">Mundo Submarino</SelectItem>
-                  <SelectItem value="dinosaurland">Terra dos Dinossauros</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input 
+                  placeholder="Digite o cenário da história" 
+                  {...field}
+                  value={customSetting || field.value}
+                  onChange={(e) => {
+                    field.onChange(e.target.value);
+                    setCustomSetting(e.target.value);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>
+                {suggestions?.setting && (
+                  <span className="text-xs text-violet-600">Sugestão da IA: {suggestions.setting}</span>
+                )}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -262,20 +267,22 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Moral da História</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a moral" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="friendship">Amizade</SelectItem>
-                  <SelectItem value="courage">Coragem</SelectItem>
-                  <SelectItem value="honesty">Honestidade</SelectItem>
-                  <SelectItem value="kindness">Gentileza</SelectItem>
-                  <SelectItem value="perseverance">Perseverança</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Input 
+                  placeholder="Digite a moral da história" 
+                  {...field}
+                  value={customMoral || field.value}
+                  onChange={(e) => {
+                    field.onChange(e.target.value);
+                    setCustomMoral(e.target.value);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>
+                {suggestions?.moral && (
+                  <span className="text-xs text-violet-600">Sugestão da IA: {suggestions.moral}</span>
+                )}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
