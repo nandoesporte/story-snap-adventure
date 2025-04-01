@@ -22,6 +22,7 @@ const LeonardoAIStatusCheck = () => {
 
       if (!apiKey) {
         setIsAvailable(false);
+        toast.error("Chave da API Leonardo não encontrada. Configure-a nas configurações.");
         return;
       }
 

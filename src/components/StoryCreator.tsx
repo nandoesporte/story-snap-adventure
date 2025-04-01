@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -60,25 +59,18 @@ const StoryCreator = () => {
         return null;
       }
       
-      const { saveStoryImagesPermanently } = await import('@/lib/imageStorage');
-      
-      console.log("Saving story images permanently before database storage");
-      const processedStoryData = await saveStoryImagesPermanently({
-        ...storyData,
-        id: uuidv4()
-      });
-      
+      // Skip permanent storage processing and use Leonardo URLs directly
       const storyToSave = {
-        title: processedStoryData.title,
-        cover_image_url: processedStoryData.coverImageUrl,
-        character_name: processedStoryData.childName,
-        character_age: processedStoryData.childAge,
-        theme: processedStoryData.theme,
-        setting: processedStoryData.setting,
-        style: processedStoryData.style,
+        title: storyData.title,
+        cover_image_url: storyData.coverImageUrl,
+        character_name: storyData.childName || "",
+        character_age: storyData.childAge || "",
+        theme: storyData.theme || "",
+        setting: storyData.setting || "",
+        style: storyData.style || "papercraft",
         user_id: userData.user.id,
         character_prompt: selectedCharacter?.generation_prompt || "",
-        pages: processedStoryData.pages.map((page: any) => ({
+        pages: storyData.pages.map((page: any) => ({
           text: page.text,
           image_url: page.imageUrl || page.image_url
         }))

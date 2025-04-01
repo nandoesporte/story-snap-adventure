@@ -127,7 +127,7 @@ export const useStoryBot = () => {
   
   const generateImage = async (prompt: string, size: string = "1024x1024") => {
     try {
-      console.log("Priority: Using Leonardo AI for image generation");
+      console.log("Using Leonardo AI for image generation");
       
       if (!leonardoApiAvailable) {
         console.log("Leonardo AI not available");
@@ -154,14 +154,7 @@ export const useStoryBot = () => {
         
         console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
         
-        try {
-          const savedImage = await saveImagePermanently(result);
-          console.log("Saved Leonardo image to permanent storage:", savedImage.substring(0, 50) + "...");
-          return savedImage;
-        } catch (saveError) {
-          console.error("Failed to save Leonardo image to permanent storage:", saveError);
-          return result;
-        }
+        return result;
       } catch (leonardoError) {
         console.error("Leonardo AI image generation failed:", leonardoError);
         toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
@@ -251,24 +244,15 @@ export const useStoryBot = () => {
         });
       }
 
-      const storyData = {
-        id: `story_${Date.now()}`,
+      return {
         title: result.title,
         coverImageUrl: coverImageUrl,
-        pages: pages.map(page => ({
-          text: page.text,
-          imageUrl: page.imageUrl
-        }))
-      };
-
-      console.log("Saving all story images to permanent storage");
-      const processedStoryData = await saveStoryImagesPermanently(storyData);
-      console.log("Successfully saved all images to permanent storage");
-      
-      return {
-        title: processedStoryData.title,
-        coverImageUrl: processedStoryData.coverImageUrl || coverImageUrl,
-        pages: processedStoryData.pages || pages
+        childName: characterName,
+        childAge: childAge,
+        theme: theme,
+        setting: setting,
+        style: style,
+        pages: pages
       };
     } catch (error) {
       console.error("Error generating complete story:", error);
