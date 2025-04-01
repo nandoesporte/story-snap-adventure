@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -43,7 +42,7 @@ interface Prompt {
   updated_at: string;
   name?: string;
   description?: string;
-  reference_image_url?: string;
+  reference_image_url?: string | null;
 }
 
 const StoryBotPromptManager = () => {
@@ -57,12 +56,10 @@ const StoryBotPromptManager = () => {
   const [editingReferenceImage, setEditingReferenceImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Fetch prompts from the database
   const fetchPrompts = async () => {
     try {
       setLoading(true);
       
-      // First ensure the table exists
       await ensureStoryBotPromptsTable();
       
       const { data, error } = await supabase
@@ -86,7 +83,6 @@ const StoryBotPromptManager = () => {
     }
   };
 
-  // Add a new prompt
   const addPrompt = async () => {
     if (!newPrompt.trim()) {
       toast.error("O prompt não pode estar vazio");
@@ -94,7 +90,6 @@ const StoryBotPromptManager = () => {
     }
     
     try {
-      // Process and save the reference image if provided
       let permanentImageUrl = null;
       if (referenceImage) {
         setUploadingImage(true);
@@ -143,7 +138,6 @@ const StoryBotPromptManager = () => {
     }
   };
 
-  // Update an existing prompt
   const updatePrompt = async () => {
     if (!editingPrompt || !editingPrompt.prompt.trim()) {
       toast.error("O prompt não pode estar vazio");
@@ -151,7 +145,6 @@ const StoryBotPromptManager = () => {
     }
     
     try {
-      // Process and save the reference image if it was changed
       let permanentImageUrl = editingPrompt.reference_image_url;
       
       if (editingReferenceImage && editingReferenceImage !== editingPrompt.reference_image_url) {
@@ -198,7 +191,6 @@ const StoryBotPromptManager = () => {
     }
   };
 
-  // Delete a prompt
   const deletePrompt = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este prompt?")) {
       return;
@@ -224,17 +216,14 @@ const StoryBotPromptManager = () => {
     }
   };
 
-  // Handle file upload for new prompt
   const handleFileUpload = (base64: string) => {
     setReferenceImage(base64);
   };
 
-  // Handle file upload for editing prompt
   const handleEditFileUpload = (base64: string) => {
     setEditingReferenceImage(base64);
   };
 
-  // Load prompts on component mount
   useEffect(() => {
     fetchPrompts();
   }, []);
