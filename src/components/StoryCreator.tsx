@@ -36,6 +36,7 @@ const StoryCreator = () => {
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [storyGenerationStarted, setStoryGenerationStarted] = useState(false);
   const [connectionErrorCount, setConnectionErrorCount] = useState(0);
+  const [formSubmitted, setFormSubmitted] = useState(false);
   
   const { 
     generateCompleteStory,
@@ -128,9 +129,16 @@ const StoryCreator = () => {
     }
   }, [selectedCharacter]);
   
+  // Fix 1: Modified generateStory to prevent re-entry and maintain step state
   const generateStory = useCallback(async (data: StoryFormData) => {
     if (!data) {
       toast.error("Informações incompletas para gerar a história.");
+      return;
+    }
+    
+    // Prevent re-entry if already generating
+    if (isGenerating || step === "generating" || step === "finalizing") {
+      console.log("Story generation already in progress, preventing duplicate start");
       return;
     }
     
@@ -151,6 +159,8 @@ const StoryCreator = () => {
       });
     }
     
+    // Fix 2: Set formSubmitted to prevent re-running the form submission
+    setFormSubmitted(true);
     setStep("generating");
     
     try {
@@ -297,8 +307,12 @@ const StoryCreator = () => {
         setApiError("Ocorreu um erro ao gerar a história. Tente novamente.");
         toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       }
+      
+      // Fix: Return to details step on error to allow resubmission
+      setFormSubmitted(false);
+      setStep("details");
     }
-  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase, connectionErrorCount]);
+  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase, connectionErrorCount, isGenerating, step]);
 
   useEffect(() => {
     const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
@@ -381,9 +395,11 @@ const StoryCreator = () => {
     }
   }, [formData]);
   
-  // Fixed effect to prevent infinite loop
+  // Fix 3: Modified effect to prevent re-triggering story generation
   useEffect(() => {
-    if (dataLoaded && formData && step === "generating" && !apiError && !storyGenerationStarted) {
+    // Only start generation if we have data, are in details step, no API error, not already generating, and form just submitted
+    if (dataLoaded && formData && step === "details" && !apiError && !storyGenerationStarted && !formSubmitted) {
+      console.log("Starting story generation from effect");
       setStoryGenerationStarted(true);
       
       const startStoryGeneration = async () => {
@@ -401,17 +417,26 @@ const StoryCreator = () => {
       
       startStoryGeneration();
     }
-  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory, storyGenerationStarted]);
+  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory, storyGenerationStarted, formSubmitted]);
   
+  // Fix 4: Modified form submission handler to better control the flow
   const handleFormSubmit = (data: StoryFormData) => {
+    if (storyGenerationStarted || formSubmitted) {
+      console.log("Preventing duplicate form submission");
+      return;
+    }
+    
     const updatedData: StoryFormData = {
       ...data,
       style: "papercraft" as StoryStyle
     };
+    
     setFormData(updatedData);
     setConnectionErrorCount(0); // Resetar contador de erros de conexão
-    setStoryGenerationStarted(false); // Reset flag before starting generation
-    setStep("generating"); // This will trigger the useEffect to generate the story
+    setStoryGenerationStarted(true); // Set flag before starting generation
+    
+    // Directly call generateStory instead of relying on the effect
+    generateStory(updatedData);
   };
   
   if (apiError) {
@@ -483,7 +508,11 @@ const StoryCreator = () => {
               </div>
             )}
             
-            <StoryForm onSubmit={handleFormSubmit} initialData={formData} />
+            <StoryForm 
+              onSubmit={handleFormSubmit} 
+              initialData={formData} 
+              disabled={storyGenerationStarted || formSubmitted}
+            />
           </motion.div>
         )}
         

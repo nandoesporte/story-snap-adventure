@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
-
+import { z } from "zod";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -11,12 +12,31 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { StoryStyle } from '@/services/BookGenerationService';
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { 
+  BookOpenText, 
+  Clock3, 
+  Globe2, 
+  Heart, 
+  HelpCircle, 
+  Palette,
+  Sparkles,  
+  Star,
+  Volume2
+} from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+import { voiceTypes } from "@/lib/tts";
+import { StoryStyle } from "@/services/BookGenerationService";
 
 const formSchema = z.object({
   childName: z.string().min(2, {
@@ -59,35 +79,43 @@ export interface StoryFormData {
 interface StoryFormProps {
   onSubmit: (data: StoryFormData) => void;
   initialData?: StoryFormData | null;
+  disabled?: boolean;
 }
 
-const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData }) => {
+const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled = false }) => {
+  const { user } = useAuth();
+  const [characters, setCharacters] = useState<any[]>([]);
+  const [loadingCharacters, setLoadingCharacters] = useState(false);
+
   const form = useForm<StoryFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      childName: initialData?.childName || "",
-      childAge: initialData?.childAge || "",
-      theme: initialData?.theme || "",
-      setting: initialData?.setting || "",
-      characterId: initialData?.characterId || "",
-      characterName: initialData?.characterName || "",
-      style: initialData?.style || "papercraft",
-      length: initialData?.length || "medium",
-      readingLevel: initialData?.readingLevel || "intermediate",
-      language: initialData?.language || "portuguese",
-      moral: initialData?.moral || "friendship",
-      voiceType: initialData?.voiceType || "female"
+    defaultValues: initialData || {
+      childName: "",
+      childAge: "",
+      theme: "adventure",
+      setting: "forest",
+      style: "papercraft",
+      length: "medium",
+      readingLevel: "intermediate",
+      language: "portuguese",
+      moral: "friendship",
+      voiceType: "female"
     },
-    mode: "onChange"
-  })
+  });
 
-  function handleSubmit(values: StoryFormData) {
-    onSubmit(values);
-  }
+  useEffect(() => {
+    if (initialData) {
+      Object.entries(initialData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          form.setValue(key as any, value);
+        }
+      });
+    }
+  }, [initialData, form]);
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="childName"
@@ -201,7 +229,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData }) => {
                 <SelectContent>
                   <SelectItem value="beginner">Iniciante</SelectItem>
                   <SelectItem value="intermediate">Intermediário</SelectItem>
-                  <SelectItem value="advanced">Avançado</SelectItem>
+                  <SelectItem value="advanced">Avan��ado</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -251,7 +279,24 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData }) => {
             </FormItem>
           )}
         />
-        <Button type="submit">Gerar História</Button>
+        <div className="flex justify-end mt-8">
+          <Button 
+            type="submit" 
+            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-medium px-8 py-6 rounded-xl shadow-md"
+            disabled={disabled}
+          >
+            {disabled ? (
+              <div className="flex items-center gap-2">
+                <span className="animate-pulse">Gerando...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                <span>Gerar História</span>
+              </div>
+            )}
+          </Button>
+        </div>
       </form>
     </Form>
   );
