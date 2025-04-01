@@ -189,26 +189,45 @@ export class LeonardoAIAgent {
       }
       
       const responseData = await response.json();
+      console.log("Leonardo API response:", responseData);
       
-      if (!responseData.generations || !responseData.generations[0] || !responseData.generations[0].id) {
+      if (responseData.sdGenerationJob && responseData.sdGenerationJob.generationId) {
+        // New API response format
+        const generationIdReceived = responseData.sdGenerationJob.generationId;
+        console.log(`Geração iniciada com ID (novo formato): ${generationIdReceived}`);
+        
+        return await this.waitForGenerationCompletion(generationIdReceived);
+      } else if (responseData.generations && responseData.generations[0] && responseData.generations[0].id) {
+        // Old API response format
+        const generationIdReceived = responseData.generations[0].id;
+        console.log(`Geração iniciada com ID (formato antigo): ${generationIdReceived}`);
+        
+        return await this.waitForGenerationCompletion(generationIdReceived);
+      } else {
         console.error("Resposta inesperada da API Leonardo:", responseData);
         throw new Error("Resposta inesperada da API Leonardo");
       }
+    } catch (error) {
+      console.error("Erro ao gerar imagem:", error);
+      localStorage.setItem("leonardo_api_issue", "true");
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      throw error;
+    } finally {
+      this.generationInProgress = false;
+    }
+  }
+
+  private async waitForGenerationCompletion(generationId: string): Promise<string> {
+    let imageUrl = null;
+    let attempts = 0;
+    const maxAttempts = 20;
+    
+    while (!imageUrl && attempts < maxAttempts) {
+      attempts++;
+      console.log(`Tentativa ${attempts}: Verificando status da geração...`);
       
-      const generationIdReceived = responseData.generations[0].id;
-      
-      console.log(`Geração iniciada com ID: ${generationIdReceived}`);
-      
-      // Verificar o status da geração a cada 3 segundos
-      let imageUrl = null;
-      let attempts = 0;
-      const maxAttempts = 20; // Aumentando o número máximo de tentativas
-      
-      while (!imageUrl && attempts < maxAttempts) {
-        attempts++;
-        console.log(`Tentativa ${attempts}: Verificando status da geração...`);
-        
-        const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationIdReceived}`, {
+      try {
+        const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
           method: 'GET',
           headers: {
             'accept': 'application/json',
@@ -227,7 +246,7 @@ export class LeonardoAIAgent {
           if (statusData.generations_by_id.generated_images && statusData.generations_by_id.generated_images.length > 0) {
             imageUrl = statusData.generations_by_id.generated_images[0].url;
             console.log("Imagem gerada com sucesso:", imageUrl);
-            break;
+            return imageUrl;
           } else {
             console.error("Geração marcada como completa, mas sem imagens geradas");
             throw new Error("Nenhuma imagem foi gerada");
@@ -239,22 +258,19 @@ export class LeonardoAIAgent {
           console.log(`Status atual: ${statusData.generations_by_id?.status || "Desconhecido"}. Aguardando...`);
           await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos
         }
+      } catch (error) {
+        console.error("Erro ao verificar status da geração:", error);
+        // Continue trying despite errors in status check
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
-      
-      if (!imageUrl) {
-        console.warn("Tempo limite atingido ao aguardar a geração da imagem.");
-        throw new Error("Tempo limite atingido ao aguardar a geração da imagem.");
-      }
-      
-      return imageUrl;
-    } catch (error) {
-      console.error("Erro ao gerar imagem:", error);
-      localStorage.setItem("leonardo_api_issue", "true");
-      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-      throw error;
-    } finally {
-      this.generationInProgress = false;
     }
+    
+    if (!imageUrl) {
+      console.warn("Tempo limite atingido ao aguardar a geração da imagem.");
+      throw new Error("Tempo limite atingido ao aguardar a geração da imagem.");
+    }
+    
+    return imageUrl;
   }
 
   async generateCoverImage(
@@ -309,16 +325,6 @@ export class LeonardoAIAgent {
   ): Promise<string[]> {
     try {
       console.log(`Generating ${imagePrompts.length} story images...`);
-      
-      // Gerar um personagem de referência para consistência
-      console.log("Creating reference image for consistent character appearance...");
-      
-      let characterReferencePrompt = `Clear reference image of the character ${characterName}. `;
-      characterReferencePrompt += `The character is in a ${setting} setting with a ${theme} theme. `;
-      
-      if (characterPrompt) {
-        characterReferencePrompt += characterPrompt;
-      }
       
       const generatedImages: string[] = [];
       

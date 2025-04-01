@@ -92,7 +92,7 @@ const LeonardoAIStatusCheck = () => {
 
   return (
     <div className="space-y-6">
-      <Alert variant={isAvailable === null ? "default" : isAvailable ? "default" : "destructive"} className="mb-4">
+      <Alert variant={isAvailable === null ? "default" : isAvailable ? "success" : "destructive"} className="mb-4">
         {isAvailable === null ? (
           <AlertCircle className="h-4 w-4" />
         ) : isAvailable ? (

@@ -13,8 +13,6 @@ import { generateImageWithOpenAI } from "@/lib/openai";
 import LeonardoAIStatusCheck from "./LeonardoAIStatusCheck";
 
 const ImageGenerationManager = () => {
-  const [leonardoApiKey, setLeonardoApiKey] = useState<string>("");
-  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(true);
   const [useOpenAI, setUseOpenAI] = useState<boolean>(false);
   const [isGeneratingTest, setIsGeneratingTest] = useState<boolean>(false);
   const [testImageUrl, setTestImageUrl] = useState<string>("");
@@ -22,42 +20,9 @@ const ImageGenerationManager = () => {
 
   useEffect(() => {
     // Load saved preferences
-    const savedKey = localStorage.getItem("leonardo_api_key") || "";
-    const savedUseLeonardo = localStorage.getItem("use_leonardo_ai") !== "false";
     const savedUseOpenAI = localStorage.getItem("use_openai_for_images") === "true";
-
-    setLeonardoApiKey(savedKey);
-    setUseLeonardoAI(savedUseLeonardo);
     setUseOpenAI(savedUseOpenAI);
   }, []);
-
-  const handleSaveLeonardoAPI = () => {
-    try {
-      if (leonardoApiKey && leonardoApiKey.trim().length > 10) {
-        localStorage.setItem("leonardo_api_key", leonardoApiKey.trim());
-        localStorage.removeItem("leonardo_api_issue");
-        toast.success("Chave API da Leonardo AI salva com sucesso!");
-      } else {
-        toast.error("A chave API é inválida. Por favor, insira uma chave válida.");
-      }
-    } catch (error) {
-      console.error("Error saving Leonardo API key:", error);
-      toast.error("Erro ao salvar a chave API da Leonardo AI.");
-    }
-  };
-
-  const handleResetLeonardoAPI = () => {
-    localStorage.removeItem("leonardo_api_key");
-    localStorage.removeItem("leonardo_api_issue");
-    setLeonardoApiKey("");
-    toast.success("Configurações da Leonardo AI resetadas.");
-  };
-
-  const handleToggleLeonardoAI = (checked: boolean) => {
-    setUseLeonardoAI(checked);
-    localStorage.setItem("use_leonardo_ai", checked.toString());
-    toast.success(`Leonardo AI ${checked ? "ativado" : "desativado"} para geração de imagens.`);
-  };
 
   const handleToggleOpenAI = (checked: boolean) => {
     setUseOpenAI(checked);
@@ -73,7 +38,11 @@ const ImageGenerationManager = () => {
       
       const prompt = "A children's book illustration of a cute bear in a forest, papercraft style";
       
-      if (useLeonardoAI && leonardoApiKey) {
+      // First check if Leonardo AI is available and configured
+      const useLeonardo = localStorage.getItem("use_leonardo_ai") !== "false";
+      const leonardoApiKey = localStorage.getItem("leonardo_api_key");
+      
+      if (useLeonardo && leonardoApiKey) {
         try {
           // Import dynamically to avoid circular dependencies
           const { LeonardoAIAgent } = await import('@/services/LeonardoAIAgent');
@@ -100,16 +69,15 @@ const ImageGenerationManager = () => {
             }
           } else {
             console.warn("Leonardo AI agent is not available");
-            setTestError("O agente Leonardo AI não está disponível. Verifique sua chave API.");
-            toast.error("O agente Leonardo AI não está disponível. Verifique sua chave API.");
+            toast.warning("O agente Leonardo AI não está disponível. Verificando alternativas...");
           }
         } catch (error) {
           console.error("Leonardo AI test image generation failed:", error);
-          setTestError(error instanceof Error ? error.message : "Erro desconhecido ao gerar com Leonardo AI");
           toast.error("Falha ao gerar imagem com Leonardo AI. Tentando com OpenAI...");
         }
       }
       
+      // Try with OpenAI if Leonardo failed or is not available
       if (useOpenAI) {
         toast.info("Gerando imagem de teste com OpenAI...");
         try {
@@ -127,6 +95,7 @@ const ImageGenerationManager = () => {
       }
       
       if (!testImageUrl) {
+        setTestError("Nenhum serviço de geração de imagens disponível ou configurado corretamente.");
         toast.error("Não foi possível gerar a imagem de teste. Verifique as configurações da API.");
       }
     } catch (error) {
@@ -157,35 +126,6 @@ const ImageGenerationManager = () => {
           <TabsContent value="leonardo">
             <div className="space-y-4">
               <LeonardoAIStatusCheck />
-              
-              <div className="space-y-2">
-                <Label htmlFor="leonardo-api-key">Leonardo AI API Key</Label>
-                <Input
-                  id="leonardo-api-key"
-                  type="password"
-                  value={leonardoApiKey}
-                  onChange={(e) => setLeonardoApiKey(e.target.value)}
-                  placeholder="Insira sua chave API da Leonardo AI"
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2 pt-4">
-                <Switch 
-                  id="use-leonardo" 
-                  checked={useLeonardoAI}
-                  onCheckedChange={handleToggleLeonardoAI}
-                />
-                <Label htmlFor="use-leonardo">Utilizar Leonardo AI para geração de imagens</Label>
-              </div>
-              
-              <div className="pt-4 space-x-4">
-                <Button onClick={handleSaveLeonardoAPI}>
-                  Salvar Chave API
-                </Button>
-                <Button variant="outline" onClick={handleResetLeonardoAPI}>
-                  Resetar
-                </Button>
-              </div>
             </div>
           </TabsContent>
           
@@ -214,7 +154,7 @@ const ImageGenerationManager = () => {
             <div className="space-y-4">
               <Button 
                 onClick={generateTestImage} 
-                disabled={isGeneratingTest || (!useLeonardoAI && !useOpenAI)}>
+                disabled={isGeneratingTest}>
                 {isGeneratingTest ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
