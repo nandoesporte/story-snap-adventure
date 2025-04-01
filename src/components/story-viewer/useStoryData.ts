@@ -29,7 +29,7 @@ interface StoryData {
 
 const defaultStory: StoryData = {
   title: "História não encontrada",
-  coverImageUrl: "/placeholder.svg",
+  coverImageUrl: "/images/defaults/default.jpg",
   childName: "",
   childAge: "",
   theme: "",
@@ -37,7 +37,7 @@ const defaultStory: StoryData = {
   pages: [
     {
       text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
-      imageUrl: "/placeholder.svg"
+      imageUrl: "/images/defaults/default.jpg"
     }
   ],
   voiceType: 'female'
@@ -109,7 +109,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       
       const coverImage = data.cover_image_url || 
                       (data.pages && data.pages.length > 0 ? data.pages[0].image_url : null) ||
-                      "/placeholder.svg";
+                      "/images/defaults/default_cover.jpg";
                       
       console.log("Selected cover image:", coverImage);
       
@@ -126,10 +126,10 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         pages: Array.isArray(data.pages) 
           ? data.pages.map((page: any) => ({
               text: page.text || "",
-              imageUrl: page.image_url || "/placeholder.svg",
-              image_url: page.image_url || "/placeholder.svg"
+              imageUrl: page.image_url || "/images/defaults/default.jpg",
+              image_url: page.image_url || "/images/defaults/default.jpg"
             }))
-          : [{ text: "No content available.", imageUrl: "/placeholder.svg" }]
+          : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
       };
       
       setStoryData(formattedStory);
@@ -155,7 +155,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
                          (parsedData.pages && parsedData.pages.length > 0 ? 
                            (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
-                           "/placeholder.svg");
+                           "/images/defaults/default_cover.jpg");
         
         const formattedStory: StoryData = {
           title: parsedData.title || "Untitled Story",
@@ -170,10 +170,10 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
           pages: Array.isArray(parsedData.pages) 
             ? parsedData.pages.map((page: any) => ({
                 text: page.text || "",
-                imageUrl: page.imageUrl || page.image_url || "/placeholder.svg",
-                image_url: page.imageUrl || page.image_url || "/placeholder.svg"
+                imageUrl: page.imageUrl || page.image_url || "/images/defaults/default.jpg",
+                image_url: page.imageUrl || page.image_url || "/images/defaults/default.jpg"
               }))
-            : [{ text: "No content available.", imageUrl: "/placeholder.svg" }]
+            : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
         };
         
         setStoryData(formattedStory);

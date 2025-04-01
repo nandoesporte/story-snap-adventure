@@ -125,7 +125,7 @@ const getDefaultImagePath = (theme?: string) => {
     'dinosaurs': '/images/defaults/dinosaurs.jpg'
   };
   
-  return theme && defaultImages[theme] ? defaultImages[theme] : '/placeholder.svg';
+  return theme && defaultImages[theme] ? defaultImages[theme] : '/images/defaults/default.jpg';
 };
 
 // Generate an image using OpenAI

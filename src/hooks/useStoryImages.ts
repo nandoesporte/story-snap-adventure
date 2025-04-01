@@ -5,7 +5,7 @@ import { saveImagePermanently } from '@/lib/imageStorage';
 
 // Este hook ajuda a garantir que as URLs das imagens das histórias sejam válidas e persistentes
 export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story_images') => {
-  const [processedUrl, setProcessedUrl] = useState<string>(imageUrl || '/placeholder.svg');
+  const [processedUrl, setProcessedUrl] = useState<string>(imageUrl || '/images/defaults/default.jpg');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
   const [isPermanent, setIsPermanent] = useState<boolean>(false);
@@ -19,7 +19,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
         // Handle empty or undefined URLs
         if (!imageUrl) {
           console.log("No image URL provided, using placeholder");
-          setProcessedUrl('/placeholder.svg');
+          setProcessedUrl('/images/defaults/default.jpg');
           setHasError(true);
           setIsLoading(false);
           return;
@@ -113,7 +113,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
                 return;
               }
               setHasError(true);
-              setProcessedUrl('/placeholder.svg');
+              setProcessedUrl('/images/defaults/default.jpg');
               setIsLoading(false);
               return;
             }
@@ -127,7 +127,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               return;
             }
             setHasError(true);
-            setProcessedUrl('/placeholder.svg');
+            setProcessedUrl('/images/defaults/default.jpg');
             setIsLoading(false);
             return;
           }
@@ -178,7 +178,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
                   setIsLoading(false);
                   return;
                 }
-                setProcessedUrl('/placeholder.svg');
+                setProcessedUrl('/images/defaults/default.jpg');
                 setHasError(true);
               } else {
                 const publicUrl = data.publicUrl;
@@ -193,12 +193,12 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               }
             } catch (checkError) {
               console.error("Error checking file existence:", checkError);
-              setProcessedUrl('/placeholder.svg');
+              setProcessedUrl('/images/defaults/default.jpg');
               setHasError(true);
             }
           } catch (error) {
             console.error('Failed to process storage URL:', error);
-            setProcessedUrl('/placeholder.svg');
+            setProcessedUrl('/images/defaults/default.jpg');
             setHasError(true);
           }
           setIsLoading(false);
@@ -244,7 +244,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
         setIsLoading(false);
       } catch (error) {
         console.error('Error processing image URL:', error);
-        setProcessedUrl('/placeholder.svg');
+        setProcessedUrl('/images/defaults/default.jpg');
         setHasError(true);
         setIsLoading(false);
       }

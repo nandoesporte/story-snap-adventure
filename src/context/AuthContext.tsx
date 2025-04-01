@@ -24,7 +24,7 @@ const defaultContextValue: AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>(defaultContextValue);
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userSession, setUserSession] = useState<UserSession>({ user: null, session: null });
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
