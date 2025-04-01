@@ -36,14 +36,25 @@ const CoverImage: React.FC<CoverImageProps> = ({
 
   // Preload image
   useEffect(() => {
+    // Skip this effect if the source is already the fallback
+    if (src === fallbackImage && retryCount > 0) {
+      setLoading(false);
+      return;
+    }
+    
     const img = new Image();
+    let isMounted = true;
     
     img.onload = () => {
-      setLoading(false);
-      setError(false);
+      if (isMounted) {
+        setLoading(false);
+        setError(false);
+      }
     };
     
     img.onerror = () => {
+      if (!isMounted) return;
+      
       console.error("Failed to pre-load image:", src);
       
       if (retryCount < maxRetries) {
@@ -67,8 +78,38 @@ const CoverImage: React.FC<CoverImageProps> = ({
       }
     };
     
+    // Set a timeout to handle cases where the image load hangs
+    const timeoutId = setTimeout(() => {
+      if (loading && isMounted) {
+        console.warn("Image load timeout for:", src);
+        img.src = ""; // Cancel the current load
+        if (retryCount < maxRetries) {
+          const newSrc = `${src}${src.includes('?') ? '&' : '?'}timeout=${Date.now()}`;
+          setSrc(newSrc);
+          setRetryCount(prev => prev + 1);
+        } else if (src !== fallbackImage) {
+          setSrc(fallbackImage);
+          setLoading(false);
+          setError(true);
+          if (onError) {
+            onError(src);
+          }
+        } else {
+          setLoading(false);
+          setError(true);
+        }
+      }
+    }, 10000); // 10 seconds timeout
+    
     img.src = src;
-  }, [src, fallbackImage, retryCount, maxRetries, onError]);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [src, fallbackImage, retryCount, maxRetries, onError, loading]);
 
   const handleError = () => {
     console.error("Failed to load image:", src);

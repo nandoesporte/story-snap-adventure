@@ -157,6 +157,9 @@ export const useStoryGeneration = () => {
           } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
             toast.error("Limite de requisições excedido na API OpenAI. Tente novamente mais tarde.");
             throw new Error("Limite de requisições excedido. Tente novamente mais tarde.");
+          } else if (errorMessage.includes("Connection error") || errorMessage.includes("network")) {
+            toast.error("Erro de conexão ao se comunicar com a API. Verifique sua conexão de internet.");
+            throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
           } else {
             toast.error("Erro ao gerar a história. Tente novamente.");
             throw new Error("Falha na geração da história");
@@ -184,21 +187,28 @@ export const useStoryGeneration = () => {
         
         setCurrentStage("Verificando a capa do livro...");
         
+        // Generate cover image with retry mechanism
         if (!storyResult.coverImageUrl || 
             storyResult.coverImageUrl.includes('placeholder') || 
             storyResult.coverImageUrl.startsWith('/placeholder') ||
             storyResult.coverImageUrl.startsWith('https://images.unsplash.com')) {
           
-          const maxCoverAttempts = 2;
-          if (coverImageAttempt < maxCoverAttempts) {
-            setCoverImageAttempt(prev => prev + 1);
-            toast.info("Gerando capa do livro com OpenAI...");
+          const maxCoverAttempts = 3;
+          let coverGenerated = false;
+          
+          for (let attempt = 0; attempt < maxCoverAttempts && !coverGenerated; attempt++) {
+            setCoverImageAttempt(attempt + 1);
+            toast.info(`Gerando capa do livro com OpenAI (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
             
             try {
-              if (storyResult.pages && storyResult.pages.length > 0 && storyResult.pages[0].imageUrl) {
+              // First check if we can use the first page image
+              if (storyResult.pages && storyResult.pages.length > 0 && 
+                  storyResult.pages[0].imageUrl && 
+                  !storyResult.pages[0].imageUrl.includes('placeholder')) {
                 storyResult.coverImageUrl = storyResult.pages[0].imageUrl;
                 console.log("Using first page image as cover:", storyResult.coverImageUrl);
                 toast.success("Usando imagem da primeira página como capa!");
+                coverGenerated = true;
               } else {
                 const coverPrompt = `Book cover illustration in papercraft style for a children's book titled "${storyResult.title}". 
                 The main character ${characterName} in a ${setting} setting with ${theme} theme. 
@@ -206,32 +216,45 @@ export const useStoryGeneration = () => {
                 Create a captivating, colorful illustration suitable for a book cover. 
                 Use papercraft visual style (layered colorful paper with depth).`;
                 
-                const coverUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024", theme);
-                console.log("Generated new cover with OpenAI:", coverUrl);
+                // Longer timeout for cover generation
+                const waitTime = 3000 * (attempt + 1);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
                 
-                if (coverUrl) {
+                const coverUrl = await generateImageWithOpenAI(coverPrompt, "1792x1024", theme);
+                console.log(`Generated new cover with OpenAI (attempt ${attempt + 1}):`, coverUrl);
+                
+                if (coverUrl && !coverUrl.includes('placeholder') && !coverUrl.includes('default')) {
                   storyResult.coverImageUrl = coverUrl;
                   toast.success("Capa gerada com sucesso!");
+                  coverGenerated = true;
                 }
               }
             } catch (error) {
-              console.error("Failed to generate cover with OpenAI:", error);
-              if (error instanceof Error && error.message.includes("Connection error")) {
-                setConnectionErrorCount(prev => prev + 1);
-                toast.warning("Problemas de conexão ao gerar capa. Usando imagem padrão.");
-              } else {
-                toast.warning("Não foi possível gerar a capa do livro. Usando uma imagem padrão.");
+              console.error(`Failed to generate cover with OpenAI (attempt ${attempt + 1}):`, error);
+              if (error instanceof Error) {
+                if (error.message.includes("Connection error")) {
+                  setConnectionErrorCount(prev => prev + 1);
+                  toast.warning(`Problemas de conexão ao gerar capa. Tentando novamente...`);
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                } else {
+                  toast.warning(`Tentativa ${attempt + 1} falhou: ${error.message}`);
+                }
               }
-              
-              // Usar imagem padrão para a capa baseada no tema
-              const defaultCoverUrl = `/images/defaults/${theme || 'default'}_cover.jpg`;
-              storyResult.coverImageUrl = defaultCoverUrl;
             }
+          }
+          
+          // If all attempts failed, use default image
+          if (!coverGenerated) {
+            // Usar imagem padrão para a capa baseada no tema
+            const defaultCoverUrl = `/images/defaults/${theme || 'default'}_cover.jpg`;
+            storyResult.coverImageUrl = defaultCoverUrl;
+            toast.warning("Não foi possível gerar a capa. Usando imagem padrão.");
           }
         }
         
         setTotalImages(storyResult.pages.length);
         
+        // Generate images for each page with improved error handling
         for (let i = 0; i < storyResult.pages.length; i++) {
           setCurrentImageIndex(i + 1);
           setCurrentStage(`Verificando ilustração ${i + 1} de ${storyResult.pages.length}...`);
@@ -244,51 +267,65 @@ export const useStoryGeneration = () => {
               imgUrl.startsWith('https://images.unsplash.com')) {
             
             const maxAttempts = 3;
-            if (imageGenerationAttempts >= maxAttempts) {
-              toast.warning(`Não foi possível gerar a ilustração ${i + 1} após ${maxAttempts} tentativas. Usando imagem de placeholder.`);
-              storyResult.pages[i].imageUrl = `/images/defaults/${theme || 'default'}.jpg`;
-              continue;
+            let imageGenerated = false;
+            
+            for (let attempt = 0; attempt < maxAttempts && !imageGenerated; attempt++) {
+              setImageGenerationAttempts(prev => prev + 1);
+              toast.info(`Gerando ilustração ${i + 1} (tentativa ${attempt + 1} de ${maxAttempts})...`);
+              
+              try {
+                // Add delay between attempts
+                if (attempt > 0) {
+                  await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+                }
+                
+                const pageText = storyResult.pages[i].text;
+                const enhancedPrompt = `Papercraft style illustration for a children's book showing ${characterName} in ${setting} with ${theme} theme. 
+                Scene: ${pageText.substring(0, 200)}... 
+                ${characterPrompt ? `Character details: ${characterPrompt}` : ''}
+                Style: Layered colorful paper with depth effect (papercraft).`;
+                
+                const newImageUrl = await generateImageWithOpenAI(enhancedPrompt, "1024x1024", theme);
+                if (newImageUrl && !newImageUrl.includes('placeholder') && !newImageUrl.includes('default')) {
+                  storyResult.pages[i].imageUrl = newImageUrl;
+                  console.log(`Generated image ${i+1} successfully with OpenAI`);
+                  imageGenerated = true;
+                } else {
+                  console.warn(`Image generation for page ${i+1} returned default/placeholder image:`, newImageUrl);
+                }
+              } catch (error) {
+                console.error(`Failed to generate image ${i+1} with OpenAI (attempt ${attempt+1}):`, error);
+                if (error instanceof Error && error.message.includes("Connection error")) {
+                  setConnectionErrorCount(prev => prev + 1);
+                  toast.warning(`Problemas de conexão ao gerar ilustração ${i+1}. Tentando novamente...`);
+                } else {
+                  const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+                  toast.warning(`Tentativa ${attempt+1} falhou: ${errorMsg}`);
+                }
+              }
             }
             
-            setImageGenerationAttempts(prev => prev + 1);
-            toast.info(`Tentando gerar a ilustração ${i + 1}...`);
-            
-            try {
-              const pageText = storyResult.pages[i].text;
-              const enhancedPrompt = `Papercraft style illustration for a children's book showing ${characterName} in ${setting} with ${theme} theme. 
-              Scene: ${pageText.substring(0, 200)}... 
-              ${characterPrompt ? `Character details: ${characterPrompt}` : ''}
-              Style: Layered colorful paper with depth effect (papercraft).`;
-              
-              const newImageUrl = await generateImageWithOpenAI(enhancedPrompt, "1024x1024", theme);
-              if (newImageUrl) {
-                storyResult.pages[i].imageUrl = newImageUrl;
-                console.log(`Generated image ${i+1} successfully with OpenAI`);
-                continue;
-              }
-            } catch (error) {
-              console.error(`Failed to generate image ${i+1} with OpenAI:`, error);
-              if (error instanceof Error && error.message.includes("Connection error")) {
-                setConnectionErrorCount(prev => prev + 1);
-                toast.warning(`Problemas de conexão ao gerar ilustração ${i+1}. Usando imagem padrão.`);
-              }
-              
+            // If all attempts failed, use default image
+            if (!imageGenerated) {
               // Usar imagem padrão baseada no tema
               storyResult.pages[i].imageUrl = `/images/defaults/${theme || 'default'}.jpg`;
+              toast.warning(`Não foi possível gerar a ilustração ${i+1}. Usando imagem padrão.`);
             }
             
+            // Wait between pages to avoid overwhelming the API
             await new Promise(resolve => setTimeout(resolve, 2000));
             
+            // If we've had too many connection errors, use default images for remaining pages
             if (connectionErrorCount >= 3) {
-              // Se tiver muitos erros de conexão, usar imagens padrão para todas as páginas restantes
               toast.error("Problemas persistentes de conexão detectados. Usando imagens padrão para as páginas restantes.");
-              for (let j = i; j < storyResult.pages.length; j++) {
+              for (let j = i + 1; j < storyResult.pages.length; j++) {
                 storyResult.pages[j].imageUrl = `/images/defaults/${theme || 'default'}.jpg`;
               }
               break;
             }
           }
           
+          // Update progress
           const baseProgress = 50;
           const progressPerImage = (100 - baseProgress) / storyResult.pages.length;
           setProgress(baseProgress + progressPerImage * (i + 1));

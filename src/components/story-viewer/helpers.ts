@@ -36,8 +36,17 @@ export const getImageUrl = (imageUrl: string | undefined, theme?: string): strin
     return getDefaultImagePath(theme);
   }
   
+  // Check if it's already a data URL
+  if (imageUrl.startsWith('data:image')) {
+    return imageUrl;
+  }
+  
   // Check if it's an absolute URL (external)
   if (imageUrl.startsWith('http')) {
+    // Check if it's a default placeholder from an external source
+    if (imageUrl.includes('placeholder') || imageUrl.includes('default')) {
+      return getDefaultImagePath(theme);
+    }
     return imageUrl;
   }
   
@@ -54,11 +63,6 @@ export const getImageUrl = (imageUrl: string | undefined, theme?: string): strin
     }
     
     // Ensure the path is correctly formatted for internal resources
-    return imageUrl;
-  }
-  
-  // If it's a data URL (base64)
-  if (imageUrl.startsWith('data:image')) {
     return imageUrl;
   }
   
@@ -82,20 +86,38 @@ export const getDefaultImagePath = (theme?: string): string => {
     : defaultImages['default'];
 };
 
-// Preload an image
+// Preload an image with timeout
 export const preloadImage = (src: string): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.src = src;
+    if (!src || src.trim() === '') {
+      reject(new Error('Empty image source'));
+      return;
+    }
     
-    img.onload = () => {
-      resolve();
-    };
+    // Use a timeout to prevent hanging
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Image preload timeout: ${src}`));
+    }, 10000);
     
-    img.onerror = (error) => {
-      console.error('Error preloading image:', src, error);
+    try {
+      const img = new Image();
+      
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      
+      img.onerror = (error) => {
+        clearTimeout(timeoutId);
+        console.error('Error preloading image:', src, error);
+        reject(error);
+      };
+      
+      img.src = src;
+    } catch (error) {
+      clearTimeout(timeoutId);
       reject(error);
-    };
+    }
   });
 };
 
@@ -119,6 +141,11 @@ export const ensureImagesDirectory = () => {
 // Fix image URL if needed
 export const fixImageUrl = (url: string | undefined): string => {
   if (!url) return getDefaultImagePath();
+  
+  // If it's a data URL, return as is
+  if (url.startsWith('data:image')) {
+    return url;
+  }
   
   // Handle relative paths
   if (url.startsWith('/')) {

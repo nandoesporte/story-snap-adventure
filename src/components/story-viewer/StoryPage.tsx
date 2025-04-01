@@ -39,9 +39,9 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     onImageClick(processedImageUrl);
   };
   
-  const handleImageError = () => {
-    console.error("Failed to load image in StoryPage:", imageUrl);
-    onImageError(imageUrl);
+  const handleImageError = (url: string) => {
+    console.error("Failed to load image in StoryPage:", url, "Original URL:", imageUrl);
+    onImageError(url);
   };
 
   // Different layout for mobile vs desktop
@@ -54,6 +54,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
           className="w-full h-full"
           onClick={handleImageClick}
+          onError={handleImageError}
         />
       </div>
       
@@ -88,6 +89,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
             className="max-w-full max-h-full object-contain rounded-md shadow-lg"
             onClick={handleImageClick}
+            onError={handleImageError}
           />
         </motion.div>
       </div>

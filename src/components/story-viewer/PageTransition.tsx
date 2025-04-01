@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
@@ -76,7 +75,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           
         if (currentImageUrl) {
           const fixedUrl = fixImageUrl(getImageUrl(currentImageUrl, storyData.theme));
-          await preloadImage(fixedUrl);
+          try {
+            await preloadImage(fixedUrl);
+          } catch (error) {
+            console.warn("Failed to preload current page:", error);
+          }
         }
         
         // Preload next page image if available
@@ -87,7 +90,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             
           if (nextImageUrl) {
             const fixedUrl = fixImageUrl(getImageUrl(nextImageUrl, storyData.theme));
-            await preloadImage(fixedUrl);
+            try {
+              await preloadImage(fixedUrl);
+            } catch (error) {
+              console.warn("Failed to preload next page:", error);
+            }
           }
         }
         
@@ -99,7 +106,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             
           if (prevImageUrl) {
             const fixedUrl = fixImageUrl(getImageUrl(prevImageUrl, storyData.theme));
-            await preloadImage(fixedUrl);
+            try {
+              await preloadImage(fixedUrl);
+            } catch (error) {
+              console.warn("Failed to preload previous page:", error);
+            }
           }
         }
       } catch (error) {
@@ -126,6 +137,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
     return `${baseClasses} ${isRendered ? 'opacity-100' : 'opacity-0'}`;
   };
   
+  const handleImageErrorWrapper = (url: string) => {
+    console.log("Image error in PageTransition:", url);
+    onImageError(url);
+  };
+  
   return (
     <div
       ref={bookRef}
@@ -147,7 +163,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           setting={storyData.setting || ""}
           style={storyData.style}
           onImageClick={() => onImageClick(fixImageUrl(coverImageSrc))}
-          onImageError={onImageError}
+          onImageError={handleImageErrorWrapper}
           isMobile={isMobile}
         />
       ) : (
@@ -159,7 +175,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           imageUrl={storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url}
           theme={storyData.theme}
           onImageClick={onImageClick}
-          onImageError={onImageError}
+          onImageError={handleImageErrorWrapper}
           isMobile={isMobile}
           hideText={hideText}
         />
