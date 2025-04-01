@@ -13,7 +13,8 @@ import { supabase } from '@/lib/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { validateAndFixStoryImages } from '@/lib/imageHelper';
 import CoverImage from '@/components/CoverImage';
-import { setupStorageBuckets } from "@/lib/storageBucketSetup";
+import { setupStorageBuckets, verifyStorageAccess } from "@/lib/storageBucketSetup";
+import StorageConfigAlert from '@/components/StorageConfigAlert';
 
 interface StoryPage {
   text: string;
@@ -83,6 +84,7 @@ const ViewStoryPage: React.FC = () => {
   const [isNightMode, setIsNightMode] = useState(false);
   const [flipDirection, setFlipDirection] = useState<'left' | 'right'>('right');
   const [hideText, setHideText] = useState(false);
+  const [storageError, setStorageError] = useState(false);
   
   const bookRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -107,15 +109,29 @@ const ViewStoryPage: React.FC = () => {
     const initStorage = async () => {
       try {
         const result = await setupStorageBuckets();
+        
         if (!result) {
           console.error("Failed to initialize storage buckets");
+          setStorageError(true);
           toast.error("Erro ao configurar armazenamento de imagens", { 
             id: "storage-init-error",
-            duration: 3000 
+            duration: 5000 
           });
+        } else {
+          // Check if we actually have access
+          const hasAccess = await verifyStorageAccess();
+          setStorageError(!hasAccess);
+          
+          if (!hasAccess) {
+            toast.warning("Verifique as configurações de armazenamento no Supabase", {
+              id: "storage-access-warning",
+              duration: 5000
+            });
+          }
         }
       } catch (err) {
         console.error("Error initializing storage:", err);
+        setStorageError(true);
       }
     };
     
@@ -326,6 +342,15 @@ const ViewStoryPage: React.FC = () => {
       className={`min-h-screen flex flex-col transition-colors duration-300 ${isNightMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800'}`}
     >
       <Navbar />
+      
+      {storageError && (
+        <div className="container px-4 py-3 mt-16">
+          <StorageConfigAlert 
+            compact={true} 
+            className="mb-4" 
+          />
+        </div>
+      )}
       
       <main className="flex-1 pt-16 flex flex-col">
         {loading ? (

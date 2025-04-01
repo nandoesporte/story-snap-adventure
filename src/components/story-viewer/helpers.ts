@@ -1,7 +1,6 @@
-
 import { supabase } from "@/lib/supabase";
 import { getDefaultImageForTheme, isDefaultImage } from "@/lib/defaultImages";
-import { setupStorageBuckets } from "@/lib/storageBucketSetup";
+import { setupStorageBuckets, verifyStorageAccess } from "@/lib/storageBucketSetup";
 import { toast } from "sonner";
 
 export const getImageUrl = (imageUrl: string, theme: string = 'default'): string => {
@@ -108,26 +107,35 @@ export const preloadImage = (url: string): Promise<string> => {
 
 export const ensureImagesDirectory = async () => {
   try {
-    const result = await setupStorageBuckets();
+    const bucketSetupResult = await setupStorageBuckets();
     
-    if (!result) {
+    if (!bucketSetupResult) {
       console.error("Failed to ensure storage buckets exist");
       toast.error("Falha ao configurar armazenamento para imagens", { 
         id: "storage-setup-error",
-        duration: 3000
+        duration: 5000
       });
     } else {
       console.log("Successfully ensured storage buckets exist");
+      
+      // Verify actual access to storage
+      const hasAccess = await verifyStorageAccess();
+      if (!hasAccess) {
+        console.warn("Storage bucket exists but current user has no access");
+        toast.warning("Você não tem permissões para acessar o armazenamento de imagens", {
+          id: "storage-access-warning",
+          duration: 5000
+        });
+      }
     }
     
-    return result;
+    return bucketSetupResult;
   } catch (error) {
     console.error("Error ensuring images directory:", error);
     return false;
   }
 };
 
-// Helper function to test image URL accessibility
 export const testImageAccess = async (url: string): Promise<boolean> => {
   if (!url || url.startsWith('data:') || isDefaultImage(url)) {
     return true;
