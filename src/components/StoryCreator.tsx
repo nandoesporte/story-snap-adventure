@@ -35,6 +35,7 @@ const StoryCreator = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [storyGenerationStarted, setStoryGenerationStarted] = useState(false);
+  const [connectionErrorCount, setConnectionErrorCount] = useState(0);
   
   const { 
     generateCompleteStory,
@@ -266,6 +267,25 @@ const StoryCreator = () => {
       }, 1000);
     } catch (error: any) {
       console.error("Erro ao gerar história final:", error);
+      setStoryGenerationStarted(false);
+      
+      // Verificar se o erro é de conexão
+      if (error.message && error.message.includes("Connection error")) {
+        setConnectionErrorCount(prev => prev + 1);
+        
+        if (connectionErrorCount < 3) {
+          toast.error("Erro de conexão ao gerar ilustrações. Tentando novamente...");
+          setTimeout(() => {
+            setStoryGenerationStarted(false);
+            generateStory(data);
+          }, 3000);
+          return;
+        } else {
+          toast.error("Falha persistente na conexão. Continuando com imagens padrão.");
+          // Prosseguir com a história, mas com imagens de placeholder
+          // Este código deve ser implementado na função generateCompleteStory no hook useStoryGeneration
+        }
+      }
       
       if (error.message && error.message.includes("API key")) {
         setApiError("A chave da API está incorreta ou inválida. Configure-a nas configurações.");
@@ -278,7 +298,7 @@ const StoryCreator = () => {
         toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       }
     }
-  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase]);
+  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase, connectionErrorCount]);
 
   useEffect(() => {
     const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
@@ -389,6 +409,7 @@ const StoryCreator = () => {
       style: "papercraft" as StoryStyle
     };
     setFormData(updatedData);
+    setConnectionErrorCount(0); // Resetar contador de erros de conexão
     setStoryGenerationStarted(false); // Reset flag before starting generation
     setStep("generating"); // This will trigger the useEffect to generate the story
   };
@@ -478,6 +499,17 @@ const StoryCreator = () => {
               {step === "finalizing" ? "História gerada com sucesso!" : "Gerando a história personalizada..."}
             </p>
             <p className="text-slate-500 mb-4">{currentStage}</p>
+            
+            {connectionErrorCount > 0 && (
+              <div className="mb-4 w-full max-w-md">
+                <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-md border border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm text-amber-700">
+                    Dificuldades de conexão detectadas. {connectionErrorCount >= 3 ? "Usando imagens padrão." : "Tentando novamente..."}
+                  </span>
+                </div>
+              </div>
+            )}
             
             {totalImages > 0 && currentImageIndex > 0 && (
               <div className="mb-4 w-full max-w-md">

@@ -108,42 +108,78 @@ export const isOpenAIApiKeyValid = () => {
   return apiKey && apiKey.length > 0 && apiKey !== 'undefined' && apiKey !== 'null';
 };
 
+// Caminho para imagens padrão por tema
+const getDefaultImagePath = (theme?: string) => {
+  const defaultImages: Record<string, string> = {
+    'space': '/images/defaults/space.jpg',
+    'ocean': '/images/defaults/ocean.jpg',
+    'fantasy': '/images/defaults/fantasy.jpg',
+    'adventure': '/images/defaults/adventure.jpg',
+    'dinosaurs': '/images/defaults/dinosaurs.jpg'
+  };
+  
+  return theme && defaultImages[theme] ? defaultImages[theme] : '/placeholder.svg';
+};
+
 // Generate an image using OpenAI
-export const generateImageWithOpenAI = async (prompt: string, size: string = "1024x1024") => {
-  try {
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error('Cliente OpenAI não inicializado');
+export const generateImageWithOpenAI = async (prompt: string, size: string = "1024x1024", theme?: string) => {
+  let retryCount = 0;
+  const maxRetries = 2;
+  
+  const generateImage = async (): Promise<string> => {
+    try {
+      const client = getOpenAIClient();
+      if (!client) {
+        throw new Error('Cliente OpenAI não inicializado');
+      }
+      
+      console.log(`Gerando imagem com OpenAI: "${prompt.substring(0, 50)}..." (tamanho: ${size})`);
+      
+      const response = await client.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: size as "1024x1024" | "1792x1024" | "1024x1792",
+        quality: "standard",
+        response_format: "url",
+      });
+      
+      console.log('Imagem gerada com sucesso:', response);
+      
+      return response.data[0].url;
+    } catch (error: any) {
+      console.error('Erro ao gerar imagem com OpenAI:', error);
+      
+      // Tentar novamente se for um erro de conexão
+      if (error.message && error.message.includes('Connection error') && retryCount < maxRetries) {
+        retryCount++;
+        console.log(`Tentando novamente após erro de conexão (tentativa ${retryCount} de ${maxRetries})...`);
+        
+        // Aguardar 2 segundos antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return generateImage();
+      }
+      
+      // Se chegou aqui, é porque falhou todas as tentativas ou é um erro diferente
+      // Check for API errors
+      if (error.status === 429) {
+        toast.error('Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.');
+      } else if (error.status === 400) {
+        toast.error('Erro na requisição: ' + (error.message || 'Verifique o prompt e tente novamente.'));
+      } else {
+        toast.error('Erro ao gerar imagem: ' + (error.message || 'Tente novamente.'));
+      }
+      
+      // Retornar uma imagem padrão baseada no tema
+      const defaultImageUrl = getDefaultImagePath(theme);
+      console.log(`Usando imagem padrão devido a erro: ${defaultImageUrl}`);
+      toast.error(`Erro ao gerar a ilustração. Usando imagem padrão.`);
+      
+      return defaultImageUrl;
     }
-    
-    console.log(`Gerando imagem com OpenAI: "${prompt.substring(0, 50)}..." (tamanho: ${size})`);
-    
-    const response = await client.images.generate({
-      model: "dall-e-3",
-      prompt,
-      n: 1,
-      size: size as "1024x1024" | "1792x1024" | "1024x1792",
-      quality: "standard",
-      response_format: "url",
-    });
-    
-    console.log('Imagem gerada com sucesso:', response);
-    
-    return response.data[0].url;
-  } catch (error: any) {
-    console.error('Erro ao gerar imagem com OpenAI:', error);
-    
-    // Check for API errors
-    if (error.status === 429) {
-      toast.error('Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.');
-    } else if (error.status === 400) {
-      toast.error('Erro na requisição: ' + (error.message || 'Verifique o prompt e tente novamente.'));
-    } else {
-      toast.error('Erro ao gerar imagem: ' + (error.message || 'Tente novamente.'));
-    }
-    
-    throw error;
-  }
+  };
+  
+  return generateImage();
 };
 
 // Keep OpenAI interface for backward compatibility
@@ -176,9 +212,9 @@ export const openai = {
           } catch (error: any) {
             console.error("Error using OpenAI API (attempt " + (retryCount + 1) + "):", error);
             
-            // Check specifically for quota errors
-            if (error.status === 429) {
-              console.error("Quota exceeded error detected:", error);
+            // Check specifically for quota errors or connection errors
+            if (error.status === 429 || (error.message && error.message.includes('Connection error'))) {
+              console.error("Quota or connection error detected:", error);
               localStorage.setItem("storybot_api_issue", "true");
               
               retryCount++;
