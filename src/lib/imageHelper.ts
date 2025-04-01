@@ -8,6 +8,8 @@ import { saveImagePermanently } from './imageStorage';
  */
 export const validateAndFixStoryImages = async (storyId: string) => {
   try {
+    console.log("Validating and fixing images for story:", storyId);
+    
     // Buscar a história
     const { data: story, error: storyError } = await supabase
       .from('stories')
@@ -25,12 +27,14 @@ export const validateAndFixStoryImages = async (storyId: string) => {
     
     // Verificar a imagem de capa
     if (story.cover_image_url) {
+      console.log("Checking cover image:", story.cover_image_url.substring(0, 50) + "...");
       const permanentCoverUrl = await saveImagePermanently(
         story.cover_image_url,
         storyId
       );
       
       if (permanentCoverUrl && permanentCoverUrl !== story.cover_image_url) {
+        console.log("Updated cover image to:", permanentCoverUrl.substring(0, 50) + "...");
         updatedStory.cover_image_url = permanentCoverUrl;
         updates = true;
       }
@@ -38,14 +42,19 @@ export const validateAndFixStoryImages = async (storyId: string) => {
     
     // Verificar imagens das páginas
     if (Array.isArray(story.pages)) {
+      console.log(`Checking ${story.pages.length} page images...`);
+      
       const updatedPages = await Promise.all(story.pages.map(async (page, index) => {
         if (page.image_url) {
+          console.log(`Checking page ${index + 1} image:`, page.image_url.substring(0, 50) + "...");
+          
           const permanentPageUrl = await saveImagePermanently(
             page.image_url,
             `${storyId}_page${index}`
           );
           
           if (permanentPageUrl && permanentPageUrl !== page.image_url) {
+            console.log(`Updated page ${index + 1} image to:`, permanentPageUrl.substring(0, 50) + "...");
             updates = true;
             return { ...page, image_url: permanentPageUrl };
           }
@@ -60,6 +69,8 @@ export const validateAndFixStoryImages = async (storyId: string) => {
     
     // Atualizar história se houver mudanças
     if (updates) {
+      console.log("Updating story with permanent images...");
+      
       const { error: updateError } = await supabase
         .from('stories')
         .update(updatedStory)
@@ -70,6 +81,8 @@ export const validateAndFixStoryImages = async (storyId: string) => {
       } else {
         console.log("URLs de imagem da história atualizadas com sucesso");
       }
+    } else {
+      console.log("No image updates needed");
     }
   } catch (e) {
     console.error("Erro ao validar e corrigir imagens da história:", e);

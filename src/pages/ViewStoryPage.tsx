@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -12,6 +11,8 @@ import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { validateAndFixStoryImages } from '@/lib/imageHelper';
+import CoverImage from '@/components/CoverImage';
 
 interface StoryPage {
   text: string;
@@ -26,7 +27,6 @@ interface Story {
   pages: StoryPage[];
 }
 
-// Web Speech API para narração
 const useSpeechSynthesis = (text: string) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -131,6 +131,11 @@ const ViewStoryPage: React.FC = () => {
           };
           
           setStory(formattedStory);
+          
+          if (data.id) {
+            validateAndFixStoryImages(data.id)
+              .catch(err => console.error("Error validating images:", err));
+          }
         } else {
           setError("História não encontrada");
         }
@@ -449,10 +454,11 @@ const ViewStoryPage: React.FC = () => {
                   {currentPage === 0 ? (
                     <div className="w-full h-full flex flex-col">
                       <div className="flex-1 relative">
-                        <img 
-                          src={story.coverImageUrl || '/placeholder.svg'} 
+                        <CoverImage 
+                          imageUrl={story.coverImageUrl || '/placeholder.svg'} 
+                          fallbackImage="/placeholder.svg"
                           alt={`Capa da história ${story.title}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
                           <h1 className="text-3xl md:text-5xl font-bold text-white text-shadow-lg mb-2">
@@ -468,10 +474,11 @@ const ViewStoryPage: React.FC = () => {
                     isMobile ? (
                       <div className="w-full h-full relative">
                         <div className="absolute inset-0 z-0">
-                          <img 
-                            src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                          <CoverImage 
+                            imageUrl={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                            fallbackImage="/placeholder.svg"
                             alt={`Ilustração da página ${currentPage}`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full"
                           />
                         </div>
                         
@@ -492,10 +499,11 @@ const ViewStoryPage: React.FC = () => {
                     ) : (
                       <div className="w-full h-full flex flex-col md:flex-row">
                         <div className="w-1/2 h-full relative flex items-center justify-center p-4">
-                          <img 
-                            src={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                          <CoverImage 
+                            imageUrl={story.pages[currentPage - 1]?.imageUrl || '/placeholder.svg'} 
+                            fallbackImage="/placeholder.svg"
                             alt={`Ilustração da página ${currentPage}`}
-                            className="max-w-full max-h-full object-contain rounded shadow-md"
+                            className="max-w-full max-h-full rounded shadow-md"
                           />
                         </div>
                         
