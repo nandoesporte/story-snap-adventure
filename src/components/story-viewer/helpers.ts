@@ -1,177 +1,100 @@
 
-import { toast } from 'sonner';
+import { supabase } from "@/lib/supabase";
 
-// Check if an image URL exists in the permanent storage
-export const isPermanentStorage = (url: string | undefined): boolean => {
-  if (!url) return false;
-  
-  try {
-    return url.includes('supabase.co/storage/v1/object/public/story_images') ||
-           url.includes('storage.googleapis.com') ||
-           url.includes('amazonaws.com');
-  } catch (e) {
-    return false;
-  }
-};
-
-// Check if an image URL is temporary
-export const isTemporaryUrl = (url: string | undefined): boolean => {
-  if (!url) return false;
-  
-  try {
-    return url.includes('oaiusercontent.com') || 
-           url.includes('openai.com') ||
-           url.includes('replicate.delivery') ||
-           url.includes('temp-') ||
-           url.includes('leonardo.ai') ||
-           url.includes('pb.ai/api');
-  } catch (e) {
-    return false;
-  }
-};
-
-// Get a proper image URL with fallback
-export const getImageUrl = (imageUrl: string | undefined, theme?: string): string => {
+export const getImageUrl = (imageUrl: string, theme: string = 'default'): string => {
   if (!imageUrl) {
-    return getDefaultImagePath(theme);
+    return `/images/defaults/${theme}.jpg`;
   }
   
-  // Check if it's already a data URL
-  if (imageUrl.startsWith('data:image')) {
-    return imageUrl;
-  }
-  
-  // Check if it's an absolute URL (external)
-  if (imageUrl.startsWith('http')) {
-    // Check if it's a default placeholder from an external source
-    if (imageUrl.includes('placeholder') || imageUrl.includes('default')) {
-      return getDefaultImagePath(theme);
-    }
-    
-    // Check if it's a temporary URL that might be expired
-    if (isTemporaryUrl(imageUrl)) {
-      console.log('Potentially expired temporary URL detected:', imageUrl);
-      // We'll try to use it, but have fallbacks ready
-    }
-    
-    return imageUrl;
-  }
-  
-  // Check if it's a relative URL (internal)
-  if (imageUrl.startsWith('/')) {
-    // Check if it's a default placeholder
-    if (imageUrl.includes('placeholder') || imageUrl.includes('/images/defaults/')) {
-      return getDefaultImagePath(theme);
-    }
-    
-    // Make sure internal URLs are properly formatted
-    if (imageUrl.startsWith('//')) {
-      return `https:${imageUrl}`;
-    }
-    
-    // Ensure the path is correctly formatted for internal resources
-    return imageUrl;
-  }
-  
-  // Default fallback
-  return getDefaultImagePath(theme);
+  return imageUrl;
 };
 
-// Get default image based on theme
-export const getDefaultImagePath = (theme?: string): string => {
-  const defaultImages: Record<string, string> = {
-    'space': '/images/defaults/space.jpg',
-    'ocean': '/images/defaults/ocean.jpg',
-    'fantasy': '/images/defaults/fantasy.jpg',
-    'adventure': '/images/defaults/adventure.jpg',
-    'dinosaurs': '/images/defaults/dinosaurs.jpg',
-    'default': '/images/defaults/default.jpg'
-  };
+export const fixImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) {
+    return '/images/defaults/default.jpg';
+  }
   
-  return theme && defaultImages[theme] 
-    ? defaultImages[theme] 
-    : defaultImages['default'];
+  // Handle relative URLs (prepend origin)
+  if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+    return `${window.location.origin}${imageUrl}`;
+  }
+  
+  // Handle already fixed URLs
+  if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+  
+  return imageUrl;
 };
 
-// Preload an image with timeout
-export const preloadImage = (src: string): Promise<void> => {
+export const isTemporaryUrl = (url: string): boolean => {
+  if (!url) return false;
+  
+  const temporaryDomains = [
+    'oaidalleapiprodscus.blob.core.windows.net',
+    'production-files.openai',
+    'openai-api-files'
+  ];
+  
+  try {
+    return temporaryDomains.some(domain => url.includes(domain));
+  } catch (error) {
+    console.error("Error checking temporary URL:", error);
+    return false;
+  }
+};
+
+export const isPermanentStorage = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Check if it's a Supabase storage URL
+  const isSupabaseStorage = url.includes('supabase.co/storage/v1/object/public');
+  
+  // Check if it's a static file in our project
+  const isStaticFile = 
+    (url.startsWith('/images/') || url === '/placeholder.svg') ||
+    (url.includes(window.location.origin) && 
+     (url.includes('/images/') || url.includes('/placeholder.svg')));
+  
+  return isSupabaseStorage || isStaticFile;
+};
+
+export const preloadImage = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    if (!src || src.trim() === '') {
-      reject(new Error('Empty image source'));
-      return;
-    }
-    
-    // Use a timeout to prevent hanging
-    const timeoutId = setTimeout(() => {
-      reject(new Error(`Image preload timeout: ${src}`));
-    }, 10000);
-    
-    try {
-      const img = new Image();
-      
-      img.onload = () => {
-        clearTimeout(timeoutId);
-        resolve();
-      };
-      
-      img.onerror = (error) => {
-        clearTimeout(timeoutId);
-        console.error('Error preloading image:', src, error);
-        reject(error);
-      };
-      
-      img.src = src;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      reject(error);
-    }
+    const img = new Image();
+    img.onload = () => resolve(url);
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+    img.src = url;
   });
 };
 
-// Ensure images directory exists
-export const ensureImagesDirectory = () => {
+export const ensureImagesDirectory = async () => {
   try {
-    // Check if default images directory exists
-    const defaultImagesPath = '/images/defaults';
-    const img = new Image();
-    img.src = `${defaultImagesPath}/default.jpg`;
+    // Check if the storage bucket exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
-    img.onerror = () => {
-      console.error('Default images directory may not exist or is inaccessible');
-      toast.error('Erro ao carregar imagens padrão. Algumas ilustrações podem não aparecer corretamente.');
-    };
-  } catch (error) {
-    console.error('Error checking images directory:', error);
-  }
-};
-
-// Fix image URL if needed
-export const fixImageUrl = (url: string | undefined): string => {
-  if (!url) return getDefaultImagePath();
-  
-  // If it's a data URL, return as is
-  if (url.startsWith('data:image')) {
-    return url;
-  }
-  
-  // Handle relative paths
-  if (url.startsWith('/')) {
-    // For local development or preview
-    if (window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('lovable')) {
-      return url;
+    if (bucketsError) {
+      console.error("Error checking buckets:", bucketsError);
+      return;
     }
     
-    // For production, ensure full path
-    return `${window.location.origin}${url}`;
+    const storyImagesBucket = buckets?.find(b => b.name === 'story_images');
+    
+    if (!storyImagesBucket) {
+      console.log("Creating story_images bucket");
+      const { data, error } = await supabase.storage.createBucket('story_images', {
+        public: true
+      });
+      
+      if (error) {
+        console.error("Error creating bucket:", error);
+      } else {
+        console.log("Bucket created successfully");
+      }
+    } else {
+      console.log("story_images bucket already exists");
+    }
+  } catch (error) {
+    console.error("Error ensuring images directory:", error);
   }
-  
-  // Handle OpenAI/DALL-E temporary URLs that might expire
-  if (isTemporaryUrl(url)) {
-    console.log('Using temporary URL, may need fallback:', url);
-    // We'll try to use the URL but prepare for errors
-  }
-  
-  return url;
 };

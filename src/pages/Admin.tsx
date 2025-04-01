@@ -13,7 +13,8 @@ import {
   CheckCircle,
   Beaker,
   Menu,
-  X
+  X,
+  Hammer
 } from "lucide-react";
 import {
   Tabs,
@@ -33,6 +34,7 @@ import SubscriptionManager from "@/components/admin/SubscriptionManager";
 import PaymentMethodsManager from "@/components/admin/PaymentMethodsManager";
 import TestModeManager from "@/components/admin/TestModeManager";
 import StoryBotPromptManager from "@/components/admin/StoryBotPromptManager";
+import StoryImageRepairTool from "@/components/admin/StoryImageRepairTool";
 
 // Import the UserSubscriptionManager
 import UserSubscriptionManager from '@/components/admin/UserSubscriptionManager';
@@ -55,6 +57,7 @@ const Admin = () => {
     { id: 'prompts', label: 'Prompts', icon: <MessageSquareText className="h-5 w-5" /> },
     { id: 'payment-methods', label: 'Métodos de Pagamento', icon: <WalletCards className="h-5 w-5" /> },
     { id: 'test-mode', label: 'Modo de Teste', icon: <Beaker className="h-5 w-5" /> },
+    { id: 'image-repair', label: 'Reparo de Imagens', icon: <Hammer className="h-5 w-5" /> },
     { id: 'config', label: 'Configurações', icon: <Settings className="h-5 w-5" /> },
   ];
 
@@ -142,6 +145,7 @@ const Admin = () => {
               {activeTab === 'prompts' && <StoryBotPromptManager />}
               {activeTab === 'payment-methods' && <PaymentMethodsManager />}
               {activeTab === 'test-mode' && <TestModeManager />}
+              {activeTab === 'image-repair' && <StoryImageRepairTool />}
               {activeTab === 'config' && <SystemConfigurationManager />}
             </div>
           </div>
