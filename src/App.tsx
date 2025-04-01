@@ -10,6 +10,7 @@ import SettingsPage from './pages/SettingsPage';
 import SubscriptionPlansPage from './pages/SubscriptionPlansPage';
 import PublicLibraryPage from './pages/PublicLibraryPage';
 import { StoryManager } from './components/admin/StoryManager';
+import MyStories from './pages/MyStories';
 
 function App() {
   return (
@@ -18,11 +19,13 @@ function App() {
       <Route path="/create-story" element={<CreateStoryPage />} />
       <Route path="/story-creator" element={<StoryCreatorPage />} />
       <Route path="/view-story" element={<ViewStoryPage />} />
+      <Route path="/view-story/:id" element={<ViewStoryPage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/planos" element={<SubscriptionPlansPage />} />
       <Route path="/biblioteca-publica" element={<PublicLibraryPage />} />
       <Route path="/admin/stories" element={<StoryManager />} />
+      <Route path="/my-stories" element={<MyStories />} />
     </Routes>
   );
 }
