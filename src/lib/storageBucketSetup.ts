@@ -1,4 +1,3 @@
-
 import { supabase } from "./supabase";
 import { toast } from "sonner";
 
@@ -13,7 +12,7 @@ export const setupStorageBuckets = async () => {
       console.error("Error checking storage buckets:", error);
       
       // Check if the error is a permission issue
-      if (error.message.includes('permission') || error.status === 403) {
+      if (error.message.includes('permission')) {
         toast.error("Sem permissão para acessar o armazenamento. Verifique as políticas RLS no Supabase.", { 
           id: "bucket-permission-error",
           duration: 6000
