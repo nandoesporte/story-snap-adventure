@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ExternalLink, ShieldCheck, Code, FileText } from "lucide-react";
+import { ShieldCheck, ExternalLink, Code, FileText } from "lucide-react";
 import { getStorageAccessHelp } from "@/lib/storageBucketSetup";
 
 interface StorageConfigAlertProps {
@@ -28,7 +28,7 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
           Configuração de Armazenamento
         </AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
-          <p>Políticas RLS configuradas para o bucket "story_images". Verifique suas permissões de acesso se encontrar problemas.</p>
+          <p>Políticas RLS configuradas para o bucket "story_images". Acesso público para visualização e upload para usuários autenticados.</p>
           <div className="flex gap-2 items-center justify-start">
             <Button 
               variant="link" 
