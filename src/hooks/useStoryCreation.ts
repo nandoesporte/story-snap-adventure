@@ -1,9 +1,9 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { saveStoryImagesPermanently } from '@/lib/imageStorage';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
+import { setupStorageBuckets } from '@/lib/storageBucketSetup';
 
 export interface StoryData {
   title: string;
@@ -22,13 +22,20 @@ export interface StoryData {
 export const useStoryCreation = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    setupStorageBuckets().catch(error => 
+      console.error("Error setting up storage buckets:", error)
+    );
+  }, []);
 
   const saveStory = useCallback(async (storyData: StoryData): Promise<string | null> => {
     try {
       setIsSaving(true);
       setError(null);
       
-      // Get current user
+      await setupStorageBuckets();
+      
       const { data: userData } = await supabase.auth.getUser();
       
       if (!userData?.user) {
@@ -37,7 +44,6 @@ export const useStoryCreation = () => {
         return null;
       }
       
-      // Process all images to ensure they are in permanent storage
       console.log("Saving story images to permanent storage before database storage");
       const tempId = uuidv4();
       const processedStoryData = await saveStoryImagesPermanently({
@@ -45,7 +51,6 @@ export const useStoryCreation = () => {
         id: tempId
       });
       
-      // Create the story entry with processed images
       const storyToSave = {
         user_id: userData.user.id,
         title: processedStoryData.title,
@@ -78,7 +83,6 @@ export const useStoryCreation = () => {
       console.log("Story saved successfully:", data[0].id);
       toast.success("História salva com sucesso!");
       
-      // Also save to session storage as backup
       sessionStorage.setItem("storyData", JSON.stringify(processedStoryData));
       
       return data[0].id;

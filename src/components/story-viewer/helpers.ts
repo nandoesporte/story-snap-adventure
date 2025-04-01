@@ -1,9 +1,11 @@
 
 import { supabase } from "@/lib/supabase";
+import { getDefaultImageForTheme, isDefaultImage } from "@/lib/defaultImages";
+import { setupStorageBuckets } from "@/lib/storageBucketSetup";
 
 export const getImageUrl = (imageUrl: string, theme: string = 'default'): string => {
   if (!imageUrl) {
-    return `/images/defaults/${theme}.jpg`;
+    return getDefaultImageForTheme(theme);
   }
   
   return imageUrl;
@@ -11,7 +13,16 @@ export const getImageUrl = (imageUrl: string, theme: string = 'default'): string
 
 export const fixImageUrl = (imageUrl: string): string => {
   if (!imageUrl) {
-    return '/images/defaults/default.jpg';
+    return getDefaultImageForTheme('default');
+  }
+  
+  // Handle default images
+  if (isDefaultImage(imageUrl)) {
+    // If it's a relative path, make it absolute
+    if (imageUrl.startsWith('/')) {
+      return `${window.location.origin}${imageUrl}`;
+    }
+    return imageUrl;
   }
   
   // Handle relative URLs (prepend origin)
@@ -56,7 +67,7 @@ export const isPermanentStorage = (url: string): boolean => {
   
   // Check if it's a static file in our project
   const isStaticFile = 
-    (url.startsWith('/images/') || url === '/placeholder.svg') ||
+    isDefaultImage(url) ||
     (url.includes(window.location.origin) && 
      (url.includes('/images/') || url.includes('/placeholder.svg')));
   
@@ -67,38 +78,14 @@ export const preloadImage = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(url);
-    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+    img.onerror = (e) => {
+      console.error(`Failed to preload image: ${url}`, e);
+      reject(new Error(`Failed to load image: ${url}`));
+    };
     img.src = url;
   });
 };
 
 export const ensureImagesDirectory = async () => {
-  try {
-    // Check if the storage bucket exists
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    
-    if (bucketsError) {
-      console.error("Error checking buckets:", bucketsError);
-      return;
-    }
-    
-    const storyImagesBucket = buckets?.find(b => b.name === 'story_images');
-    
-    if (!storyImagesBucket) {
-      console.log("Creating story_images bucket");
-      const { data, error } = await supabase.storage.createBucket('story_images', {
-        public: true
-      });
-      
-      if (error) {
-        console.error("Error creating bucket:", error);
-      } else {
-        console.log("Bucket created successfully");
-      }
-    } else {
-      console.log("story_images bucket already exists");
-    }
-  } catch (error) {
-    console.error("Error ensuring images directory:", error);
-  }
+  await setupStorageBuckets();
 };

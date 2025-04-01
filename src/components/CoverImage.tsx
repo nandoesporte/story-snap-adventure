@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import LoadingSpinner from './LoadingSpinner';
+import { getDefaultImageForTheme } from '@/lib/defaultImages';
 
 interface CoverImageProps {
   imageUrl: string;
@@ -14,7 +15,7 @@ interface CoverImageProps {
 
 const CoverImage: React.FC<CoverImageProps> = ({
   imageUrl,
-  fallbackImage = '/images/defaults/default.jpg',
+  fallbackImage = getDefaultImageForTheme('default'),
   alt,
   className = '',
   onClick,
@@ -23,7 +24,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [src, setSrc] = useState(imageUrl);
+  const [src, setSrc] = useState<string | null>(null);
   const maxRetries = 2;
 
   useEffect(() => {
@@ -31,12 +32,22 @@ const CoverImage: React.FC<CoverImageProps> = ({
     setLoading(true);
     setError(false);
     setRetryCount(0);
-    setSrc(imageUrl);
-  }, [imageUrl]);
+    
+    // Process the URL
+    if (!imageUrl || imageUrl === '') {
+      console.log("No image URL provided, using fallback:", fallbackImage);
+      setSrc(fallbackImage);
+    } else {
+      console.log("Setting image source to:", imageUrl);
+      setSrc(imageUrl);
+    }
+  }, [imageUrl, fallbackImage]);
 
   // Preload image
   useEffect(() => {
-    // Skip this effect if the source is already the fallback
+    if (!src) return;
+    
+    // Skip this effect if the source is already the fallback and we've retried
     if (src === fallbackImage && retryCount > 0) {
       setLoading(false);
       return;
@@ -47,6 +58,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
     
     img.onload = () => {
       if (isMounted) {
+        console.log("Image loaded successfully:", src);
         setLoading(false);
         setError(false);
       }
@@ -55,15 +67,30 @@ const CoverImage: React.FC<CoverImageProps> = ({
     img.onerror = () => {
       if (!isMounted) return;
       
-      console.error("Failed to pre-load image:", src);
+      console.error(`Failed to pre-load image: ${src}`);
       
       if (retryCount < maxRetries) {
         // Add cache-busting parameter
-        const newSrc = `${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}`;
-        setSrc(newSrc);
-        setRetryCount(prev => prev + 1);
-      } else if (src !== fallbackImage) {
-        console.error("Falling back to default image after", maxRetries, "failed attempts");
+        try {
+          const newSrc = src.includes('?') 
+            ? `${src}&retry=${Date.now()}` 
+            : `${src}?retry=${Date.now()}`;
+          
+          console.log(`Retrying image load (${retryCount + 1}/${maxRetries}):`, newSrc);
+          setSrc(newSrc);
+          setRetryCount(prev => prev + 1);
+        } catch (error) {
+          console.error("Error creating retry URL:", error);
+          useDefaultImage();
+        }
+      } else {
+        useDefaultImage();
+      }
+    };
+    
+    const useDefaultImage = () => {
+      if (src !== fallbackImage) {
+        console.log("Using fallback image after failed attempts:", fallbackImage);
         setSrc(fallbackImage);
         setLoading(false);
         setError(true);
@@ -73,6 +100,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
           onError(src);
         }
       } else {
+        console.error("Even fallback image failed to load");
         setLoading(false);
         setError(true);
       }
@@ -83,24 +111,27 @@ const CoverImage: React.FC<CoverImageProps> = ({
       if (loading && isMounted) {
         console.warn("Image load timeout for:", src);
         img.src = ""; // Cancel the current load
+        
         if (retryCount < maxRetries) {
-          const newSrc = `${src}${src.includes('?') ? '&' : '?'}timeout=${Date.now()}`;
-          setSrc(newSrc);
-          setRetryCount(prev => prev + 1);
-        } else if (src !== fallbackImage) {
-          setSrc(fallbackImage);
-          setLoading(false);
-          setError(true);
-          if (onError) {
-            onError(src);
+          try {
+            const newSrc = src.includes('?') 
+              ? `${src}&timeout=${Date.now()}` 
+              : `${src}?timeout=${Date.now()}`;
+            
+            console.log(`Retrying image load after timeout (${retryCount + 1}/${maxRetries}):`, newSrc);
+            setSrc(newSrc);
+            setRetryCount(prev => prev + 1);
+          } catch (error) {
+            console.error("Error creating timeout retry URL:", error);
+            useDefaultImage();
           }
         } else {
-          setLoading(false);
-          setError(true);
+          useDefaultImage();
         }
       }
     }, 10000); // 10 seconds timeout
     
+    console.log("Loading image:", src);
     img.src = src;
     
     return () => {
@@ -112,20 +143,39 @@ const CoverImage: React.FC<CoverImageProps> = ({
   }, [src, fallbackImage, retryCount, maxRetries, onError, loading]);
 
   const handleError = () => {
-    console.error("Failed to load image:", src);
+    console.error("Failed to load image in img element:", src);
     
     if (retryCount < maxRetries) {
       // Add cache-busting parameter
-      const newSrc = `${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}`;
-      setSrc(newSrc);
-      setRetryCount(prev => prev + 1);
+      try {
+        const newSrc = src?.includes('?') 
+          ? `${src}&retry=${Date.now()}` 
+          : `${src}?retry=${Date.now()}`;
+        
+        console.log(`Retrying image load from error handler (${retryCount + 1}/${maxRetries}):`, newSrc);
+        setSrc(newSrc);
+        setRetryCount(prev => prev + 1);
+      } catch (error) {
+        console.error("Error creating error handler retry URL:", error);
+        
+        if (src !== fallbackImage) {
+          setSrc(fallbackImage);
+          setError(true);
+          
+          // Call onError callback if provided
+          if (onError) {
+            onError(src || '');
+          }
+        }
+      }
     } else if (src !== fallbackImage) {
+      console.log("Using fallback image after error handler retries:", fallbackImage);
       setSrc(fallbackImage);
       setError(true);
       
       // Call onError callback if provided
       if (onError) {
-        onError(src);
+        onError(src || '');
       }
     }
   };
@@ -140,12 +190,14 @@ const CoverImage: React.FC<CoverImageProps> = ({
         </div>
       )}
       
-      <img
-        src={src}
-        alt={alt}
-        onError={handleError}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
-      />
+      {src && (
+        <img
+          src={src}
+          alt={alt}
+          onError={handleError}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+        />
+      )}
     </div>
   );
 };

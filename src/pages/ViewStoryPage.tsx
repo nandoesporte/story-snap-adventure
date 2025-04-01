@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -12,8 +11,9 @@ import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { validateAndFixStoryImages } from '@/lib/imageHelper'; // Direct import
+import { validateAndFixStoryImages } from '@/lib/imageHelper';
 import CoverImage from '@/components/CoverImage';
+import { setupStorageBuckets } from "@/lib/storageBucketSetup";
 
 interface StoryPage {
   text: string;
@@ -36,8 +36,8 @@ const useSpeechSynthesis = (text: string) => {
     if ('speechSynthesis' in window) {
       speechRef.current = new SpeechSynthesisUtterance(text);
       speechRef.current.lang = 'pt-BR';
-      speechRef.current.rate = 0.9; // Velocidade um pouco mais lenta para histórias infantis
-      speechRef.current.pitch = 1.1; // Tom um pouco mais alto para soar mais amigável
+      speechRef.current.rate = 0.9;
+      speechRef.current.pitch = 1.1;
       
       const handleEnd = () => setIsPlaying(false);
       speechRef.current.addEventListener('end', handleEnd);
@@ -134,11 +134,9 @@ const ViewStoryPage: React.FC = () => {
           setStory(formattedStory);
           
           if (data.id) {
-            // Direct call to validateAndFixStoryImages
             validateAndFixStoryImages(data)
               .then(fixedData => {
                 console.log("Images validated and fixed:", fixedData);
-                // Update the story with fixed images if needed
                 if (fixedData !== data) {
                   setStory({
                     id: fixedData.id,
@@ -164,6 +162,10 @@ const ViewStoryPage: React.FC = () => {
 
     fetchStory();
   }, [id]);
+
+  useEffect(() => {
+    setupStorageBuckets().catch(console.error);
+  }, []);
 
   const toggleTextVisibility = () => {
     setHideText(!hideText);
@@ -323,7 +325,6 @@ const ViewStoryPage: React.FC = () => {
           </div>
         ) : story ? (
           <div className="flex-1 flex flex-col relative">
-            {/* Mobile bottom control bar */}
             {isMobile && (
               <div className="fixed bottom-6 left-0 right-0 z-50 px-4">
                 <div className="flex justify-center items-center gap-3">
@@ -376,7 +377,6 @@ const ViewStoryPage: React.FC = () => {
               </div>
             )}
             
-            {/* Desktop controls - only visible on non-mobile devices */}
             {!isMobile && (
               <>
                 <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
