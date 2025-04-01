@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, AlertTriangle, ImageIcon, Volume2, AlertCircle, Settings } from "lucide-react";
@@ -46,192 +46,7 @@ const StoryCreator = () => {
     setPromptById
   } = useStoryGeneration();
   
-  useEffect(() => {
-    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
-    setHasElevenLabsKey(!!elevenlabsApiKey);
-    
-    const savedData = sessionStorage.getItem("create_story_data");
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        const formattedData: StoryFormData = {
-          childName: parsedData.childName,
-          childAge: parsedData.childAge,
-          theme: parsedData.theme,
-          setting: parsedData.setting,
-          characterId: parsedData.characterId,
-          characterName: parsedData.characterName,
-          style: (parsedData.style as StoryStyle) || "papercraft",
-          length: parsedData.length || "medium",
-          readingLevel: parsedData.readingLevel || "intermediate",
-          language: parsedData.language || "portuguese",
-          moral: parsedData.moral || "friendship",
-          voiceType: parsedData.voiceType || "female"
-        };
-        
-        setFormData(formattedData);
-        
-        if (parsedData.imagePreview) {
-          setImagePreview(parsedData.imagePreview);
-        }
-        
-        if (parsedData.selectedPromptId) {
-          setSelectedPromptId(parsedData.selectedPromptId);
-        }
-        
-        setDataLoaded(true);
-      } catch (error) {
-        console.error("Erro ao carregar dados salvos:", error);
-        navigate("/create-story");
-        toast.error("Dados da história inválidos. Por favor, comece novamente.");
-      }
-    } else {
-      navigate("/create-story");
-      toast.error("Dados da história não encontrados. Por favor, comece novamente.");
-    }
-
-    const openAiApiKey = localStorage.getItem('openai_api_key');
-    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
-      setApiError("A chave da API OpenAI não está configurada. Por favor, configure-a nas configurações.");
-    }
-  }, [navigate]);
-  
-  useEffect(() => {
-    const fetchCharacter = async () => {
-      if (formData?.characterId) {
-        try {
-          const { data, error } = await supabase
-            .from("characters")
-            .select("*")
-            .eq("id", formData.characterId)
-            .single();
-            
-          if (error) {
-            console.error("Erro ao buscar personagem:", error);
-            toast.error("Não foi possível carregar o personagem selecionado.");
-            return;
-          }
-          
-          setSelectedCharacter(data as Character);
-        } catch (error) {
-          console.error("Erro ao buscar personagem:", error);
-          toast.error("Erro ao buscar informações do personagem.");
-        }
-      } else {
-        setSelectedCharacter(null);
-      }
-    };
-    
-    if (formData) {
-      fetchCharacter();
-    }
-  }, [formData]);
-  
-  useEffect(() => {
-    if (dataLoaded && formData && step === "generating" && !apiError) {
-    if (selectedPromptId) {
-      // Fix the reference to setPromptById
-      setPromptById(selectedPromptId).then(() => {
-        console.log("Applied selected prompt:", selectedPromptId);
-        generateStory(formData);
-      }).catch(error => {
-        console.error("Failed to set selected prompt:", error);
-        generateStory(formData);
-      });
-    } else {
-      generateStory(formData);
-    }
-  }
-}, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory]);
-  
-  const handleFormSubmit = (data: StoryFormData) => {
-    const updatedData: StoryFormData = {
-      ...data,
-      style: "papercraft" as StoryStyle
-    };
-    setFormData(updatedData);
-    generateStory(updatedData);
-  };
-  
-  const saveStoryToSupabase = async (storyData: any) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData?.user) {
-        console.log("Usuário não autenticado, salvando apenas em sessão.");
-        return null;
-      }
-      
-      const { saveStoryImagesPermanently } = await import('@/lib/imageStorage');
-      
-      console.log("Saving story images permanently before database storage");
-      const processedStoryData = await saveStoryImagesPermanently({
-        ...storyData,
-        id: uuidv4()
-      });
-      
-      const storyToSave = {
-        title: processedStoryData.title,
-        cover_image_url: processedStoryData.coverImageUrl,
-        character_name: processedStoryData.childName,
-        character_age: processedStoryData.childAge,
-        theme: processedStoryData.theme,
-        setting: processedStoryData.setting,
-        style: processedStoryData.style,
-        user_id: userData.user.id,
-        character_prompt: selectedCharacter?.generation_prompt || "",
-        pages: processedStoryData.pages.map((page: any) => ({
-          text: page.text,
-          image_url: page.imageUrl || page.image_url
-        }))
-      };
-      
-      console.log("Salvando história no banco de dados:", storyToSave);
-      
-      let columnExists = false;
-      try {
-        const { data: columnData, error: columnError } = await supabase.rpc(
-          'check_column_exists',
-          { p_table_name: 'stories', p_column_name: 'character_prompt' }
-        );
-        
-        columnExists = columnData === true;
-        
-        if (columnError) {
-          console.warn("Erro ao verificar coluna character_prompt:", columnError);
-        }
-      } catch (checkError) {
-        console.warn("Erro ao verificar existência da coluna:", checkError);
-      }
-      
-      if (!columnExists) {
-        console.warn("Coluna character_prompt não existe, removendo do objeto a salvar.");
-        delete storyToSave.character_prompt;
-      }
-      
-      const { data, error } = await supabase
-        .from("stories")
-        .insert(storyToSave)
-        .select();
-        
-      if (error) {
-        console.error("Erro ao salvar história no Supabase:", error);
-        toast.error("Erro ao salvar história no banco de dados: " + error.message);
-        return null;
-      }
-      
-      console.log("História salva com sucesso no Supabase:", data);
-      toast.success("História salva com sucesso!");
-      
-      return data[0]?.id;
-    } catch (error: any) {
-      console.error("Erro ao salvar história:", error);
-      toast.error("Erro ao salvar: " + (error.message || "Erro desconhecido"));
-      return null;
-    }
-  };
-  
-  const generateStory = async (data: StoryFormData) => {
+  const generateStory = useCallback(async (data: StoryFormData) => {
     if (!data) {
       toast.error("Informações incompletas para gerar a história.");
       return;
@@ -382,7 +197,191 @@ const StoryCreator = () => {
         toast.error(error.message || "Ocorreu um erro ao gerar a história final. Por favor, tente novamente.");
       }
     }
+  }, [generateCompleteStory, navigate, hasElevenLabsKey, selectedPromptId, selectedCharacter, imagePreview, saveStoryToSupabase]);
+
+  useEffect(() => {
+    const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
+    setHasElevenLabsKey(!!elevenlabsApiKey);
+    
+    const savedData = sessionStorage.getItem("create_story_data");
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        const formattedData: StoryFormData = {
+          childName: parsedData.childName,
+          childAge: parsedData.childAge,
+          theme: parsedData.theme,
+          setting: parsedData.setting,
+          characterId: parsedData.characterId,
+          characterName: parsedData.characterName,
+          style: (parsedData.style as StoryStyle) || "papercraft",
+          length: parsedData.length || "medium",
+          readingLevel: parsedData.readingLevel || "intermediate",
+          language: parsedData.language || "portuguese",
+          moral: parsedData.moral || "friendship",
+          voiceType: parsedData.voiceType || "female"
+        };
+        
+        setFormData(formattedData);
+        
+        if (parsedData.imagePreview) {
+          setImagePreview(parsedData.imagePreview);
+        }
+        
+        if (parsedData.selectedPromptId) {
+          setSelectedPromptId(parsedData.selectedPromptId);
+        }
+        
+        setDataLoaded(true);
+      } catch (error) {
+        console.error("Erro ao carregar dados salvos:", error);
+        navigate("/create-story");
+        toast.error("Dados da história inválidos. Por favor, comece novamente.");
+      }
+    } else {
+      navigate("/create-story");
+      toast.error("Dados da história não encontrados. Por favor, comece novamente.");
+    }
+
+    const openAiApiKey = localStorage.getItem('openai_api_key');
+    if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
+      setApiError("A chave da API OpenAI não está configurada. Por favor, configure-a nas configurações.");
+    }
+  }, [navigate]);
+  
+  useEffect(() => {
+    const fetchCharacter = async () => {
+      if (formData?.characterId) {
+        try {
+          const { data, error } = await supabase
+            .from("characters")
+            .select("*")
+            .eq("id", formData.characterId)
+            .single();
+            
+          if (error) {
+            console.error("Erro ao buscar personagem:", error);
+            toast.error("Não foi possível carregar o personagem selecionado.");
+            return;
+          }
+          
+          setSelectedCharacter(data as Character);
+        } catch (error) {
+          console.error("Erro ao buscar personagem:", error);
+          toast.error("Erro ao buscar informações do personagem.");
+        }
+      } else {
+        setSelectedCharacter(null);
+      }
+    };
+    
+    if (formData) {
+      fetchCharacter();
+    }
+  }, [formData]);
+  
+  useEffect(() => {
+    if (dataLoaded && formData && step === "generating" && !apiError) {
+      if (selectedPromptId) {
+        setPromptById(selectedPromptId).then(() => {
+          console.log("Applied selected prompt:", selectedPromptId);
+          generateStory(formData);
+        }).catch(error => {
+          console.error("Failed to set selected prompt:", error);
+          generateStory(formData);
+        });
+      } else {
+        generateStory(formData);
+      }
+    }
+  }, [dataLoaded, formData, step, apiError, selectedPromptId, setPromptById, generateStory]);
+  
+  const handleFormSubmit = (data: StoryFormData) => {
+    const updatedData: StoryFormData = {
+      ...data,
+      style: "papercraft" as StoryStyle
+    };
+    setFormData(updatedData);
+    generateStory(updatedData);
   };
+  
+  const saveStoryToSupabase = useCallback(async (storyData: any) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData?.user) {
+        console.log("Usuário não autenticado, salvando apenas em sessão.");
+        return null;
+      }
+      
+      const { saveStoryImagesPermanently } = await import('@/lib/imageStorage');
+      
+      console.log("Saving story images permanently before database storage");
+      const processedStoryData = await saveStoryImagesPermanently({
+        ...storyData,
+        id: uuidv4()
+      });
+      
+      const storyToSave = {
+        title: processedStoryData.title,
+        cover_image_url: processedStoryData.coverImageUrl,
+        character_name: processedStoryData.childName,
+        character_age: processedStoryData.childAge,
+        theme: processedStoryData.theme,
+        setting: processedStoryData.setting,
+        style: processedStoryData.style,
+        user_id: userData.user.id,
+        character_prompt: selectedCharacter?.generation_prompt || "",
+        pages: processedStoryData.pages.map((page: any) => ({
+          text: page.text,
+          image_url: page.imageUrl || page.image_url
+        }))
+      };
+      
+      console.log("Salvando história no banco de dados:", storyToSave);
+      
+      let columnExists = false;
+      try {
+        const { data: columnData, error: columnError } = await supabase.rpc(
+          'check_column_exists',
+          { p_table_name: 'stories', p_column_name: 'character_prompt' }
+        );
+        
+        columnExists = columnData === true;
+        
+        if (columnError) {
+          console.warn("Erro ao verificar coluna character_prompt:", columnError);
+        }
+      } catch (checkError) {
+        console.warn("Erro ao verificar existência da coluna:", checkError);
+      }
+      
+      if (!columnExists) {
+        console.warn("Coluna character_prompt não existe, removendo do objeto a salvar.");
+        delete storyToSave.character_prompt;
+      }
+      
+      const { data, error } = await supabase
+        .from("stories")
+        .insert(storyToSave)
+        .select();
+        
+      if (error) {
+        console.error("Erro ao salvar história no Supabase:", error);
+        toast.error("Erro ao salvar história no banco de dados: " + error.message);
+        return null;
+      }
+      
+      console.log("História salva com sucesso no Supabase:", data);
+      toast.success("História salva com sucesso!");
+      
+      return data[0]?.id;
+    } catch (error: any) {
+      console.error("Erro ao salvar história:", error);
+      toast.error("Erro ao salvar: " + (error.message || "Erro desconhecido"));
+      return null;
+    }
+  }, [selectedCharacter]);
   
   if (apiError) {
     return (
