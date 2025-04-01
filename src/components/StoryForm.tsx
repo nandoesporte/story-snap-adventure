@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -37,6 +38,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { voiceTypes } from "@/lib/tts";
 import { StoryStyle } from "@/services/BookGenerationService";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   childName: z.string().min(2, {
@@ -86,6 +88,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
   const { user } = useAuth();
   const [characters, setCharacters] = useState<any[]>([]);
   const [loadingCharacters, setLoadingCharacters] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const form = useForm<StoryFormData>({
     resolver: zodResolver(formSchema),
@@ -113,9 +116,24 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
     }
   }, [initialData, form]);
 
+  const handleFormSubmit = (data: StoryFormData) => {
+    if (disabled || formSubmitted) {
+      return;
+    }
+    
+    try {
+      setFormSubmitted(true);
+      onSubmit(data);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Erro ao enviar o formulário. Tente novamente.");
+      setFormSubmitted(false);
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="childName"
@@ -229,7 +247,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
                 <SelectContent>
                   <SelectItem value="beginner">Iniciante</SelectItem>
                   <SelectItem value="intermediate">Intermediário</SelectItem>
-                  <SelectItem value="advanced">Avan��ado</SelectItem>
+                  <SelectItem value="advanced">Avançado</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -283,9 +301,9 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
           <Button 
             type="submit" 
             className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-medium px-8 py-6 rounded-xl shadow-md"
-            disabled={disabled}
+            disabled={disabled || formSubmitted}
           >
-            {disabled ? (
+            {disabled || formSubmitted ? (
               <div className="flex items-center gap-2">
                 <span className="animate-pulse">Gerando...</span>
               </div>

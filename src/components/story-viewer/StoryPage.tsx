@@ -3,6 +3,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import CoverImage from "../CoverImage";
 import { fixImageUrl, getImageUrl } from "./helpers";
+import { toast } from "sonner";
 
 interface StoryPageProps {
   pageNumber: number;
@@ -30,7 +31,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   hideText
 }) => {
   const displayText = typedText || text || "";
-  const processedImageUrl = fixImageUrl(getImageUrl(imageUrl, theme));
+  
+  // Process image URL
+  let processedImageUrl = "";
+  try {
+    processedImageUrl = fixImageUrl(getImageUrl(imageUrl, theme));
+  } catch (error) {
+    console.error("Error processing image URL:", error);
+    processedImageUrl = `/images/placeholders/${theme || 'default'}.jpg`;
+  }
+  
+  // Fallback image logic
+  const fallbackImage = `/images/placeholders/${theme || 'default'}.jpg`;
   
   // Split text into paragraphs
   const paragraphs = displayText ? displayText.split("\n").filter(p => p.trim().length > 0) : [];
@@ -39,9 +51,9 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     onImageClick(processedImageUrl);
   };
   
-  const handleImageError = (url: string) => {
-    console.error("Failed to load image in StoryPage:", url, "Original URL:", imageUrl);
-    onImageError(url);
+  const handleImageError = () => {
+    console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
+    onImageError(processedImageUrl);
   };
 
   // Different layout for mobile vs desktop
@@ -50,7 +62,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
       <div className="absolute inset-0 z-0">
         <CoverImage 
           imageUrl={processedImageUrl}
-          fallbackImage={`/images/defaults/${theme || 'default'}.jpg`}
+          fallbackImage={fallbackImage}
           alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
           className="w-full h-full"
           onClick={handleImageClick}
@@ -85,7 +97,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         >
           <CoverImage 
             imageUrl={processedImageUrl}
-            fallbackImage={`/images/defaults/${theme || 'default'}.jpg`}
+            fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
             className="max-w-full max-h-full object-contain rounded-md shadow-lg"
             onClick={handleImageClick}
