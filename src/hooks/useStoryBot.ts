@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
@@ -104,7 +103,6 @@ export const useStoryBot = () => {
     return await storyBot.getPromptReferenceImages(promptId);
   };
   
-  // Add the missing methods needed by components
   const resetLeonardoApiStatus = () => {
     localStorage.removeItem('leonardo_webhook_url');
     localStorage.removeItem('leonardo_api_key');
@@ -129,7 +127,6 @@ export const useStoryBot = () => {
     }
   };
   
-  // Enhanced generateImage function that can use either OpenAI or Leonardo based on settings
   const generateImage = async (prompt: string, size: string = "1024x1024") => {
     try {
       // Check if Leonardo is available and enabled
