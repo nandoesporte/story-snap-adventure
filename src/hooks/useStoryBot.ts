@@ -191,6 +191,24 @@ export const useStoryBot = () => {
         console.log("Enhanced prompt with character details");
       }
       
+      // Get the latest reference image from prompt storage
+      let referenceImageUrl = null;
+      try {
+        const { data, error } = await supabase
+          .from('storybot_prompts')
+          .select('reference_image_url')
+          .not('reference_image_url', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+          
+        if (!error && data && data.length > 0) {
+          referenceImageUrl = data[0].reference_image_url;
+          console.log("Using reference image for generation:", referenceImageUrl);
+        }
+      } catch (refErr) {
+        console.error("Error fetching reference image:", refErr);
+      }
+      
       const imageUrl = await leonardoAgent.generateImage({
         prompt: enhancedPrompt,
         characterName,
@@ -199,7 +217,8 @@ export const useStoryBot = () => {
         style,
         characterPrompt,
         childImage: childImageBase64,
-        storyContext: storyContext
+        storyContext: storyContext,
+        referenceImageUrl: referenceImageUrl
       });
       
       console.log("Generated image URL with Leonardo:", imageUrl);
@@ -209,8 +228,6 @@ export const useStoryBot = () => {
       setLeonardoApiAvailable(false);
       window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
       localStorage.setItem("leonardo_api_issue", "true");
-      
-      toast.error("Erro ao gerar imagem. Usando imagens de placeholder.");
       
       return getFallbackImage(theme);
     }
@@ -281,6 +298,24 @@ export const useStoryBot = () => {
       
       console.log("Using LeonardoAIAgent for cover image generation");
       
+      // Get the latest reference image from prompt storage
+      let referenceImageUrl = null;
+      try {
+        const { data, error } = await supabase
+          .from('storybot_prompts')
+          .select('reference_image_url')
+          .not('reference_image_url', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+          
+        if (!error && data && data.length > 0) {
+          referenceImageUrl = data[0].reference_image_url;
+          console.log("Using reference image for cover generation:", referenceImageUrl);
+        }
+      } catch (refErr) {
+        console.error("Error fetching reference image for cover:", refErr);
+      }
+      
       const imageUrl = await leonardoAgent.generateCoverImage(
         title,
         characterName,
@@ -288,7 +323,8 @@ export const useStoryBot = () => {
         setting,
         style,
         characterPrompt,
-        childImageBase64
+        childImageBase64,
+        referenceImageUrl
       );
       
       console.log("Generated cover image URL with Leonardo:", imageUrl);

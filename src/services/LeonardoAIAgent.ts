@@ -1,6 +1,8 @@
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 
-interface ImageGenerationParams {
+interface GenerateImageParams {
   prompt: string;
   characterName: string;
   theme: string;
@@ -9,690 +11,312 @@ interface ImageGenerationParams {
   characterPrompt?: string | null;
   childImage?: string | null;
   storyContext?: string | null;
+  referenceImageUrl?: string | null;
 }
 
-interface LeonardoResponse {
-  image_url?: string;
-  success?: boolean;
-  error?: string;
-}
-
-/**
- * LeonardoAIAgent - Responsável por gerar ilustrações consistentes usando Leonardo.ai API
- * Mantém características dos personagens consistentes ao longo das ilustrações
- */
 export class LeonardoAIAgent {
-  private characterPrompts: Map<string, string> = new Map();
-  private characterImageStyles: Map<string, string> = new Map();
-  private characterModels: Map<string, string> = new Map();
-  private characterFirstImageUrl: Map<string, string> = new Map();
-  private isAvailable: boolean = true;
-  private isEnabled: boolean = true;
   private apiKey: string | null = null;
+  private userId: string | null = null;
+  private modelId: string = "e316348f-7773-490e-adcd-46757c738eb7"; // Leonardo Creative model
+  private generationInProgress: boolean = false;
+  private useRefiner: boolean = true;
+  private webhookUrl: string | null = null;
 
   constructor() {
-    // Carregar a API key do Leonardo.ai e verificar disponibilidade
-    this.apiKey = localStorage.getItem('leonardo_api_key');
-    this.isAvailable = !!this.apiKey && this.apiKey.length > 10;
+    this.apiKey = localStorage.getItem("leonardo_api_key");
+    this.userId = localStorage.getItem("user_id") || null;
     
-    // Verificar se o serviço está habilitado
-    const isEnabled = localStorage.getItem('use_leonardo_ai');
-    this.isEnabled = isEnabled !== 'false'; // padrão é true se não estiver definido
-    
-    // Carregar prompts de personagens salvos
-    this.loadSavedCharacterPrompts();
-    
-    console.log(`LeonardoAIAgent initialized, API available: ${this.isAvailable}, enabled: ${this.isEnabled}`);
-  }
-
-  /**
-   * Carrega prompts de personagens salvos no localStorage
-   */
-  private loadSavedCharacterPrompts(): void {
-    try {
-      // Carregar prompts de personagens
-      const savedPrompts = localStorage.getItem('character_prompts');
-      if (savedPrompts) {
-        const prompts = JSON.parse(savedPrompts);
-        Object.entries(prompts).forEach(([name, prompt]) => {
-          this.characterPrompts.set(name, prompt as string);
-        });
-        console.log("Prompts de personagens carregados:", this.characterPrompts.size);
-      }
-      
-      // Carregar estilos visuais de personagens
-      const savedStyles = localStorage.getItem('character_styles');
-      if (savedStyles) {
-        const styles = JSON.parse(savedStyles);
-        Object.entries(styles).forEach(([name, style]) => {
-          this.characterImageStyles.set(name, style as string);
-        });
-      }
-      
-      // Carregar modelos de personagens
-      const savedModels = localStorage.getItem('character_models');
-      if (savedModels) {
-        const models = JSON.parse(savedModels);
-        Object.entries(models).forEach(([name, model]) => {
-          this.characterModels.set(name, model as string);
-        });
-      }
-      
-      // Carregar URLs de imagens de referência
-      const savedImageUrls = localStorage.getItem('character_reference_images');
-      if (savedImageUrls) {
-        const imageUrls = JSON.parse(savedImageUrls);
-        Object.entries(imageUrls).forEach(([name, url]) => {
-          this.characterFirstImageUrl.set(name, url as string);
-        });
-      }
-    } catch (e) {
-      console.error("Erro ao carregar prompts salvos:", e);
+    const savedModelId = localStorage.getItem("leonardo_model_id");
+    if (savedModelId && savedModelId.length > 10) {
+      this.modelId = savedModelId;
     }
+    
+    this.webhookUrl = localStorage.getItem("leonardo_webhook_url") || null;
+    this.useRefiner = localStorage.getItem("use_leonardo_refiner") !== "false";
   }
 
-  /**
-   * Salva o prompt de um personagem para manter consistência entre ilustrações
-   */
-  public saveCharacterPrompt(characterName: string, prompt: string): void {
-    if (!characterName || !prompt) return;
-    
-    this.characterPrompts.set(characterName, prompt);
-    
-    // Persistir no localStorage
-    try {
-      const prompts: Record<string, string> = {};
-      this.characterPrompts.forEach((value, key) => {
-        prompts[key] = value;
-      });
-      localStorage.setItem('character_prompts', JSON.stringify(prompts));
-    } catch (e) {
-      console.error("Erro ao salvar prompt do personagem:", e);
-    }
+  isAgentAvailable(): boolean {
+    return !!this.apiKey && this.apiKey.length > 10;
   }
 
-  /**
-   * Salva o estilo visual de um personagem
-   */
-  public saveCharacterStyle(characterName: string, style: string): void {
-    if (!characterName || !style) return;
-    
-    this.characterImageStyles.set(characterName, style);
-    
-    // PERSISTIR no localStorage
-    try {
-      const styles: Record<string, string> = {};
-      this.characterImageStyles.forEach((value, key) => {
-        styles[key] = value;
-      });
-      localStorage.setItem('character_styles', JSON.stringify(styles));
-    } catch (e) {
-      console.error("Erro ao salvar estilo do personagem:", e);
-    }
-  }
-
-  /**
-   * Salva o modelo a ser usado para um personagem específico
-   */
-  public saveCharacterModel(characterName: string, model: string): void {
-    if (!characterName || !model) return;
-    
-    this.characterModels.set(characterName, model);
-    
-    try {
-      const models: Record<string, string> = {};
-      this.characterModels.forEach((value, key) => {
-        models[key] = value;
-      });
-      localStorage.setItem('character_models', JSON.stringify(models));
-    } catch (e) {
-      console.error("Erro ao salvar modelo do personagem:", e);
-    }
-  }
-
-  /**
-   * Salva a URL da primeira imagem gerada para um personagem como referência
-   */
-  public saveCharacterReferenceImage(characterName: string, imageUrl: string): void {
-    if (!characterName || !imageUrl) return;
-    
-    this.characterFirstImageUrl.set(characterName, imageUrl);
-    
-    try {
-      const imageUrls: Record<string, string> = {};
-      this.characterFirstImageUrl.forEach((value, key) => {
-        imageUrls[key] = value;
-      });
-      localStorage.setItem('character_reference_images', JSON.stringify(imageUrls));
-    } catch (e) {
-      console.error("Erro ao salvar imagem de referência do personagem:", e);
-    }
-  }
-
-  /**
-   * Verifica se o agente está disponível para uso
-   */
-  public isAgentAvailable(): boolean {
-    // Verificar a chave salva no localStorage em tempo real
-    const storedKey = localStorage.getItem('leonardo_api_key');
-    this.isAvailable = !!storedKey && storedKey.length > 10;
-    
-    // Verificar se o serviço está habilitado
-    const isEnabled = localStorage.getItem('use_leonardo_ai');
-    this.isEnabled = isEnabled !== 'false';
-    
-    return this.isAvailable && this.isEnabled;
-  }
-
-  /**
-   * Define a chave da API do Leonardo.ai
-   */
-  public setApiKey(apiKey: string): boolean {
+  setApiKey(apiKey: string): boolean {
     if (!apiKey || apiKey.length < 10) {
-      console.warn("Invalid Leonardo API key (too short or empty)");
       return false;
     }
     
-    this.apiKey = apiKey.trim();
-    localStorage.setItem('leonardo_api_key', this.apiKey);
-    this.isAvailable = true;
-    
-    // Limpar qualquer erro anterior
-    localStorage.removeItem("leonardo_api_issue");
-    
-    console.log("Leonardo API key set successfully");
+    this.apiKey = apiKey;
+    localStorage.setItem("leonardo_api_key", apiKey);
     return true;
   }
 
-  /**
-   * Define se o agente está habilitado ou não
-   */
-  public setEnabled(enabled: boolean): void {
-    this.isEnabled = enabled;
-    localStorage.setItem('use_leonardo_ai', enabled.toString());
-    console.log(`Leonardo.AI ${enabled ? 'enabled' : 'disabled'}`);
+  setModelId(modelId: string): boolean {
+    if (!modelId || modelId.length < 10) {
+      return false;
+    }
+    
+    this.modelId = modelId;
+    localStorage.setItem("leonardo_model_id", modelId);
+    return true;
   }
 
-  /**
-   * Gera uma imagem usando a API do Leonardo.ai com base em um prompt e mantendo
-   * consistência com as características do personagem
-   */
-  public async generateImage(params: ImageGenerationParams): Promise<string> {
-    // Verificar se o serviço está habilitado
-    if (!this.isEnabled) {
-      console.warn("Leonardo.AI is disabled");
-      return this.getFallbackImage(params.theme);
-    }
-    
-    const { 
-      prompt, 
-      characterName, 
-      theme, 
-      setting, 
-      style = "papercraft", 
-      characterPrompt, 
-      childImage, 
-      storyContext 
-    } = params;
-    
-    // Verificar a chave API antes de prosseguir
-    if (!this.apiKey || this.apiKey.length < 10) {
-      console.error("Leonardo.ai API key não configurada ou inválida");
-      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-      localStorage.setItem("leonardo_api_issue", "true");
-      return this.getFallbackImage(theme);
-    }
-    
-    // Usar o prompt salvo do personagem, se existir
-    const savedPrompt = this.characterPrompts.get(characterName);
-    const finalCharacterPrompt = savedPrompt || characterPrompt || null;
-    
-    // Sempre usar estilo papercraft
-    this.saveCharacterStyle(characterName, "papercraft");
-    
-    // Usar o modelo salvo para o personagem, se existir
-    const modelId = this.characterModels.get(characterName) || "b820ea11-02bf-4652-97ae-93b22e02a0a9"; // Leonardo Creative como padrão
-    
-    // Verificar se já temos uma imagem de referência para este personagem
-    const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
-    
-    // Tentar usar o template personalizado do localStorage se disponível
-    let imagePromptTemplate = localStorage.getItem('image_prompt_template');
-    let enhancedPrompt: string;
-    
-    if (imagePromptTemplate) {
-      // Extrair elementos secundários do prompt para enriquecer a cena
-      const elementosSecundarios = this.extractSecondaryElements(prompt, theme);
-      
-      // Usar o template personalizado com substituição de variáveis
-      enhancedPrompt = imagePromptTemplate
-        .replace(/{personagem}/g, characterName)
-        .replace(/{caracteristicas_do_personagem}/g, finalCharacterPrompt || 'personagem colorido')
-        .replace(/{cenario}/g, setting)
-        .replace(/{tema}/g, theme)
-        .replace(/{elementos_da_cena}/g, prompt.slice(0, 100))
-        .replace(/{elementos_secundarios}/g, elementosSecundarios)
-        .replace(/{texto_da_pagina}/g, prompt)
-        .replace(/{emocao}/g, prompt.includes('feliz') ? 'alegria' : 
-                               prompt.includes('triste') ? 'tristeza' : 
-                               prompt.includes('surpreso') ? 'surpresa' : 'curiosidade');
+  setWebhookUrl(webhookUrl: string | null): void {
+    this.webhookUrl = webhookUrl;
+    if (webhookUrl) {
+      localStorage.setItem("leonardo_webhook_url", webhookUrl);
     } else {
-      // Usar a abordagem padrão de construção de prompt
-      enhancedPrompt = `Ilustração no estilo papercraft (arte em camadas de papel recortado com efeito 3D como livro pop-up) para livro infantil, mostrando ${characterName} em ${setting}. Garantir que o personagem tenha EXATAMENTE a mesma aparência em todas as ilustrações. ${prompt}`;
+      localStorage.removeItem("leonardo_webhook_url");
+    }
+  }
+
+  setUseRefiner(useRefiner: boolean): void {
+    this.useRefiner = useRefiner;
+    localStorage.setItem("use_leonardo_refiner", useRefiner.toString());
+  }
+
+  async generateImage({
+    prompt,
+    characterName,
+    theme,
+    setting,
+    style = "cartoon",
+    characterPrompt = null,
+    childImage = null,
+    storyContext = null,
+    referenceImageUrl = null
+  }: GenerateImageParams): Promise<string> {
+    if (!this.apiKey) {
+      console.error("Leonardo API Key não configurada");
+      throw new Error("Leonardo API Key não configurada");
+    }
+
+    if (this.generationInProgress) {
+      console.warn("Geração de imagem já em andamento, aguarde...");
+      throw new Error("Geração de imagem já em andamento, aguarde...");
+    }
+
+    try {
+      this.generationInProgress = true;
+
+      // Gerar um ID único para esta geração
+      const generationId = uuidv4();
       
-      if (finalCharacterPrompt) {
-        enhancedPrompt += ` O personagem ${characterName} possui as seguintes características visuais que DEVEM ser mantidas em todas as imagens: ${finalCharacterPrompt}`;
+      // Registrar início da geração
+      console.log(`Iniciando geração de imagem: ${generationId}`);
+      console.log(`Prompt: ${prompt.substring(0, 100)}...`);
+      
+      // Enhancing prompt for better style guidance
+      let enhancedPrompt = `${style} style illustration for a children's book. `;
+      enhancedPrompt += prompt;
+      
+      // Add character details if provided
+      if (characterPrompt) {
+        enhancedPrompt += `. The character ${characterName} has the following attributes: ${characterPrompt}`;
       }
       
-      enhancedPrompt += ` Camadas de papel recortado, texturas visíveis, elementos em diferentes níveis de profundidade, cores vibrantes, composição central focando o personagem principal, múltiplos elementos da história como detalhes no cenário, todos no estilo de papel recortado.`;
-    }
-    
-    // Adicionar sempre o estilo papercraft como garantia
-    if (!enhancedPrompt.toLowerCase().includes('papercraft')) {
-      enhancedPrompt += " Ilustração em estilo PAPERCRAFT com camadas de papel recortado, textura de papel, elementos em diferentes níveis sobrepostos como um livro pop-up.";
-    }
-    
-    // Adicionar instruções para manter consistência
-    enhancedPrompt += " IMPORTANTE: mantenha EXATAMENTE a mesma aparência física, roupas, cores e características faciais do personagem em todas as ilustrações para garantir consistência.";
-    
-    console.log("Gerando imagem com Leonardo.ai API:", {
-      characterName,
-      hasPrompt: !!finalCharacterPrompt,
-      hasStoryContext: !!storyContext,
-      style: "papercraft",
-      hasReferenceImage: !!referenceImageUrl,
-      modelId,
-      apiKeyLength: this.apiKey.length,
-      promptLength: enhancedPrompt.length
-    });
-    
-    try {
-      // Configurar o corpo da requisição
-      const requestBody: any = {
-        prompt: enhancedPrompt,
-        modelId: modelId,
-        width: 768,
-        height: 768,
-        num_images: 1,
-        promptMagic: true,
-        presetStyle: "CREATIVE",
-        public: false,
-        nsfw: false
+      // Prepare base request options
+      const requestOptions: RequestInit = {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${this.apiKey}`
+        }
       };
       
-      // Se tivermos uma imagem de referência, adicionar ao corpo da requisição para maior consistência
+      // Initialize generation config
+      let generationConfig: any = {
+        prompt: enhancedPrompt,
+        modelId: this.modelId,
+        width: 768,
+        height: 768,
+        promptMagic: true,
+        sd_version: "v2",
+        presetStyle: "LEONARDO",
+        num_images: 1
+      };
+      
+      // Add reference image information if available
       if (referenceImageUrl) {
-        requestBody.referenceImageUrl = referenceImageUrl;
-        requestBody.promptMagicVersion = "v2";
-        requestBody.imageGuidanceScale = 0.8;
+        console.log("Using reference image URL for guidance:", referenceImageUrl);
+        generationConfig.imagePrompts = [referenceImageUrl];
       }
       
-      // Teste de conexão antes de fazer a chamada completa
-      try {
-        const testResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json"
-          }
-        });
-        
-        if (!testResponse.ok) {
-          console.error("Leonardo.ai API connection test failed:", await testResponse.text());
-          throw new Error(`Leonardo.ai API connection test failed: ${testResponse.status}`);
-        }
-        
-        console.log("Leonardo.ai API connection test successful");
-      } catch (error) {
-        console.error("Leonardo.ai API connection test error:", error);
-        throw new Error("Failed to connect to Leonardo.ai API");
+      // Add webhook URL if configured
+      if (this.webhookUrl) {
+        generationConfig.webhookUrl = this.webhookUrl;
+        console.log("Using webhook URL:", this.webhookUrl);
       }
       
-      // Chamar a API do Leonardo.ai para iniciar a geração
-      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody)
-      });
+      const body = JSON.stringify(generationConfig);
+      requestOptions.body = body;
+      
+      console.log("Enviando requisição para Leonardo.ai...");
+      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", requestOptions);
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Leonardo.ai API error:", errorData);
-        throw new Error(`Leonardo.ai API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        console.error("Erro na resposta da API Leonardo:", errorData);
+        
+        if (errorData.error === "You have reached your API request limit for the day.") {
+          localStorage.setItem("leonardo_api_issue", "true");
+          window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+          toast.error("Limite diário da API Leonardo atingido. Tente novamente amanhã.");
+        }
+        
+        throw new Error(`Falha ao gerar imagem: ${response.statusText}`);
       }
       
-      const data = await response.json();
-      console.log("Leonardo.ai generation job created:", data.sdGenerationJob?.generationId);
+      const responseData = await response.json();
+      const generationIdReceived = responseData.generations[0].id;
       
-      const generationId = data.sdGenerationJob?.generationId;
-      if (!generationId) {
-        throw new Error("No generation ID returned from Leonardo.ai API");
-      }
+      console.log(`Geração iniciada com ID: ${generationIdReceived}`);
       
-      // Aguardar a conclusão da geração
-      const imageUrl = await this.pollForResults(generationId);
+      // Verificar o status da geração a cada 3 segundos
+      let imageUrl = null;
+      let attempts = 0;
+      const maxAttempts = 20; // Aumentando o número máximo de tentativas
       
-      // Quando bem-sucedido, salvar o prompt para uso futuro
-      if (characterPrompt && !savedPrompt) {
-        this.saveCharacterPrompt(characterName, characterPrompt);
-      }
-      
-      // Se não tivermos uma imagem de referência para este personagem, salvar esta como referência
-      if (!referenceImageUrl) {
-        this.saveCharacterReferenceImage(characterName, imageUrl);
-        console.log(`Imagem de referência salva para ${characterName}:`, imageUrl);
-      }
-      
-      return imageUrl;
-    } catch (error: any) {
-      console.error("Error generating image with Leonardo.ai:", error);
-      
-      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-      localStorage.setItem("leonardo_api_issue", "true");
-      
-      toast.error("Erro ao gerar imagem com Leonardo.ai. Usando imagem de placeholder.");
-      
-      // Retornar uma imagem placeholder baseada no tema
-      return this.getFallbackImage(theme);
-    }
-  }
-
-  /**
-   * Extrai elementos secundários do prompt para enriquecer a cena
-   */
-  private extractSecondaryElements(prompt: string, theme: string): string {
-    // Palavras-chave para cada tema
-    const themeKeywords: Record<string, string[]> = {
-      adventure: ["mapas", "bússola", "mochilas", "binóculos", "cordas", "lanternas", "barcos", "montanhas"],
-      fantasy: ["varinhas", "fadas", "dragões", "castelos", "poções", "livros mágicos", "cristais", "estrelas brilhantes"],
-      space: ["planetas", "estrelas", "foguetes", "astronautas", "aliens", "satélites", "asteroides", "cometas"],
-      ocean: ["peixes", "conchas", "corais", "algas", "ondas", "barcos", "tesouros", "âncoras"],
-      dinosaurs: ["pegadas", "fósseis", "vulcões", "ovos", "plantas pré-históricas", "rochas", "ossos", "pterodáctilos"]
-    };
-    
-    // Elementos padrão para qualquer tema
-    const defaultElements = ["árvores", "nuvens", "flores", "animais", "pedras", "plantas", "casas", "caminhos"];
-    
-    // Obter palavras-chave do tema atual
-    const keywords = themeKeywords[theme as keyof typeof themeKeywords] || defaultElements;
-    
-    // Selecionar aleatoriamente 3-4 elementos
-    const selectedElements = [];
-    for (let i = 0; i < 4; i++) {
-      const randomIndex = Math.floor(Math.random() * keywords.length);
-      if (keywords[randomIndex] && !selectedElements.includes(keywords[randomIndex])) {
-        selectedElements.push(keywords[randomIndex]);
-      }
-    }
-    
-    // Analisar o prompt para identificar elementos específicos mencionados
-    const promptWords = prompt.toLowerCase().split(' ');
-    const possibleObjects = promptWords.filter(word => 
-      word.length > 4 && 
-      !["para", "como", "quando", "onde", "porque", "então", "muito", "também"].includes(word)
-    ).slice(0, 3);
-    
-    // Combinar elementos do tema com elementos do prompt
-    return [...selectedElements, ...possibleObjects].join(', ');
-  }
-
-  /**
-   * Consulta periodicamente o status da geração até que esteja concluída
-   */
-  private async pollForResults(generationId: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error("Leonardo.ai API key não configurada");
-    }
-    
-    let attempts = 0;
-    const maxAttempts = 30;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
-      
-      try {
-        const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+      while (!imageUrl && attempts < maxAttempts) {
+        attempts++;
+        console.log(`Tentativa ${attempts}: Verificando status da geração...`);
+        
+        const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationIdReceived}`, {
+          method: 'GET',
           headers: {
-            "Authorization": `Bearer ${this.apiKey}`
+            'accept': 'application/json',
+            'authorization': `Bearer ${this.apiKey}`
           }
         });
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error(`Error checking generation status (attempt ${attempts}):`, errorData);
-          
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          continue;
+        if (!statusResponse.ok) {
+          console.error("Erro ao verificar o status da geração:", statusResponse.statusText);
+          throw new Error(`Falha ao verificar o status da geração: ${statusResponse.statusText}`);
         }
         
-        const data = await response.json();
+        const statusData = await statusResponse.json();
         
-        if (data.generations_by_pk.status === "COMPLETE") {
-          const generatedImages = data.generations_by_pk.generated_images;
-          if (generatedImages && generatedImages.length > 0) {
-            return generatedImages[0].url;
-          }
-          throw new Error("No images generated");
-        } else if (data.generations_by_pk.status === "FAILED") {
-          throw new Error("Generation failed");
+        if (statusData.generations_by_id?.status === "COMPLETE") {
+          imageUrl = statusData.generations_by_id.generated_images[0].url;
+          console.log("Imagem gerada com sucesso:", imageUrl);
+          break;
+        } else if (statusData.generations_by_id?.status === "FAILED") {
+          console.error("Geração falhou:", statusData.generations_by_id.failure_reason);
+          throw new Error(`Geração falhou: ${statusData.generations_by_id.failure_reason}`);
+        } else {
+          console.log("Geração ainda em andamento...");
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 10000));
-      } catch (error) {
-        console.error(`Error in polling attempt ${attempts}:`, error);
-        
-        await new Promise(resolve => setTimeout(resolve, 10000));
       }
+      
+      if (!imageUrl) {
+        console.warn("Tempo limite atingido ao aguardar a geração da imagem.");
+        throw new Error("Tempo limite atingido ao aguardar a geração da imagem.");
+      }
+      
+      const generatedImageUrl = imageUrl;
+
+      return generatedImageUrl;
+    } catch (error) {
+      console.error("Erro ao gerar imagem:", error);
+      localStorage.setItem("leonardo_api_issue", "true");
+      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
+      throw error;
+    } finally {
+      this.generationInProgress = false;
     }
-    
-    throw new Error("Timeout while waiting for image generation");
   }
 
-  /**
-   * Obtém uma imagem de fallback baseada no tema
-   */
-  private getFallbackImage(theme: string): string {
-    const themeImages: Record<string, string> = {
-      adventure: "/images/placeholders/adventure.jpg",
-      fantasy: "/images/placeholders/fantasy.jpg",
-      space: "/images/placeholders/space.jpg",
-      ocean: "/images/placeholders/ocean.jpg",
-      dinosaurs: "/images/placeholders/dinosaurs.jpg"
-    };
-    
-    return themeImages[theme] || "/images/placeholders/illustration-placeholder.jpg";
+  // Update to include referenceImageUrl in generateCoverImage
+  async generateCoverImage(
+    title: string,
+    characterName: string,
+    theme: string,
+    setting: string,
+    style: string = "cartoon",
+    characterPrompt: string | null = null,
+    childImage: string | null = null,
+    referenceImageUrl: string | null = null
+  ): Promise<string> {
+    try {
+      let coverPrompt = `Book cover illustration for a children's story titled "${title}". `;
+      coverPrompt += `Features ${characterName} in a ${setting} setting with a ${theme} theme. `;
+      coverPrompt += `The cover should be visually appealing, colorful, and suitable for children.`;
+      
+      if (characterPrompt) {
+        coverPrompt += ` Character details: ${characterPrompt}.`;
+      }
+      
+      const result = await this.generateImage({
+        prompt: coverPrompt,
+        characterName,
+        theme,
+        setting,
+        style,
+        characterPrompt,
+        childImage,
+        storyContext: title,
+        referenceImageUrl
+      });
+      
+      return result;
+    } catch (error) {
+      console.error("Error generating cover image:", error);
+      throw error;
+    }
   }
 
-  /**
-   * Gera imagens para todas as páginas de uma história, mantendo
-   * consistência visual e de personagens
-   */
-  public async generateStoryImages(
-    storyPages: string[], 
+  // Update to include referenceImageUrl in generateStoryImages
+  async generateStoryImages(
+    storyPages: string[],
     imagePrompts: string[],
     characterName: string,
     theme: string,
     setting: string,
     characterPrompt: string | null = null,
-    style: string = "papercraft",
+    style: string = "cartoon",
     childImage: string | null = null,
-    storyTitle: string | null = null
+    storyTitle: string | null = null,
+    referenceImageUrl: string | null = null
   ): Promise<string[]> {
-    // Verificar se o serviço está habilitado
-    if (!this.isEnabled) {
-      console.warn("Leonardo.AI is disabled for story images");
-      return storyPages.map(() => this.getFallbackImage(theme));
-    }
-    
-    if (!storyPages.length) {
-      return [];
-    }
-    
     try {
-      const imageUrls: string[] = [];
+      console.log(`Generating ${imagePrompts.length} story images...`);
       
-      if (storyPages.length > 0 && imagePrompts.length > 0) {
-        const firstPagePrompt = imagePrompts[0] || `Ilustração da primeira página: ${storyPages[0].substring(0, 100)}...`;
-        
-        toast.info(`Gerando ilustração de referência do personagem ${characterName}...`);
-        
-        try {
-          // Criar um prompt mais detalhado para a imagem de referência
-          let enhancedPrompt = `Retrato detalhado do personagem ${characterName} no estilo papercraft (camadas de papel recortado com profundidade 3D). ${firstPagePrompt}`;
-          
-          if (storyTitle) {
-            enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
-          }
-          
-          enhancedPrompt += ` (Tema: ${theme}, Cenário: ${setting})`;
-          enhancedPrompt += ` O personagem deve ter características visuais bem definidas e distintas que possam ser mantidas consistentes em todas as ilustrações.`;
-          
-          const firstImageUrl = await this.generateImage({
-            prompt: enhancedPrompt,
-            characterName,
-            theme,
-            setting,
-            style: "papercraft",
-            characterPrompt,
-            childImage,
-            storyContext: storyTitle ? `Personagem de referência para a história "${storyTitle}"` : null
-          });
-          
-          this.saveCharacterReferenceImage(characterName, firstImageUrl);
-          imageUrls.push(firstImageUrl);
-        } catch (error) {
-          console.error(`Erro ao gerar imagem de referência:`, error);
-          imageUrls.push(this.getFallbackImage(theme));
-        }
+      // Gerar um personagem de referência para consistência
+      console.log("Creating reference image for consistent character appearance...");
+      
+      let characterReferencePrompt = `Clear reference image of the character ${characterName}. `;
+      characterReferencePrompt += `The character is in a ${setting} setting with a ${theme} theme. `;
+      
+      if (characterPrompt) {
+        characterReferencePrompt += characterPrompt;
       }
       
-      for (let i = 1; i < storyPages.length; i++) {
-        const pageText = storyPages[i];
-        const imagePrompt = imagePrompts[i] || `Ilustração para a página ${i+1}: ${pageText.substring(0, 100)}...`;
-        const pageNumber = i + 1;
-        
-        toast.info(`Gerando ilustração para página ${pageNumber} de ${storyPages.length}...`);
-        
-        try {
-          // Criar um prompt mais detalhado para cada página
-          let enhancedPrompt = `Ilustração papercraft (camadas de papel recortado 3D) para página ${pageNumber}. Mantenha a EXATA aparência do personagem ${characterName} conforme a imagem de referência. ${imagePrompt}`;
-          
-          if (storyTitle) {
-            enhancedPrompt = `História: "${storyTitle}" - ${enhancedPrompt}`;
-          }
-          
-          enhancedPrompt += ` (Página ${pageNumber} - Tema: ${theme}, Cenário: ${setting})`;
-          enhancedPrompt += ` Inclua múltiplos elementos da cena: ${pageText.substring(0, 150)}`;
-          
-          if (i === storyPages.length - 1) {
-            enhancedPrompt += " Esta é a última página da história, mostre a conclusão ou celebração.";
-          }
-          
-          const imageUrl = await this.generateImage({
-            prompt: enhancedPrompt,
-            characterName,
-            theme,
-            setting,
-            style: "papercraft",
-            characterPrompt,
-            childImage,
-            storyContext: storyTitle ? `Página ${pageNumber} da história "${storyTitle}"` : null
-          });
-          
-          imageUrls.push(imageUrl);
-        } catch (error) {
-          console.error(`Erro ao gerar imagem para página ${pageNumber}:`, error);
-          imageUrls.push(this.getFallbackImage(theme));
-        }
-      }
+      const generatedImages: string[] = [];
       
-      return imageUrls;
-    } catch (error) {
-      console.error("Erro ao gerar imagens da história:", error);
-      return storyPages.map(() => this.getFallbackImage(theme));
-    }
-  }
-
-  /**
-   * Gera uma imagem de capa para a história
-   */
-  public async generateCoverImage(
-    title: string,
-    characterName: string,
-    theme: string,
-    setting: string,
-    style: string = "papercraft",
-    characterPrompt: string | null = null,
-    childImage: string | null = null
-  ): Promise<string> {
-    // Verificar se o serviço está habilitado
-    if (!this.isEnabled) {
-      console.warn("Leonardo.AI is disabled for cover image");
-      const themeCovers: Record<string, string> = {
-        adventure: "/images/covers/adventure.jpg",
-        fantasy: "/images/covers/fantasy.jpg",
-        space: "/images/covers/space.jpg",
-        ocean: "/images/covers/ocean.jpg",
-        dinosaurs: "/images/covers/dinosaurs.jpg"
-      };
-      
-      return themeCovers[theme] || "/images/covers/adventure.jpg";
-    }
-    
-    const coverPrompt = `Capa de livro infantil em estilo papercraft para "${title}" com o personagem ${characterName} em destaque em uma cena de ${setting} com tema de ${theme}. 
-                        A ilustração deve ser como um livro pop-up com texturas de papel, elementos que parecem recortados e colados em camadas, e o título "${title}" integrado ao design. 
-                        O personagem deve estar centralizado na cena, com uma expressão alegre e aventureira.
-                        Inclua vários elementos do tema como flores, árvores, nuvens, sol, animais ou objetos, todos em estilo de recorte de papel com profundidade 3D.
-                        Cores vibrantes e saturadas, detalhes ricos, iluminação que realça as camadas de papel.
-                        Importante: Mantenha as características visuais consistentes do personagem.`;
-    
-    const referenceImageUrl = this.characterFirstImageUrl.get(characterName);
-    
-    try {
-      if (!referenceImageUrl) {
-        const characterRefPrompt = `Retrato detalhado e claro do personagem ${characterName} para servir como referência. Mostrando aparência completa, roupas e expressão facial característica em estilo papercraft com camadas de papel recortado.`;
+      for (let i = 0; i < imagePrompts.length; i++) {
+        const imagePrompt = imagePrompts[i];
         
-        const referenceImage = await this.generateImage({
-          prompt: characterRefPrompt,
+        console.log(`Generating image ${i + 1} of ${imagePrompts.length} with prompt: ${imagePrompt.substring(0, 100)}...`);
+        
+        const result = await this.generateImage({
+          prompt: imagePrompt,
           characterName,
           theme,
           setting,
-          style: "papercraft",
+          style,
           characterPrompt,
           childImage,
-          storyContext: `Referência visual para o personagem da história "${title}"`
+          storyContext: storyTitle || `Page ${i + 1}`,
+          referenceImageUrl
         });
         
-        this.saveCharacterReferenceImage(characterName, referenceImage);
+        generatedImages.push(result);
       }
       
-      const imageUrl = await this.generateImage({
-        prompt: coverPrompt,
-        characterName,
-        theme,
-        setting,
-        style: "papercraft",
-        characterPrompt,
-        childImage,
-        storyContext: `Capa do livro "${title}"`
-      });
-      
-      return imageUrl;
+      return generatedImages;
     } catch (error) {
-      console.error("Erro ao gerar imagem de capa:", error);
-      
-      const themeCovers: Record<string, string> = {
-        adventure: "/images/covers/adventure.jpg",
-        fantasy: "/images/covers/fantasy.jpg",
-        space: "/images/covers/space.jpg",
-        ocean: "/images/covers/ocean.jpg",
-        dinosaurs: "/images/covers/dinosaurs.jpg"
-      };
-      
-      return themeCovers[theme] || "/images/covers/adventure.jpg";
+      console.error("Error generating story images:", error);
+      throw error;
     }
   }
 }
