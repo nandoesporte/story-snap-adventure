@@ -1,4 +1,3 @@
-
 import { toast } from 'sonner';
 
 // Check if an image URL exists in the permanent storage
@@ -78,7 +77,7 @@ export const getDefaultImagePath = (theme?: string): string => {
     'fantasy': '/images/defaults/fantasy.jpg',
     'adventure': '/images/defaults/adventure.jpg',
     'dinosaurs': '/images/defaults/dinosaurs.jpg',
-    'default': '/images/defaults/default.jpg'
+    'default': '/placeholder.svg'
   };
   
   return theme && defaultImages[theme] 
