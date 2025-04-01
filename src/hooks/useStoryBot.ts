@@ -115,10 +115,12 @@ export const useStoryBot = () => {
     }
     
     try {
-      localStorage.setItem('leonardo_api_key', apiKey.trim());
-      localStorage.setItem('leonardo_webhook_url', 'https://cloud.leonardo.ai/api/rest/v1/generations');
-      setLeonardoApiAvailable(true);
-      return true;
+      const success = leonardoAgent.setApiKey(apiKey.trim());
+      if (success) {
+        setLeonardoApiAvailable(true);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("Error setting Leonardo API key:", error);
       return false;
@@ -129,45 +131,53 @@ export const useStoryBot = () => {
     try {
       console.log("Checking if Leonardo AI should be used for image generation");
       
-      if (!leonardoApiAvailable) {
-        console.log("Leonardo AI not available, checking fallback options");
+      // Verificar se a Leonardo AI está disponível e habilitada
+      if (useLeonardoAI && leonardoApiAvailable) {
+        try {
+          console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
+          const result = await leonardoAgent.generateImage({
+            prompt,
+            characterName: "",
+            theme: "",
+            setting: "",
+            style: "papercraft"
+          });
+          
+          if (result) {
+            console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
+            return result;
+          } else {
+            console.warn("Leonardo AI returned empty or null result");
+            throw new Error("Leonardo AI returned empty result");
+          }
+        } catch (leonardoError) {
+          console.error("Leonardo AI image generation failed:", leonardoError);
+          toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
+          
+          if (useOpenAIForImages) {
+            console.log("Falling back to OpenAI for image generation after Leonardo failure");
+            const openaiResult = await generateImageWithOpenAI(prompt, size);
+            if (openaiResult) {
+              return openaiResult;
+            }
+          }
+          throw new Error("Leonardo AI falhou e OpenAI não está habilitado ou falhou na geração de imagens");
+        }
+      } else {
+        console.log("Leonardo AI not available or disabled, checking fallback options");
         
         if (useOpenAIForImages) {
-          console.log("Falling back to OpenAI for image generation");
+          console.log("Using OpenAI for image generation");
           const openaiResult = await generateImageWithOpenAI(prompt, size);
-          console.log("OpenAI image generation result:", openaiResult?.substring(0, 50) + "...");
-          return openaiResult;
+          if (openaiResult) {
+            console.log("OpenAI image generation result:", openaiResult?.substring(0, 50) + "...");
+            return openaiResult;
+          } else {
+            throw new Error("OpenAI returned empty result");
+          }
         } else {
-          throw new Error("Nenhum serviço de geração de imagem está disponível");
+          throw new Error("Nenhum serviço de geração de imagem está disponível ou configurado");
         }
-      }
-      
-      try {
-        console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
-        const result = await leonardoAgent.generateImage({
-          prompt,
-          characterName: "",
-          theme: "",
-          setting: "",
-          style: "papercraft"
-        });
-        
-        if (!result) {
-          throw new Error("Leonardo AI returned empty result");
-        }
-        
-        console.log("Successfully generated image with Leonardo AI:", result?.substring(0, 50) + "...");
-        return result;
-      } catch (leonardoError) {
-        console.error("Leonardo AI image generation failed:", leonardoError);
-        toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
-        
-        if (useOpenAIForImages) {
-          console.log("Falling back to OpenAI for image generation after Leonardo failure");
-          const openaiResult = await generateImageWithOpenAI(prompt, size);
-          return openaiResult;
-        }
-        throw new Error("Leonardo AI falhou e OpenAI não está habilitado para geração de imagens");
       }
     } catch (error) {
       console.error("Image generation failed:", error);
@@ -218,7 +228,7 @@ export const useStoryBot = () => {
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
         
-        console.log("Generating cover image with Leonardo AI");
+        console.log("Generating cover image");
         coverImageUrl = await generateImage(coverPrompt, "1792x1024");
         console.log("Generated cover image:", coverImageUrl.substring(0, 50) + "...");
       } catch (error) {
@@ -233,7 +243,7 @@ export const useStoryBot = () => {
           const imagePrompt = result.imagePrompts[i] || 
             `Illustration in ${style} style for a children's book. Scene: ${result.content[i].substring(0, 200)}... Character ${characterName} in ${setting} with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}` : ''}`;
           
-          console.log(`Generating image ${i+1} with Leonardo AI`);
+          console.log(`Generating image ${i+1}`);
           imageUrl = await generateImage(imagePrompt);
           console.log(`Generated image ${i+1}:`, imageUrl?.substring(0, 50) + "...");
           

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,6 +40,11 @@ const ImageGenerationManager = () => {
     setUseLeonardo(checked);
     localStorage.setItem("use_leonardo_ai", checked.toString());
     toast.success(`Leonardo AI ${checked ? "ativado" : "desativado"} para geração de imagens.`);
+    
+    // Se desativar Leonardo e OpenAI não estiver ativo, avisar o usuário
+    if (!checked && !useOpenAI) {
+      toast.warning("Nenhum serviço de geração de imagens está ativo. Por favor, ative pelo menos um.");
+    }
   };
 
   const generateTestImage = async () => {
@@ -49,6 +55,14 @@ const ImageGenerationManager = () => {
       
       const prompt = "A children's book illustration of a cute bear in a forest, papercraft style";
       
+      // Verificar se algum serviço está ativado
+      if (!useLeonardo && !useOpenAI) {
+        setTestError("Nenhum serviço de geração de imagens está ativado. Ative Leonardo AI ou OpenAI nas configurações.");
+        toast.error("Nenhum serviço de geração de imagens está ativado.");
+        setIsGeneratingTest(false);
+        return;
+      }
+      
       // First check if Leonardo AI is available and configured
       const leonardoApiKey = localStorage.getItem("leonardo_api_key");
       
@@ -56,6 +70,20 @@ const ImageGenerationManager = () => {
         try {
           toast.info("Gerando imagem de teste com Leonardo AI...");
           console.log("Starting test image generation with Leonardo AI");
+          
+          // Verificar se o agente está realmente disponível
+          if (!leonardoAgent.isAgentAvailable()) {
+            console.warn("Leonardo API key exists but agent is not available");
+            toast.warning("Chave da API Leonardo encontrada, mas a conexão não está disponível. Verificando configuração...");
+            
+            // Tentar novamente inicializando explicitamente
+            leonardoAgent.setApiKey(leonardoApiKey);
+            
+            // Se ainda não estiver disponível, tentar com OpenAI
+            if (!leonardoAgent.isAgentAvailable()) {
+              throw new Error("Leonardo AI não está disponível mesmo com a chave API configurada.");
+            }
+          }
           
           const imageUrl = await leonardoAgent.generateImage({
             prompt,
@@ -70,15 +98,31 @@ const ImageGenerationManager = () => {
           if (imageUrl) {
             setTestImageUrl(imageUrl);
             toast.success("Imagem de teste gerada com sucesso usando Leonardo AI!");
+            setIsGeneratingTest(false);
             return;
+          } else {
+            throw new Error("Leonardo AI não retornou uma URL de imagem válida.");
           }
         } catch (error) {
           console.error("Leonardo AI test image generation failed:", error);
-          toast.error("Falha ao gerar imagem com Leonardo AI. Tentando com OpenAI...");
+          toast.error("Falha ao gerar imagem com Leonardo AI. " + 
+            (useOpenAI ? "Tentando com OpenAI..." : "Ative o OpenAI como fallback ou verifique as configurações."));
+          
+          if (!useOpenAI) {
+            setTestError("Falha na geração com Leonardo AI. Ative o OpenAI como fallback nas configurações.");
+            setIsGeneratingTest(false);
+            return;
+          }
         }
-      } else {
-        console.warn("Leonardo AI is not enabled or API key not available");
-        toast.warning("O serviço Leonardo AI não está disponível. Verificando alternativas...");
+      } else if (useLeonardo) {
+        toast.warning("Leonardo AI está ativado, mas a chave API não está configurada.");
+        console.warn("Leonardo AI is enabled but API key is not available");
+        
+        if (!useOpenAI) {
+          setTestError("Leonardo AI está ativado, mas a chave API não está configurada. Configure a chave ou ative o OpenAI como fallback.");
+          setIsGeneratingTest(false);
+          return;
+        }
       }
       
       // Try with OpenAI if Leonardo failed or is not available
@@ -86,23 +130,38 @@ const ImageGenerationManager = () => {
         toast.info("Gerando imagem de teste com OpenAI...");
         try {
           console.log("Attempting to generate with OpenAI");
+          
+          // Verificar se a chave OpenAI está disponível
+          const openAiKey = localStorage.getItem("openai_api_key");
+          if (!openAiKey) {
+            toast.error("Chave da API OpenAI não está configurada.");
+            setTestError("Chave da API OpenAI não está configurada. Configure-a nas configurações do OpenAI.");
+            setIsGeneratingTest(false);
+            return;
+          }
+          
           const imageUrl = await generateImageWithOpenAI(prompt);
           if (imageUrl) {
             setTestImageUrl(imageUrl);
             toast.success("Imagem de teste gerada com sucesso usando OpenAI!");
+            setIsGeneratingTest(false);
             return;
+          } else {
+            throw new Error("OpenAI não retornou uma URL de imagem válida.");
           }
         } catch (openAiError) {
           console.error("OpenAI test image generation failed:", openAiError);
           setTestError(openAiError instanceof Error ? openAiError.message : "Erro desconhecido ao gerar com OpenAI");
-          toast.error("Falha ao gerar imagem com OpenAI.");
+          toast.error("Falha ao gerar imagem com OpenAI. Verifique a chave API e as configurações.");
+          setIsGeneratingTest(false);
+          return;
         }
       }
       
-      if (!testImageUrl) {
-        setTestError("Nenhum serviço de geração de imagens disponível ou configurado corretamente.");
-        toast.error("Não foi possível gerar a imagem de teste. Verifique as configurações da API.");
-      }
+      // Se chegou aqui, nenhum serviço conseguiu gerar a imagem
+      setTestError("Nenhum serviço de geração de imagens disponível ou configurado corretamente.");
+      toast.error("Não foi possível gerar a imagem de teste. Verifique as configurações das APIs.");
+      
     } catch (error) {
       console.error("Error generating test image:", error);
       setTestError(error instanceof Error ? error.message : "Erro desconhecido");
@@ -174,6 +233,16 @@ const ImageGenerationManager = () => {
                 />
                 <Label htmlFor="use-leonardo">Utilizar Leonardo AI para geração de imagens</Label>
               </div>
+              
+              {!useLeonardo && !useOpenAI && (
+                <Alert variant="destructive" className="mt-3">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Atenção</AlertTitle>
+                  <AlertDescription>
+                    Nenhum serviço de geração de imagens está ativado. Por favor, ative pelo menos um.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </TabsContent>
           

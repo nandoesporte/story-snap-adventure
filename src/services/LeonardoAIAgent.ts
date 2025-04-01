@@ -1,359 +1,282 @@
 
-import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 
-interface GenerateImageParams {
+interface GenerationParams {
   prompt: string;
-  characterName: string;
-  theme: string;
-  setting: string;
+  characterName?: string;
+  theme?: string;
+  setting?: string;
   style?: string;
-  characterPrompt?: string | null;
-  childImage?: string | null;
-  storyContext?: string | null;
-  referenceImageUrl?: string | null;
 }
 
 export class LeonardoAIAgent {
   private apiKey: string | null = null;
-  private userId: string | null = null;
-  private modelId: string = "e316348f-7773-490e-adcd-46757c738eb7"; // Leonardo Creative model
-  private generationInProgress: boolean = false;
-  private useRefiner: boolean = true;
-
+  private apiEndpoint: string = "https://cloud.leonardo.ai/api/rest/v1/generations";
+  private accessToken: string | null = null;
+  private isInitialized: boolean = false;
+  private maxPollingAttempts: number = 30;
+  private pollingInterval: number = 3000;
+  
   constructor() {
-    this.apiKey = localStorage.getItem("leonardo_api_key");
-    this.userId = localStorage.getItem("user_id") || null;
-    
-    const savedModelId = localStorage.getItem("leonardo_model_id");
-    if (savedModelId && savedModelId.length > 10) {
-      this.modelId = savedModelId;
-    }
-    
-    this.useRefiner = localStorage.getItem("use_leonardo_refiner") !== "false";
+    this.initialize();
   }
-
-  isAgentAvailable(): boolean {
-    return !!this.apiKey && this.apiKey.length > 10;
-  }
-
-  setApiKey(apiKey: string): boolean {
-    if (!apiKey || apiKey.length < 10) {
+  
+  public initialize(): boolean {
+    try {
+      const apiKey = localStorage.getItem("leonardo_api_key");
+      
+      if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "") {
+        console.log("Leonardo AI API key not found in localStorage");
+        return false;
+      }
+      
+      this.apiKey = apiKey;
+      this.isInitialized = true;
+      
+      console.log("Leonardo AI Agent initialized successfully");
+      return true;
+    } catch (error) {
+      console.error("Failed to initialize Leonardo AI Agent:", error);
       return false;
     }
-    
-    this.apiKey = apiKey;
-    localStorage.setItem("leonardo_api_key", apiKey);
-    return true;
   }
-
-  setModelId(modelId: string): boolean {
-    if (!modelId || modelId.length < 10) {
-      return false;
+  
+  public isAgentAvailable(): boolean {
+    if (!this.isInitialized) {
+      this.initialize();
     }
-    
-    this.modelId = modelId;
-    localStorage.setItem("leonardo_model_id", modelId);
-    return true;
+    return this.isInitialized && !!this.apiKey;
   }
-
-  setUseRefiner(useRefiner: boolean): void {
-    this.useRefiner = useRefiner;
-    localStorage.setItem("use_leonardo_refiner", useRefiner.toString());
-  }
-
-  async testConnection(): Promise<boolean> {
-    if (!this.apiKey) {
-      console.log("No Leonardo API key found");
+  
+  public setApiKey(apiKey: string): boolean {
+    if (!apiKey || apiKey.trim() === "") {
       return false;
     }
     
     try {
-      console.log("Testing Leonardo API connection...");
-      // Use user information endpoint
+      this.apiKey = apiKey.trim();
+      localStorage.setItem("leonardo_api_key", apiKey.trim());
+      this.isInitialized = true;
+      return true;
+    } catch (error) {
+      console.error("Error setting Leonardo AI API key:", error);
+      return false;
+    }
+  }
+  
+  public async testConnection(): Promise<boolean> {
+    if (!this.isAgentAvailable()) {
+      return false;
+    }
+    
+    try {
       const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/me", {
         method: "GET",
         headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json"
         }
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Leonardo API error:", errorText);
+        console.error("Leonardo AI API test failed:", response.status, response.statusText);
         return false;
       }
       
       const data = await response.json();
-      console.log("Leonardo API connection test successful:", data?.user_details ? "User details found" : "No user details");
-      return !!(data && data.user_details);
+      console.log("Leonardo AI API test successful:", data);
+      return true;
     } catch (error) {
-      console.error("Error testing Leonardo connection:", error);
+      console.error("Error testing Leonardo AI connection:", error);
       return false;
     }
   }
-
-  async generateImage({
-    prompt,
-    characterName,
-    theme,
-    setting,
-    style = "cartoon",
-    characterPrompt = null,
-    childImage = null,
-    storyContext = null,
-    referenceImageUrl = null
-  }: GenerateImageParams): Promise<string> {
-    if (!this.apiKey) {
-      console.error("Leonardo API Key não configurada");
-      throw new Error("Leonardo API Key não configurada");
+  
+  public async generateImage(params: GenerationParams): Promise<string | null> {
+    if (!this.isAgentAvailable()) {
+      console.error("Leonardo AI Agent is not available");
+      return null;
     }
-
-    if (this.generationInProgress) {
-      console.warn("Geração de imagem já em andamento, aguarde...");
-      toast.warning("Geração de imagem já em andamento, aguarde...");
-      throw new Error("Geração de imagem já em andamento, aguarde...");
-    }
-
+    
     try {
-      this.generationInProgress = true;
-      console.log("Starting image generation with Leonardo AI");
-
-      // Gerar um ID único para esta geração
-      const generationId = uuidv4();
+      console.log("Generating image with Leonardo AI:", params);
       
-      // Registrar início da geração
-      console.log(`Iniciando geração de imagem: ${generationId}`);
-      console.log(`Prompt: ${prompt.substring(0, 100)}...`);
+      // Melhorar o prompt para melhores resultados
+      let enhancedPrompt = params.prompt;
       
-      // Enhancing prompt for better style guidance
-      let enhancedPrompt = `${style} style illustration for a children's book. `;
-      enhancedPrompt += prompt;
-      
-      // Add character details if provided
-      if (characterPrompt) {
-        enhancedPrompt += `. The character ${characterName} has the following attributes: ${characterPrompt}`;
+      // Se tiver informações adicionais, melhorar o prompt
+      if (params.characterName || params.theme || params.setting || params.style) {
+        enhancedPrompt = `${params.prompt} Create a ${params.style || "papercraft"} style illustration` + 
+          `${params.characterName ? ` featuring ${params.characterName}` : ""}` + 
+          `${params.setting ? ` in a ${params.setting} setting` : ""}` + 
+          `${params.theme ? ` with ${params.theme} theme` : ""}.` + 
+          ` The image should be high quality, detailed, and suitable for a children's book.`;
       }
       
-      // Prepare base request options
-      const requestOptions: RequestInit = {
-        method: 'POST',
+      // Get available models
+      const modelsResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/models", {
+        method: "GET",
         headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'authorization': `Bearer ${this.apiKey}`
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json"
         }
-      };
-      
-      // Initialize generation config
-      let generationConfig: any = {
-        prompt: enhancedPrompt,
-        modelId: this.modelId,
-        width: 768,
-        height: 768,
-        promptMagic: true,
-        sd_version: "v2",
-        presetStyle: "LEONARDO",
-        num_images: 1
-      };
-      
-      // Add reference image information if available
-      if (referenceImageUrl) {
-        console.log("Using reference image URL for guidance:", referenceImageUrl);
-        generationConfig.imagePrompts = [referenceImageUrl];
-      }
-            
-      const body = JSON.stringify(generationConfig);
-      requestOptions.body = body;
-      
-      console.log("Sending request to Leonardo.ai...");
-      const response = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", requestOptions);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Leonardo API error response:", errorText);
-        
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.error === "You have reached your API request limit for the day.") {
-            localStorage.setItem("leonardo_api_issue", "true");
-            window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-            toast.error("Limite diário da API Leonardo atingido.");
-          }
-        } catch (e) {
-          console.log("Couldn't parse error response:", e);
-        }
-        
-        throw new Error(`Falha ao gerar imagem: ${response.statusText}`);
-      }
-      
-      const responseData = await response.json();
-      console.log("Leonardo API response:", responseData);
-      
-      if (responseData.sdGenerationJob && responseData.sdGenerationJob.generationId) {
-        // New API response format
-        const generationIdReceived = responseData.sdGenerationJob.generationId;
-        console.log(`Geração iniciada com ID (novo formato): ${generationIdReceived}`);
-        
-        return await this.waitForGenerationCompletion(generationIdReceived);
-      } else if (responseData.generations && responseData.generations[0] && responseData.generations[0].id) {
-        // Old API response format
-        const generationIdReceived = responseData.generations[0].id;
-        console.log(`Geração iniciada com ID (formato antigo): ${generationIdReceived}`);
-        
-        return await this.waitForGenerationCompletion(generationIdReceived);
-      } else {
-        console.error("Unexpected Leonardo API response:", responseData);
-        throw new Error("Resposta inesperada da API Leonardo");
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-      localStorage.setItem("leonardo_api_issue", "true");
-      window.dispatchEvent(new CustomEvent("leonardo_api_issue"));
-      throw error;
-    } finally {
-      this.generationInProgress = false;
-    }
-  }
-
-  private async waitForGenerationCompletion(generationId: string): Promise<string> {
-    let imageUrl = null;
-    let attempts = 0;
-    const maxAttempts = 30; // Increased from 20 to 30 for more patience
-    
-    while (!imageUrl && attempts < maxAttempts) {
-      attempts++;
-      console.log(`Attempt ${attempts}: Checking generation status...`);
-      
-      try {
-        const statusResponse = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'authorization': `Bearer ${this.apiKey}`
-          }
-        });
-        
-        if (!statusResponse.ok) {
-          console.error("Error checking generation status:", statusResponse.statusText);
-          throw new Error(`Failed to check generation status: ${statusResponse.statusText}`);
-        }
-        
-        const statusData = await statusResponse.json();
-        console.log("Generation status response:", statusData?.generations_by_id?.status || "Unknown");
-        
-        if (statusData.generations_by_id?.status === "COMPLETE") {
-          if (statusData.generations_by_id.generated_images && statusData.generations_by_id.generated_images.length > 0) {
-            imageUrl = statusData.generations_by_id.generated_images[0].url;
-            console.log("Image generation successful:", imageUrl);
-            return imageUrl;
-          } else {
-            console.error("Generation marked as complete, but no images found");
-            throw new Error("No images were generated");
-          }
-        } else if (statusData.generations_by_id?.status === "FAILED") {
-          console.error("Generation failed:", statusData.generations_by_id.failure_reason || "Unknown reason");
-          throw new Error(`Generation failed: ${statusData.generations_by_id.failure_reason || "Unknown error"}`);
-        } else {
-          console.log(`Current status: ${statusData.generations_by_id?.status || "Unknown"}. Waiting...`);
-          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
-        }
-      } catch (error) {
-        console.error("Error checking generation status:", error);
-        // Continue trying despite errors in status check
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      }
-    }
-    
-    if (!imageUrl) {
-      console.warn("Timeout waiting for image generation.");
-      throw new Error("Timeout waiting for image generation.");
-    }
-    
-    return imageUrl;
-  }
-
-  async generateCoverImage(
-    title: string,
-    characterName: string,
-    theme: string,
-    setting: string,
-    style: string = "cartoon",
-    characterPrompt: string | null = null,
-    childImage: string | null = null,
-    referenceImageUrl: string | null = null
-  ): Promise<string> {
-    try {
-      let coverPrompt = `Book cover illustration for a children's story titled "${title}". `;
-      coverPrompt += `Features ${characterName} in a ${setting} setting with a ${theme} theme. `;
-      coverPrompt += `The cover should be visually appealing, colorful, and suitable for children.`;
-      
-      if (characterPrompt) {
-        coverPrompt += ` Character details: ${characterPrompt}.`;
-      }
-      
-      const result = await this.generateImage({
-        prompt: coverPrompt,
-        characterName,
-        theme,
-        setting,
-        style,
-        characterPrompt,
-        childImage,
-        storyContext: title,
-        referenceImageUrl
       });
       
-      return result;
-    } catch (error) {
-      console.error("Error generating cover image:", error);
-      throw error;
-    }
-  }
-
-  async generateStoryImages(
-    storyPages: string[],
-    imagePrompts: string[],
-    characterName: string,
-    theme: string,
-    setting: string,
-    characterPrompt: string | null = null,
-    style: string = "cartoon",
-    childImage: string | null = null,
-    storyTitle: string | null = null,
-    referenceImageUrl: string | null = null
-  ): Promise<string[]> {
-    try {
-      console.log(`Generating ${imagePrompts.length} story images...`);
-      
-      const generatedImages: string[] = [];
-      
-      for (let i = 0; i < imagePrompts.length; i++) {
-        const imagePrompt = imagePrompts[i];
-        
-        console.log(`Generating image ${i + 1} of ${imagePrompts.length} with prompt: ${imagePrompt.substring(0, 100)}...`);
-        
-        const result = await this.generateImage({
-          prompt: imagePrompt,
-          characterName,
-          theme,
-          setting,
-          style,
-          characterPrompt,
-          childImage,
-          storyContext: storyTitle || `Page ${i + 1}`,
-          referenceImageUrl
-        });
-        
-        generatedImages.push(result);
+      if (!modelsResponse.ok) {
+        throw new Error(`Failed to fetch models: ${modelsResponse.status}`);
       }
       
-      return generatedImages;
+      const modelsData = await modelsResponse.json();
+      console.log("Available Leonardo AI models:", modelsData);
+      
+      // Find a suitable model for illustration
+      let modelId = "";
+      
+      // Prefer these models in order of preference
+      const preferredModelNames = [
+        "Leonardo Creative",
+        "Leonardo Diffusion XL",
+        "Dream Shaper XL",
+        "Leonardo Diffusion"
+      ];
+      
+      // Find first available preferred model
+      for (const preferredName of preferredModelNames) {
+        const model = modelsData.models.find((m: any) => 
+          m.name.toLowerCase().includes(preferredName.toLowerCase()) && m.status === "ACTIVE"
+        );
+        
+        if (model) {
+          modelId = model.id;
+          console.log(`Using Leonardo AI model: ${model.name} (${modelId})`);
+          break;
+        }
+      }
+      
+      // If no preferred model found, use the first available
+      if (!modelId && modelsData.models.length > 0) {
+        const availableModel = modelsData.models.find((m: any) => m.status === "ACTIVE");
+        if (availableModel) {
+          modelId = availableModel.id;
+          console.log(`Using first available Leonardo AI model: ${availableModel.name} (${modelId})`);
+        }
+      }
+      
+      if (!modelId) {
+        throw new Error("No suitable Leonardo AI model found");
+      }
+      
+      // Create generation
+      const generationResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          modelId,
+          prompt: enhancedPrompt,
+          width: 1024,
+          height: 1024,
+          promptMagic: true,
+          num_images: 1,
+          public: false,
+          sd_version: "v2"
+        })
+      });
+      
+      if (!generationResponse.ok) {
+        console.error("Generation request failed:", await generationResponse.text());
+        throw new Error(`Generation request failed: ${generationResponse.status}`);
+      }
+      
+      const generationData = await generationResponse.json();
+      console.log("Leonardo AI generation initiated:", generationData);
+      
+      if (!generationData.sdGenerationJob || !generationData.sdGenerationJob.generationId) {
+        throw new Error("Invalid response from Leonardo AI API");
+      }
+      
+      const generationId = generationData.sdGenerationJob.generationId;
+      
+      // Poll for results
+      const imageUrl = await this.waitForGenerationCompletion(generationId);
+      
+      if (!imageUrl) {
+        throw new Error("Failed to get generation results");
+      }
+      
+      console.log("Leonardo AI image generated successfully:", imageUrl);
+      return imageUrl;
     } catch (error) {
-      console.error("Error generating story images:", error);
-      throw error;
+      console.error("Error generating image with Leonardo AI:", error);
+      toast.error(`Erro ao gerar imagem com Leonardo AI: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
+      return null;
     }
+  }
+  
+  private async waitForGenerationCompletion(generationId: string): Promise<string | null> {
+    console.log(`Waiting for Leonardo AI generation ${generationId} to complete...`);
+    let attempts = 0;
+    
+    while (attempts < this.maxPollingAttempts) {
+      try {
+        const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${this.apiKey}`,
+            "Accept": "application/json"
+          }
+        });
+        
+        if (!response.ok) {
+          console.error(`Error checking generation status (attempt ${attempts + 1}):`, response.status, response.statusText);
+          attempts++;
+          
+          if (attempts >= this.maxPollingAttempts) {
+            return null;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, this.pollingInterval));
+          continue;
+        }
+        
+        const data = await response.json();
+        console.log(`Generation status (attempt ${attempts + 1}):`, data.generations_by_pk?.status);
+        
+        if (data.generations_by_pk?.status === "COMPLETE") {
+          if (data.generations_by_pk?.generated_images && data.generations_by_pk.generated_images.length > 0) {
+            // Get the first image
+            const imageUrl = data.generations_by_pk.generated_images[0]?.url;
+            if (imageUrl) {
+              return imageUrl;
+            }
+          }
+          
+          console.error("Generation complete but no images found");
+          return null;
+        } else if (data.generations_by_pk?.status === "FAILED") {
+          console.error("Generation failed:", data.generations_by_pk?.message || "Unknown error");
+          return null;
+        }
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, this.pollingInterval));
+      } catch (error) {
+        console.error(`Error polling generation status (attempt ${attempts + 1}):`, error);
+        attempts++;
+        
+        if (attempts >= this.maxPollingAttempts) {
+          return null;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, this.pollingInterval));
+      }
+    }
+    
+    console.error(`Generation polling timed out after ${attempts} attempts`);
+    return null;
   }
 }
