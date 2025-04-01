@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { saveStoryImagesPermanently } from "@/lib/imageStorage";
+import { validateAndFixStoryImages } from "@/lib/imageHelper";
 
 interface StoryPage {
   text: string;
