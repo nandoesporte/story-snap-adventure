@@ -9,6 +9,7 @@ interface CoverImageProps {
   alt: string;
   className?: string;
   onClick?: () => void;
+  onError?: (url: string) => void;
 }
 
 const CoverImage: React.FC<CoverImageProps> = ({
@@ -16,7 +17,8 @@ const CoverImage: React.FC<CoverImageProps> = ({
   fallbackImage = '/images/defaults/default.jpg',
   alt,
   className = '',
-  onClick
+  onClick,
+  onError
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -54,6 +56,11 @@ const CoverImage: React.FC<CoverImageProps> = ({
         setSrc(fallbackImage);
         setLoading(false);
         setError(true);
+        
+        // Call onError callback if provided
+        if (onError) {
+          onError(src);
+        }
       } else {
         setLoading(false);
         setError(true);
@@ -61,7 +68,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
     };
     
     img.src = src;
-  }, [src, fallbackImage, retryCount, maxRetries]);
+  }, [src, fallbackImage, retryCount, maxRetries, onError]);
 
   const handleError = () => {
     console.error("Failed to load image:", src);
@@ -74,6 +81,11 @@ const CoverImage: React.FC<CoverImageProps> = ({
     } else if (src !== fallbackImage) {
       setSrc(fallbackImage);
       setError(true);
+      
+      // Call onError callback if provided
+      if (onError) {
+        onError(src);
+      }
     }
   };
 
@@ -83,7 +95,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
     <div className={containerClasses} onClick={onClick}>
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <LoadingSpinner size="medium" />
+          <LoadingSpinner size="md" />
         </div>
       )}
       

@@ -50,7 +50,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
               alt={title}
               className="w-full h-full object-cover"
               onClick={() => onImageClick(formattedImageUrl)}
-              onError={() => onImageError(coverImageSrc)}
+              onError={(url) => onImageError(url)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-4 md:p-8">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4 text-white drop-shadow-md line-clamp-2">{title}</h2>
@@ -91,7 +91,7 @@ export const CoverPage: React.FC<CoverPageProps> = ({
               alt={title}
               className="w-full h-full object-cover"
               onClick={() => onImageClick(formattedImageUrl)}
-              onError={() => onImageError(coverImageSrc)}
+              onError={(url) => onImageError(url)}
             />
           </div>
         </div>

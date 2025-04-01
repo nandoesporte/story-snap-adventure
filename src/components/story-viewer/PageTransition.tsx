@@ -143,8 +143,11 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           title={storyData.title}
           coverImageSrc={fixImageUrl(coverImageSrc)}
           childName={storyData.childName || storyData.characterName}
+          theme={storyData.theme || "default"}
+          setting={storyData.setting || ""}
+          style={storyData.style}
           onImageClick={() => onImageClick(fixImageUrl(coverImageSrc))}
-          onImageError={() => onImageError(coverImageSrc)}
+          onImageError={onImageError}
           isMobile={isMobile}
         />
       ) : (
