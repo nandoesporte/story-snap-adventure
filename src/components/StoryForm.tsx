@@ -108,12 +108,12 @@ const StoryForm: React.FC<StoryFormProps> = ({ onSubmit, initialData, disabled =
     childAge: "",
     theme: suggestions?.theme || "adventure",
     setting: suggestions?.setting || "forest",
-    style: "papercraft",
+    style: "papercraft" as StoryStyle, // Fix: Ensure style is properly typed as StoryStyle
     length: "medium",
     readingLevel: "intermediate",
     language: "portuguese",
     moral: suggestions?.moral || "friendship",
-    voiceType: "female"
+    voiceType: "female" as const
   };
 
   const form = useForm<StoryFormData>({
