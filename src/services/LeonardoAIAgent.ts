@@ -20,7 +20,6 @@ export class LeonardoAIAgent {
   private modelId: string = "e316348f-7773-490e-adcd-46757c738eb7"; // Leonardo Creative model
   private generationInProgress: boolean = false;
   private useRefiner: boolean = true;
-  private webhookUrl: string | null = null;
 
   constructor() {
     this.apiKey = localStorage.getItem("leonardo_api_key");
@@ -31,7 +30,6 @@ export class LeonardoAIAgent {
       this.modelId = savedModelId;
     }
     
-    this.webhookUrl = localStorage.getItem("leonardo_webhook_url") || null;
     this.useRefiner = localStorage.getItem("use_leonardo_refiner") !== "false";
   }
 
@@ -57,15 +55,6 @@ export class LeonardoAIAgent {
     this.modelId = modelId;
     localStorage.setItem("leonardo_model_id", modelId);
     return true;
-  }
-
-  setWebhookUrl(webhookUrl: string | null): void {
-    this.webhookUrl = webhookUrl;
-    if (webhookUrl) {
-      localStorage.setItem("leonardo_webhook_url", webhookUrl);
-    } else {
-      localStorage.removeItem("leonardo_webhook_url");
-    }
   }
 
   setUseRefiner(useRefiner: boolean): void {
@@ -168,13 +157,7 @@ export class LeonardoAIAgent {
         console.log("Using reference image URL for guidance:", referenceImageUrl);
         generationConfig.imagePrompts = [referenceImageUrl];
       }
-      
-      // Add webhook URL if configured
-      if (this.webhookUrl) {
-        generationConfig.webhookUrl = this.webhookUrl;
-        console.log("Using webhook URL:", this.webhookUrl);
-      }
-      
+            
       const body = JSON.stringify(generationConfig);
       requestOptions.body = body;
       

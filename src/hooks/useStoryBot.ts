@@ -3,7 +3,6 @@ import { StoryBot } from '@/services/StoryBot';
 import { generateImageWithOpenAI } from '@/lib/openai';
 import { toast } from 'sonner';
 import { LeonardoAIAgent } from '@/services/LeonardoAIAgent';
-import { saveImagePermanently, saveStoryImagesPermanently } from '@/lib/imageStorage';
 
 const storyBot = new StoryBot();
 const leonardoAgent = new LeonardoAIAgent();

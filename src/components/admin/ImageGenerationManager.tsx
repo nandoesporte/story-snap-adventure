@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -34,7 +33,6 @@ const ImageGenerationManager = () => {
     try {
       if (leonardoApiKey && leonardoApiKey.trim().length > 10) {
         localStorage.setItem("leonardo_api_key", leonardoApiKey.trim());
-        localStorage.setItem("leonardo_webhook_url", "https://cloud.leonardo.ai/api/rest/v1/generations");
         localStorage.removeItem("leonardo_api_issue");
         toast.success("Chave API da Leonardo AI salva com sucesso!");
       } else {
