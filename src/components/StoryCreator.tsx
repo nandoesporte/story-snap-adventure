@@ -547,7 +547,7 @@ const StoryCreator = () => {
                 </p>
                 
                 <div className="flex justify-center">
-                  <LoadingSpinner size={40} />
+                  <LoadingSpinner size="lg" />
                 </div>
                 
                 <p className="text-sm text-gray-500 max-w-md text-center">
