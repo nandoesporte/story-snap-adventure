@@ -232,13 +232,6 @@ export const useStoryGeneration = () => {
         
         setTotalImages(storyResult.pages.length);
         
-        // Make sure page imageUrl uses absolute paths
-        for (let i = 0; i < storyResult.pages.length; i++) {
-          if (storyResult.pages[i].imageUrl && !storyResult.pages[i].imageUrl.startsWith('http') && !storyResult.pages[i].imageUrl.startsWith('/')) {
-            storyResult.pages[i].imageUrl = '/' + storyResult.pages[i].imageUrl;
-          }
-        }
-        
         for (let i = 0; i < storyResult.pages.length; i++) {
           setCurrentImageIndex(i + 1);
           setCurrentStage(`Verificando ilustração ${i + 1} de ${storyResult.pages.length}...`);
@@ -299,21 +292,6 @@ export const useStoryGeneration = () => {
           const baseProgress = 50;
           const progressPerImage = (100 - baseProgress) / storyResult.pages.length;
           setProgress(baseProgress + progressPerImage * (i + 1));
-        }
-        
-        // Before returning, ensure all image URLs are valid
-        for (let i = 0; i < storyResult.pages.length; i++) {
-          if (!storyResult.pages[i].imageUrl || 
-              storyResult.pages[i].imageUrl === "undefined" || 
-              storyResult.pages[i].imageUrl === "null") {
-            storyResult.pages[i].imageUrl = `/images/defaults/${theme || 'default'}.jpg`;
-          }
-        }
-        
-        if (!storyResult.coverImageUrl || 
-            storyResult.coverImageUrl === "undefined" || 
-            storyResult.coverImageUrl === "null") {
-          storyResult.coverImageUrl = `/images/defaults/${theme || 'default'}_cover.jpg`;
         }
         
         if (storyResult && storyResult.pages) {
@@ -395,13 +373,6 @@ export const useStoryGeneration = () => {
               toast.success("Todas as narrações humanizadas foram geradas com sucesso e salvas no banco de dados!");
             }
           }
-        }
-        
-        // Save the result to session storage to persist across refreshes
-        try {
-          sessionStorage.setItem("storyData", JSON.stringify(storyResult));
-        } catch (storageError) {
-          console.error("Error saving story to session storage:", storageError);
         }
         
         return storyResult;
