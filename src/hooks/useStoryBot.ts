@@ -14,8 +14,8 @@ export const useStoryBot = () => {
   const [useOpenAIForStories, setUseOpenAIFlag] = useState<boolean>(true);
   const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o-mini');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [useOpenAIForImages, setUseOpenAIForImages] = useState<boolean>(true);
-  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(false);
+  const [useOpenAIForImages, setUseOpenAIForImages] = useState<boolean>(false);
+  const [useLeonardoAI, setUseLeonardoAI] = useState<boolean>(true);
   
   useEffect(() => {
     const isApiAvailable = storyBot.isApiAvailable();
@@ -30,12 +30,12 @@ export const useStoryBot = () => {
       setOpenAIModel(savedModel);
     }
     
-    // Load image generation preferences
-    const savedUseOpenAIForImages = localStorage.getItem('use_openai_for_images') !== 'false';
-    const savedUseLeonardo = localStorage.getItem('use_leonardo_ai') === 'true';
+    // Load image generation preferences but enforce Leonardo as default if available
+    const savedUseLeonardo = localStorage.getItem('use_leonardo_ai') !== 'false';
+    const savedUseOpenAIForImages = localStorage.getItem('use_openai_for_images') === 'true';
     
-    setUseOpenAIForImages(savedUseOpenAIForImages);
     setUseLeonardoAI(savedUseLeonardo);
+    setUseOpenAIForImages(savedUseOpenAIForImages);
   }, []);
 
   const generateStoryBotResponse = async (messages: any[], userPrompt: string) => {
@@ -129,8 +129,10 @@ export const useStoryBot = () => {
   
   const generateImage = async (prompt: string, size: string = "1024x1024") => {
     try {
-      // Check if Leonardo is available and enabled
-      if (useLeonardoAI && leonardoApiAvailable) {
+      console.log("Priority: Using Leonardo AI for image generation");
+      
+      // Always try Leonardo first if available
+      if (leonardoApiAvailable) {
         try {
           console.log("Generating image with Leonardo AI:", prompt.substring(0, 100));
           const result = await leonardoAgent.generateImage({
@@ -140,23 +142,29 @@ export const useStoryBot = () => {
             setting: "",
             style: "papercraft"
           });
+          console.log("Successfully generated image with Leonardo AI");
           return result;
         } catch (error) {
           console.error("Leonardo AI image generation failed:", error);
+          toast.error("Falha na geração com Leonardo AI. Tentando com OpenAI...");
+          
+          // Fall back to OpenAI if Leonardo fails and OpenAI is enabled
           if (useOpenAIForImages) {
             console.log("Falling back to OpenAI for image generation");
             return generateImageWithOpenAI(prompt, size);
           }
-          throw error;
+          throw new Error("Leonardo AI falhou e OpenAI não está habilitado para geração de imagens");
         }
       } else if (useOpenAIForImages) {
-        console.log("Generating image with OpenAI:", prompt.substring(0, 100));
+        // Only use OpenAI if Leonardo is not available and OpenAI is enabled
+        console.log("Leonardo AI não disponível. Usando OpenAI para geração de imagens");
         return generateImageWithOpenAI(prompt, size);
       } else {
         throw new Error("Nenhum serviço de geração de imagem está disponível");
       }
     } catch (error) {
       console.error("Image generation failed:", error);
+      toast.error(`Erro na geração de imagem: ${error.message || "Erro desconhecido"}`);
       throw error;
     }
   };
@@ -182,6 +190,8 @@ export const useStoryBot = () => {
       
       const length = pageCount <= 5 ? "short" : pageCount <= 8 ? "medium" : "long";
       
+      // Generate story content with OpenAI
+      console.log("Generating story content with OpenAI");
       const result = await storyBot.generateStoryWithPrompts(
         characterName,
         childAge,
@@ -199,18 +209,20 @@ export const useStoryBot = () => {
         throw new Error('Falha ao gerar o conteúdo da história');
       }
       
-      // Generate a cover image
+      // Generate a cover image with Leonardo AI
       let coverImageUrl = '/placeholder.svg';
       try {
         const coverPrompt = `Book cover illustration in ${style} style for a children's book titled "${result.title}". The main character ${characterName} in a ${setting} setting with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}.` : ''} Create a captivating, colorful illustration suitable for a book cover.`;
+        
+        console.log("Generating cover image with Leonardo AI");
         coverImageUrl = await generateImage(coverPrompt, "1792x1024");
-        console.log("Generated cover image:", coverImageUrl.substring(0, 50) + "...");
+        console.log("Generated cover image with Leonardo AI:", coverImageUrl.substring(0, 50) + "...");
       } catch (error) {
         console.error("Failed to generate cover:", error);
         toast.error("Erro ao gerar a capa. Usando imagem padrão.");
       }
       
-      // Generate illustrations for each page
+      // Generate illustrations for each page with Leonardo AI
       const pages = [];
       for (let i = 0; i < result.content.length; i++) {
         let imageUrl = '/placeholder.svg';
@@ -218,8 +230,9 @@ export const useStoryBot = () => {
           const imagePrompt = result.imagePrompts[i] || 
             `Illustration in ${style} style for a children's book. Scene: ${result.content[i].substring(0, 200)}... Character ${characterName} in ${setting} with ${theme} theme. ${characterPrompt ? `Character details: ${characterPrompt}` : ''}`;
           
+          console.log(`Generating image ${i+1} with Leonardo AI`);
           imageUrl = await generateImage(imagePrompt);
-          console.log(`Generated image ${i+1}:`, imageUrl.substring(0, 50) + "...");
+          console.log(`Generated image ${i+1} with Leonardo AI:`, imageUrl.substring(0, 50) + "...");
         } catch (error) {
           console.error(`Failed to generate image ${i+1}:`, error);
           toast.error(`Erro ao gerar a ilustração ${i+1}. Usando imagem padrão.`);
