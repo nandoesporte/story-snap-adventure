@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import CoverImage from "../CoverImage";
@@ -40,12 +41,24 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   useEffect(() => {
     let fixedUrl = "";
     try {
-      fixedUrl = fixImageUrl(getImageUrl(imageUrl, theme));
-      console.log(`Page ${pageNumber} using image URL:`, fixedUrl);
-      setProcessedImageUrl(fixedUrl);
+      if (imageUrl) {
+        fixedUrl = fixImageUrl(getImageUrl(imageUrl, theme));
+        console.log(`Page ${pageNumber} using image URL:`, fixedUrl);
+        setProcessedImageUrl(fixedUrl);
+      } else {
+        const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
+        console.log(`Page ${pageNumber} using default image:`, defaultUrl);
+        setProcessedImageUrl(defaultUrl);
+      }
     } catch (error) {
-      console.error("Error processing image URL:", error);
-      setProcessedImageUrl(`/images/defaults/${theme || 'default'}.jpg`);
+      console.error(`Error processing image URL for page ${pageNumber}:`, error);
+      const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
+      setProcessedImageUrl(defaultUrl);
+      toast.error("Erro ao processar imagem", {
+        description: "Usando imagem padrão",
+        duration: 3000,
+        id: `image-error-${pageNumber}`
+      });
     }
   }, [imageUrl, theme, pageNumber]);
   

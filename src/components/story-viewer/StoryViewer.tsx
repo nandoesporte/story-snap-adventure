@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Volume2, Moon, Sun, Maximize, Minimize } from "lucide-react";
+import { Volume2, Moon, Sun, Maximize, Minimize, RefreshCw } from "lucide-react";
 import LoadingSpinner from "../LoadingSpinner";
 import { useStoryData } from "./useStoryData";
 import { ViewerControls } from "./ViewerControls";
@@ -26,7 +26,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     storyData, 
     loading, 
     handleImageError,
-    error
+    error,
+    retryLoading
   } = useStoryData(storyId);
   
   const { id } = useParams<{ id?: string }>();
@@ -77,6 +78,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     handleZoomOut
   } = useImageViewer();
 
+  // Debug info
+  const [debugMode, setDebugMode] = useState(false);
+  const toggleDebugMode = () => setDebugMode(!debugMode);
+
   // Get current page text for narration
   const currentPageText = storyData && currentPage > 0 && storyData.pages[currentPage - 1] 
     ? storyData.pages[currentPage - 1].text 
@@ -91,7 +96,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
     storyId: effectiveStoryId || "",
     text: currentPageText,
     pageIndex: currentPage - 1,
-    voiceType: 'female'
+    voiceType: storyData?.voiceType || 'female'
   });
 
   // Toggle night reading mode
@@ -119,6 +124,20 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       return () => clearTimeout(timer);
     }
   }, [loading, storyData]);
+
+  // Log story data received for debugging
+  useEffect(() => {
+    if (storyData) {
+      console.log("Story data received in StoryViewer:", {
+        hasTitle: !!storyData.title,
+        hasPages: storyData.pages.length,
+        firstPageText: storyData.pages[0]?.text?.substring(0, 30) + "...",
+        coverImage: storyData.coverImageUrl || storyData.cover_image_url
+      });
+    } else if (!loading) {
+      console.log("No story data available after loading completed");
+    }
+  }, [storyData, loading]);
 
   // Effect to maintain correct visual state when toggling fullscreen
   useEffect(() => {
@@ -177,22 +196,63 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
   };
   
   const handleResetPage = () => {
-    toast.info("Recarregando página...");
-    forcePageReset();
+    toast.info("Recarregando história...");
+    retryLoading();
   };
 
   // Handle error cases
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center flex-col gap-4 p-8">
-        <p className="text-red-500">Erro ao carregar a história</p>
-        <Button 
-          onClick={handleResetPage}
-          variant="outline"
-          size="sm"
+      <div className="flex-1 flex items-center justify-center flex-col gap-4 p-8 text-center">
+        <p className="text-red-500 text-lg font-medium">Erro ao carregar a história</p>
+        <p className="text-gray-500 max-w-md mx-auto mb-4">
+          Não foi possível carregar os dados da história. Isto pode acontecer se a história não foi salva corretamente 
+          ou se houve um problema de conexão.
+        </p>
+        <div className="flex flex-col md:flex-row gap-3">
+          <Button 
+            onClick={handleResetPage}
+            variant="default"
+            size="lg"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            Tentar novamente
+          </Button>
+          
+          <Button 
+            onClick={() => navigate("/create-story")}
+            variant="outline"
+            size="lg"
+          >
+            Criar nova história
+          </Button>
+          
+          {debugMode && (
+            <div className="mt-4 p-4 bg-gray-100 rounded text-left max-w-xl mx-auto overflow-auto text-xs">
+              <p className="font-bold">Detalhes do erro:</p>
+              <pre className="whitespace-pre-wrap">{error.message}</pre>
+              
+              <p className="font-bold mt-2">Session Storage:</p>
+              <pre className="whitespace-pre-wrap">
+                {(() => {
+                  try {
+                    const data = sessionStorage.getItem("storyData");
+                    return data ? `Dados existem (${data.length} caracteres)` : "Nenhum dado encontrado";
+                  } catch (e) {
+                    return "Erro ao acessar sessionStorage";
+                  }
+                })()}
+              </pre>
+            </div>
+          )}
+        </div>
+        <button 
+          onClick={toggleDebugMode} 
+          className="text-xs text-gray-400 mt-4 hover:text-gray-600"
         >
-          Tentar novamente
-        </Button>
+          {debugMode ? "Ocultar detalhes técnicos" : "Mostrar detalhes técnicos"}
+        </button>
       </div>
     );
   }
@@ -203,8 +263,9 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ storyId }) => {
       ref={storyContainerRef}
     >
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center flex-col gap-4">
           <LoadingSpinner />
+          <p className="text-gray-500 animate-pulse">Carregando sua história...</p>
         </div>
       ) : (
         <div 

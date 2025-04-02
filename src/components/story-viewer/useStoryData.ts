@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -29,7 +30,8 @@ interface StoryData {
 
 const defaultStory: StoryData = {
   title: "História não encontrada",
-  coverImageUrl: "/images/defaults/default.jpg",
+  coverImageUrl: "/images/defaults/default_cover.jpg",
+  cover_image_url: "/images/defaults/default_cover.jpg",
   childName: "",
   childAge: "",
   theme: "",
@@ -37,19 +39,32 @@ const defaultStory: StoryData = {
   pages: [
     {
       text: "Não foi possível carregar esta história. Por favor, tente criar uma nova história personalizada.",
-      imageUrl: "/images/defaults/default.jpg"
+      imageUrl: "/images/defaults/default.jpg",
+      image_url: "/images/defaults/default.jpg"
     }
   ],
   voiceType: 'female'
 };
 
-export const useStoryData = (storyId?: string, retryCount: number = 0) => {
+export const useStoryData = (storyId?: string) => {
   const [storyData, setStoryData] = useState<StoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Function to manually trigger a reload
+  const retryLoading = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setImagesProcessed(false);
+    setFailedImages({});
+    setStoryData(null);
+    setRetryCount(prev => prev + 1);
+    toast.info("Recarregando história...");
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -72,12 +87,14 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
             .from("stories")
             .select("*")
             .eq("id", storyId)
-            .single();
+            // Using maybeSingle instead of single to prevent errors when no row is found
+            .maybeSingle();
             
           if (error) {
             console.error("Error loading story from database:", error);
             setError(new Error(`Failed to load story: ${error.message}`));
             
+            // Try to load from session storage as fallback
             loadFromSessionStorage();
             return;
           }
@@ -85,9 +102,11 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
           if (data) {
             processStoryData(data);
           } else {
+            console.log("No story found in database with ID:", storyId, "- trying session storage");
             loadFromSessionStorage();
           }
         } else {
+          console.log("No story ID provided, loading from session storage");
           loadFromSessionStorage();
         }
       } catch (error) {
@@ -106,8 +125,10 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Story data loaded:", data);
       
+      // This will attempt to fix any issues with the images
       const fixedData = await validateAndFixStoryImages(data);
       
+      // Select a cover image, with fallbacks
       const coverImage = fixedData.cover_image_url || 
                       (fixedData.pages && fixedData.pages.length > 0 ? fixedData.pages[0].image_url : null) ||
                       "/images/defaults/default_cover.jpg";
@@ -118,17 +139,17 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         title: fixedData.title || "Untitled Story",
         coverImageUrl: coverImage,
         cover_image_url: coverImage,
-        childName: fixedData.character_name || "Reader",
-        childAge: fixedData.character_age || "",
+        childName: fixedData.character_name || fixedData.childName || "Reader",
+        childAge: fixedData.character_age || fixedData.childAge || "",
         theme: fixedData.theme || "",
         setting: fixedData.setting || "",
         style: fixedData.style || "",
-        voiceType: fixedData.voice_type || 'female',
+        voiceType: fixedData.voice_type || fixedData.voiceType || 'female',
         pages: Array.isArray(fixedData.pages) 
           ? fixedData.pages.map((page: any) => ({
               text: page.text || "",
-              imageUrl: page.image_url || "/images/defaults/default.jpg",
-              image_url: page.image_url || "/images/defaults/default.jpg"
+              imageUrl: page.image_url || page.imageUrl || "/images/defaults/default.jpg",
+              image_url: page.image_url || page.imageUrl || "/images/defaults/default.jpg"
             }))
           : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
       };
@@ -152,10 +173,27 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         const parsedData = JSON.parse(savedData);
         console.log("Data loaded from sessionStorage:", parsedData);
         
+        // Get cover image with fallbacks
         const coverImage = parsedData.coverImageUrl || parsedData.cover_image_url || 
                          (parsedData.pages && parsedData.pages.length > 0 ? 
                            (parsedData.pages[0].imageUrl || parsedData.pages[0].image_url) : 
                            "/images/defaults/default_cover.jpg");
+        
+        const processedPages = Array.isArray(parsedData.pages) 
+          ? parsedData.pages.map((page: any, index: number) => {
+              const pageImageUrl = page.imageUrl || page.image_url || `/images/defaults/${parsedData.theme || 'default'}.jpg`;
+              
+              return {
+                text: page.text || "",
+                imageUrl: pageImageUrl,
+                image_url: pageImageUrl
+              };
+            })
+          : [{ 
+              text: "No content available.", 
+              imageUrl: "/images/defaults/default.jpg",
+              image_url: "/images/defaults/default.jpg" 
+            }];
         
         const formattedStory: StoryData = {
           title: parsedData.title || "Untitled Story",
@@ -167,23 +205,17 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
           setting: parsedData.setting || "",
           style: parsedData.style || "",
           voiceType: parsedData.voiceType || 'female',
-          pages: Array.isArray(parsedData.pages) 
-            ? parsedData.pages.map((page: any) => ({
-                text: page.text || "",
-                imageUrl: page.imageUrl || page.image_url || "/images/defaults/default.jpg",
-                image_url: page.imageUrl || page.image_url || "/images/defaults/default.jpg"
-              }))
-            : [{ text: "No content available.", imageUrl: "/images/defaults/default.jpg" }]
+          pages: processedPages
         };
         
         setStoryData(formattedStory);
         setTotalPages(formattedStory.pages.length + 1);
         
+        // Process images to ensure they are stored permanently
         processStoryImages(formattedStory);
       } else {
         console.error("No story data found in sessionStorage");
-        setStoryData(defaultStory);
-        setTotalPages(defaultStory.pages.length + 1);
+        setError(new Error("Nenhuma história encontrada no armazenamento temporário"));
       }
     } catch (storageError) {
       console.error("Error loading data from sessionStorage:", storageError);
@@ -199,6 +231,8 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     if (imagesProcessed) return;
     
     try {
+      console.log("Processing images to ensure they are permanently stored");
+      
       const updatedStory = await saveStoryImagesPermanently({
         ...story,
         id: storyId
@@ -223,6 +257,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       setStoryData(updatedStory);
       setImagesProcessed(true);
       
+      // Update session storage with the permanent image URLs
       sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
     } catch (error) {
       console.error("Error processing story images:", error);
@@ -248,6 +283,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     loading,
     totalPages,
     handleImageError,
-    error
+    error,
+    retryLoading
   };
 };

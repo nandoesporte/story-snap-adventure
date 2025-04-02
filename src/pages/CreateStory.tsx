@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -10,7 +9,7 @@ import { useStoryBot } from '@/hooks/useStoryBot';
 import StoryPromptInput from '@/components/StoryPromptInput';
 import StoryForm from '@/components/StoryForm';
 import { useStoryGeneration } from '@/hooks/useStoryGeneration';
-import StoryGenerationProgress from '@/components/StoryGenerationProgress';
+import { useStoryCreation } from '@/hooks/useStoryCreation';
 
 interface AISuggestions {
   theme?: string;
@@ -44,6 +43,8 @@ const CreateStory: React.FC = () => {
     generatingNarration,
     currentNarrationIndex,
   } = useStoryGeneration();
+
+  const { saveStory, isSaving } = useStoryCreation();
 
   // Load default prompt for story generation
   useEffect(() => {
@@ -160,11 +161,41 @@ const CreateStory: React.FC = () => {
         return;
       }
       
-      // If we have a story result, store it in session storage and navigate to view
+      // If we have a story result, store it and save it
       if (storyResult) {
+        // Make sure we have a proper result before saving
+        console.log("Story generation completed successfully:", storyResult);
+        
+        // First save to session storage to make sure we have a copy
         sessionStorage.setItem("storyData", JSON.stringify(storyResult));
-        toast.success("História gerada com sucesso!");
-        navigate("/view-story");
+        
+        // Then try to save to the database
+        try {
+          const storyId = await saveStory({
+            title: storyResult.title,
+            childName: storyResult.childName,
+            childAge: storyResult.childAge || "",
+            theme: storyResult.theme,
+            setting: storyResult.setting,
+            coverImageUrl: storyResult.coverImageUrl || storyResult.cover_image_url,
+            pages: storyResult.pages,
+            voiceType: storyResult.voiceType || 'female'
+          });
+          
+          toast.success("História gerada e salva com sucesso!");
+          
+          if (storyId) {
+            // If we have an ID, navigate to the specific story
+            navigate(`/view-story/${storyId}`);
+          } else {
+            // Otherwise just go to the generic view page
+            navigate("/view-story");
+          }
+        } catch (saveError) {
+          console.error("Error saving story:", saveError);
+          toast.error("A história foi gerada mas não pôde ser salva no banco de dados. Você ainda pode visualizá-la.");
+          navigate("/view-story");
+        }
       } else {
         throw new Error("Falha ao gerar história");
       }

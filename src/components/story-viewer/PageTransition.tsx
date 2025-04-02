@@ -1,9 +1,9 @@
+
 import React, { useRef, useEffect } from "react";
 import { CoverPage } from "./CoverPage";
 import { StoryPage } from "./StoryPage";
 import { getImageUrl, preloadImage, fixImageUrl, ensureImagesDirectory } from "./helpers";
 import { toast } from "sonner";
-import { saveImagePermanently } from "@/lib/imageStorage";
 
 interface PageTransitionProps {
   storyId: string | undefined;
