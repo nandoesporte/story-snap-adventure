@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -28,11 +27,11 @@ interface StoryResult {
   theme: string;
   setting: string;
   characterPrompt: string;
+  voiceType: 'male' | 'female';
   pages: Array<{
     text: string;
     imageUrl: string;
   }>;
-  voiceType: 'male' | 'female';
 }
 
 const CreateStory: React.FC = () => {
