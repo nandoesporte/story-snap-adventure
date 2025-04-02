@@ -5,6 +5,7 @@ import CoverImage from "../CoverImage";
 import { fixImageUrl, getImageUrl, isPermanentStorage } from "./helpers";
 import { toast } from "sonner";
 import { saveImagePermanently } from "@/lib/imageStorage";
+import ImageFixButton from "./ImageFixButton";
 
 interface StoryPageProps {
   pageNumber: number;
@@ -17,6 +18,7 @@ interface StoryPageProps {
   onImageError: (url: string) => void;
   isMobile: boolean;
   hideText: boolean;
+  storyId?: string;
 }
 
 export const StoryPage: React.FC<StoryPageProps> = ({
@@ -29,12 +31,14 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   onImageClick,
   onImageError,
   isMobile,
-  hideText
+  hideText,
+  storyId
 }) => {
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [loadRetry, setLoadRetry] = useState(0);
   const [processedImageUrl, setProcessedImageUrl] = useState("");
+  const [showFixButton, setShowFixButton] = useState(false);
   const displayText = typedText || text || "";
   
   useEffect(() => {
@@ -44,15 +48,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         fixedUrl = fixImageUrl(getImageUrl(imageUrl, theme));
         console.log(`Page ${pageNumber} using image URL:`, fixedUrl);
         setProcessedImageUrl(fixedUrl);
+        setImageLoadFailed(false);
       } else {
         const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
         console.log(`Page ${pageNumber} using default image:`, defaultUrl);
         setProcessedImageUrl(defaultUrl);
+        setShowFixButton(true);
       }
     } catch (error) {
       console.error(`Error processing image URL for page ${pageNumber}:`, error);
       const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
       setProcessedImageUrl(defaultUrl);
+      setShowFixButton(true);
       toast.error("Erro ao processar imagem", {
         description: "Usando imagem padrão",
         duration: 3000,
@@ -98,6 +105,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         
         if (!success) {
           console.error(`Failed to save image after ${attempts} attempts`);
+          setShowFixButton(true);
           toast.error("Não foi possível salvar a imagem permanentemente após várias tentativas");
         }
       };
@@ -115,6 +123,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   const handleImageError = () => {
     console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
     setImageLoadFailed(true);
+    setShowFixButton(true);
     onImageError(processedImageUrl || imageUrl);
     
     if (!imageLoadFailed && !isPermanent && loadRetry < 2) {
@@ -132,14 +141,29 @@ export const StoryPage: React.FC<StoryPageProps> = ({
               console.log(`Got permanent URL for failed image on page ${pageNumber}:`, permanentUrl);
               setProcessedImageUrl(permanentUrl);
               setLoadRetry(prev => prev + 1);
+              setImageLoadFailed(false);
+            } else {
+              setShowFixButton(true);
             }
+          } else {
+            setShowFixButton(true);
           }
         } catch (error) {
           console.error("Alternative image saving method failed:", error);
+          setShowFixButton(true);
         }
       };
       
       tryAlternativeMethod();
+    }
+  };
+
+  const handleImageFixed = (fixedUrls: Record<string, string>) => {
+    if (fixedUrls[imageUrl]) {
+      setProcessedImageUrl(fixedUrls[imageUrl]);
+      setImageLoadFailed(false);
+      setShowFixButton(false);
+      console.log(`Image for page ${pageNumber} fixed with new URL:`, fixedUrls[imageUrl]);
     }
   };
 
@@ -179,6 +203,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
         />
       </div>
       
+      {showFixButton && storyId && (
+        <div className="absolute top-2 left-2 z-20">
+          <ImageFixButton 
+            storyId={storyId}
+            imageUrls={[imageUrl]}
+            onImagesFixed={handleImageFixed}
+            variant="storySecondary"
+            size="sm"
+          />
+        </div>
+      )}
+      
       {!hideText && paragraphs.length > 0 && (
         <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end pt-8 z-10 ${isFullscreenMode ? 'pb-20' : ''}`}>
           <div className="p-5 pb-12 md:pb-16">
@@ -214,7 +250,7 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     </div>
   ) : (
     <div className="w-full h-full flex md:flex-row">
-      <div className="w-1/2 h-full flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-1/2 h-full flex items-center justify-center p-4 bg-gray-50 relative">
         <motion.div 
           className="relative w-full h-full flex items-center justify-center"
           whileHover={{ scale: 1.01 }}
@@ -228,6 +264,18 @@ export const StoryPage: React.FC<StoryPageProps> = ({
             onClick={handleImageClick}
             onError={handleImageError}
           />
+          
+          {showFixButton && storyId && (
+            <div className="absolute top-2 left-2">
+              <ImageFixButton 
+                storyId={storyId}
+                imageUrls={[imageUrl]}
+                onImagesFixed={handleImageFixed}
+                variant="outline"
+                size="sm"
+              />
+            </div>
+          )}
         </motion.div>
       </div>
       

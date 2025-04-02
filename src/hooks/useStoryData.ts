@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -55,7 +56,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
   const [error, setError] = useState<Error | null>(null);
   const [storyImages, setStoryImages] = useState<string[]>([]);
 
-  const { results: urlCheckResults, checkUrls } = useImageUrlChecker({
+  const { isChecking, results: urlCheckResults, checkUrls } = useImageUrlChecker({
     onComplete: (results) => {
       if (results.fixed > 0 && storyId && storyData) {
         const updatedStory = { ...storyData };
@@ -63,12 +64,14 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         if (updatedStory.coverImageUrl && results.fixedUrls[updatedStory.coverImageUrl]) {
           updatedStory.coverImageUrl = results.fixedUrls[updatedStory.coverImageUrl];
           updatedStory.cover_image_url = results.fixedUrls[updatedStory.coverImageUrl];
+          console.log("Fixed cover image:", results.fixedUrls[updatedStory.coverImageUrl]);
         }
         
         if (updatedStory.pages) {
           updatedStory.pages = updatedStory.pages.map(page => {
             const pageUrl = page.imageUrl || page.image_url;
             if (pageUrl && results.fixedUrls[pageUrl]) {
+              console.log("Fixed page image:", pageUrl, "->", results.fixedUrls[pageUrl]);
               return {
                 ...page,
                 imageUrl: results.fixedUrls[pageUrl],
@@ -81,6 +84,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         
         setStoryData(updatedStory);
         updateStoryInDatabase(updatedStory, storyId);
+        toast.success(`${results.fixed} imagens foram corrigidas e salvas permanentemente!`);
       }
     }
   });
@@ -97,14 +101,27 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
         
       if (updateError) {
         console.error("Erro ao atualizar história com imagens permanentes:", updateError);
+        toast.error("Não foi possível salvar as URLs corrigidas no banco de dados");
       } else {
         console.log("História atualizada com URLs de imagens corrigidas");
         sessionStorage.setItem("storyData", JSON.stringify(story));
+        toast.success("História atualizada com URLs de imagens permanentes");
       }
     } catch (err) {
       console.error("Erro ao salvar URLs atualizadas no banco de dados:", err);
+      toast.error("Erro ao atualizar o banco de dados com URLs corrigidas");
     }
   };
+
+  const retryLoading = useCallback(() => {
+    console.log("Retrying story loading with ID:", storyId);
+    setLoading(true);
+    setError(null);
+    setImagesProcessed(false);
+    setFailedImages({});
+    setStoryData(null);
+    setStoryImages([]);
+  }, [storyId]);
 
   useEffect(() => {
     setLoading(true);
@@ -161,6 +178,7 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     try {
       console.log("Story data loaded:", data);
       
+      // First, try to fix any broken images
       const fixedData = await validateAndFixStoryImages(data);
       
       const coverImage = fixedData.cover_image_url || 
@@ -200,6 +218,13 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       });
       
       setStoryImages(imageUrls);
+      
+      // Automatically check and fix images
+      if (imageUrls.length > 0) {
+        setTimeout(() => {
+          checkUrls(imageUrls);
+        }, 2000);
+      }
       
       processStoryImages(formattedStory, data.id);
     } catch (processError) {
@@ -342,7 +367,9 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     totalPages,
     handleImageError,
     error,
+    retryLoading,
     checkImageUrls,
+    isCheckingImages: isChecking,
     urlCheckResults
   };
 };
