@@ -1,4 +1,139 @@
 
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { MessageSquare, Sparkles, AlertTriangle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { useStoryBot } from '@/hooks/useStoryBot';
+import { StoryPromptInput } from '@/components/StoryPromptInput';
+import { StoryForm, StoryFormData } from '@/components/StoryForm';
+
+interface AISuggestions {
+  theme?: string;
+  setting?: string;
+  moral?: string;
+}
+
+const CreateStory: React.FC = () => {
+  const navigate = useNavigate();
+  const [step, setStep] = useState<'prompt' | 'details'>('prompt');
+  const [storyPrompt, setStoryPrompt] = useState('');
+  const [apiKeyError, setApiKeyError] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
+  const [formData, setFormData] = useState<StoryFormData | null>(null);
+  const [availablePrompts, setAvailablePrompts] = useState<Array<{id: string, name: string, description: string | null}>>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
+  
+  const { generateStoryBotResponse, checkOpenAIAvailability, listAvailablePrompts, setPromptById } = useStoryBot();
+
+  // Load available prompts for story generation
+  useEffect(() => {
+    const loadPrompts = async () => {
+      try {
+        setLoadingPrompts(true);
+        const prompts = await listAvailablePrompts();
+        setAvailablePrompts(prompts);
+      } catch (error) {
+        console.error("Error loading prompts:", error);
+        toast.error("Não foi possível carregar os prompts disponíveis.");
+      } finally {
+        setLoadingPrompts(false);
+      }
+    };
+
+    loadPrompts();
+  }, []);
+
+  // Check if OpenAI API key is available
+  useEffect(() => {
+    const checkApiKey = async () => {
+      try {
+        const isValid = await checkOpenAIAvailability();
+        setApiKeyError(!isValid);
+      } catch (error) {
+        console.error("Error checking API key:", error);
+        setApiKeyError(true);
+      }
+    };
+
+    checkApiKey();
+  }, []);
+
+  const handlePromptSubmit = async (prompt: string) => {
+    setStoryPrompt(prompt);
+    
+    if (selectedPromptId) {
+      await setPromptById(selectedPromptId);
+    }
+    
+    try {
+      setLoadingSuggestions(true);
+      setStep('details');
+
+      // Generate AI suggestions based on the prompt
+      const messages = [
+        { role: "user" as const, content: "I want to create a children's story." }
+      ];
+
+      const userPrompt = `
+        Based on this story description: "${prompt}", 
+        analyze and suggest the following in JSON format:
+        {
+          "theme": "a creative theme for the story",
+          "setting": "an interesting setting where the story could take place",
+          "moral": "a meaningful moral or lesson for the story"
+        }
+        
+        Provide creative, thoughtful suggestions that would make an engaging children's story.
+      `;
+
+      const response = await generateStoryBotResponse(messages, userPrompt);
+      
+      try {
+        // Try to parse the response as JSON
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const suggestions = JSON.parse(jsonMatch[0]);
+          setAiSuggestions(suggestions);
+        } else {
+          // If JSON parsing fails, use a regex-based approach to extract suggestions
+          const themeMatch = response.match(/theme["\s:]*([^"\n,}]+)/i);
+          const settingMatch = response.match(/setting["\s:]*([^"\n,}]+)/i);
+          const moralMatch = response.match(/moral["\s:]*([^"\n,}]+)/i);
+          
+          const extractedSuggestions: AISuggestions = {};
+          
+          if (themeMatch && themeMatch[1]) extractedSuggestions.theme = themeMatch[1].trim();
+          if (settingMatch && settingMatch[1]) extractedSuggestions.setting = settingMatch[1].trim();
+          if (moralMatch && moralMatch[1]) extractedSuggestions.moral = moralMatch[1].trim();
+          
+          setAiSuggestions(extractedSuggestions);
+        }
+      } catch (error) {
+        console.error("Error parsing AI suggestions:", error);
+        toast.error("Não foi possível processar as sugestões da IA.");
+      }
+
+    } catch (error) {
+      console.error("Error generating story suggestions:", error);
+      toast.error("Erro ao gerar sugestões para a história.");
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+  
+  const handleFormSubmit = (data: StoryFormData) => {
+    setFormData(data);
+    // Here you would typically move to the next step in the story creation process
+    // For now, we'll just show a success message
+    toast.success("Dados do formulário enviados com sucesso!");
+    console.log("Form data submitted:", data);
+  };
+
   const renderStep = () => {
     switch (step) {
       case "prompt":
@@ -145,3 +280,12 @@
         return null;
     }
   };
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {renderStep()}
+    </div>
+  );
+};
+
+export default CreateStory;
