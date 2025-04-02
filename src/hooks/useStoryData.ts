@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { saveStoryImagesPermanently } from "@/lib/imageStorage";
 import { validateAndFixStoryImages } from "@/lib/imageHelper";
+import { useImageUrlChecker } from "./useImageUrlChecker";
 
 interface StoryPage {
   text: string;
@@ -52,6 +53,58 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [storyImages, setStoryImages] = useState<string[]>([]);
+
+  const { results: urlCheckResults, checkUrls } = useImageUrlChecker({
+    onComplete: (results) => {
+      if (results.fixed > 0 && storyId && storyData) {
+        const updatedStory = { ...storyData };
+        
+        if (updatedStory.coverImageUrl && results.fixedUrls[updatedStory.coverImageUrl]) {
+          updatedStory.coverImageUrl = results.fixedUrls[updatedStory.coverImageUrl];
+          updatedStory.cover_image_url = results.fixedUrls[updatedStory.coverImageUrl];
+        }
+        
+        if (updatedStory.pages) {
+          updatedStory.pages = updatedStory.pages.map(page => {
+            const pageUrl = page.imageUrl || page.image_url;
+            if (pageUrl && results.fixedUrls[pageUrl]) {
+              return {
+                ...page,
+                imageUrl: results.fixedUrls[pageUrl],
+                image_url: results.fixedUrls[pageUrl]
+              };
+            }
+            return page;
+          });
+        }
+        
+        setStoryData(updatedStory);
+        updateStoryInDatabase(updatedStory, storyId);
+      }
+    }
+  });
+
+  const updateStoryInDatabase = async (story: any, id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from("stories")
+        .update({
+          cover_image_url: story.cover_image_url,
+          pages: story.pages
+        })
+        .eq("id", id);
+        
+      if (updateError) {
+        console.error("Erro ao atualizar história com imagens permanentes:", updateError);
+      } else {
+        console.log("História atualizada com URLs de imagens corrigidas");
+        sessionStorage.setItem("storyData", JSON.stringify(story));
+      }
+    } catch (err) {
+      console.error("Erro ao salvar URLs atualizadas no banco de dados:", err);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -138,6 +191,15 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       setStoryData(formattedStory);
       setTotalPages(formattedStory.pages.length + 1);
       setLoading(false);
+      
+      const imageUrls: string[] = [];
+      if (formattedStory.coverImageUrl) imageUrls.push(formattedStory.coverImageUrl);
+      
+      formattedStory.pages.forEach(page => {
+        if (page.imageUrl) imageUrls.push(page.imageUrl);
+      });
+      
+      setStoryImages(imageUrls);
       
       processStoryImages(formattedStory, data.id);
     } catch (processError) {
@@ -238,6 +300,17 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
       setImagesProcessed(true);
       
       sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
+      
+      const imageUrls: string[] = [];
+      if (updatedStory.coverImageUrl) imageUrls.push(updatedStory.coverImageUrl);
+      
+      updatedStory.pages.forEach(page => {
+        if (page.imageUrl) imageUrls.push(page.imageUrl);
+      });
+      
+      if (imageUrls.length > 0) {
+        setStoryImages(imageUrls);
+      }
     } catch (error) {
       console.error("Error processing story images:", error);
     }
@@ -257,11 +330,19 @@ export const useStoryData = (storyId?: string, retryCount: number = 0) => {
     }
   }, [failedImages]);
 
+  const checkImageUrls = useCallback(() => {
+    if (storyImages.length > 0) {
+      checkUrls(storyImages);
+    }
+  }, [storyImages, checkUrls]);
+
   return {
     storyData,
     loading,
     totalPages,
     handleImageError,
-    error
+    error,
+    checkImageUrls,
+    urlCheckResults
   };
 };
