@@ -73,12 +73,11 @@ const StoryImageRepairTool = () => {
         if (story.cover_image_url) {
           totalProcessed++;
           try {
-            // Test if the image is still accessible before attempting to fix
-            const isAccessible = await testImageAccess(story.cover_image_url);
+            console.log(`Processando imagem de capa para história ${story.id}: ${story.cover_image_url}`);
             
-            if (!isAccessible || isTemporaryUrl(story.cover_image_url) || !isPermanentStorage(story.cover_image_url)) {
-              console.log(`Fixing cover image for story ${story.id}: ${story.cover_image_url}`);
-              const permanentUrl = await saveImagePermanently(story.cover_image_url, `cover_${story.id}`);
+            // Always try to migrate to ImgBB, even if accessible
+            if (!isPermanentStorage(story.cover_image_url)) {
+              const permanentUrl = await uploadToImgBB(story.cover_image_url, `cover_${story.id}`);
               
               if (permanentUrl && permanentUrl !== story.cover_image_url) {
                 updatedStory.cover_image_url = permanentUrl;
@@ -87,23 +86,22 @@ const StoryImageRepairTool = () => {
                 totalFixed++;
                 console.log(`Cover image fixed: ${permanentUrl}`);
               } else {
-                storyFailedImages++;
-                totalFailed++;
-                console.log(`Failed to fix cover image for story ${story.id}`);
-              }
-            } else if (isAccessible) {
-              console.log(`Cover image for story ${story.id} is accessible. Ensuring permanent storage.`);
-              // Even if accessible, ensure permanent storage for long-term preservation
-              if (!isPermanentStorage(story.cover_image_url)) {
-                const permanentUrl = await uploadToImgBB(story.cover_image_url, `cover_${story.id}`);
-                if (permanentUrl && permanentUrl !== story.cover_image_url) {
-                  updatedStory.cover_image_url = permanentUrl;
+                // Fallback to saveImagePermanently if uploadToImgBB fails
+                const fallbackUrl = await saveImagePermanently(story.cover_image_url, `cover_${story.id}`);
+                if (fallbackUrl && fallbackUrl !== story.cover_image_url) {
+                  updatedStory.cover_image_url = fallbackUrl;
                   storyUpdated = true;
                   storyFixedImages++;
                   totalFixed++;
-                  console.log(`Cover image migrated to permanent storage: ${permanentUrl}`);
+                  console.log(`Cover image fixed with fallback: ${fallbackUrl}`);
+                } else {
+                  storyFailedImages++;
+                  totalFailed++;
+                  console.log(`Failed to fix cover image for story ${story.id}`);
                 }
               }
+            } else {
+              console.log(`Cover image for story ${story.id} is already in permanent storage: ${story.cover_image_url}`);
             }
           } catch (error) {
             console.error(`Error fixing cover image for story ${story.id}:`, error);
@@ -123,12 +121,11 @@ const StoryImageRepairTool = () => {
             if (imageUrl) {
               totalProcessed++;
               try {
-                // Check if the image is still accessible
-                const isAccessible = await testImageAccess(imageUrl);
+                console.log(`Processando imagem da página ${pageIndex + 1} para história ${story.id}: ${imageUrl}`);
                 
-                if (!isAccessible || isTemporaryUrl(imageUrl) || !isPermanentStorage(imageUrl)) {
-                  console.log(`Fixing page ${pageIndex + 1} image for story ${story.id}: ${imageUrl}`);
-                  const permanentUrl = await saveImagePermanently(imageUrl, `${story.id}_page${pageIndex}`);
+                // Always try to migrate to ImgBB, even if accessible
+                if (!isPermanentStorage(imageUrl)) {
+                  const permanentUrl = await uploadToImgBB(imageUrl, `${story.id}_page${pageIndex}`);
                   
                   if (permanentUrl && permanentUrl !== imageUrl) {
                     updatedPages[pageIndex] = {
@@ -139,29 +136,28 @@ const StoryImageRepairTool = () => {
                     storyUpdated = true;
                     storyFixedImages++;
                     totalFixed++;
-                    console.log(`Page image fixed: ${permanentUrl}`);
+                    console.log(`Page ${pageIndex + 1} image fixed: ${permanentUrl}`);
                   } else {
-                    storyFailedImages++;
-                    totalFailed++;
-                    console.log(`Failed to fix page ${pageIndex + 1} image`);
-                  }
-                } else if (isAccessible) {
-                  console.log(`Page ${pageIndex + 1} image for story ${story.id} is accessible. Ensuring permanent storage.`);
-                  // Even if accessible, ensure permanent storage for long-term preservation
-                  if (!isPermanentStorage(imageUrl)) {
-                    const permanentUrl = await uploadToImgBB(imageUrl, `${story.id}_page${pageIndex}`);
-                    if (permanentUrl && permanentUrl !== imageUrl) {
+                    // Fallback to saveImagePermanently if uploadToImgBB fails
+                    const fallbackUrl = await saveImagePermanently(imageUrl, `${story.id}_page${pageIndex}`);
+                    if (fallbackUrl && fallbackUrl !== imageUrl) {
                       updatedPages[pageIndex] = {
                         ...page,
-                        imageUrl: permanentUrl,
-                        image_url: permanentUrl
+                        imageUrl: fallbackUrl,
+                        image_url: fallbackUrl
                       };
                       storyUpdated = true;
                       storyFixedImages++;
                       totalFixed++;
-                      console.log(`Page image migrated to permanent storage: ${permanentUrl}`);
+                      console.log(`Page ${pageIndex + 1} image fixed with fallback: ${fallbackUrl}`);
+                    } else {
+                      storyFailedImages++;
+                      totalFailed++;
+                      console.log(`Failed to fix page ${pageIndex + 1} image`);
                     }
                   }
+                } else {
+                  console.log(`Page ${pageIndex + 1} image for story ${story.id} is already in permanent storage: ${imageUrl}`);
                 }
               } catch (error) {
                 console.error(`Error fixing image for page ${pageIndex + 1} of story ${story.id}:`, error);
@@ -193,6 +189,8 @@ const StoryImageRepairTool = () => {
             totalFailed += storyFixedImages;
             totalFixed -= storyFixedImages;
             storyFixedImages = 0;
+          } else {
+            console.log(`Story ${story.id} updated successfully with fixed images`);
           }
         }
 
