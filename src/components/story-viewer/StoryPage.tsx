@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import CoverImage from "../CoverImage";
@@ -125,7 +124,6 @@ export const StoryPage: React.FC<StoryPageProps> = ({
           const response = await fetch(imageUrl, { cache: 'no-store' });
           if (response.ok) {
             const imageBlob = await response.blob();
-            // The Blob is now passed correctly to saveImagePermanently which accepts string | Blob
             const permanentUrl = await saveImagePermanently(imageBlob, `story_page_${pageNumber}_errorfallback`);
             
             if (permanentUrl && permanentUrl !== imageUrl && permanentUrl !== processedImageUrl) {
