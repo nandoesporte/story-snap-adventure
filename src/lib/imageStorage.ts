@@ -149,3 +149,68 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
     return storyData;
   }
 };
+
+/**
+ * Busca e salva permanentemente as imagens das últimas histórias
+ */
+export const migrateRecentStoryImages = async (limit: number = 10): Promise<void> => {
+  try {
+    console.log(`Iniciando migração das imagens das ${limit} histórias mais recentes...`);
+    
+    // Buscar histórias do localStorage para processamento offline
+    const processLocalStories = async () => {
+      try {
+        const keys = Object.keys(localStorage);
+        const storyKeys = keys.filter(key => key.includes('storyData'));
+        
+        console.log(`Encontradas ${storyKeys.length} histórias no localStorage`);
+        
+        for (const key of storyKeys) {
+          try {
+            const storyJson = localStorage.getItem(key);
+            if (storyJson) {
+              const storyData = JSON.parse(storyJson);
+              console.log(`Processando história do localStorage: ${storyData.title}`);
+              
+              const updatedStory = await saveStoryImagesPermanently(storyData);
+              
+              // Salvar história atualizada de volta no localStorage
+              localStorage.setItem(key, JSON.stringify(updatedStory));
+              console.log(`História ${storyData.title} atualizada com sucesso no localStorage`);
+            }
+          } catch (storyError) {
+            console.error(`Erro ao processar história do localStorage:`, storyError);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao processar histórias do localStorage:", error);
+      }
+    };
+    
+    // Processar histórias do sessionStorage
+    const processSessionStories = async () => {
+      try {
+        const storyData = sessionStorage.getItem("storyData");
+        if (storyData) {
+          console.log("Processando história da sessão atual");
+          const parsedData = JSON.parse(storyData);
+          const updatedStory = await saveStoryImagesPermanently(parsedData);
+          
+          // Salvar história atualizada de volta na sessionStorage
+          sessionStorage.setItem("storyData", JSON.stringify(updatedStory));
+          console.log("História da sessão atual atualizada com sucesso");
+        }
+      } catch (error) {
+        console.error("Erro ao processar história da sessão:", error);
+      }
+    };
+    
+    // Executar o processamento
+    await Promise.all([processLocalStories(), processSessionStories()]);
+    
+    toast.success("Migração de imagens concluída com sucesso!");
+  } catch (error) {
+    console.error("Erro durante a migração de imagens:", error);
+    toast.error("Erro durante a migração de imagens");
+  }
+};
