@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -185,7 +186,7 @@ const CreateStory: React.FC = () => {
             setting: storyResult.setting,
             coverImageUrl: storyResult.coverImageUrl,
             pages: storyResult.pages,
-            voiceType: storyResult.voiceType || 'female'
+            voiceType: storyResult.voiceType
           });
           
           toast.success("História gerada e salva com sucesso!");
