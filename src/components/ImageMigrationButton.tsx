@@ -9,7 +9,7 @@ interface ImageMigrationButtonProps {
   limit?: number;
   className?: string;
   variant?: "default" | "destructive" | "outline" | "secondary" | 
-            "ghost" | "link" | "storyPrimary" | "storyCta";
+            "ghost" | "link" | "storyPrimary" | "storySecondary";
 }
 
 const ImageMigrationButton: React.FC<ImageMigrationButtonProps> = ({ 
