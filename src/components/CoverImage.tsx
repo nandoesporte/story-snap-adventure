@@ -38,8 +38,26 @@ const CoverImage: React.FC<CoverImageProps> = ({
       console.log("No image URL provided, using fallback:", fallbackImage);
       setSrc(fallbackImage);
     } else {
-      console.log("Setting image source to:", imageUrl);
-      setSrc(imageUrl);
+      // For ImgBB URLs, ensure we're using the right format
+      if ((imageUrl.includes('i.ibb.co') || imageUrl.includes('image.ibb.co')) && imageUrl.includes('&image=')) {
+        // Extract just the direct image URL part if it contains extra params
+        try {
+          const directUrl = new URL(imageUrl).searchParams.get('image');
+          if (directUrl) {
+            console.log("Extracted direct ImgBB image URL:", directUrl);
+            setSrc(directUrl);
+          } else {
+            console.log("Setting ImgBB image source to:", imageUrl);
+            setSrc(imageUrl);
+          }
+        } catch (e) {
+          console.log("Setting image source to:", imageUrl);
+          setSrc(imageUrl);
+        }
+      } else {
+        console.log("Setting image source to:", imageUrl);
+        setSrc(imageUrl);
+      }
     }
   }, [imageUrl, fallbackImage]);
 
@@ -103,6 +121,11 @@ const CoverImage: React.FC<CoverImageProps> = ({
         console.error("Even fallback image failed to load");
         setLoading(false);
         setError(true);
+        
+        // Try an absolute fallback to placeholder.svg
+        if (fallbackImage !== '/placeholder.svg') {
+          setSrc('/placeholder.svg');
+        }
       }
     };
     
@@ -177,6 +200,9 @@ const CoverImage: React.FC<CoverImageProps> = ({
       if (onError) {
         onError(src || '');
       }
+    } else if (fallbackImage !== '/placeholder.svg') {
+      // If even the fallback fails, try placeholder.svg
+      setSrc('/placeholder.svg');
     }
   };
 
@@ -196,6 +222,8 @@ const CoverImage: React.FC<CoverImageProps> = ({
           alt={alt}
           onError={handleError}
           className={`w-full h-full object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+          loading="eager"
+          crossOrigin="anonymous"
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { saveImagePermanently } from '@/lib/imageStorage';
+import { toast } from 'sonner';
 
 // Este hook ajuda a garantir que as URLs das imagens das histórias sejam válidas e permanentes
 export const useStoryImages = (imageUrl: string | undefined) => {
@@ -8,6 +9,7 @@ export const useStoryImages = (imageUrl: string | undefined) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
   const [isPermanent, setIsPermanent] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   useEffect(() => {
     const processImageUrl = async () => {
@@ -61,7 +63,7 @@ export const useStoryImages = (imageUrl: string | undefined) => {
             console.log("Attempting to save image permanently with ImgBB:", imageUrl);
             const permanentUrl = await saveImagePermanently(imageUrl);
             
-            if (permanentUrl !== imageUrl) {
+            if (permanentUrl && permanentUrl !== imageUrl) {
               console.log("Image saved to ImgBB:", permanentUrl);
               setProcessedUrl(permanentUrl);
               setIsPermanent(true);
@@ -75,6 +77,9 @@ export const useStoryImages = (imageUrl: string | undefined) => {
             }
           } catch (saveError) {
             console.error("Error saving image to ImgBB:", saveError);
+            toast.error("Erro ao salvar imagem no ImgBB", {
+              id: `save-error-${retryCount}`
+            });
             // Continue with fallback methods if permanent save fails
           }
         }
@@ -84,16 +89,47 @@ export const useStoryImages = (imageUrl: string | undefined) => {
           console.log("Processing OpenAI image URL:", imageUrl);
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased timeout
             
             const response = await fetch(imageUrl, { 
               method: 'HEAD',
-              signal: controller.signal 
+              signal: controller.signal,
+              cache: 'no-store',
+              headers: {
+                'Cache-Control': 'no-cache'
+              }
             });
             
             clearTimeout(timeoutId);
             
             if (response.ok) {
+              // URL still works, try again to save it permanently with a different approach
+              if (retryCount < 2) {
+                setRetryCount(prev => prev + 1);
+                // Force a direct fetch and upload as blob instead of URL
+                try {
+                  const imageResponse = await fetch(imageUrl, { cache: 'no-store' });
+                  const imageBlob = await imageResponse.blob();
+                  const permUrl = await saveImagePermanently(imageBlob);
+                  
+                  if (permUrl && permUrl !== imageUrl) {
+                    console.log("Successfully saved OpenAI image on retry:", permUrl);
+                    setProcessedUrl(permUrl);
+                    setIsPermanent(true);
+                    try {
+                      localStorage.setItem(cachedUrlKey, permUrl);
+                    } catch (error) {
+                      console.error("Error saving URL to cache:", error);
+                    }
+                    setIsLoading(false);
+                    return;
+                  }
+                } catch (blobError) {
+                  console.error("Error in blob approach:", blobError);
+                }
+              }
+              
+              // If we couldn't save permanently, use the original URL
               setProcessedUrl(imageUrl);
               try {
                 localStorage.setItem(cachedUrlKey, imageUrl);
@@ -149,6 +185,25 @@ export const useStoryImages = (imageUrl: string | undefined) => {
         // Handle base64 images
         if (imageUrl.startsWith('data:image')) {
           console.log("Processing base64 image");
+          try {
+            const permUrl = await saveImagePermanently(imageUrl);
+            if (permUrl && permUrl !== imageUrl && permUrl.includes('ibb.co')) {
+              console.log("Base64 image saved to ImgBB:", permUrl);
+              setProcessedUrl(permUrl);
+              setIsPermanent(true);
+              try {
+                localStorage.setItem(cachedUrlKey, permUrl);
+              } catch (error) {
+                console.error("Error saving URL to cache:", error);
+              }
+              setIsLoading(false);
+              return;
+            }
+          } catch (saveError) {
+            console.error("Error saving base64 image to ImgBB:", saveError);
+          }
+          
+          // If ImgBB upload failed, use base64 directly
           const hash = await hashString(imageUrl.substring(0, 100));
           try {
             localStorage.setItem(`image_cache_${hash}`, imageUrl);
@@ -192,7 +247,7 @@ export const useStoryImages = (imageUrl: string | undefined) => {
     };
 
     processImageUrl();
-  }, [imageUrl, isPermanent]);
+  }, [imageUrl, isPermanent, retryCount]);
   
   // Hash function helper
   const hashString = async (str: string): Promise<string> => {
@@ -208,6 +263,7 @@ export const useStoryImages = (imageUrl: string | undefined) => {
     processedUrl, 
     isLoading, 
     hasError, 
-    isPermanent 
+    isPermanent,
+    retry: () => setRetryCount(prev => prev + 1)
   };
 };

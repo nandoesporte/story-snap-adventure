@@ -26,23 +26,36 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
       // Se for uma URL da web ou uma string base64
       if (imageData.startsWith('data:')) {
         // É uma imagem base64
-        formData.append('image', imageData);
+        console.log("Processando imagem base64 para ImgBB");
+        formData.append('image', imageData.split(',')[1] || imageData);
       } else {
         // É uma URL, precisamos buscar a imagem primeiro
         try {
-          const response = await fetch(imageData);
+          console.log("Buscando imagem da URL para upload:", imageData.substring(0, 50) + "...");
+          const response = await fetch(imageData, { 
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache'
+            },
+            cache: 'no-store'
+          });
+          
           if (!response.ok) {
             throw new Error(`Falha ao buscar imagem da URL: ${response.status}`);
           }
+          
           const blob = await response.blob();
+          console.log(`Imagem obtida com sucesso: ${blob.size} bytes, tipo: ${blob.type}`);
           formData.append('image', blob);
         } catch (error) {
           console.error("Erro ao buscar imagem da URL:", error);
+          toast.error("Erro ao buscar imagem da URL");
           return null;
         }
       }
     } else {
       // É um blob
+      console.log(`Enviando blob de imagem: ${imageData.size} bytes, tipo: ${imageData.type}`);
       formData.append('image', imageData);
     }
     
@@ -63,12 +76,14 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`ImgBB API respondeu com status ${response.status}:`, errorText);
       throw new Error(`ImgBB API respondeu com erro ${response.status}: ${errorText}`);
     }
     
     const result = await response.json();
     
     if (!result.success) {
+      console.error("ImgBB API retornou falha:", result);
       throw new Error(result.error?.message || "Falha no upload para ImgBB");
     }
     
