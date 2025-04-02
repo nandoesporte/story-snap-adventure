@@ -5,12 +5,10 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/lib/supabase";
-import { saveImagePermanently } from "@/lib/imageStorage";
 import { Hammer, ImageIcon, CheckCircle2, AlertTriangle, RefreshCcw } from "lucide-react";
 import { isTemporaryUrl, isPermanentStorage, testImageAccess } from "@/components/story-viewer/helpers";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { uploadToImgBB } from "@/lib/imgbbUploader";
 
 const StoryImageRepairTool = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -27,6 +25,85 @@ const StoryImageRepairTool = () => {
     fixedImages: number;
     failedImages: number;
   }[]>([]);
+
+  // Function to fetch an image as blob
+  const fetchImageAsBlob = async (url: string): Promise<Blob | null> => {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) return null;
+      return await response.blob();
+    } catch (error) {
+      console.error(`Error fetching image from ${url}:`, error);
+      return null;
+    }
+  };
+
+  // Function to save image to Supabase Storage
+  const saveImageToSupabase = async (imageData: Blob | string, fileName: string): Promise<string | null> => {
+    try {
+      console.log(`Attempting to save image to Supabase storage: ${fileName}`);
+      
+      // Ensure the story_images bucket exists
+      try {
+        const { data: buckets } = await supabase.storage.listBuckets();
+        if (!buckets?.some(bucket => bucket.name === 'story_images')) {
+          const { data, error } = await supabase.storage.createBucket('story_images', { 
+            public: true,
+            fileSizeLimit: 5242880 // 5MB limit
+          });
+          
+          if (error) {
+            console.error("Error creating bucket:", error);
+            return null;
+          }
+        }
+      } catch (bucketError) {
+        console.error("Error checking/creating bucket:", bucketError);
+      }
+
+      // Convert string URL to blob if needed
+      let imageBlob: Blob;
+      if (typeof imageData === 'string') {
+        const blob = await fetchImageAsBlob(imageData);
+        if (!blob) {
+          console.error("Could not fetch image as blob");
+          return null;
+        }
+        imageBlob = blob;
+      } else {
+        imageBlob = imageData;
+      }
+
+      // Determine content type
+      const contentType = imageBlob.type || 'image/png';
+      
+      // Upload the blob to Supabase
+      const { data, error } = await supabase
+        .storage
+        .from('story_images')
+        .upload(`repaired/${fileName}`, imageBlob, {
+          contentType,
+          upsert: true
+        });
+
+      if (error) {
+        console.error("Error uploading to Supabase:", error);
+        return null;
+      }
+
+      // Get the public URL of the uploaded file
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('story_images')
+        .getPublicUrl(`repaired/${fileName}`);
+
+      console.log("Image saved to Supabase:", publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      console.error("Error saving image to Supabase:", error);
+      return null;
+    }
+  };
 
   const runImageRepair = async () => {
     try {
@@ -75,33 +152,33 @@ const StoryImageRepairTool = () => {
           try {
             console.log(`Processando imagem de capa para história ${story.id}: ${story.cover_image_url}`);
             
-            // Always try to migrate to ImgBB, even if accessible
-            if (!isPermanentStorage(story.cover_image_url)) {
-              const permanentUrl = await uploadToImgBB(story.cover_image_url, `cover_${story.id}`);
+            // Always try to migrate image, even if accessible
+            const isAccessible = await testImageAccess(story.cover_image_url);
+            console.log(`Cover image accessible: ${isAccessible}`);
+            
+            // Generate a unique filename for the image
+            const fileName = `cover_${story.id}_${Date.now()}.png`;
+            
+            // Get the image as blob and save to Supabase
+            const blob = await fetchImageAsBlob(story.cover_image_url);
+            if (blob) {
+              const permanentUrl = await saveImageToSupabase(blob, fileName);
               
-              if (permanentUrl && permanentUrl !== story.cover_image_url) {
+              if (permanentUrl) {
                 updatedStory.cover_image_url = permanentUrl;
                 storyUpdated = true;
                 storyFixedImages++;
                 totalFixed++;
                 console.log(`Cover image fixed: ${permanentUrl}`);
               } else {
-                // Fallback to saveImagePermanently if uploadToImgBB fails
-                const fallbackUrl = await saveImagePermanently(story.cover_image_url, `cover_${story.id}`);
-                if (fallbackUrl && fallbackUrl !== story.cover_image_url) {
-                  updatedStory.cover_image_url = fallbackUrl;
-                  storyUpdated = true;
-                  storyFixedImages++;
-                  totalFixed++;
-                  console.log(`Cover image fixed with fallback: ${fallbackUrl}`);
-                } else {
-                  storyFailedImages++;
-                  totalFailed++;
-                  console.log(`Failed to fix cover image for story ${story.id}`);
-                }
+                storyFailedImages++;
+                totalFailed++;
+                console.log(`Failed to fix cover image for story ${story.id}`);
               }
             } else {
-              console.log(`Cover image for story ${story.id} is already in permanent storage: ${story.cover_image_url}`);
+              storyFailedImages++;
+              totalFailed++;
+              console.log(`Failed to fetch cover image for story ${story.id}`);
             }
           } catch (error) {
             console.error(`Error fixing cover image for story ${story.id}:`, error);
@@ -123,11 +200,19 @@ const StoryImageRepairTool = () => {
               try {
                 console.log(`Processando imagem da página ${pageIndex + 1} para história ${story.id}: ${imageUrl}`);
                 
-                // Always try to migrate to ImgBB, even if accessible
-                if (!isPermanentStorage(imageUrl)) {
-                  const permanentUrl = await uploadToImgBB(imageUrl, `${story.id}_page${pageIndex}`);
+                // Always try to migrate image, even if accessible
+                const isAccessible = await testImageAccess(imageUrl);
+                console.log(`Page ${pageIndex + 1} image accessible: ${isAccessible}`);
+                
+                // Generate a unique filename for the image
+                const fileName = `${story.id}_page${pageIndex}_${Date.now()}.png`;
+                
+                // Get the image as blob and save to Supabase
+                const blob = await fetchImageAsBlob(imageUrl);
+                if (blob) {
+                  const permanentUrl = await saveImageToSupabase(blob, fileName);
                   
-                  if (permanentUrl && permanentUrl !== imageUrl) {
+                  if (permanentUrl) {
                     updatedPages[pageIndex] = {
                       ...page,
                       imageUrl: permanentUrl,
@@ -138,26 +223,14 @@ const StoryImageRepairTool = () => {
                     totalFixed++;
                     console.log(`Page ${pageIndex + 1} image fixed: ${permanentUrl}`);
                   } else {
-                    // Fallback to saveImagePermanently if uploadToImgBB fails
-                    const fallbackUrl = await saveImagePermanently(imageUrl, `${story.id}_page${pageIndex}`);
-                    if (fallbackUrl && fallbackUrl !== imageUrl) {
-                      updatedPages[pageIndex] = {
-                        ...page,
-                        imageUrl: fallbackUrl,
-                        image_url: fallbackUrl
-                      };
-                      storyUpdated = true;
-                      storyFixedImages++;
-                      totalFixed++;
-                      console.log(`Page ${pageIndex + 1} image fixed with fallback: ${fallbackUrl}`);
-                    } else {
-                      storyFailedImages++;
-                      totalFailed++;
-                      console.log(`Failed to fix page ${pageIndex + 1} image`);
-                    }
+                    storyFailedImages++;
+                    totalFailed++;
+                    console.log(`Failed to fix page ${pageIndex + 1} image`);
                   }
                 } else {
-                  console.log(`Page ${pageIndex + 1} image for story ${story.id} is already in permanent storage: ${imageUrl}`);
+                  storyFailedImages++;
+                  totalFailed++;
+                  console.log(`Failed to fetch page ${pageIndex + 1} image`);
                 }
               } catch (error) {
                 console.error(`Error fixing image for page ${pageIndex + 1} of story ${story.id}:`, error);
@@ -347,7 +420,7 @@ const StoryImageRepairTool = () => {
           Reparo de Imagens
         </CardTitle>
         <CardDescription>
-          Busca imagens temporárias da OpenAI em histórias e salva permanentemente
+          Busca imagens temporárias da OpenAI em histórias e salva permanentemente no Supabase
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -394,12 +467,11 @@ const StoryImageRepairTool = () => {
               <div className="space-y-4">
                 <p>
                   Esta ferramenta escaneia todas as histórias procurando por imagens temporárias ou inacessíveis
-                  e as salva permanentemente nos servidores do ImgBB.
+                  e as salva permanentemente no armazenamento do Supabase.
                 </p>
                 <p className="text-sm text-slate-600">
-                  O processo verifica primeiro se a URL ainda está acessível, e caso esteja, garante que seja
-                  armazenada no ImgBB para evitar indisponibilidade futura. Se a URL estiver inacessível, a ferramenta
-                  tentará recuperar a imagem de caches ou usar uma imagem padrão.
+                  O processo verifica primeiro se a URL ainda está acessível, e então salva a imagem no bucket de 
+                  armazenamento do Supabase. Mesmo imagens já acessíveis são migradas para garantir disponibilidade futura.
                 </p>
                 
                 {results.length > 0 && (
