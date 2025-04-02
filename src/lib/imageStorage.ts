@@ -5,31 +5,38 @@ import { uploadToImgBB } from './imgbbUploader';
 
 /**
  * Salva uma imagem permanentemente usando ImgBB
- * @param imageUrl URL ou Base64 da imagem
+ * @param imageData URL, Base64 ou Blob da imagem
  * @param filename Nome de arquivo personalizado opcional
  * @returns Promise com a URL permanente
  */
-export const saveImagePermanently = async (imageUrl: string, filename?: string): Promise<string> => {
-  if (!imageUrl) {
-    console.error("No image URL provided to saveImagePermanently");
+export const saveImagePermanently = async (imageData: string | Blob, filename?: string): Promise<string> => {
+  if (!imageData) {
+    console.error("No image data provided to saveImagePermanently");
     return getDefaultImageForTheme('default');
   }
 
   try {
-    // Verificar se a URL já está no ImgBB
-    if (imageUrl.includes('i.ibb.co') || imageUrl.includes('image.ibb.co')) {
-      console.log("Image is already in ImgBB storage:", imageUrl);
-      return imageUrl;
+    // Verificar se é um Blob ou string
+    if (typeof imageData === 'string') {
+      // Verificar se a URL já está no ImgBB
+      if (imageData.includes('i.ibb.co') || imageData.includes('image.ibb.co')) {
+        console.log("Image is already in ImgBB storage:", imageData);
+        return imageData;
+      }
+
+      // Verificar se é uma URL local/relativa
+      if (imageData.startsWith('/') && !imageData.includes('://')) {
+        const fullUrl = `${window.location.origin}${imageData}`;
+        console.log("Converting relative URL to absolute for ImgBB upload:", fullUrl);
+        imageData = fullUrl;
+      }
     }
 
-    // Verificar se é uma URL local/relativa
-    if (imageUrl.startsWith('/') && !imageUrl.includes('://')) {
-      const fullUrl = `${window.location.origin}${imageUrl}`;
-      console.log("Converting relative URL to absolute for ImgBB upload:", fullUrl);
-      imageUrl = fullUrl;
-    }
-
-    console.log("Saving image permanently to ImgBB:", imageUrl.substring(0, 50) + "...");
+    console.log("Saving image permanently to ImgBB:", 
+      typeof imageData === 'string' 
+        ? imageData.substring(0, 50) + "..." 
+        : `Blob (${imageData.size} bytes, type: ${imageData.type})`
+    );
     
     // Tentar até 3 vezes em caso de falha
     let attempts = 0;
@@ -42,7 +49,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      imgbbUrl = await uploadToImgBB(imageUrl, filename);
+      imgbbUrl = await uploadToImgBB(imageData, filename);
       attempts++;
     }
     
@@ -50,7 +57,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
       console.log("Image successfully uploaded to ImgBB:", imgbbUrl);
       // Salvar no cache local para uso futuro
       try {
-        const cacheKey = `imgbb_cache_${imageUrl.slice(-40)}`;
+        const cacheKey = `imgbb_cache_${typeof imageData === 'string' ? imageData.slice(-40) : filename || Date.now()}`;
         localStorage.setItem(cacheKey, imgbbUrl);
       } catch (e) {
         console.warn("Couldn't save to localStorage:", e);
@@ -62,15 +69,17 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     toast.error("Não foi possível salvar a imagem no ImgBB");
     
     // Verificar se temos uma versão em cache
-    try {
-      const cacheKey = `imgbb_cache_${imageUrl.slice(-40)}`;
-      const cachedUrl = localStorage.getItem(cacheKey);
-      if (cachedUrl) {
-        console.log("Using cached ImgBB URL:", cachedUrl);
-        return cachedUrl;
+    if (typeof imageData === 'string') {
+      try {
+        const cacheKey = `imgbb_cache_${imageData.slice(-40)}`;
+        const cachedUrl = localStorage.getItem(cacheKey);
+        if (cachedUrl) {
+          console.log("Using cached ImgBB URL:", cachedUrl);
+          return cachedUrl;
+        }
+      } catch (e) {
+        console.warn("Couldn't access localStorage:", e);
       }
-    } catch (e) {
-      console.warn("Couldn't access localStorage:", e);
     }
     
     return getDefaultImageForTheme('default');

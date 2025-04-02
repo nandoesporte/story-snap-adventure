@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { saveImagePermanently } from '@/lib/imageStorage';
 import { toast } from 'sonner';
@@ -69,8 +68,8 @@ export const useStoryImages = (imageUrl: string | undefined) => {
               setIsPermanent(true);
               try {
                 localStorage.setItem(cachedUrlKey, permanentUrl);
-              } catch (cacheError) {
-                console.error("Error saving URL to cache:", cacheError);
+              } catch (error) {
+                console.error("Error saving URL to cache:", error);
               }
               setIsLoading(false);
               return;
@@ -110,7 +109,8 @@ export const useStoryImages = (imageUrl: string | undefined) => {
                 try {
                   const imageResponse = await fetch(imageUrl, { cache: 'no-store' });
                   const imageBlob = await imageResponse.blob();
-                  const permUrl = await saveImagePermanently(imageBlob);
+                  // Now we pass the Blob to saveImagePermanently which accepts string | Blob
+                  const permUrl = await saveImagePermanently(imageBlob, `openai_image_${retryCount}`);
                   
                   if (permUrl && permUrl !== imageUrl) {
                     console.log("Successfully saved OpenAI image on retry:", permUrl);
