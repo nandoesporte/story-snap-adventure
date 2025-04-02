@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useStoryBot } from '@/hooks/useStoryBot';
 import StoryPromptInput from '@/components/StoryPromptInput';
-import StoryForm, { StoryFormData } from '@/components/StoryForm';
+import StoryForm from '@/components/StoryForm';
 import { useStoryGeneration } from '@/hooks/useStoryGeneration';
 import StoryGenerationProgress from '@/components/StoryGenerationProgress';
 
@@ -25,17 +25,13 @@ const CreateStory: React.FC = () => {
   const [apiKeyError, setApiKeyError] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
-  const [formData, setFormData] = useState<StoryFormData | null>(null);
-  const [availablePrompts, setAvailablePrompts] = useState<Array<{id: string, name: string, description: string | null}>>([]);
-  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
-  const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [formData, setFormData] = useState<any | null>(null);
   const [generationCanceled, setGenerationCanceled] = useState(false);
   
   const { 
     generateStoryBotResponse, 
-    checkOpenAIAvailability, 
-    listAvailablePrompts, 
-    setPromptById 
+    checkOpenAIAvailability,
+    loadPromptByName 
   } = useStoryBot();
 
   const {
@@ -49,23 +45,20 @@ const CreateStory: React.FC = () => {
     currentNarrationIndex,
   } = useStoryGeneration();
 
-  // Load available prompts for story generation
+  // Load default prompt for story generation
   useEffect(() => {
-    const loadPrompts = async () => {
+    const loadDefaultPrompt = async () => {
       try {
-        setLoadingPrompts(true);
-        const prompts = await listAvailablePrompts();
-        setAvailablePrompts(prompts);
+        // Load the default prompt instead of asking for selection
+        await loadPromptByName('Prompt Padrão');
       } catch (error) {
-        console.error("Error loading prompts:", error);
-        toast.error("Não foi possível carregar os prompts disponíveis.");
-      } finally {
-        setLoadingPrompts(false);
+        console.error("Error loading default prompt:", error);
+        toast.error("Não foi possível carregar o prompt padrão.");
       }
     };
 
-    loadPrompts();
-  }, [listAvailablePrompts]);
+    loadDefaultPrompt();
+  }, [loadPromptByName]);
 
   // Check if OpenAI API key is available
   useEffect(() => {
@@ -84,10 +77,6 @@ const CreateStory: React.FC = () => {
 
   const handlePromptSubmit = async (prompt: string) => {
     setStoryPrompt(prompt);
-    
-    if (selectedPromptId) {
-      await setPromptById(selectedPromptId);
-    }
     
     try {
       setLoadingSuggestions(true);
@@ -145,7 +134,7 @@ const CreateStory: React.FC = () => {
     }
   };
   
-  const handleFormSubmit = async (data: StoryFormData) => {
+  const handleFormSubmit = async (data: any) => {
     setFormData(data);
     setStep('generating');
     setGenerationCanceled(false);
@@ -215,10 +204,6 @@ const CreateStory: React.FC = () => {
             )}
             <StoryPromptInput 
               onSubmit={handlePromptSubmit}
-              availablePrompts={availablePrompts}
-              selectedPromptId={selectedPromptId}
-              onPromptSelect={setSelectedPromptId}
-              loadingPrompts={loadingPrompts}
             />
           </>
         );
@@ -293,22 +278,6 @@ const CreateStory: React.FC = () => {
                               <strong>Moral:</strong> {aiSuggestions.moral}
                             </span>
                           )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {selectedPromptId && (
-                  <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                    <div className="flex items-start gap-3">
-                      <Sparkles className="h-5 w-5 text-indigo-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-indigo-800 mb-1">
-                          Prompt selecionado: {availablePrompts.find(p => p.id === selectedPromptId)?.name}
-                        </p>
-                        <p className="text-sm text-indigo-700">
-                          {availablePrompts.find(p => p.id === selectedPromptId)?.description || "Prompt personalizado para geração de histórias."}
                         </p>
                       </div>
                     </div>
