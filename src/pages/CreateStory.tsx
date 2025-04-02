@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useStoryBot } from '@/hooks/useStoryBot';
 import StoryPromptInput from '@/components/StoryPromptInput';
 import StoryForm, { StoryFormData } from '@/components/StoryForm';
+import { useStoryGeneration } from '@/hooks/useStoryGeneration';
+import StoryGenerationProgress from '@/components/StoryGenerationProgress';
 
 interface AISuggestions {
   theme?: string;
@@ -18,7 +20,7 @@ interface AISuggestions {
 
 const CreateStory: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<'prompt' | 'details'>('prompt');
+  const [step, setStep] = useState<'prompt' | 'details' | 'generating'>('prompt');
   const [storyPrompt, setStoryPrompt] = useState('');
   const [apiKeyError, setApiKeyError] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -27,8 +29,25 @@ const CreateStory: React.FC = () => {
   const [availablePrompts, setAvailablePrompts] = useState<Array<{id: string, name: string, description: string | null}>>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [generationCanceled, setGenerationCanceled] = useState(false);
   
-  const { generateStoryBotResponse, checkOpenAIAvailability, listAvailablePrompts, setPromptById } = useStoryBot();
+  const { 
+    generateStoryBotResponse, 
+    checkOpenAIAvailability, 
+    listAvailablePrompts, 
+    setPromptById 
+  } = useStoryBot();
+
+  const {
+    generateCompleteStory,
+    isGenerating,
+    progress,
+    currentStage,
+    currentImageIndex,
+    totalImages,
+    generatingNarration,
+    currentNarrationIndex,
+  } = useStoryGeneration();
 
   // Load available prompts for story generation
   useEffect(() => {
@@ -46,7 +65,7 @@ const CreateStory: React.FC = () => {
     };
 
     loadPrompts();
-  }, []);
+  }, [listAvailablePrompts]);
 
   // Check if OpenAI API key is available
   useEffect(() => {
@@ -61,7 +80,7 @@ const CreateStory: React.FC = () => {
     };
 
     checkApiKey();
-  }, []);
+  }, [checkOpenAIAvailability]);
 
   const handlePromptSubmit = async (prompt: string) => {
     setStoryPrompt(prompt);
@@ -126,12 +145,53 @@ const CreateStory: React.FC = () => {
     }
   };
   
-  const handleFormSubmit = (data: StoryFormData) => {
+  const handleFormSubmit = async (data: StoryFormData) => {
     setFormData(data);
-    // Here you would typically move to the next step in the story creation process
-    // For now, we'll just show a success message
-    toast.success("Dados do formulário enviados com sucesso!");
-    console.log("Form data submitted:", data);
+    setStep('generating');
+    setGenerationCanceled(false);
+
+    try {
+      // Start generating the complete story
+      const storyResult = await generateCompleteStory(
+        data.childName,
+        data.childAge,
+        data.theme,
+        data.setting,
+        data.moral,
+        "", // No character prompt for now
+        data.length,
+        data.readingLevel,
+        data.language,
+        null, // No child image
+        data.style,
+        data.voiceType
+      );
+      
+      if (generationCanceled) {
+        return;
+      }
+      
+      // If we have a story result, store it in session storage and navigate to view
+      if (storyResult) {
+        sessionStorage.setItem("storyData", JSON.stringify(storyResult));
+        toast.success("História gerada com sucesso!");
+        navigate("/view-story");
+      } else {
+        throw new Error("Falha ao gerar história");
+      }
+    } catch (error) {
+      console.error("Error generating story:", error);
+      if (!generationCanceled) {
+        toast.error("Erro ao gerar a história. Por favor, tente novamente.");
+        setStep('details');
+      }
+    }
+  };
+  
+  const handleCancelGeneration = () => {
+    setGenerationCanceled(true);
+    setStep('details');
+    toast.info("Geração de história cancelada.");
   };
 
   const renderStep = () => {
@@ -274,6 +334,17 @@ const CreateStory: React.FC = () => {
               </motion.button>
             </div>
           </motion.div>
+        );
+
+      case "generating":
+        return (
+          <StoryGenerationProgress
+            progress={progress}
+            currentStage={currentStage}
+            imageProgress={totalImages > 0 ? { current: currentImageIndex, total: totalImages } : undefined}
+            narrationProgress={generatingNarration ? { current: currentNarrationIndex, total: totalImages } : undefined}
+            onCancel={handleCancelGeneration}
+          />
         );
         
       default:

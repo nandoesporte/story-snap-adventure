@@ -2,7 +2,7 @@
 import React from "react";
 import CreateStory from "./CreateStory";
 
-const CreateStoryPage = () => {
+const CreateStoryPage: React.FC = () => {
   return <CreateStory />;
 };
 
