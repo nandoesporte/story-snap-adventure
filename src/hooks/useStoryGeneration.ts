@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -34,7 +33,8 @@ export const useStoryGeneration = () => {
   const [generatingNarration, setGeneratingNarration] = useState(false);
   const [currentNarrationIndex, setCurrentNarrationIndex] = useState(0);
   const [connectionErrorCount, setConnectionErrorCount] = useState(0);
-  
+  const [useImgBB, setUseImgBB] = useState(true);
+
   const {
     generateCompleteStory: storyBotGenerateCompleteStory,
     leonardoApiAvailable,
@@ -46,13 +46,13 @@ export const useStoryGeneration = () => {
     setPromptById,
     loadPromptByName
   } = useStoryBot();
-  
+
   const { generateAudio, VOICE_IDS, VOICE_PRESETS } = useStoryNarration({
     storyId: '',
     text: '',
     pageIndex: 0
   });
-  
+
   const generateCompleteStory = async (
     characterName: string,
     childAge: string,
@@ -78,14 +78,14 @@ export const useStoryGeneration = () => {
       setGeneratingNarration(false);
       setCurrentNarrationIndex(0);
       setConnectionErrorCount(0);
-      
+
       const openAiApiKey = localStorage.getItem('openai_api_key');
       if (!openAiApiKey || openAiApiKey === 'undefined' || openAiApiKey === 'null' || openAiApiKey.trim() === '') {
         toast.error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
         setIsGenerating(false);
         throw new Error("A chave da API OpenAI não está configurada. Verifique nas configurações.");
       }
-      
+
       try {
         setCurrentStage("Verificando a chave da API OpenAI...");
         const isValid = await checkOpenAIAvailability();
@@ -100,23 +100,23 @@ export const useStoryGeneration = () => {
         setIsGenerating(false);
         throw new Error("Não foi possível validar a chave da API OpenAI. Verifique sua conexão e configurações.");
       }
-      
+
       setUseOpenAIForStories(true, 'gpt-4o-mini');
       toast.info("Usando OpenAI para gerar a história e ilustrações em estilo papercraft.");
-      
+
       setCurrentStage(`Definindo personagem principal "${characterName}"...`);
       setProgress(10);
-      
+
       if (!characterPrompt || characterPrompt.trim().length < 10) {
         console.log("Character prompt is minimal, generating a basic description...");
         characterPrompt = `Personagem ${characterName}: um personagem de ${childAge} anos, alegre e curioso.`;
       } else {
         console.log(`Using provided character prompt for ${characterName}: ${characterPrompt.substring(0, 50)}...`);
       }
-      
+
       setCurrentStage(`Criando a narrativa com o personagem ${characterName}...`);
       setProgress(15);
-      
+
       console.log("Generating complete story with params:", {
         characterName,
         childAge,
@@ -132,7 +132,7 @@ export const useStoryGeneration = () => {
         style: "papercraft",
         voiceType
       });
-      
+
       const generateWithPersistence = async () => {
         let result;
         try {
@@ -153,7 +153,7 @@ export const useStoryGeneration = () => {
         } catch (error) {
           console.error("Erro na geração de história:", error);
           const errorMessage = error instanceof Error ? error.message : String(error);
-          
+
           if (errorMessage.includes("API key") || errorMessage.includes("401")) {
             toast.error("Erro na chave da API OpenAI. Por favor, verifique suas configurações.");
             throw new Error("Erro na chave da API. Verifique suas configurações.");
@@ -168,14 +168,14 @@ export const useStoryGeneration = () => {
             throw new Error("Falha na geração da história");
           }
         }
-        
+
         if (!result) {
           toast.error("Erro ao gerar a história. Tente novamente.");
           throw new Error("Resultado da geração de história é nulo");
         }
-        
+
         const storyId = uuidv4();
-        
+
         const storyResult: StoryResult = {
           id: storyId,
           title: result.title,
@@ -188,9 +188,9 @@ export const useStoryGeneration = () => {
           voiceType: voiceType,
           pages: result.pages
         };
-        
+
         setCurrentStage("Verificando a capa do livro...");
-        
+
         if (!storyResult.coverImageUrl || 
             storyResult.coverImageUrl.includes('placeholder') || 
             storyResult.coverImageUrl.startsWith('/placeholder') ||
@@ -201,7 +201,7 @@ export const useStoryGeneration = () => {
           
           for (let attempt = 0; attempt < maxCoverAttempts && !coverGenerated; attempt++) {
             setCoverImageAttempt(attempt + 1);
-            toast.info(`Gerando capa do livro com OpenAI (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
+            toast.info(`Gerando capa do livro ${useImgBB ? 'com ImgBB' : ''} (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
             
             try {
               if (storyResult.pages && storyResult.pages.length > 0 && 
@@ -225,9 +225,14 @@ export const useStoryGeneration = () => {
                 console.log(`Generated new cover with OpenAI (attempt ${attempt + 1}):`, coverUrl);
                 
                 if (coverUrl && !coverUrl.includes('placeholder') && !coverUrl.includes('default')) {
-                  storyResult.coverImageUrl = coverUrl;
-                  toast.success("Capa gerada com sucesso!");
-                  coverGenerated = true;
+                  // Usar ImgBB para salvar imagem permanentemente
+                  const permanentUrl = await saveImagePermanently(coverUrl, `cover_${storyResult.id}`);
+                  
+                  if (permanentUrl) {
+                    storyResult.coverImageUrl = permanentUrl;
+                    toast.success(`Capa gerada e salva ${permanentUrl.includes('ibb.co') ? 'no ImgBB' : 'com sucesso'}!`);
+                    coverGenerated = true;
+                  }
                 }
               }
             } catch (error) {
@@ -250,9 +255,9 @@ export const useStoryGeneration = () => {
             toast.warning("Não foi possível gerar a capa. Usando imagem padrão.");
           }
         }
-        
+
         setTotalImages(storyResult.pages.length);
-        
+
         for (let i = 0; i < storyResult.pages.length; i++) {
           setCurrentImageIndex(i + 1);
           setCurrentStage(`Verificando ilustração ${i + 1} de ${storyResult.pages.length}...`);
@@ -269,7 +274,7 @@ export const useStoryGeneration = () => {
             
             for (let attempt = 0; attempt < maxAttempts && !imageGenerated; attempt++) {
               setImageGenerationAttempts(prev => prev + 1);
-              toast.info(`Gerando ilustração ${i + 1} (tentativa ${attempt + 1} de ${maxAttempts})...`);
+              toast.info(`Gerando ilustração ${i + 1} ${useImgBB ? 'com ImgBB' : ''} (tentativa ${attempt + 1} de ${maxAttempts})...`);
               
               try {
                 if (attempt > 0) {
@@ -284,9 +289,14 @@ export const useStoryGeneration = () => {
                 
                 const newImageUrl = await generateImageWithOpenAI(enhancedPrompt, "1024x1024", theme);
                 if (newImageUrl && !newImageUrl.includes('placeholder') && !newImageUrl.includes('default')) {
-                  storyResult.pages[i].imageUrl = newImageUrl;
-                  console.log(`Generated image ${i+1} successfully with OpenAI`);
-                  imageGenerated = true;
+                  // Usar ImgBB para salvar a imagem permanentemente
+                  const permanentUrl = await saveImagePermanently(newImageUrl, `page_${i+1}_${storyResult.id}`);
+                  
+                  if (permanentUrl) {
+                    storyResult.pages[i].imageUrl = permanentUrl;
+                    console.log(`Generated image ${i+1} and saved ${permanentUrl.includes('ibb.co') ? 'to ImgBB' : 'successfully'}`);
+                    imageGenerated = true;
+                  }
                 } else {
                   console.warn(`Image generation for page ${i+1} returned default/placeholder image:`, newImageUrl);
                 }
@@ -322,7 +332,7 @@ export const useStoryGeneration = () => {
           const progressPerImage = (100 - baseProgress) / storyResult.pages.length;
           setProgress(baseProgress + progressPerImage * (i + 1));
         }
-        
+
         if (storyResult && storyResult.pages) {
           const googleTtsApiKey = localStorage.getItem('google_tts_api_key');
           if (!googleTtsApiKey) {
@@ -402,15 +412,15 @@ export const useStoryGeneration = () => {
             }
           }
         }
-        
+
         return storyResult;
       };
-      
+
       const result = await generateWithPersistence();
-      
+
       setProgress(100);
       setCurrentStage("História gerada com sucesso!");
-      
+
       return result;
     } catch (error) {
       console.error("Erro ao gerar história completa:", error);
@@ -422,7 +432,7 @@ export const useStoryGeneration = () => {
       setGeneratingNarration(false);
     }
   };
-  
+
   const getPageCountFromLength = (length: string): number => {
     switch (length) {
       case "short": return 5;
@@ -431,7 +441,7 @@ export const useStoryGeneration = () => {
       default: return 5;
     }
   };
-  
+
   return {
     generateCompleteStory,
     isGenerating,
@@ -442,6 +452,8 @@ export const useStoryGeneration = () => {
     generatingNarration,
     currentNarrationIndex,
     setPromptById,
-    loadPromptByName
+    loadPromptByName,
+    useImgBB,
+    setUseImgBB
   };
 };

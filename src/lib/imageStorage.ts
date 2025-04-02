@@ -4,12 +4,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDefaultImageForTheme } from './defaultImages';
 import { setupStorageBuckets } from './storageBucketSetup';
 import { toast } from 'sonner';
+import { uploadToImgBB } from './imgbbUploader';
 
 /**
- * Saves an image to permanent storage in Supabase
- * @param imageUrl URL or Base64 of the image
- * @param filename Optional custom filename
- * @returns Promise with the permanent URL
+ * Salva uma imagem permanentemente usando ImgBB primeiro, e como fallback no Supabase
+ * @param imageUrl URL ou Base64 da imagem
+ * @param filename Nome de arquivo personalizado opcional
+ * @returns Promise com a URL permanente
  */
 export const saveImagePermanently = async (imageUrl: string, filename?: string): Promise<string> => {
   if (!imageUrl) {
@@ -18,15 +19,28 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
   }
 
   try {
-    // Check if the URL is already in our storage
-    if (imageUrl.includes('supabase.co/storage/v1/object/public/story_images')) {
+    // Verificar se a URL já está em nosso armazenamento
+    if (imageUrl.includes('supabase.co/storage/v1/object/public/story_images') || 
+        imageUrl.includes('i.ibb.co') || 
+        imageUrl.includes('image.ibb.co')) {
       console.log("Image is already in permanent storage:", imageUrl);
       return imageUrl;
     }
 
     console.log("Saving image permanently:", imageUrl.substring(0, 50) + "...");
     
-    // Set up the bucket if it doesn't exist
+    // Primeiro tenta fazer upload para o ImgBB
+    const imgbbUrl = await uploadToImgBB(imageUrl, filename);
+    
+    if (imgbbUrl) {
+      console.log("Image successfully uploaded to ImgBB:", imgbbUrl);
+      return imgbbUrl;
+    }
+    
+    console.log("Falling back to Supabase storage...");
+    
+    // Se falhar, cai para o Supabase como fallback
+    // Configurar o bucket se não existir
     const bucketSetup = await setupStorageBuckets();
     if (!bucketSetup) {
       console.error("Failed to set up storage bucket");
@@ -36,7 +50,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     
     let blob: Blob;
     
-    // Handle base64 data URLs
+    // Lidar com URLs de dados base64
     if (imageUrl.startsWith('data:')) {
       try {
         const res = await fetch(imageUrl);
@@ -46,7 +60,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
         return getDefaultImageForTheme('default');
       }
     } 
-    // Handle remote URLs
+    // Lidar com URLs remotas
     else {
       try {
         const res = await fetch(imageUrl, {
@@ -71,13 +85,13 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
       return getDefaultImageForTheme('default');
     }
     
-    // Generate unique filename
+    // Gerar nome de arquivo único
     const fileExt = blob.type.split('/')[1] || 'png';
     const uniqueFilename = filename ? 
       `${filename.replace(/\s+/g, '_')}_${uuidv4().substring(0, 8)}.${fileExt}` : 
       `image_${uuidv4()}.${fileExt}`;
     
-    // Upload to Supabase
+    // Upload para Supabase
     const { data, error } = await supabase
       .storage
       .from('story_images')
@@ -90,7 +104,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
     if (error) {
       console.error("Error uploading to Supabase:", error);
       
-      // If the error is because file already exists, try to get the public URL anyway
+      // Se o erro é porque o arquivo já existe, tente obter a URL pública de qualquer maneira
       if (error.message && error.message.includes('already exists')) {
         const { data: existingData } = supabase
           .storage
@@ -104,7 +118,7 @@ export const saveImagePermanently = async (imageUrl: string, filename?: string):
       return getDefaultImageForTheme('default');
     }
     
-    // Get the public URL
+    // Obter a URL pública
     const { data: publicUrlData } = supabase
       .storage
       .from('story_images')
