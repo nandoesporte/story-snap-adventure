@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 const IMGBB_API_KEY = '8a903f565d15f4f8fbb35aaffe5665c5';
 const IMGBB_API_URL = 'https://api.imgbb.com/1/upload';
+const FALLBACK_IMAGE = '/images/defaults/default.jpg';
 
 /**
  * Faz upload de uma imagem para o ImgBB e retorna a URL permanente
@@ -23,22 +24,39 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
     
     // Processar diferentes tipos de entrada de imagem
     if (typeof imageData === 'string') {
-      // Se for uma URL da web ou uma string base64
+      // Verificar se parece ser uma URL do DALL-E/OpenAI que é conhecida por falhar
+      if (imageData.includes('oaidalleapiprodscus.blob.core.windows.net') || 
+          imageData.includes('openai-api-files') || 
+          imageData.includes('openai.com')) {
+        // Esta é uma URL temporária da OpenAI que provavelmente já expirou
+        // Não vamos tentar buscar novamente, pois isso gera erros no console
+        console.log("URL da OpenAI/DALL-E detectada - estas URLs expiram rapidamente");
+        return FALLBACK_IMAGE;
+      }
+
+      // Se for uma imagem base64
       if (imageData.startsWith('data:')) {
-        // É uma imagem base64
         console.log("Processando imagem base64 para ImgBB");
         formData.append('image', imageData.split(',')[1] || imageData);
       } else {
         // É uma URL, precisamos buscar a imagem primeiro
         try {
           console.log("Buscando imagem da URL para upload:", imageData.substring(0, 50) + "...");
+          
+          // Usar AbortController para evitar que o fetch fique pendurado
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+          
           const response = await fetch(imageData, { 
             method: 'GET',
             headers: {
-              'Cache-Control': 'no-cache'
+              'Cache-Control': 'no-cache',
             },
-            cache: 'no-store'
+            cache: 'no-store',
+            signal: controller.signal
           });
+          
+          clearTimeout(timeout);
           
           if (!response.ok) {
             throw new Error(`Falha ao buscar imagem da URL: ${response.status}`);
@@ -46,11 +64,21 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
           
           const blob = await response.blob();
           console.log(`Imagem obtida com sucesso: ${blob.size} bytes, tipo: ${blob.type}`);
+          
+          // Verificar se é uma imagem válida
+          if (blob.size < 100) {
+            console.error("Arquivo de imagem muito pequeno, provavelmente corrupto ou inválido");
+            return FALLBACK_IMAGE;
+          }
+          
           formData.append('image', blob);
         } catch (error) {
           console.error("Erro ao buscar imagem da URL:", error);
-          toast.error("Erro ao buscar imagem da URL");
-          return null;
+          toast.error("Erro ao buscar imagem da URL", {
+            id: 'fetch-image-error',
+            duration: 3000
+          });
+          return FALLBACK_IMAGE;
         }
       }
     } else {
@@ -67,12 +95,19 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
     // Adicionar a chave da API
     formData.append('key', IMGBB_API_KEY);
     
-    // Fazer a requisição para o ImgBB
+    // Fazer a requisição para o ImgBB com timeout
     console.log("Enviando imagem para ImgBB...");
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
+    
     const response = await fetch(IMGBB_API_URL, {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: controller.signal
     });
+    
+    clearTimeout(timeout);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -91,7 +126,10 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
     return result.data.url;
   } catch (error) {
     console.error("Erro ao fazer upload para ImgBB:", error);
-    toast.error("Falha ao fazer upload da imagem para ImgBB");
-    return null;
+    toast.error("Falha ao fazer upload da imagem para ImgBB", {
+      id: 'imgbb-error',
+      duration: 3000
+    });
+    return FALLBACK_IMAGE; // Retornar imagem padrão em caso de erro para evitar quebra de UI
   }
 };

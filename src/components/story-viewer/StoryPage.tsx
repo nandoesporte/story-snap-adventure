@@ -6,6 +6,7 @@ import { fixImageUrl, getImageUrl, isPermanentStorage } from "./helpers";
 import { toast } from "sonner";
 import { saveImagePermanently } from "@/lib/imageStorage";
 import ImageFixButton from "./ImageFixButton";
+import { useStoryImages } from "@/hooks/useStoryImages";
 
 interface StoryPageProps {
   pageNumber: number;
@@ -37,130 +38,57 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [loadRetry, setLoadRetry] = useState(0);
-  const [processedImageUrl, setProcessedImageUrl] = useState("");
   const [showFixButton, setShowFixButton] = useState(false);
   const displayText = typedText || text || "";
   
+  // Use the dedicated hook for managing image URLs
+  const { 
+    processedUrl, 
+    isLoading: imageLoading, 
+    hasError: imageError, 
+    retry: retryImageLoad 
+  } = useStoryImages(imageUrl);
+  
   useEffect(() => {
-    let fixedUrl = "";
-    try {
-      if (imageUrl) {
-        fixedUrl = fixImageUrl(getImageUrl(imageUrl, theme));
-        console.log(`Page ${pageNumber} using image URL:`, fixedUrl);
-        setProcessedImageUrl(fixedUrl);
-        setImageLoadFailed(false);
-      } else {
-        const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
-        console.log(`Page ${pageNumber} using default image:`, defaultUrl);
-        setProcessedImageUrl(defaultUrl);
-        setShowFixButton(true);
-      }
-    } catch (error) {
-      console.error(`Error processing image URL for page ${pageNumber}:`, error);
-      const defaultUrl = `/images/defaults/${theme || 'default'}.jpg`;
-      setProcessedImageUrl(defaultUrl);
+    if (imageError) {
+      console.log(`Image error detected for page ${pageNumber}, URL: ${imageUrl}`);
+      setImageLoadFailed(true);
       setShowFixButton(true);
-      toast.error("Erro ao processar imagem", {
-        description: "Usando imagem padrão",
-        duration: 3000,
-        id: `image-error-${pageNumber}`
-      });
+      onImageError(imageUrl);
     }
-  }, [imageUrl, theme, pageNumber]);
+  }, [imageError, imageUrl, onImageError, pageNumber]);
   
-  const isPermanent = isPermanentStorage(processedImageUrl);
-  
-  const fallbackImage = `/images/defaults/${theme || 'default'}.jpg`;
+  // Update visibility of fix button based on image status
+  useEffect(() => {
+    const needsFixButton = imageError || imageLoadFailed || !imageUrl || imageUrl.includes('/images/defaults/');
+    setShowFixButton(needsFixButton);
+  }, [imageError, imageLoadFailed, imageUrl]);
   
   const paragraphs = displayText ? displayText.split("\n").filter(p => p.trim().length > 0) : [];
   
-  useEffect(() => {
-    if (!isPermanent && imageUrl && !imageUrl.startsWith('/images/defaults/') && loadRetry === 0) {
-      console.log(`Attempting to save non-permanent image for page ${pageNumber} to permanent storage`);
-      
-      const saveWithRetry = async () => {
-        let attempts = 0;
-        let success = false;
-        
-        while (attempts < 3 && !success) {
-          try {
-            const permanentUrl = await saveImagePermanently(imageUrl, `story_page_${pageNumber}_attempt${attempts}`);
-            
-            if (permanentUrl && permanentUrl !== imageUrl && permanentUrl.includes('ibb.co')) {
-              console.log(`Successfully saved page ${pageNumber} image to permanent storage:`, permanentUrl);
-              setProcessedImageUrl(permanentUrl);
-              setLoadRetry(prev => prev + 1);
-              success = true;
-            } else {
-              console.log(`Attempt ${attempts + 1} failed, retrying...`);
-              attempts++;
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          } catch (error) {
-            console.error(`Attempt ${attempts + 1} failed with error:`, error);
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-        
-        if (!success) {
-          console.error(`Failed to save image after ${attempts} attempts`);
-          setShowFixButton(true);
-          toast.error("Não foi possível salvar a imagem permanentemente após várias tentativas");
-        }
-      };
-      
-      saveWithRetry();
-    }
-  }, [imageUrl, pageNumber, isPermanent, loadRetry]);
-  
   const handleImageClick = () => {
     if (!imageLoadFailed) {
-      onImageClick(processedImageUrl || imageUrl);
+      onImageClick(processedUrl || imageUrl);
     }
   };
   
   const handleImageError = () => {
-    console.error("Failed to load image in StoryPage:", processedImageUrl, "Original URL:", imageUrl);
+    console.error("Failed to load image in StoryPage:", processedUrl, "Original URL:", imageUrl);
     setImageLoadFailed(true);
     setShowFixButton(true);
-    onImageError(processedImageUrl || imageUrl);
+    onImageError(processedUrl || imageUrl);
     
-    if (!imageLoadFailed && !isPermanent && loadRetry < 2) {
-      console.log(`Attempting to save failed image for page ${pageNumber} to permanent storage (retry ${loadRetry + 1})`);
-      
-      const tryAlternativeMethod = async () => {
-        try {
-          const response = await fetch(imageUrl, { cache: 'no-store' });
-          if (response.ok) {
-            const imageBlob = await response.blob();
-            // Using updated saveImagePermanently that accepts both string and Blob
-            const permanentUrl = await saveImagePermanently(imageBlob, `story_page_${pageNumber}_errorfallback`);
-            
-            if (permanentUrl && permanentUrl !== imageUrl && permanentUrl !== processedImageUrl) {
-              console.log(`Got permanent URL for failed image on page ${pageNumber}:`, permanentUrl);
-              setProcessedImageUrl(permanentUrl);
-              setLoadRetry(prev => prev + 1);
-              setImageLoadFailed(false);
-            } else {
-              setShowFixButton(true);
-            }
-          } else {
-            setShowFixButton(true);
-          }
-        } catch (error) {
-          console.error("Alternative image saving method failed:", error);
-          setShowFixButton(true);
-        }
-      };
-      
-      tryAlternativeMethod();
+    // Try to reload with new URL
+    if (!isPermanentStorage(processedUrl) && loadRetry < 2) {
+      console.log(`Attempting to reload image for page ${pageNumber} (retry ${loadRetry + 1})`);
+      retryImageLoad();
+      setLoadRetry(prev => prev + 1);
     }
   };
 
   const handleImageFixed = (fixedUrls: Record<string, string>) => {
     if (fixedUrls[imageUrl]) {
-      setProcessedImageUrl(fixedUrls[imageUrl]);
+      retryImageLoad();
       setImageLoadFailed(false);
       setShowFixButton(false);
       console.log(`Image for page ${pageNumber} fixed with new URL:`, fixedUrls[imageUrl]);
@@ -187,14 +115,25 @@ export const StoryPage: React.FC<StoryPageProps> = ({
     }
   };
 
+  // Extra safety measure - if all else fails, use the theme default image
+  const fallbackImage = `/images/defaults/${theme || 'default'}.jpg`;
+  
+  // Add debugging display for development
+  const debugInfo = process.env.NODE_ENV === 'development' && (
+    <div className="absolute top-1 right-1 bg-black/50 text-white p-1 text-xs rounded z-50 max-w-[200px] truncate">
+      Page: {pageNumber}, Status: {imageLoading ? 'Loading' : (imageError ? 'Error' : 'OK')}
+    </div>
+  );
+
   return isMobile ? (
     <div 
       className={`w-full h-full flex flex-col relative ${isFullscreenMode ? 'fixed inset-0 z-50 bg-black' : ''}`}
       onDoubleClick={handleDoubleTap}
     >
       <div className="absolute inset-0 z-0">
+        {debugInfo}
         <CoverImage 
-          imageUrl={processedImageUrl}
+          imageUrl={processedUrl}
           fallbackImage={fallbackImage}
           alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
           className={`w-full h-full ${isFullscreenMode ? 'object-contain' : 'object-cover'}`}
@@ -251,13 +190,14 @@ export const StoryPage: React.FC<StoryPageProps> = ({
   ) : (
     <div className="w-full h-full flex md:flex-row">
       <div className="w-1/2 h-full flex items-center justify-center p-4 bg-gray-50 relative">
+        {debugInfo}
         <motion.div 
           className="relative w-full h-full flex items-center justify-center"
           whileHover={{ scale: 1.01 }}
           transition={{ duration: 0.2 }}
         >
           <CoverImage 
-            imageUrl={processedImageUrl}
+            imageUrl={processedUrl}
             fallbackImage={fallbackImage}
             alt={`Ilustração da página ${pageNumber} de ${totalPages}`}
             className="max-w-full max-h-full object-contain rounded-md shadow-lg"
