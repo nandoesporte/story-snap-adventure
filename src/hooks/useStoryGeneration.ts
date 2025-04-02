@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
 import { useStoryNarration } from "./useStoryNarration";
 import { v4 as uuidv4 } from "uuid";
 import { saveImagePermanently } from "@/lib/imageStorage";
+import { VoiceType } from "@/lib/tts";
 
 interface StoryResult {
   id: string;
@@ -14,6 +16,7 @@ interface StoryResult {
   theme: string;
   setting: string;
   characterPrompt: string;
+  voiceType: VoiceType;
   pages: Array<{
     text: string;
     imageUrl: string;
@@ -62,7 +65,7 @@ export const useStoryGeneration = () => {
     language: string = "portuguese",
     childImageBase64: string | null = null,
     style: string = "papercraft",
-    voiceType: 'male' | 'female' = 'female'
+    voiceType: VoiceType = 'female'
   ) => {
     try {
       setIsGenerating(true);
@@ -182,6 +185,7 @@ export const useStoryGeneration = () => {
           theme,
           setting,
           characterPrompt,
+          voiceType: voiceType,
           pages: result.pages
         };
         
