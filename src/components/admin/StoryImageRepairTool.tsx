@@ -29,12 +29,61 @@ const StoryImageRepairTool = () => {
   // Function to fetch an image as blob
   const fetchImageAsBlob = async (url: string): Promise<Blob | null> => {
     try {
-      const response = await fetch(url, { cache: 'no-store' });
-      if (!response.ok) return null;
+      const response = await fetch(url, { 
+        cache: 'no-store',
+        // Add credentials: 'omit' to avoid CORS issues with authenticated requests
+        credentials: 'omit',
+        // Add mode: 'cors' to explicitly request CORS
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch image from ${url}: ${response.status} ${response.statusText}`);
+        return null;
+      }
+      
       return await response.blob();
     } catch (error) {
       console.error(`Error fetching image from ${url}:`, error);
       return null;
+    }
+  };
+
+  // Function to ensure the bucket exists
+  const ensureStorageBucketExists = async (): Promise<boolean> => {
+    try {
+      // Check if bucket exists
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.error("Error listing buckets:", listError);
+        return false;
+      }
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === 'story_images');
+      
+      if (!bucketExists) {
+        // Try creating the bucket if it doesn't exist
+        console.log("Bucket 'story_images' does not exist, attempting to create it");
+        const { data, error } = await supabase.storage.createBucket('story_images', {
+          public: true,
+          fileSizeLimit: 5242880 // 5MB
+        });
+        
+        if (error) {
+          console.error("Error creating bucket:", error);
+          return false;
+        }
+        
+        console.log("Bucket 'story_images' created successfully");
+      } else {
+        console.log("Bucket 'story_images' already exists");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error ensuring bucket exists:", error);
+      return false;
     }
   };
 
@@ -44,21 +93,11 @@ const StoryImageRepairTool = () => {
       console.log(`Attempting to save image to Supabase storage: ${fileName}`);
       
       // Ensure the story_images bucket exists
-      try {
-        const { data: buckets } = await supabase.storage.listBuckets();
-        if (!buckets?.some(bucket => bucket.name === 'story_images')) {
-          const { data, error } = await supabase.storage.createBucket('story_images', { 
-            public: true,
-            fileSizeLimit: 5242880 // 5MB limit
-          });
-          
-          if (error) {
-            console.error("Error creating bucket:", error);
-            return null;
-          }
-        }
-      } catch (bucketError) {
-        console.error("Error checking/creating bucket:", bucketError);
+      const bucketReady = await ensureStorageBucketExists();
+      
+      if (!bucketReady) {
+        toast.error("Não foi possível acessar o bucket de armazenamento");
+        return null;
       }
 
       // Convert string URL to blob if needed
@@ -77,17 +116,34 @@ const StoryImageRepairTool = () => {
       // Determine content type
       const contentType = imageBlob.type || 'image/png';
       
-      // Upload the blob to Supabase
+      // Log the blob size and type for debugging
+      console.log(`Uploading image: ${fileName}, size: ${imageBlob.size} bytes, type: ${contentType}`);
+      
+      // Upload the blob to Supabase with the repaired/ prefix
+      const filePath = `repaired/${fileName}`;
       const { data, error } = await supabase
         .storage
         .from('story_images')
-        .upload(`repaired/${fileName}`, imageBlob, {
+        .upload(filePath, imageBlob, {
           contentType,
-          upsert: true
+          upsert: true,
+          cacheControl: '3600'
         });
 
       if (error) {
         console.error("Error uploading to Supabase:", error);
+        
+        if (error.message.includes("The resource already exists")) {
+          // If the file already exists, let's just get its public URL
+          console.log("File already exists, retrieving public URL");
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('story_images')
+            .getPublicUrl(filePath);
+            
+          return publicUrlData.publicUrl;
+        }
+        
         return null;
       }
 
@@ -95,7 +151,7 @@ const StoryImageRepairTool = () => {
       const { data: publicUrlData } = supabase
         .storage
         .from('story_images')
-        .getPublicUrl(`repaired/${fileName}`);
+        .getPublicUrl(filePath);
 
       console.log("Image saved to Supabase:", publicUrlData.publicUrl);
       return publicUrlData.publicUrl;
@@ -117,6 +173,14 @@ const StoryImageRepairTool = () => {
       setResults([]);
 
       toast.info("Iniciando reparo de imagens...");
+
+      // First ensure storage bucket exists
+      const bucketReady = await ensureStorageBucketExists();
+      if (!bucketReady) {
+        toast.error("Não foi possível acessar ou criar o bucket de armazenamento");
+        setIsScanning(false);
+        return;
+      }
 
       // Step 1: Get all stories
       const { data: stories, error } = await supabase
@@ -152,10 +216,11 @@ const StoryImageRepairTool = () => {
           try {
             console.log(`Processando imagem de capa para história ${story.id}: ${story.cover_image_url}`);
             
-            // Always try to migrate image, even if accessible
+            // Try to access the image first
             const isAccessible = await testImageAccess(story.cover_image_url);
             console.log(`Cover image accessible: ${isAccessible}`);
             
+            // Always try to migrate image to Supabase storage
             // Generate a unique filename for the image
             const fileName = `cover_${story.id}_${Date.now()}.png`;
             
@@ -200,10 +265,11 @@ const StoryImageRepairTool = () => {
               try {
                 console.log(`Processando imagem da página ${pageIndex + 1} para história ${story.id}: ${imageUrl}`);
                 
-                // Always try to migrate image, even if accessible
+                // Try to access the image first
                 const isAccessible = await testImageAccess(imageUrl);
                 console.log(`Page ${pageIndex + 1} image accessible: ${isAccessible}`);
                 
+                // Always try to migrate image to Supabase storage
                 // Generate a unique filename for the image
                 const fileName = `${story.id}_page${pageIndex}_${Date.now()}.png`;
                 
