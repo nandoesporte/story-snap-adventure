@@ -31,7 +31,7 @@ interface StoryResult {
     text: string;
     imageUrl: string;
   }>;
-  voiceType?: 'male' | 'female';
+  voiceType: 'male' | 'female';
 }
 
 const CreateStory: React.FC = () => {
@@ -63,11 +63,9 @@ const CreateStory: React.FC = () => {
 
   const { saveStory, isSaving } = useStoryCreation();
 
-  // Load default prompt for story generation
   useEffect(() => {
     const loadDefaultPrompt = async () => {
       try {
-        // Load the default prompt instead of asking for selection
         await loadPromptByName('Prompt Padrão');
       } catch (error) {
         console.error("Error loading default prompt:", error);
@@ -78,7 +76,6 @@ const CreateStory: React.FC = () => {
     loadDefaultPrompt();
   }, [loadPromptByName]);
 
-  // Check if OpenAI API key is available
   useEffect(() => {
     const checkApiKey = async () => {
       try {
@@ -100,7 +97,6 @@ const CreateStory: React.FC = () => {
       setLoadingSuggestions(true);
       setStep('details');
 
-      // Generate AI suggestions based on the prompt
       const messages = [
         { role: "user" as const, content: "I want to create a children's story." }
       ];
@@ -120,13 +116,11 @@ const CreateStory: React.FC = () => {
       const response = await generateStoryBotResponse(messages, userPrompt);
       
       try {
-        // Try to parse the response as JSON
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const suggestions = JSON.parse(jsonMatch[0]);
           setAiSuggestions(suggestions);
         } else {
-          // If JSON parsing fails, use a regex-based approach to extract suggestions
           const themeMatch = response.match(/theme["\s:]*([^"\n,}]+)/i);
           const settingMatch = response.match(/setting["\s:]*([^"\n,}]+)/i);
           const moralMatch = response.match(/moral["\s:]*([^"\n,}]+)/i);
@@ -158,7 +152,6 @@ const CreateStory: React.FC = () => {
     setGenerationCanceled(false);
 
     try {
-      // Start generating the complete story
       const storyResult = await generateCompleteStory(
         data.childName,
         data.childAge,
@@ -178,15 +171,11 @@ const CreateStory: React.FC = () => {
         return;
       }
       
-      // If we have a story result, store it and save it
       if (storyResult) {
-        // Make sure we have a proper result before saving
         console.log("Story generation completed successfully:", storyResult);
         
-        // First save to session storage to make sure we have a copy
         sessionStorage.setItem("storyData", JSON.stringify(storyResult));
         
-        // Then try to save to the database
         try {
           const storyId = await saveStory({
             title: storyResult.title,
@@ -202,10 +191,8 @@ const CreateStory: React.FC = () => {
           toast.success("História gerada e salva com sucesso!");
           
           if (storyId) {
-            // If we have an ID, navigate to the specific story
             navigate(`/view-story/${storyId}`);
           } else {
-            // Otherwise just go to the generic view page
             navigate("/view-story");
           }
         } catch (saveError) {
