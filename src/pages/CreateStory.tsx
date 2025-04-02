@@ -10,11 +10,28 @@ import StoryPromptInput from '@/components/StoryPromptInput';
 import StoryForm from '@/components/StoryForm';
 import { useStoryGeneration } from '@/hooks/useStoryGeneration';
 import { useStoryCreation } from '@/hooks/useStoryCreation';
+import StoryGenerationProgress from '@/components/StoryGenerationProgress';
 
 interface AISuggestions {
   theme?: string;
   setting?: string;
   moral?: string;
+}
+
+interface StoryResult {
+  id: string;
+  title: string;
+  coverImageUrl: string;
+  childName: string;
+  childAge: string;
+  theme: string;
+  setting: string;
+  characterPrompt: string;
+  pages: Array<{
+    text: string;
+    imageUrl: string;
+  }>;
+  voiceType?: 'male' | 'female';
 }
 
 const CreateStory: React.FC = () => {
@@ -177,7 +194,7 @@ const CreateStory: React.FC = () => {
             childAge: storyResult.childAge || "",
             theme: storyResult.theme,
             setting: storyResult.setting,
-            coverImageUrl: storyResult.coverImageUrl || storyResult.cover_image_url,
+            coverImageUrl: storyResult.coverImageUrl,
             pages: storyResult.pages,
             voiceType: storyResult.voiceType || 'female'
           });
