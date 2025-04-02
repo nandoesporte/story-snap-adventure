@@ -11,6 +11,7 @@ import StoryForm from '@/components/StoryForm';
 import { useStoryGeneration } from '@/hooks/useStoryGeneration';
 import { useStoryCreation } from '@/hooks/useStoryCreation';
 import StoryGenerationProgress from '@/components/StoryGenerationProgress';
+import { VoiceType } from '@/lib/tts';
 
 interface AISuggestions {
   theme?: string;
@@ -27,7 +28,7 @@ interface StoryResult {
   theme: string;
   setting: string;
   characterPrompt: string;
-  voiceType: 'male' | 'female';
+  voiceType: VoiceType;
   pages: Array<{
     text: string;
     imageUrl: string;
