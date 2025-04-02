@@ -3,8 +3,9 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ExternalLink, Code, FileText } from "lucide-react";
+import { ShieldCheck, ExternalLink, Code, FileText, Lock } from "lucide-react";
 import { getStorageAccessHelp } from "@/lib/storageBucketSetup";
+import { useAuth } from "@/context/AuthContext";
 
 interface StorageConfigAlertProps {
   className?: string;
@@ -12,6 +13,8 @@ interface StorageConfigAlertProps {
 }
 
 const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertProps) => {
+  const { user } = useAuth();
+  
   const openSupabaseDashboard = () => {
     window.open("https://supabase.com/dashboard", "_blank");
   };
@@ -28,7 +31,8 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
           Configuração de Armazenamento
         </AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
-          <p>Políticas RLS configuradas para o bucket "story_images". Acesso público para visualização e upload para usuários autenticados.</p>
+          <p>Políticas RLS configuradas para o bucket "story_images". 
+             {!user && <span className="font-medium text-amber-600"> Faça login para fazer upload de imagens.</span>}</p>
           <div className="flex gap-2 items-center justify-start">
             <Button 
               variant="link" 
@@ -48,19 +52,31 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
       <CardHeader className="pb-2">
         <CardTitle className="text-xl flex items-center text-blue-700">
           <ShieldCheck className="h-5 w-5 mr-2 text-green-600" />
-          Configuração de Armazenamento Concluída
+          Status do Armazenamento de Imagens
         </CardTitle>
         <CardDescription className="text-blue-600">
-          As políticas RLS para o bucket "story_images" foram configuradas com sucesso. Se você encontrar problemas de acesso, verifique as configurações abaixo.
+          O bucket "story_images" está configurado com políticas RLS adequadas.
+          {!user && <span className="font-medium text-red-600"> Você precisa estar logado para fazer upload de imagens.</span>}
         </CardDescription>
       </CardHeader>
       <CardContent className="text-blue-700">
+        <div className="flex items-start gap-2 mb-4">
+          <Lock className="h-5 w-5 text-amber-500 mt-1" />
+          <div>
+            <p className="font-medium">Status da autenticação:</p>
+            {user ? (
+              <p className="text-green-700">Usuário autenticado como {user.email || 'usuário anônimo'}</p>
+            ) : (
+              <p className="text-red-600 font-medium">Usuário não autenticado - faça login para fazer upload de imagens</p>
+            )}
+          </div>
+        </div>
+        
         <ol className="list-decimal pl-5 space-y-2 mb-4">
-          <li>O bucket "story_images" está configurado como "Public"</li>
-          <li>Políticas RLS apropriadas foram aplicadas para leitura pública</li>
-          <li>Usuários autenticados podem fazer upload de imagens</li>
-          <li>Usuários autenticados podem gerenciar seus próprios objetos</li>
-          <li>Se encontrar problemas, verifique as permissões do usuário atual</li>
+          <li className="text-blue-700">O bucket "story_images" está configurado como "Public"</li>
+          <li className="text-blue-700">Políticas RLS aplicadas para leitura pública</li>
+          <li className={user ? "text-blue-700" : "text-amber-600 font-medium"}>Usuários autenticados podem fazer upload de imagens</li>
+          <li className={user ? "text-blue-700" : "text-amber-600"}>Usuários autenticados podem gerenciar seus próprios objetos</li>
         </ol>
         
         <div className="bg-blue-100 p-3 rounded-md border border-blue-300 flex items-start mt-2">
