@@ -7,8 +7,8 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useStoryBot } from '@/hooks/useStoryBot';
-import { StoryPromptInput } from '@/components/StoryPromptInput';
-import { StoryForm, StoryFormData } from '@/components/StoryForm';
+import StoryPromptInput from '@/components/StoryPromptInput';
+import StoryForm, { StoryFormData } from '@/components/StoryForm';
 
 interface AISuggestions {
   theme?: string;
