@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { useStoryBot } from "./useStoryBot";
@@ -201,7 +202,7 @@ export const useStoryGeneration = () => {
           
           for (let attempt = 0; attempt < maxCoverAttempts && !coverGenerated; attempt++) {
             setCoverImageAttempt(attempt + 1);
-            toast.info(`Gerando capa do livro ${useImgBB ? 'com ImgBB' : ''} (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
+            toast.info(`Gerando capa do livro com ImgBB (tentativa ${attempt + 1} de ${maxCoverAttempts})...`);
             
             try {
               if (storyResult.pages && storyResult.pages.length > 0 && 
@@ -230,7 +231,7 @@ export const useStoryGeneration = () => {
                   
                   if (permanentUrl) {
                     storyResult.coverImageUrl = permanentUrl;
-                    toast.success(`Capa gerada e salva ${permanentUrl.includes('ibb.co') ? 'no ImgBB' : 'com sucesso'}!`);
+                    toast.success(`Capa gerada e salva no ImgBB!`);
                     coverGenerated = true;
                   }
                 }
@@ -274,7 +275,7 @@ export const useStoryGeneration = () => {
             
             for (let attempt = 0; attempt < maxAttempts && !imageGenerated; attempt++) {
               setImageGenerationAttempts(prev => prev + 1);
-              toast.info(`Gerando ilustração ${i + 1} ${useImgBB ? 'com ImgBB' : ''} (tentativa ${attempt + 1} de ${maxAttempts})...`);
+              toast.info(`Gerando ilustração ${i + 1} com ImgBB (tentativa ${attempt + 1} de ${maxAttempts})...`);
               
               try {
                 if (attempt > 0) {
@@ -294,7 +295,7 @@ export const useStoryGeneration = () => {
                   
                   if (permanentUrl) {
                     storyResult.pages[i].imageUrl = permanentUrl;
-                    console.log(`Generated image ${i+1} and saved ${permanentUrl.includes('ibb.co') ? 'to ImgBB' : 'successfully'}`);
+                    console.log(`Generated image ${i+1} and saved to ImgBB`);
                     imageGenerated = true;
                   }
                 } else {

@@ -1,10 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { saveImagePermanently } from '@/lib/imageStorage';
 
-// Este hook ajuda a garantir que as URLs das imagens das histórias sejam válidas e persistentes
-export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story_images') => {
+// Este hook ajuda a garantir que as URLs das imagens das histórias sejam válidas e permanentes
+export const useStoryImages = (imageUrl: string | undefined) => {
   const [processedUrl, setProcessedUrl] = useState<string>(imageUrl || '/images/defaults/default.jpg');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -35,16 +34,16 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           setProcessedUrl(cachedUrl);
           setIsLoading(false);
           
-          // Verificar se a URL é do armazenamento permanente
-          if (cachedUrl.includes('supabase.co/storage/v1/object/public/story_images')) {
+          // Verificar se a URL é do ImgBB
+          if (cachedUrl.includes('i.ibb.co') || cachedUrl.includes('image.ibb.co')) {
             setIsPermanent(true);
           }
           return;
         }
         
-        // Handle URL that's already in storage bucket
-        if (imageUrl.includes('object/public/story_images')) {
-          console.log("URL already in permanent storage:", imageUrl);
+        // Handle URL that's already in ImgBB
+        if (imageUrl.includes('i.ibb.co') || imageUrl.includes('image.ibb.co')) {
+          console.log("URL already in ImgBB:", imageUrl);
           setProcessedUrl(imageUrl);
           setIsPermanent(true);
           try {
@@ -56,14 +55,14 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Try to save image permanently
+        // Try to save image permanently with ImgBB
         if (!isPermanent) {
           try {
-            console.log("Attempting to save image permanently:", imageUrl);
+            console.log("Attempting to save image permanently with ImgBB:", imageUrl);
             const permanentUrl = await saveImagePermanently(imageUrl);
             
             if (permanentUrl !== imageUrl) {
-              console.log("Image saved to permanent storage:", permanentUrl);
+              console.log("Image saved to ImgBB:", permanentUrl);
               setProcessedUrl(permanentUrl);
               setIsPermanent(true);
               try {
@@ -75,7 +74,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
               return;
             }
           } catch (saveError) {
-            console.error("Error saving image to permanent storage:", saveError);
+            console.error("Error saving image to ImgBB:", saveError);
             // Continue with fallback methods if permanent save fails
           }
         }
@@ -147,64 +146,6 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
           return;
         }
         
-        // Handle old Supabase storage format
-        if (imageUrl.includes('supabase') && imageUrl.includes('storage') && !imageUrl.includes('object')) {
-          console.log("Processing old Supabase storage URL:", imageUrl);
-          try {
-            const urlObj = new URL(imageUrl);
-            const pathParts = urlObj.pathname.split('/');
-            const fileName = pathParts[pathParts.length - 1];
-            
-            // Get public URL from Supabase
-            const { data } = supabase
-              .storage
-              .from(bucketName)
-              .getPublicUrl(fileName);
-            
-            // Verify file exists
-            try {
-              const { data: fileExists } = await supabase
-                .storage
-                .from(bucketName)
-                .list('', { 
-                  search: fileName 
-                });
-                
-              if (!fileExists || fileExists.length === 0) {
-                console.warn(`Image not found in storage: ${fileName}`);
-                const cachedUrl = localStorage.getItem(`image_cache_${fileName}`);
-                if (cachedUrl) {
-                  setProcessedUrl(cachedUrl);
-                  setIsLoading(false);
-                  return;
-                }
-                setProcessedUrl('/images/defaults/default.jpg');
-                setHasError(true);
-              } else {
-                const publicUrl = data.publicUrl;
-                console.log("Processed Supabase URL:", publicUrl);
-                setIsPermanent(true);
-                try {
-                  localStorage.setItem(`image_cache_${fileName}`, publicUrl);
-                } catch (error) {
-                  console.error("Error saving URL to cache:", error);
-                }
-                setProcessedUrl(publicUrl);
-              }
-            } catch (checkError) {
-              console.error("Error checking file existence:", checkError);
-              setProcessedUrl('/images/defaults/default.jpg');
-              setHasError(true);
-            }
-          } catch (error) {
-            console.error('Failed to process storage URL:', error);
-            setProcessedUrl('/images/defaults/default.jpg');
-            setHasError(true);
-          }
-          setIsLoading(false);
-          return;
-        }
-        
         // Handle base64 images
         if (imageUrl.startsWith('data:image')) {
           console.log("Processing base64 image");
@@ -251,7 +192,7 @@ export const useStoryImages = (imageUrl: string | undefined, bucketName = 'story
     };
 
     processImageUrl();
-  }, [imageUrl, bucketName, isPermanent]);
+  }, [imageUrl, isPermanent]);
   
   // Hash function helper
   const hashString = async (str: string): Promise<string> => {
