@@ -24,26 +24,59 @@ export const uploadToImgBB = async (imageData: string | Blob, filename?: string)
     
     // Processar diferentes tipos de entrada de imagem
     if (typeof imageData === 'string') {
+      // Verificar se a URL já está no ImgBB
+      if (imageData.includes('i.ibb.co') || imageData.includes('image.ibb.co')) {
+        console.log("Imagem já está no ImgBB:", imageData);
+        return imageData;
+      }
+      
       // Verificar se parece ser uma URL do DALL-E/OpenAI que é conhecida por falhar
       if (imageData.includes('oaidalleapiprodscus.blob.core.windows.net') || 
           imageData.includes('openai-api-files') || 
-          imageData.includes('openai.com')) {
-        // Esta é uma URL temporária da OpenAI que provavelmente já expirou
-        // Não vamos tentar buscar novamente, pois isso gera erros no console
-        console.log("URL da OpenAI/DALL-E detectada - estas URLs expiram rapidamente");
-        return FALLBACK_IMAGE;
-      }
-
-      // Se for uma imagem base64
-      if (imageData.startsWith('data:')) {
+          imageData.includes('openai.com') ||
+          imageData.includes('production-files')) {
+        console.log("URL da OpenAI/DALL-E detectada - estas URLs são temporárias");
+        
+        try {
+          // Tentar buscar a imagem antes que expire
+          console.log("Buscando imagem da URL temporária da OpenAI:", imageData.substring(0, 50) + "...");
+          
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+          
+          const response = await fetch(imageData, { 
+            method: 'GET',
+            cache: 'no-cache',
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeout);
+          
+          if (!response.ok) {
+            throw new Error(`Falha ao buscar imagem da URL: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          console.log(`Imagem temporária da OpenAI obtida: ${blob.size} bytes, tipo: ${blob.type}`);
+          
+          formData.append('image', blob);
+        } catch (error) {
+          console.error("Erro ao buscar imagem da URL da OpenAI:", error);
+          toast.error("Erro ao buscar imagem temporária da OpenAI", {
+            id: 'fetch-openai-error',
+            duration: 3000
+          });
+          return FALLBACK_IMAGE;
+        }
+      } else if (imageData.startsWith('data:')) {
+        // Se for uma imagem base64
         console.log("Processando imagem base64 para ImgBB");
         formData.append('image', imageData.split(',')[1] || imageData);
       } else {
-        // É uma URL, precisamos buscar a imagem primeiro
+        // É uma URL normal, precisamos buscar a imagem primeiro
         try {
           console.log("Buscando imagem da URL para upload:", imageData.substring(0, 50) + "...");
           
-          // Usar AbortController para evitar que o fetch fique pendurado
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
           

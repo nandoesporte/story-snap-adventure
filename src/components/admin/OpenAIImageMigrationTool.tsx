@@ -1,15 +1,14 @@
 
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/lib/supabase";
-import { saveImagePermanently } from "@/lib/imageStorage";
+import { uploadToImgBB } from "@/lib/imgbbUploader";
 import { ImageIcon, CheckCircle2, AlertTriangle, RefreshCcw } from "lucide-react";
-import { isTemporaryUrl } from "@/components/story-viewer/helpers";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 
 const OpenAIImageMigrationTool = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -68,11 +67,14 @@ const OpenAIImageMigrationTool = () => {
         let storyUpdated = false;
 
         // Check cover image
-        if (story.cover_image_url && isTemporaryUrl(story.cover_image_url)) {
+        if (story.cover_image_url && 
+          (story.cover_image_url.includes('oaidalleapiprodscus.blob.core.windows.net') || 
+           story.cover_image_url.includes('openai') ||
+           story.cover_image_url.includes('production-files'))) {
           totalProcessed++;
           try {
             console.log(`Migrando imagem de capa para a história ${story.id}: ${story.cover_image_url}`);
-            const permanentUrl = await saveImagePermanently(story.cover_image_url, `cover_${story.id}`);
+            const permanentUrl = await uploadToImgBB(story.cover_image_url, `cover_${story.id}`);
             
             if (permanentUrl && permanentUrl !== story.cover_image_url) {
               updatedStory.cover_image_url = permanentUrl;
@@ -98,11 +100,14 @@ const OpenAIImageMigrationTool = () => {
             const page = updatedPages[pageIndex];
             const imageUrl = page.imageUrl || page.image_url;
             
-            if (imageUrl && isTemporaryUrl(imageUrl)) {
+            if (imageUrl && 
+               (imageUrl.includes('oaidalleapiprodscus.blob.core.windows.net') || 
+                imageUrl.includes('openai') ||
+                imageUrl.includes('production-files'))) {
               totalProcessed++;
               try {
                 console.log(`Migrando imagem da página ${pageIndex + 1} para história ${story.id}: ${imageUrl}`);
-                const permanentUrl = await saveImagePermanently(imageUrl, `${story.id}_page${pageIndex}`);
+                const permanentUrl = await uploadToImgBB(imageUrl, `${story.id}_page${pageIndex}`);
                 
                 if (permanentUrl && permanentUrl !== imageUrl) {
                   updatedPages[pageIndex] = {
@@ -171,10 +176,158 @@ const OpenAIImageMigrationTool = () => {
         }
       }
 
-      toast.success(`Migração de imagens concluída! ${totalFixed} imagens salvas permanentemente.`);
+      toast.success(`Migração de imagens concluída! ${totalFixed} imagens OpenAI salvas permanentemente.`);
     } catch (error) {
       console.error("Erro durante a migração de imagens:", error);
       toast.error("Erro durante a migração de imagens");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const processBatchFromSessionStorage = async () => {
+    try {
+      setIsScanning(true);
+      toast.info("Processando histórias do armazenamento temporário...");
+      
+      // Get all story data from sessionStorage
+      let storyData = sessionStorage.getItem("storyData");
+      let fixedCount = 0;
+      
+      if (storyData) {
+        try {
+          const parsedStory = JSON.parse(storyData);
+          if (!parsedStory) {
+            toast.warning("Nenhuma história encontrada no armazenamento temporário");
+            return;
+          }
+          
+          // Check cover image
+          if (parsedStory.coverImageUrl || parsedStory.cover_image_url) {
+            const coverUrl = parsedStory.coverImageUrl || parsedStory.cover_image_url;
+            if (coverUrl && (
+                coverUrl.includes('oaidalleapiprodscus') || 
+                coverUrl.includes('openai') || 
+                coverUrl.includes('production-files')
+            )) {
+              const newCoverUrl = await uploadToImgBB(coverUrl, "cover_image");
+              if (newCoverUrl && newCoverUrl !== coverUrl) {
+                parsedStory.coverImageUrl = newCoverUrl;
+                parsedStory.cover_image_url = newCoverUrl;
+                fixedCount++;
+              }
+            }
+          }
+          
+          // Check page images
+          if (Array.isArray(parsedStory.pages)) {
+            for (let i = 0; i < parsedStory.pages.length; i++) {
+              const page = parsedStory.pages[i];
+              const imageUrl = page.imageUrl || page.image_url;
+              
+              if (imageUrl && (
+                  imageUrl.includes('oaidalleapiprodscus') || 
+                  imageUrl.includes('openai') || 
+                  imageUrl.includes('production-files')
+              )) {
+                const newImageUrl = await uploadToImgBB(imageUrl, `page_${i}`);
+                if (newImageUrl && newImageUrl !== imageUrl) {
+                  parsedStory.pages[i].imageUrl = newImageUrl;
+                  parsedStory.pages[i].image_url = newImageUrl;
+                  fixedCount++;
+                }
+              }
+            }
+          }
+          
+          // Save updated story back to sessionStorage
+          sessionStorage.setItem("storyData", JSON.stringify(parsedStory));
+          
+          toast.success(`Migração concluída! ${fixedCount} imagens foram salvas permanentemente.`);
+          setImagesFixed(fixedCount);
+        } catch (error) {
+          console.error("Erro ao processar história da sessão:", error);
+          toast.error("Erro ao processar história da sessão");
+        }
+      } else {
+        toast.warning("Nenhuma história encontrada na sessão atual");
+      }
+      
+      // Process any localStorage stories
+      const keys = Object.keys(localStorage);
+      const storyKeys = keys.filter(key => key.includes('storyData'));
+      
+      if (storyKeys.length > 0) {
+        toast.info(`Processando ${storyKeys.length} histórias do localStorage...`);
+        let localFixedCount = 0;
+        
+        for (const key of storyKeys) {
+          try {
+            const storyJson = localStorage.getItem(key);
+            if (storyJson) {
+              const story = JSON.parse(storyJson);
+              let storyUpdated = false;
+              
+              // Same process as above for each localStorage story
+              // But simplified for brevity
+              if (story.coverImageUrl || story.cover_image_url) {
+                const coverUrl = story.coverImageUrl || story.cover_image_url;
+                if (coverUrl && (
+                    coverUrl.includes('oaidalleapiprodscus') || 
+                    coverUrl.includes('openai') || 
+                    coverUrl.includes('production-files')
+                )) {
+                  const newCoverUrl = await uploadToImgBB(coverUrl, "cover_image");
+                  if (newCoverUrl && newCoverUrl !== coverUrl) {
+                    story.coverImageUrl = newCoverUrl;
+                    story.cover_image_url = newCoverUrl;
+                    localFixedCount++;
+                    storyUpdated = true;
+                  }
+                }
+              }
+              
+              // Process pages
+              if (Array.isArray(story.pages)) {
+                for (let i = 0; i < story.pages.length; i++) {
+                  const page = story.pages[i];
+                  const imageUrl = page.imageUrl || page.image_url;
+                  
+                  if (imageUrl && (
+                      imageUrl.includes('oaidalleapiprodscus') || 
+                      imageUrl.includes('openai') || 
+                      imageUrl.includes('production-files')
+                  )) {
+                    const newImageUrl = await uploadToImgBB(imageUrl, `page_${i}`);
+                    if (newImageUrl && newImageUrl !== imageUrl) {
+                      story.pages[i].imageUrl = newImageUrl;
+                      story.pages[i].image_url = newImageUrl;
+                      localFixedCount++;
+                      storyUpdated = true;
+                    }
+                  }
+                }
+              }
+              
+              // Save updated story back to localStorage if changed
+              if (storyUpdated) {
+                localStorage.setItem(key, JSON.stringify(story));
+              }
+            }
+          } catch (error) {
+            console.error(`Erro ao processar história do localStorage:`, error);
+          }
+        }
+        
+        if (localFixedCount > 0) {
+          toast.success(`${localFixedCount} imagens fixadas no localStorage`);
+          setImagesFixed(prev => prev + localFixedCount);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Erro durante o processamento de histórias temporárias:", error);
+      toast.error("Erro ao processar histórias temporárias");
     } finally {
       setIsScanning(false);
     }
@@ -188,7 +341,7 @@ const OpenAIImageMigrationTool = () => {
           Migração de Imagens OpenAI
         </CardTitle>
         <CardDescription>
-          Migra imagens temporárias da OpenAI para armazenamento permanente no Supabase
+          Migra imagens temporárias da OpenAI para armazenamento permanente no ImgBB
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -231,9 +384,31 @@ const OpenAIImageMigrationTool = () => {
               <AlertDescription>
                 As URLs das imagens geradas pela OpenAI são temporárias e expiram após algum tempo, 
                 fazendo com que as imagens desapareçam das histórias. Esta ferramenta migra todas as imagens 
-                temporárias para o armazenamento permanente do Supabase.
+                temporárias para o armazenamento permanente do ImgBB, independente do acesso ao banco de dados.
               </AlertDescription>
             </Alert>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <Button 
+                onClick={runImageMigration} 
+                disabled={isScanning}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                <ImageIcon className="h-4 w-4" />
+                Migrar Imagens do Banco de Dados
+              </Button>
+              
+              <Button
+                onClick={processBatchFromSessionStorage}
+                disabled={isScanning}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Migrar Imagens da Sessão Atual
+              </Button>
+            </div>
             
             {results.length > 0 && (
               <div className="mt-4">
@@ -264,25 +439,14 @@ const OpenAIImageMigrationTool = () => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-end">
-        <Button 
-          onClick={runImageMigration} 
-          disabled={isScanning}
-          variant="default"
-          className="flex items-center gap-2"
-        >
-          {isScanning ? (
-            <>
-              <RefreshCcw className="h-4 w-4 animate-spin" />
-              Processando...
-            </>
-          ) : (
-            <>
-              <ImageIcon className="h-4 w-4" />
-              Iniciar Migração de Imagens
-            </>
-          )}
-        </Button>
+      <CardFooter className="flex flex-col gap-2">
+        <Alert className="bg-blue-50 text-blue-800 border-blue-200">
+          <AlertDescription>
+            <strong>Solução alternativa:</strong> Esta ferramenta usa o ImgBB como serviço de armazenamento alternativo 
+            quando o Supabase Storage não está acessível ou com problemas de permissão. Todas as imagens serão salvas 
+            com URLs permanentes.
+          </AlertDescription>
+        </Alert>
       </CardFooter>
     </Card>
   );

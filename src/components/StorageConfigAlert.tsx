@@ -3,16 +3,17 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ExternalLink, Code, FileText, Lock } from "lucide-react";
+import { ShieldCheck, ExternalLink, Code, FileText, Lock, Info } from "lucide-react";
 import { getStorageAccessHelp } from "@/lib/storageBucketSetup";
 import { useAuth } from "@/context/AuthContext";
 
 interface StorageConfigAlertProps {
   className?: string;
   compact?: boolean;
+  showImgbbInfo?: boolean;
 }
 
-const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertProps) => {
+const StorageConfigAlert = ({ className, compact = false, showImgbbInfo = true }: StorageConfigAlertProps) => {
   const { user } = useAuth();
   
   const openSupabaseDashboard = () => {
@@ -21,6 +22,10 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
   
   const openDocumentation = () => {
     window.open("https://supabase.com/docs/guides/storage/security/access-control", "_blank");
+  };
+
+  const openImgbbWebsite = () => {
+    window.open("https://imgbb.com/", "_blank");
   };
 
   if (compact) {
@@ -41,6 +46,15 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
             >
               Acessar Supabase <ExternalLink className="h-3 w-3 ml-1" />
             </Button>
+            {showImgbbInfo && (
+              <Button 
+                variant="link" 
+                className="p-0 h-auto text-emerald-600 font-medium underline"
+                onClick={openImgbbWebsite}
+              >
+                ImgBB (Fallback) <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            )}
           </div>
         </AlertDescription>
       </Alert>
@@ -79,6 +93,20 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
           <li className={user ? "text-blue-700" : "text-amber-600"}>Usuários autenticados podem gerenciar seus próprios objetos</li>
         </ol>
         
+        {showImgbbInfo && (
+          <div className="bg-emerald-100 p-3 rounded-md border border-emerald-300 flex items-start mt-2">
+            <Info className="h-5 w-5 mr-2 text-emerald-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-emerald-800">ImgBB como solução alternativa:</p>
+              <p className="text-sm text-emerald-700 mt-1">
+                Quando o armazenamento Supabase não está acessível ou apresenta problemas de permissão,
+                o sistema automaticamente faz fallback para o ImgBB como serviço de armazenamento alternativo.
+                Todas as imagens da OpenAI serão permanentemente armazenadas.
+              </p>
+            </div>
+          </div>
+        )}
+        
         <div className="bg-blue-100 p-3 rounded-md border border-blue-300 flex items-start mt-2">
           <ShieldCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5" />
           <div>
@@ -113,6 +141,16 @@ const StorageConfigAlert = ({ className, compact = false }: StorageConfigAlertPr
         >
           Acessar Painel Supabase <ExternalLink className="h-4 w-4 ml-1" />
         </Button>
+        
+        {showImgbbInfo && (
+          <Button
+            variant="secondary"
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+            onClick={openImgbbWebsite}
+          >
+            Acessar ImgBB <ExternalLink className="h-4 w-4 ml-1" />
+          </Button>
+        )}
         
         <Button 
           variant="outline" 

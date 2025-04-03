@@ -18,7 +18,7 @@ export const setupStorageBuckets = async () => {
           id: "bucket-permission-info",
           duration: 6000
         });
-        // Retornar true mesmo com erro de permissão, pois isso geralmente indica que as RLS estão funcionando
+        // Considerar isto como um "sucesso" já que as RLS estão funcionando adequadamente
         return true;
       }
       
@@ -36,7 +36,7 @@ export const setupStorageBuckets = async () => {
       try {
         const { error: createError } = await supabase.storage.createBucket('story_images', {
           public: true,
-          fileSizeLimit: 5242880 // 5MB
+          fileSizeLimit: 10485760 // 10MB
         });
         
         if (createError) {
@@ -65,8 +65,8 @@ export const setupStorageBuckets = async () => {
         console.error("Falha ao criar bucket de armazenamento:", createErr);
         
         // Mesmo com erro, assumimos que o bucket existe mas o usuário não tem acesso para criá-lo
-        // devido às políticas RLS, o que é o comportamento esperado
-        toast.info("Políticas de segurança aplicadas ao bucket de imagens.", { duration: 4000 });
+        // devido às políticas RLS, o que é esperado
+        toast.info("Políticas de segurança aplicadas ao bucket de imagens. Usando armazenamento alternativo.", { duration: 4000 });
         return true;
       }
     } else {
@@ -75,7 +75,7 @@ export const setupStorageBuckets = async () => {
     }
   } catch (error) {
     console.error("Erro ao configurar buckets de armazenamento:", error);
-    toast.error("Falha ao configurar armazenamento de imagens", { id: "storage-setup-error" });
+    toast.error("Falha ao configurar armazenamento de imagens. Usando armazenamento alternativo.", { id: "storage-setup-error" });
     return false;
   }
 };
@@ -135,6 +135,7 @@ As políticas RLS para o bucket story_images foram configuradas corretamente. Se
    - Allow authenticated uploads to story images
    - Allow authenticated users to update their own objects
    - Allow authenticated users to delete their own objects
-4. Reinicie a aplicação após fazer alterações
+4. O ImgBB será usado como solução de fallback quando o armazenamento Supabase não estiver acessível
+5. Reinicie a aplicação após fazer alterações
 `;
 };
