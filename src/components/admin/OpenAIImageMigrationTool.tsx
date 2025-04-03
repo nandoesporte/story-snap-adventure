@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button"; // Corrected import from button
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { uploadToImgBB } from "@/lib/imgbbUploader";
-import { ImageIcon, CheckCircle2, AlertTriangle, RefreshCcw } from "lucide-react";
+import { ImageIcon, CheckCircle2, AlertTriangle, RefreshCcw, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 const OpenAIImageMigrationTool = () => {
+  const { user } = useAuth();
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [storiesScanned, setStoriesScanned] = useState(0);
@@ -405,6 +407,19 @@ const OpenAIImageMigrationTool = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            {!user && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle className="flex items-center">
+                  <Lock className="h-4 w-4 mr-2" />
+                  Usuário não autenticado
+                </AlertTitle>
+                <AlertDescription>
+                  Você não está logado. Isto pode limitar o acesso ao armazenamento Supabase, 
+                  mas você ainda pode usar o ImgBB como alternativa.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Alert>
               <AlertDescription>
                 As URLs das imagens geradas pela OpenAI são temporárias e expiram após algum tempo, 
