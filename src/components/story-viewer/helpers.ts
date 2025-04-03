@@ -26,6 +26,11 @@ export const fixImageUrl = (imageUrl: string): string => {
     return imageUrl;
   }
   
+  // Handle local saved images (from public/story-images/)
+  if (imageUrl.includes('/story-images/')) {
+    return `${window.location.origin}${imageUrl}`;
+  }
+  
   // Handle relative URLs (prepend origin)
   if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
     return `${window.location.origin}${imageUrl}`;
@@ -37,7 +42,6 @@ export const fixImageUrl = (imageUrl: string): string => {
     if (isTemporaryUrl(imageUrl)) {
       console.log("Detectada URL temporária da OpenAI, deve ser salva permanentemente:", imageUrl.substring(0, 50) + "...");
       // We'll save it later in a separate process - for now just return the URL
-      // This avoids the Promise<string> return type issue
     }
     
     return imageUrl;
@@ -79,6 +83,11 @@ export const fixImageUrlAsync = async (imageUrl: string): Promise<string> => {
     return imageUrl;
   }
   
+  // Handle local saved images (from public/story-images/)
+  if (imageUrl.includes('/story-images/')) {
+    return `${window.location.origin}${imageUrl}`;
+  }
+  
   // Handle relative URLs (prepend origin)
   if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
     return `${window.location.origin}${imageUrl}`;
@@ -101,25 +110,6 @@ export const fixImageUrlAsync = async (imageUrl: string): Promise<string> => {
     }
     
     return imageUrl;
-  }
-  
-  // Try to fix broken URLs
-  try {
-    // If it's a Supabase URL but missing the protocol
-    if (imageUrl.includes('supabase.co') && !imageUrl.startsWith('http')) {
-      return `https://${imageUrl}`;
-    }
-    
-    // If it looks like a Supabase storage object ID, try to get public URL
-    if (imageUrl.match(/^[0-9a-f-]{36}\.[a-z]{3,4}$/i)) {
-      const { data } = supabase.storage
-        .from('story_images')
-        .getPublicUrl(imageUrl);
-      return data.publicUrl;
-    }
-  } catch (error) {
-    console.error("Error fixing image URL:", error);
-    // Continue to return original URL
   }
   
   return imageUrl;
@@ -209,7 +199,7 @@ export const ensureImagesDirectory = async () => {
 };
 
 export const testImageAccess = async (url: string): Promise<boolean> => {
-  if (!url || url.startsWith('data:') || isDefaultImage(url)) {
+  if (!url || url.startsWith('data:') || isDefaultImage(url) || url.includes('/story-images/')) {
     return true;
   }
   
@@ -231,7 +221,6 @@ export const testImageAccess = async (url: string): Promise<boolean> => {
   }
 };
 
-// Função para automaticamente salvar todas as imagens de uma história localmente
 export const ensureStoryImagesAreSaved = async (story: any) => {
   if (!story) return story;
   
@@ -275,7 +264,6 @@ export const ensureStoryImagesAreSaved = async (story: any) => {
   }
 };
 
-// Função para verificar e reparar imagens em uma história
 export const checkAndRepairStoryImages = async (story: any): Promise<{
   fixed: boolean;
   fixedImages: number;

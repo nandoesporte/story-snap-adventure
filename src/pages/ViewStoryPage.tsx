@@ -15,6 +15,7 @@ import { validateAndFixStoryImages } from '@/lib/imageHelper';
 import CoverImage from '@/components/CoverImage';
 import { setupStorageBuckets, verifyStorageAccess } from "@/lib/storageBucketSetup";
 import StorageConfigAlert from '@/components/StorageConfigAlert';
+import { initializeLocalImageServer } from '@/lib/imageStorage';
 
 interface StoryPage {
   text: string;
@@ -200,6 +201,10 @@ const ViewStoryPage: React.FC = () => {
 
     fetchStory();
   }, [id]);
+
+  useEffect(() => {
+    initializeLocalImageServer();
+  }, []);
 
   const toggleTextVisibility = () => {
     setHideText(!hideText);

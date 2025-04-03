@@ -3,26 +3,34 @@ import React, { useEffect } from "react";
 import StoryCreator from "../components/StoryCreator";
 import { toast } from "sonner";
 import { migrateRecentStoryImages } from "@/lib/imageStorage";
+import { initializeLocalImageServer } from "@/lib/imageStorage";
 
 const StoryCreatorPage = () => {
-  // Iniciar migração de imagens em segundo plano para garantir que não tenhamos links quebrados
+  // Initialize local image server and migrate images in background to ensure we don't have broken links
   useEffect(() => {
-    const migrateImages = async () => {
+    const setupImages = async () => {
       try {
+        // Initialize local image server to handle images from localStorage/IndexedDB
+        initializeLocalImageServer();
+        
+        // Migrate any existing temporary images
         await migrateRecentStoryImages(5);
       } catch (error) {
-        console.error("Erro ao migrar imagens:", error);
+        console.error("Erro ao configurar imagens:", error);
       }
     };
     
-    // Verificar se temos imagens não salvas
+    // Check if we have images not saved
     const temporaryImages = localStorage.getItem('temporary_openai_images');
     if (temporaryImages) {
       toast.info("Salvando imagens temporárias em armazenamento permanente...", {
         id: "migrate-images",
         duration: 3000
       });
-      migrateImages();
+      setupImages();
+    } else {
+      // Still initialize the image server
+      initializeLocalImageServer();
     }
   }, []);
 

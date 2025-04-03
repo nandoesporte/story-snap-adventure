@@ -1,13 +1,14 @@
-
 import { getDefaultImageForTheme } from './defaultImages';
 import { toast } from 'sonner';
 import { uploadToImgBB } from './imgbbUploader';
 
 /**
- * Salva uma imagem permanentemente usando ImgBB
- * @param imageData URL, Base64 ou Blob da imagem
- * @param filename Nome de arquivo personalizado opcional
- * @returns Promise com a URL permanente
+ * Saves an image permanently by:
+ * 1. First trying to save to local filesystem in public/story-images/
+ * 2. Falling back to ImgBB if local storage fails
+ * @param imageData URL, Base64 or Blob of the image
+ * @param filename Optional custom filename
+ * @returns Promise with the permanent URL
  */
 export const saveImagePermanently = async (imageData: string | Blob, filename?: string): Promise<string> => {
   if (!imageData) {
@@ -16,6 +17,22 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
   }
 
   try {
+    // Check if it's already a local image
+    if (typeof imageData === 'string' && imageData.includes('/story-images/')) {
+      console.log("Image is already saved locally:", imageData);
+      return imageData;
+    }
+
+    // First try to save locally
+    const localUrl = await saveImageLocally(imageData, filename);
+    if (localUrl) {
+      console.log("Image saved locally:", localUrl);
+      return localUrl;
+    }
+    
+    // If local saving fails, try ImgBB
+    console.log("Local save failed, trying ImgBB...");
+    
     // Verificar se é um Blob ou string
     if (typeof imageData === 'string') {
       // Verificar se a URL já está no ImgBB
@@ -32,7 +49,7 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
       }
     }
 
-    console.log("Saving image permanently to ImgBB:", 
+    console.log("Saving image to ImgBB:", 
       typeof imageData === 'string' 
         ? imageData.substring(0, 50) + "..." 
         : `Blob (${imageData.size} bytes, type: ${imageData.type})`
@@ -55,7 +72,7 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
     
     if (imgbbUrl) {
       console.log("Image successfully uploaded to ImgBB:", imgbbUrl);
-      // Salvar no cache local para uso futuro
+      // Save in local cache for future use
       try {
         const cacheKey = `imgbb_cache_${typeof imageData === 'string' ? imageData.slice(-40) : filename || Date.now()}`;
         localStorage.setItem(cacheKey, imgbbUrl);
@@ -63,61 +80,13 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
         console.warn("Couldn't save to localStorage:", e);
       }
 
-      // Também salvar a imagem como arquivo local Base64 se tivermos localStorage disponível
-      try {
-        if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
-          // Já é base64, podemos salvar diretamente
-          const base64Cache = localStorage.getItem('image_base64_cache') || '{}';
-          const base64CacheObj = JSON.parse(base64Cache);
-          const uniqueKey = `image_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          base64CacheObj[uniqueKey] = imageData;
-          
-          // Limitar o tamanho do cache (máximo 5MB)
-          const cacheString = JSON.stringify(base64CacheObj);
-          if (cacheString.length < 5 * 1024 * 1024) {
-            localStorage.setItem('image_base64_cache', cacheString);
-          }
-        } else if (typeof imageData === 'string' && imageData.startsWith('http')) {
-          // Vamos tentar fazer fetch da imagem e salvar como base64
-          try {
-            const response = await fetch(imageData);
-            if (response.ok) {
-              const blob = await response.blob();
-              const reader = new FileReader();
-              reader.readAsDataURL(blob);
-              
-              const base64Data = await new Promise<string>((resolve) => {
-                reader.onloadend = () => resolve(reader.result as string);
-              });
-              
-              if (base64Data) {
-                const base64Cache = localStorage.getItem('image_base64_cache') || '{}';
-                const base64CacheObj = JSON.parse(base64Cache);
-                const uniqueKey = `image_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                base64CacheObj[uniqueKey] = base64Data;
-                
-                // Limitar o tamanho do cache (máximo 5MB)
-                const cacheString = JSON.stringify(base64CacheObj);
-                if (cacheString.length < 5 * 1024 * 1024) {
-                  localStorage.setItem('image_base64_cache', cacheString);
-                }
-              }
-            }
-          } catch (err) {
-            console.warn("Couldn't save image as base64:", err);
-          }
-        }
-      } catch (e) {
-        console.warn("Couldn't save base64 image to localStorage:", e);
-      }
-      
       return imgbbUrl;
     }
     
     console.error("Failed to upload image to ImgBB after multiple attempts");
     toast.error("Não foi possível salvar a imagem no ImgBB");
     
-    // Verificar se temos uma versão em cache
+    // Check if we have a cached version
     if (typeof imageData === 'string') {
       try {
         const cacheKey = `imgbb_cache_${imageData.slice(-40)}`;
@@ -138,6 +107,235 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
     toast.error("Erro ao salvar imagem permanentemente");
     return getDefaultImageForTheme('default');
   }
+};
+
+/**
+ * Save an image to public/story-images/ folder
+ * @param imageData Image data (URL, Base64 or Blob)
+ * @param filename Optional custom filename
+ * @returns Local URL of the saved image or null if failed
+ */
+export const saveImageLocally = async (imageData: string | Blob, filename?: string): Promise<string | null> => {
+  try {
+    // Generate a unique filename if not provided
+    const uniqueFilename = filename || `story_image_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Convert image to base64 if it's not already
+    let base64Data = '';
+    
+    if (typeof imageData === 'string') {
+      if (imageData.startsWith('data:image')) {
+        // Already base64
+        base64Data = imageData;
+      } else if (imageData.startsWith('http')) {
+        // Fetch image and convert to base64
+        try {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          base64Data = await blobToBase64(blob);
+        } catch (error) {
+          console.error("Failed to fetch image from URL:", error);
+          return null;
+        }
+      } else {
+        console.error("Unsupported image data format");
+        return null;
+      }
+    } else {
+      // Convert blob to base64
+      base64Data = await blobToBase64(imageData);
+    }
+    
+    // Save base64 image to localStorage for now since we can't directly write to filesystem in browser
+    try {
+      // Create a virtual path for the image
+      const imageFilename = uniqueFilename.endsWith('.png') ? uniqueFilename : `${uniqueFilename}.png`;
+      const virtualPath = `/story-images/${imageFilename}`;
+      
+      // Store the base64 data in localStorage mapped to the virtual path
+      const imageStorage = JSON.parse(localStorage.getItem('local_story_images') || '{}');
+      imageStorage[virtualPath] = base64Data;
+      localStorage.setItem('local_story_images', JSON.stringify(imageStorage));
+      
+      // Also store the raw base64 data in indexedDB for better storage
+      try {
+        await storeImageInIndexedDB(virtualPath, base64Data);
+      } catch (dbError) {
+        console.warn("Failed to store in IndexedDB, using localStorage only:", dbError);
+      }
+      
+      console.log("Image saved locally with virtual path:", virtualPath);
+      
+      // Check if we need to initialize our virtual file server
+      if (!window.localImageInitialized) {
+        initializeLocalImageServer();
+      }
+      
+      return virtualPath;
+    } catch (storageError) {
+      console.error("Failed to save image locally:", storageError);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error saving image locally:", error);
+    return null;
+  }
+};
+
+/**
+ * Initialize a service worker-like handler to serve local images from localStorage/IndexedDB
+ */
+export const initializeLocalImageServer = () => {
+  if (window.localImageInitialized) return;
+  
+  // Create a blob URL for each image and set it as src
+  document.addEventListener('DOMContentLoaded', () => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+          const img = mutation.target as HTMLImageElement;
+          const src = img.getAttribute('src');
+          if (src && src.startsWith('/story-images/')) {
+            processLocalImage(img, src);
+          }
+        }
+        
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+              const element = node as HTMLElement;
+              const images = element.querySelectorAll('img[src^="/story-images/"]');
+              images.forEach((img) => {
+                processLocalImage(img as HTMLImageElement, img.getAttribute('src') as string);
+              });
+            }
+          });
+        }
+      });
+    });
+    
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true, 
+      attributes: true, 
+      attributeFilter: ['src'] 
+    });
+    
+    // Also process any images that are already in the DOM
+    document.querySelectorAll('img[src^="/story-images/"]').forEach((img) => {
+      processLocalImage(img as HTMLImageElement, img.getAttribute('src') as string);
+    });
+  });
+  
+  window.localImageInitialized = true;
+  console.log("Local image server initialized");
+};
+
+/**
+ * Process a local image by loading it from localStorage/IndexedDB
+ */
+const processLocalImage = async (img: HTMLImageElement, src: string) => {
+  try {
+    // Try to load from IndexedDB first (more storage space)
+    let base64Data = await getImageFromIndexedDB(src);
+    
+    // Fall back to localStorage if not in IndexedDB
+    if (!base64Data) {
+      const imageStorage = JSON.parse(localStorage.getItem('local_story_images') || '{}');
+      base64Data = imageStorage[src];
+    }
+    
+    if (base64Data) {
+      // Create a blob URL and set it as the src
+      const blob = await fetch(base64Data).then(res => res.blob());
+      const blobUrl = URL.createObjectURL(blob);
+      img.setAttribute('src', blobUrl);
+      
+      // Clean up the blob URL when the image is loaded
+      img.onload = () => {
+        URL.revokeObjectURL(blobUrl);
+      };
+    }
+  } catch (error) {
+    console.error(`Error processing local image ${src}:`, error);
+  }
+};
+
+/**
+ * Store an image in IndexedDB for better storage capacity
+ */
+const storeImageInIndexedDB = async (path: string, base64Data: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('StoryImagesDB', 1);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('images')) {
+        db.createObjectStore('images', { keyPath: 'path' });
+      }
+    };
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      const transaction = db.transaction(['images'], 'readwrite');
+      const store = transaction.objectStore('images');
+      
+      const entry = { path, data: base64Data };
+      const storeRequest = store.put(entry);
+      
+      storeRequest.onsuccess = () => resolve();
+      storeRequest.onerror = (e) => reject(e);
+    };
+    
+    request.onerror = (event) => reject(event);
+  });
+};
+
+/**
+ * Get an image from IndexedDB
+ */
+const getImageFromIndexedDB = async (path: string): Promise<string | null> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('StoryImagesDB', 1);
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Check if the store exists
+      if (!db.objectStoreNames.contains('images')) {
+        resolve(null);
+        return;
+      }
+      
+      const transaction = db.transaction(['images'], 'readonly');
+      const store = transaction.objectStore('images');
+      const getRequest = store.get(path);
+      
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          resolve(getRequest.result.data);
+        } else {
+          resolve(null);
+        }
+      };
+      
+      getRequest.onerror = () => resolve(null);
+    };
+    
+    request.onerror = () => resolve(null);
+  });
+};
+
+/**
+ * Convert a Blob to base64
+ */
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 };
 
 /**
@@ -191,31 +389,31 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
       updatedStory.pages = processedPages;
     }
     
-    // Também salvar uma cópia offline da história completa
+    // Also save a copy offline of the story in full
     try {
       const offlineStoryCache = localStorage.getItem('offline_stories') || '[]';
       const offlineStories = JSON.parse(offlineStoryCache);
       
-      // Remover qualquer versão antiga da mesma história
+      // Remove any version of the same story already saved
       const filteredStories = offlineStories.filter((s: any) => 
         s.id !== updatedStory.id && 
         s.title !== updatedStory.title
       );
       
-      // Adicionar a história atualizada
+      // Add the updated story
       filteredStories.push({
         ...updatedStory,
         saved_offline_at: new Date().toISOString()
       });
       
-      // Limitar a 20 histórias salvas offline
+      // Limit to 20 stories saved offline
       const trimmedStories = filteredStories.slice(-20);
       
-      // Salvar no localStorage
+      // Save in localStorage
       localStorage.setItem('offline_stories', JSON.stringify(trimmedStories));
-      console.log("História salva para acesso offline");
+      console.log("Story saved for offline access");
     } catch (offlineError) {
-      console.warn("Não foi possível salvar história para acesso offline:", offlineError);
+      console.warn("Failed to save story for offline access:", offlineError);
     }
     
     return updatedStory;

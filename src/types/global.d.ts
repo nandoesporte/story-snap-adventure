@@ -1,0 +1,4 @@
+
+interface Window {
+  localImageInitialized?: boolean;
+}
