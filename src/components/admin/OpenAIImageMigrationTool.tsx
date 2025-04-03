@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/card";
-import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Corrected import from button.tsx instead of card.tsx
+import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { uploadToImgBB } from "@/lib/imgbbUploader";
 import { ImageIcon, CheckCircle2, AlertTriangle, RefreshCcw } from "lucide-react";
@@ -98,7 +98,13 @@ const OpenAIImageMigrationTool = () => {
           
           for (let pageIndex = 0; pageIndex < updatedPages.length; pageIndex++) {
             const page = updatedPages[pageIndex];
-            const imageUrl = page.imageUrl || page.image_url;
+            // Handle different page structure possibilities with type safety
+            let imageUrl: string | null = null;
+            
+            if (typeof page === 'object' && page !== null) {
+              // Check for imageUrl or image_url property
+              imageUrl = (page as any).imageUrl || (page as any).image_url;
+            }
             
             if (imageUrl && 
                (imageUrl.includes('oaidalleapiprodscus.blob.core.windows.net') || 
@@ -110,11 +116,15 @@ const OpenAIImageMigrationTool = () => {
                 const permanentUrl = await uploadToImgBB(imageUrl, `${story.id}_page${pageIndex}`);
                 
                 if (permanentUrl && permanentUrl !== imageUrl) {
-                  updatedPages[pageIndex] = {
-                    ...page,
-                    imageUrl: permanentUrl,
-                    image_url: permanentUrl
-                  };
+                  if (typeof page === 'object' && page !== null) {
+                    // Update both possible property names for maximum compatibility
+                    updatedPages[pageIndex] = {
+                      ...(page as any),
+                      imageUrl: permanentUrl,
+                      image_url: permanentUrl
+                    };
+                  }
+                  
                   storyUpdated = true;
                   storyFixedImages++;
                   totalFixed++;
@@ -223,7 +233,11 @@ const OpenAIImageMigrationTool = () => {
           if (Array.isArray(parsedStory.pages)) {
             for (let i = 0; i < parsedStory.pages.length; i++) {
               const page = parsedStory.pages[i];
-              const imageUrl = page.imageUrl || page.image_url;
+              // Safely access image URL properties
+              let imageUrl = null;
+              if (page && typeof page === 'object') {
+                imageUrl = (page as any).imageUrl || (page as any).image_url;
+              }
               
               if (imageUrl && (
                   imageUrl.includes('oaidalleapiprodscus') || 
@@ -232,8 +246,14 @@ const OpenAIImageMigrationTool = () => {
               )) {
                 const newImageUrl = await uploadToImgBB(imageUrl, `page_${i}`);
                 if (newImageUrl && newImageUrl !== imageUrl) {
-                  parsedStory.pages[i].imageUrl = newImageUrl;
-                  parsedStory.pages[i].image_url = newImageUrl;
+                  if (page && typeof page === 'object') {
+                    // Update both properties for maximum compatibility
+                    parsedStory.pages[i] = {
+                      ...(page as any),
+                      imageUrl: newImageUrl,
+                      image_url: newImageUrl
+                    };
+                  }
                   fixedCount++;
                 }
               }
@@ -291,7 +311,9 @@ const OpenAIImageMigrationTool = () => {
               if (Array.isArray(story.pages)) {
                 for (let i = 0; i < story.pages.length; i++) {
                   const page = story.pages[i];
-                  const imageUrl = page.imageUrl || page.image_url;
+                  if (!page || typeof page !== 'object') continue;
+                  
+                  const imageUrl = (page as any).imageUrl || (page as any).image_url;
                   
                   if (imageUrl && (
                       imageUrl.includes('oaidalleapiprodscus') || 
@@ -300,8 +322,11 @@ const OpenAIImageMigrationTool = () => {
                   )) {
                     const newImageUrl = await uploadToImgBB(imageUrl, `page_${i}`);
                     if (newImageUrl && newImageUrl !== imageUrl) {
-                      story.pages[i].imageUrl = newImageUrl;
-                      story.pages[i].image_url = newImageUrl;
+                      story.pages[i] = {
+                        ...page,
+                        imageUrl: newImageUrl,
+                        image_url: newImageUrl
+                      };
                       localFixedCount++;
                       storyUpdated = true;
                     }
