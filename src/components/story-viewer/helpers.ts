@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { getDefaultImageForTheme, isDefaultImage } from "@/lib/defaultImages";
 import { setupStorageBuckets, verifyStorageAccess } from "@/lib/storageBucketSetup";
@@ -13,7 +12,60 @@ export const getImageUrl = (imageUrl: string, theme: string = 'default'): string
   return imageUrl;
 };
 
-export const fixImageUrl = async (imageUrl: string): Promise<string> => {
+export const fixImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) {
+    return getDefaultImageForTheme('default');
+  }
+  
+  // Handle default images
+  if (isDefaultImage(imageUrl)) {
+    // If it's a relative path, make it absolute
+    if (imageUrl.startsWith('/')) {
+      return `${window.location.origin}${imageUrl}`;
+    }
+    return imageUrl;
+  }
+  
+  // Handle relative URLs (prepend origin)
+  if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+    return `${window.location.origin}${imageUrl}`;
+  }
+  
+  // Handle already fixed URLs
+  if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+    // Check if it's a temporary OpenAI URL that might expire
+    if (isTemporaryUrl(imageUrl)) {
+      console.log("Detectada URL temporária da OpenAI, deve ser salva permanentemente:", imageUrl.substring(0, 50) + "...");
+      // We'll save it later in a separate process - for now just return the URL
+      // This avoids the Promise<string> return type issue
+    }
+    
+    return imageUrl;
+  }
+  
+  // Try to fix broken URLs
+  try {
+    // If it's a Supabase URL but missing the protocol
+    if (imageUrl.includes('supabase.co') && !imageUrl.startsWith('http')) {
+      return `https://${imageUrl}`;
+    }
+    
+    // If it looks like a Supabase storage object ID, try to get public URL
+    if (imageUrl.match(/^[0-9a-f-]{36}\.[a-z]{3,4}$/i)) {
+      const { data } = supabase.storage
+        .from('story_images')
+        .getPublicUrl(imageUrl);
+      return data.publicUrl;
+    }
+  } catch (error) {
+    console.error("Error fixing image URL:", error);
+    // Continue to return original URL
+  }
+  
+  return imageUrl;
+};
+
+export const fixImageUrlAsync = async (imageUrl: string): Promise<string> => {
   if (!imageUrl) {
     return getDefaultImageForTheme('default');
   }

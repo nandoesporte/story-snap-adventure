@@ -70,6 +70,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           : (storyData.pages[currentPage - 1]?.imageUrl || storyData.pages[currentPage - 1]?.image_url);
           
         if (currentImageUrl) {
+          // Using synchronous version to fix TypeScript errors
           const fixedUrl = fixImageUrl(getImageUrl(currentImageUrl, storyData.theme));
           try {
             await preloadImage(fixedUrl);
@@ -84,6 +85,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage]?.imageUrl || storyData.pages[currentPage]?.image_url);
             
           if (nextImageUrl) {
+            // Using synchronous version to fix TypeScript errors
             const fixedUrl = fixImageUrl(getImageUrl(nextImageUrl, storyData.theme));
             try {
               await preloadImage(fixedUrl);
@@ -99,6 +101,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
             : (storyData.pages[currentPage - 2]?.imageUrl || storyData.pages[currentPage - 2]?.image_url);
             
           if (prevImageUrl) {
+            // Using synchronous version to fix TypeScript errors
             const fixedUrl = fixImageUrl(getImageUrl(prevImageUrl, storyData.theme));
             try {
               await preloadImage(fixedUrl);
@@ -170,6 +173,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
           onImageError={handleImageErrorWrapper}
           isMobile={isMobile}
           hideText={hideText}
+          storyId={storyId}
         />
       )}
     </div>
