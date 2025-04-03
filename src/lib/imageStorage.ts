@@ -62,6 +62,55 @@ export const saveImagePermanently = async (imageData: string | Blob, filename?: 
       } catch (e) {
         console.warn("Couldn't save to localStorage:", e);
       }
+
+      // Também salvar a imagem como arquivo local Base64 se tivermos localStorage disponível
+      try {
+        if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
+          // Já é base64, podemos salvar diretamente
+          const base64Cache = localStorage.getItem('image_base64_cache') || '{}';
+          const base64CacheObj = JSON.parse(base64Cache);
+          const uniqueKey = `image_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          base64CacheObj[uniqueKey] = imageData;
+          
+          // Limitar o tamanho do cache (máximo 5MB)
+          const cacheString = JSON.stringify(base64CacheObj);
+          if (cacheString.length < 5 * 1024 * 1024) {
+            localStorage.setItem('image_base64_cache', cacheString);
+          }
+        } else if (typeof imageData === 'string' && imageData.startsWith('http')) {
+          // Vamos tentar fazer fetch da imagem e salvar como base64
+          try {
+            const response = await fetch(imageData);
+            if (response.ok) {
+              const blob = await response.blob();
+              const reader = new FileReader();
+              reader.readAsDataURL(blob);
+              
+              const base64Data = await new Promise<string>((resolve) => {
+                reader.onloadend = () => resolve(reader.result as string);
+              });
+              
+              if (base64Data) {
+                const base64Cache = localStorage.getItem('image_base64_cache') || '{}';
+                const base64CacheObj = JSON.parse(base64Cache);
+                const uniqueKey = `image_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                base64CacheObj[uniqueKey] = base64Data;
+                
+                // Limitar o tamanho do cache (máximo 5MB)
+                const cacheString = JSON.stringify(base64CacheObj);
+                if (cacheString.length < 5 * 1024 * 1024) {
+                  localStorage.setItem('image_base64_cache', cacheString);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Couldn't save image as base64:", err);
+          }
+        }
+      } catch (e) {
+        console.warn("Couldn't save base64 image to localStorage:", e);
+      }
+      
       return imgbbUrl;
     }
     
@@ -142,11 +191,84 @@ export const saveStoryImagesPermanently = async (storyData: any): Promise<any> =
       updatedStory.pages = processedPages;
     }
     
+    // Também salvar uma cópia offline da história completa
+    try {
+      const offlineStoryCache = localStorage.getItem('offline_stories') || '[]';
+      const offlineStories = JSON.parse(offlineStoryCache);
+      
+      // Remover qualquer versão antiga da mesma história
+      const filteredStories = offlineStories.filter((s: any) => 
+        s.id !== updatedStory.id && 
+        s.title !== updatedStory.title
+      );
+      
+      // Adicionar a história atualizada
+      filteredStories.push({
+        ...updatedStory,
+        saved_offline_at: new Date().toISOString()
+      });
+      
+      // Limitar a 20 histórias salvas offline
+      const trimmedStories = filteredStories.slice(-20);
+      
+      // Salvar no localStorage
+      localStorage.setItem('offline_stories', JSON.stringify(trimmedStories));
+      console.log("História salva para acesso offline");
+    } catch (offlineError) {
+      console.warn("Não foi possível salvar história para acesso offline:", offlineError);
+    }
+    
     return updatedStory;
   } catch (error) {
     console.error("Error saving story images permanently:", error);
     toast.error("Erro ao processar imagens da história");
     return storyData;
+  }
+};
+
+/**
+ * Extrair uma imagem de uma URL e salvar como Base64
+ */
+export const urlToBase64 = async (url: string): Promise<string | null> => {
+  if (!url) return null;
+  
+  if (url.startsWith('data:')) return url;
+  
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Error converting URL to Base64:", error);
+    return null;
+  }
+};
+
+/**
+ * Salvar uma imagem da história no sistema de arquivo (como Base64 em localStorage)
+ */
+export const saveImageToLocalStorage = async (imageUrl: string, key: string): Promise<string | null> => {
+  if (!imageUrl) return null;
+  
+  try {
+    const base64Data = await urlToBase64(imageUrl);
+    if (!base64Data) return null;
+    
+    const storedImages = JSON.parse(localStorage.getItem('story_images_cache') || '{}');
+    storedImages[key] = base64Data;
+    localStorage.setItem('story_images_cache', JSON.stringify(storedImages));
+    
+    return base64Data;
+  } catch (error) {
+    console.error("Error saving image to localStorage:", error);
+    return null;
   }
 };
 
@@ -212,5 +334,33 @@ export const migrateRecentStoryImages = async (limit: number = 10): Promise<void
   } catch (error) {
     console.error("Erro durante a migração de imagens:", error);
     toast.error("Erro durante a migração de imagens");
+  }
+};
+
+/**
+ * Recuperar imagens salvas localmente
+ */
+export const getOfflineStories = (): any[] => {
+  try {
+    const offlineStoriesJson = localStorage.getItem('offline_stories');
+    if (!offlineStoriesJson) return [];
+    
+    return JSON.parse(offlineStoriesJson);
+  } catch (error) {
+    console.error("Erro ao recuperar histórias offline:", error);
+    return [];
+  }
+};
+
+/**
+ * Verificar se a história está disponível offline
+ */
+export const isStoryAvailableOffline = (storyId: string): boolean => {
+  try {
+    const offlineStories = getOfflineStories();
+    return offlineStories.some(story => story.id === storyId);
+  } catch (error) {
+    console.error("Erro ao verificar disponibilidade offline da história:", error);
+    return false;
   }
 };

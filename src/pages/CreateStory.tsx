@@ -12,6 +12,7 @@ import { useStoryGeneration } from '@/hooks/useStoryGeneration';
 import { useStoryCreation } from '@/hooks/useStoryCreation';
 import StoryGenerationProgress from '@/components/StoryGenerationProgress';
 import { VoiceType } from '@/lib/tts';
+import { saveStoryImagesPermanently } from '@/lib/imageStorage';
 
 interface AISuggestions {
   theme?: string;
@@ -175,18 +176,20 @@ const CreateStory: React.FC = () => {
       if (storyResult) {
         console.log("Story generation completed successfully:", storyResult);
         
-        sessionStorage.setItem("storyData", JSON.stringify(storyResult));
+        const storyWithPermanentImages = await saveStoryImagesPermanently(storyResult);
+        
+        sessionStorage.setItem("storyData", JSON.stringify(storyWithPermanentImages));
         
         try {
           const storyId = await saveStory({
-            title: storyResult.title,
-            childName: storyResult.childName,
-            childAge: storyResult.childAge || "",
-            theme: storyResult.theme,
-            setting: storyResult.setting,
-            coverImageUrl: storyResult.coverImageUrl,
-            pages: storyResult.pages,
-            voiceType: storyResult.voiceType
+            title: storyWithPermanentImages.title,
+            childName: storyWithPermanentImages.childName,
+            childAge: storyWithPermanentImages.childAge || "",
+            theme: storyWithPermanentImages.theme,
+            setting: storyWithPermanentImages.setting,
+            coverImageUrl: storyWithPermanentImages.coverImageUrl,
+            pages: storyWithPermanentImages.pages,
+            voiceType: storyWithPermanentImages.voiceType
           });
           
           toast.success("História gerada e salva com sucesso!");

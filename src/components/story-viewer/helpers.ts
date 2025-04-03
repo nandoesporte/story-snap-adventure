@@ -1,7 +1,9 @@
+
 import { supabase } from "@/lib/supabase";
 import { getDefaultImageForTheme, isDefaultImage } from "@/lib/defaultImages";
 import { setupStorageBuckets, verifyStorageAccess } from "@/lib/storageBucketSetup";
 import { toast } from "sonner";
+import { saveImagePermanently } from "@/lib/imageStorage";
 
 export const getImageUrl = (imageUrl: string, theme: string = 'default'): string => {
   if (!imageUrl) {
@@ -11,7 +13,7 @@ export const getImageUrl = (imageUrl: string, theme: string = 'default'): string
   return imageUrl;
 };
 
-export const fixImageUrl = (imageUrl: string): string => {
+export const fixImageUrl = async (imageUrl: string): Promise<string> => {
   if (!imageUrl) {
     return getDefaultImageForTheme('default');
   }
@@ -32,6 +34,20 @@ export const fixImageUrl = (imageUrl: string): string => {
   
   // Handle already fixed URLs
   if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+    // Check if it's a temporary OpenAI URL that might expire
+    if (isTemporaryUrl(imageUrl)) {
+      console.log("Detectada URL temporária da OpenAI, salvando permanentemente:", imageUrl.substring(0, 50) + "...");
+      try {
+        const permanentUrl = await saveImagePermanently(imageUrl);
+        if (permanentUrl && permanentUrl !== imageUrl) {
+          return permanentUrl;
+        }
+      } catch (error) {
+        console.error("Erro ao salvar imagem temporária permanentemente:", error);
+        // Continue com a URL original se salvar falhar
+      }
+    }
+    
     return imageUrl;
   }
   
@@ -60,14 +76,15 @@ export const fixImageUrl = (imageUrl: string): string => {
 export const isTemporaryUrl = (url: string): boolean => {
   if (!url) return false;
   
-  // List of domains/patterns that indicate temporary URLs
+  // Lista expandida de domínios/padrões que indicam URLs temporárias
   const temporaryDomains = [
     'oaidalleapiprodscus.blob.core.windows.net',
     'production-files.openai',
     'openai-api-files',
     'openai.com',
     'cdn.openai.com',
-    'labs.openai.com'
+    'labs.openai.com',
+    'api.openai.com'
   ];
   
   try {
@@ -81,6 +98,9 @@ export const isTemporaryUrl = (url: string): boolean => {
 export const isPermanentStorage = (url: string): boolean => {
   if (!url) return false;
   
+  // Check if it's a ImgBB storage URL
+  const isImgbbStorage = url.includes('i.ibb.co') || url.includes('ibb.co');
+  
   // Check if it's a Supabase storage URL
   const isSupabaseStorage = url.includes('supabase.co/storage/v1/object/public');
   
@@ -90,7 +110,7 @@ export const isPermanentStorage = (url: string): boolean => {
     (url.includes(window.location.origin) && 
      (url.includes('/images/') || url.includes('/placeholder.svg')));
   
-  return isSupabaseStorage || isStaticFile;
+  return isImgbbStorage || isSupabaseStorage || isStaticFile;
 };
 
 export const preloadImage = (url: string): Promise<string> => {
@@ -156,5 +176,107 @@ export const testImageAccess = async (url: string): Promise<boolean> => {
   } catch (error) {
     console.error(`Image access test failed for ${url}:`, error);
     return false;
+  }
+};
+
+// Função para automaticamente salvar todas as imagens de uma história localmente
+export const ensureStoryImagesAreSaved = async (story: any) => {
+  if (!story) return story;
+  
+  try {
+    // Processar a imagem de capa
+    if (story.coverImageUrl || story.cover_image_url) {
+      const coverUrl = story.coverImageUrl || story.cover_image_url;
+      if (coverUrl && isTemporaryUrl(coverUrl)) {
+        console.log("Salvando imagem de capa permanentemente:", coverUrl.substring(0, 50) + "...");
+        const permanentUrl = await saveImagePermanently(coverUrl, `cover_${story.id || 'temp'}`);
+        if (permanentUrl) {
+          story.coverImageUrl = permanentUrl;
+          story.cover_image_url = permanentUrl;
+        }
+      }
+    }
+    
+    // Processar imagens das páginas
+    if (Array.isArray(story.pages)) {
+      for (let i = 0; i < story.pages.length; i++) {
+        const page = story.pages[i];
+        if (typeof page === 'object' && page !== null) {
+          const imageUrl = page.imageUrl || page.image_url;
+          
+          if (imageUrl && isTemporaryUrl(imageUrl)) {
+            console.log(`Salvando imagem da página ${i+1} permanentemente:`, imageUrl.substring(0, 50) + "...");
+            const permanentUrl = await saveImagePermanently(imageUrl, `page_${i+1}_${story.id || 'temp'}`);
+            if (permanentUrl) {
+              page.imageUrl = permanentUrl;
+              page.image_url = permanentUrl;
+            }
+          }
+        }
+      }
+    }
+    
+    return story;
+  } catch (error) {
+    console.error("Erro ao salvar imagens da história permanentemente:", error);
+    return story;
+  }
+};
+
+// Função para verificar e reparar imagens em uma história
+export const checkAndRepairStoryImages = async (story: any): Promise<{
+  fixed: boolean;
+  fixedImages: number;
+}> => {
+  if (!story) return { fixed: false, fixedImages: 0 };
+  
+  let fixedCount = 0;
+  let storyUpdated = false;
+  
+  try {
+    // Verificar e corrigir a imagem de capa
+    if (story.coverImageUrl || story.cover_image_url) {
+      const coverUrl = story.coverImageUrl || story.cover_image_url;
+      
+      if (coverUrl && (isTemporaryUrl(coverUrl) || !(await testImageAccess(coverUrl)))) {
+        console.log(`Reparando imagem de capa quebrada: ${coverUrl.substring(0, 50)}...`);
+        const newCoverUrl = await saveImagePermanently(coverUrl, `cover_repair_${story.id || 'temp'}`);
+        
+        if (newCoverUrl && newCoverUrl !== coverUrl) {
+          story.coverImageUrl = newCoverUrl;
+          story.cover_image_url = newCoverUrl;
+          storyUpdated = true;
+          fixedCount++;
+        }
+      }
+    }
+    
+    // Verificar e corrigir as imagens das páginas
+    if (Array.isArray(story.pages)) {
+      for (let i = 0; i < story.pages.length; i++) {
+        const page = story.pages[i];
+        
+        if (typeof page === 'object' && page !== null) {
+          const imageUrl = page.imageUrl || page.image_url;
+          
+          if (imageUrl && (isTemporaryUrl(imageUrl) || !(await testImageAccess(imageUrl)))) {
+            console.log(`Reparando imagem quebrada da página ${i+1}: ${imageUrl.substring(0, 50)}...`);
+            const newImageUrl = await saveImagePermanently(imageUrl, `page_repair_${i+1}_${story.id || 'temp'}`);
+            
+            if (newImageUrl && newImageUrl !== imageUrl) {
+              page.imageUrl = newImageUrl;
+              page.image_url = newImageUrl;
+              storyUpdated = true;
+              fixedCount++;
+            }
+          }
+        }
+      }
+    }
+    
+    return { fixed: storyUpdated, fixedImages: fixedCount };
+  } catch (error) {
+    console.error("Erro ao verificar e reparar imagens da história:", error);
+    return { fixed: storyUpdated, fixedImages: fixedCount };
   }
 };
